@@ -1,0 +1,684 @@
+import { useState, useEffect, useCallback } from “react”;
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from “recharts”;
+
+const accent = “#C8FF00”;
+const dark = “#0D0F12”;
+const card = “#141720”;
+const cardBorder = “#1E2330”;
+const muted = “#6B7280”;
+const white = “#F1F3F9”;
+
+// ── EXERCISES ────────────────────────────────────────────────────────────────
+const EXERCISE_GROUPS = [
+{
+group: “🏋️ FORCE — BAS DU CORPS”,
+exercises: [“Squat barre”, “Romanian Deadlift”, “Fentes marchées”, “Soulevé de terre trap bar”, “Leg press”, “Leg curl allongé”, “Extension jambe”, “Hip thrust”],
+},
+{
+group: “💪 FORCE — HAUT DU CORPS”,
+exercises: [“Tractions lestées”, “Développé incliné haltères”, “Row barre Pendlay”, “Push press”, “Développé militaire”, “Row unilatéral haltère”, “Dips lestés”, “Tirage vertical poulie”],
+},
+{
+group: “⚡ PUISSANCE & OLYMPIQUE”,
+exercises: [“Power Clean”, “Hang Power Clean”, “KB Swing”, “Box Jump (hauteur cm)”, “Broad Jump (distance cm)”, “Farmer walk”],
+},
+{
+group: “🦾 BRAS & ISOLATIONS”,
+exercises: [“Curl haltères”, “Curl marteau”, “Curl barre”, “Curl incliné haltères”, “Triceps poulie haute”, “Triceps overhead haltère”, “Extension triceps barre”],
+},
+{
+group: “🫀 CONDITIONING & CARDIO”,
+exercises: [“Airbike (cal)”, “Rameur (mètres)”, “Course Zone 2 (min)”, “KB Swing circuit”, “Burpees”],
+},
+{
+group: “🧘 ÉPAULES & CORE”,
+exercises: [“Face pull”, “Élévation latérale”, “Y-T-W élastique”, “Pallof press”, “Hanging leg raise”, “Gainage latéral (sec)”],
+},
+];
+
+const ALL_EXERCISES = EXERCISE_GROUPS.flatMap((g) => g.exercises);
+
+// Exercises that use reps (not time/distance)
+const WEIGHT_EXERCISES = new Set([
+“Squat barre”, “Romanian Deadlift”, “Fentes marchées”, “Soulevé de terre trap bar”, “Leg press”,
+“Leg curl allongé”, “Extension jambe”, “Hip thrust”, “Tractions lestées”, “Développé incliné haltères”,
+“Row barre Pendlay”, “Push press”, “Développé militaire”, “Row unilatéral haltère”, “Dips lestés”,
+“Tirage vertical poulie”, “Power Clean”, “Hang Power Clean”, “KB Swing”, “Farmer walk”,
+“Curl haltères”, “Curl marteau”, “Curl barre”, “Curl incliné haltères”, “Triceps poulie haute”,
+“Triceps overhead haltère”, “Extension triceps barre”, “Face pull”, “Élévation latérale”,
+“Hanging leg raise”, “Pallof press”, “KB Swing circuit”, “Burpees”,
+]);
+
+const LOWER_BODY = new Set([“Squat barre”, “Romanian Deadlift”, “Fentes marchées”, “Soulevé de terre trap bar”, “Leg press”, “Hip thrust”]);
+const OLYMPIC = new Set([“Power Clean”, “Hang Power Clean”]);
+
+function getRecommendation(sessions, exercise) {
+if (sessions.length === 0) return null;
+const last = sessions[sessions.length - 1];
+if (!last.sets || last.sets.length === 0) return null;
+
+const weights = last.sets.map((s) => parseFloat(s.weight)).filter(Boolean);
+if (weights.length === 0) return null;
+const maxWeight = Math.max(…weights);
+const avgReps = last.sets.reduce((a, s) => a + (parseInt(s.reps) || 0), 0) / last.sets.length;
+
+let increment = 2.5;
+if (LOWER_BODY.has(exercise)) increment = 5;
+if (OLYMPIC.has(exercise)) increment = 2.5;
+if (exercise.includes(“curl”) || exercise.includes(“Curl”) || exercise.includes(“Triceps”) || exercise.includes(“Face pull”) || exercise.includes(“Élévation”)) increment = 1.25;
+
+let advice = “”;
+let nextWeight = maxWeight;
+let color = “#FBBF24”;
+
+if (avgReps >= 8 && sessions.length >= 1) {
+nextWeight = maxWeight + increment;
+advice = `Toutes les reps complétées facilement → augmente de ${increment}kg. Objectif : ${nextWeight}kg.`;
+color = “#C8FF00”;
+} else if (avgReps >= 6) {
+nextWeight = maxWeight;
+advice = `Bonne séance. Maintiens ${maxWeight}kg et cherche à finir toutes les séries proprement avant d'augmenter.`;
+color = “#FBBF24”;
+} else {
+nextWeight = Math.max(0, maxWeight - increment);
+advice = `Reps insuffisantes (< 6 en moyenne). Réduis à ${nextWeight}kg et consolide la technique.`;
+color = “#F472B6”;
+}
+
+// Compare with previous session
+if (sessions.length >= 2) {
+const prev = sessions[sessions.length - 2];
+const prevWeights = (prev.sets || []).map((s) => parseFloat(s.weight)).filter(Boolean);
+if (prevWeights.length > 0) {
+const prevMax = Math.max(…prevWeights);
+const diff = maxWeight - prevMax;
+if (diff > 0) advice += ` +${diff}kg vs séance précédente. 📈`;
+else if (diff < 0) advice += ` ${diff}kg vs séance précédente. Surveille la fatigue.`;
+}
+}
+
+return { nextWeight, advice, color, lastWeight: maxWeight };
+}
+
+// ── JOURNAL TAB ──────────────────────────────────────────────────────────────
+function JournalTab() {
+const [allSessions, setAllSessions] = useState([]);
+const [loaded, setLoaded] = useState(false);
+const [view, setView] = useState(“log”); // “log” | “history”
+const [selectedExercise, setSelectedExercise] = useState(ALL_EXERCISES[0]);
+const [sets, setSets] = useState([{ reps: “”, weight: “” }]);
+const [saveMsg, setSaveMsg] = useState(””);
+const [histExercise, setHistExercise] = useState(ALL_EXERCISES[0]);
+
+// Load from storage
+useEffect(() => {
+async function load() {
+try {
+const res = await window.storage.get(“training_journal”);
+if (res && res.value) setAllSessions(JSON.parse(res.value));
+} catch {}
+setLoaded(true);
+}
+load();
+}, []);
+
+const save = async (sessions) => {
+try {
+await window.storage.set(“training_journal”, JSON.stringify(sessions));
+} catch {}
+};
+
+const addSet = () => setSets([…sets, { reps: “”, weight: “” }]);
+const removeSet = (i) => setSets(sets.filter((_, idx) => idx !== i));
+const updateSet = (i, field, val) => setSets(sets.map((s, idx) => idx === i ? { …s, [field]: val } : s));
+
+const logSession = async () => {
+const validSets = sets.filter((s) => s.reps || s.weight);
+if (!validSets.length) return;
+const session = {
+id: Date.now(),
+date: new Date().toLocaleDateString(“fr-FR”),
+dateISO: new Date().toISOString().split(“T”)[0],
+exercise: selectedExercise,
+sets: validSets,
+};
+const updated = […allSessions, session];
+setAllSessions(updated);
+await save(updated);
+setSets([{ reps: “”, weight: “” }]);
+setSaveMsg(“✓ Séance enregistrée !”);
+setTimeout(() => setSaveMsg(””), 2500);
+};
+
+const deleteSession = async (id) => {
+const updated = allSessions.filter((s) => s.id !== id);
+setAllSessions(updated);
+await save(updated);
+};
+
+// Sessions for history exercise
+const histSessions = allSessions
+.filter((s) => s.exercise === histExercise)
+.sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+
+const chartData = histSessions.map((s) => {
+const weights = (s.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+const totalVol = (s.sets || []).reduce((acc, x) => acc + (parseFloat(x.weight) || 0) * (parseInt(x.reps) || 0), 0);
+return {
+date: s.date,
+max: weights.length ? Math.max(…weights) : 0,
+volume: Math.round(totalVol),
+};
+});
+
+const rec = getRecommendation(histSessions, histExercise);
+const usesWeight = WEIGHT_EXERCISES.has(histExercise);
+
+if (!loaded) return <div style={{ padding: “30px”, color: muted, textAlign: “center”, fontSize: “12px” }}>Chargement…</div>;
+
+return (
+<>
+{/* Sub-nav */}
+<div style={{ display: “flex”, gap: “8px”, marginBottom: “16px” }}>
+{[{ id: “log”, label: “📝 ENREGISTRER” }, { id: “history”, label: “📊 HISTORIQUE” }].map((v) => (
+<button key={v.id} onClick={() => setView(v.id)} style={{ flex: 1, background: view === v.id ? accent : card, color: view === v.id ? dark : muted, border: `1px solid ${view === v.id ? accent : cardBorder}`, borderRadius: “8px”, padding: “10px”, fontSize: “11px”, fontWeight: “700”, fontFamily: “‘DM Mono’, monospace”, cursor: “pointer”, letterSpacing: “0.5px” }}>
+{v.label}
+</button>
+))}
+</div>
+
+```
+  {/* ── LOG VIEW ── */}
+  {view === "log" && (
+    <>
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px", marginBottom: "14px" }}>
+        <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "10px" }}>EXERCICE</div>
+        <select
+          value={selectedExercise}
+          onChange={(e) => setSelectedExercise(e.target.value)}
+          style={{ width: "100%", background: "#0D0F12", color: white, border: `1px solid ${cardBorder}`, borderRadius: "6px", padding: "10px 12px", fontSize: "12px", fontFamily: "'DM Mono', monospace", cursor: "pointer", marginBottom: "16px" }}
+        >
+          {EXERCISE_GROUPS.map((g) => (
+            <optgroup key={g.group} label={g.group} style={{ color: muted }}>
+              {g.exercises.map((ex) => (
+                <option key={ex} value={ex}>{ex}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+
+        <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "10px" }}>SÉRIES</div>
+
+        {/* Header */}
+        <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 1fr 32px", gap: "6px", marginBottom: "8px" }}>
+          <span style={{ fontSize: "10px", color: muted, textAlign: "center" }}>#</span>
+          <span style={{ fontSize: "10px", color: muted, textAlign: "center" }}>REPS</span>
+          <span style={{ fontSize: "10px", color: muted, textAlign: "center" }}>KG</span>
+          <span />
+        </div>
+
+        {sets.map((s, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "32px 1fr 1fr 32px", gap: "6px", marginBottom: "6px", alignItems: "center" }}>
+            <div style={{ background: "#1E2330", borderRadius: "4px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: muted }}>{i + 1}</div>
+            <input
+              type="number" min="0" placeholder="10"
+              value={s.reps}
+              onChange={(e) => updateSet(i, "reps", e.target.value)}
+              style={{ background: "#0D0F12", color: white, border: `1px solid ${cardBorder}`, borderRadius: "6px", padding: "0 10px", height: "36px", fontSize: "14px", fontFamily: "'DM Mono', monospace", fontWeight: "700", textAlign: "center", width: "100%", boxSizing: "border-box" }}
+            />
+            <input
+              type="number" min="0" step="0.5" placeholder="60"
+              value={s.weight}
+              onChange={(e) => updateSet(i, "weight", e.target.value)}
+              style={{ background: "#0D0F12", color: accent, border: `1px solid ${cardBorder}`, borderRadius: "6px", padding: "0 10px", height: "36px", fontSize: "14px", fontFamily: "'DM Mono', monospace", fontWeight: "700", textAlign: "center", width: "100%", boxSizing: "border-box" }}
+            />
+            <button onClick={() => removeSet(i)} style={{ background: "#1A0A0A", color: "#EF4444", border: "1px solid #3F1010", borderRadius: "4px", height: "36px", width: "32px", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          </div>
+        ))}
+
+        <button onClick={addSet} style={{ width: "100%", background: "#0D0F12", color: muted, border: `1px dashed ${cardBorder}`, borderRadius: "6px", padding: "8px", fontSize: "11px", fontFamily: "'DM Mono', monospace", cursor: "pointer", marginTop: "6px", letterSpacing: "1px" }}>
+          + AJOUTER UNE SÉRIE
+        </button>
+      </div>
+
+      <button onClick={logSession} style={{ width: "100%", background: accent, color: dark, border: "none", borderRadius: "8px", padding: "14px", fontSize: "13px", fontWeight: "700", fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "1px", marginBottom: "8px" }}>
+        ENREGISTRER LA SÉANCE
+      </button>
+
+      {saveMsg && (
+        <div style={{ background: "#0A1A00", border: `1px solid ${accent}55`, borderRadius: "6px", padding: "10px 14px", fontSize: "12px", color: accent, textAlign: "center", marginBottom: "14px" }}>
+          {saveMsg}
+        </div>
+      )}
+
+      {/* Recent log for this exercise */}
+      {(() => {
+        const recent = allSessions.filter((s) => s.exercise === selectedExercise).slice(-3).reverse();
+        if (!recent.length) return null;
+        return (
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "10px" }}>DERNIÈRES SÉANCES — {selectedExercise.toUpperCase()}</div>
+            {recent.map((session) => {
+              const maxW = Math.max(...(session.sets || []).map((x) => parseFloat(x.weight) || 0));
+              return (
+                <div key={session.id} style={{ borderBottom: `1px solid ${cardBorder}`, paddingBottom: "10px", marginBottom: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "11px", color: muted }}>{session.date}</span>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", color: accent, fontWeight: "700" }}>{maxW > 0 ? `Max : ${maxW}kg` : ""}</span>
+                      <button onClick={() => deleteSession(session.id)} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "12px", padding: "0" }}>🗑</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {(session.sets || []).map((s, si) => (
+                      <span key={si} style={{ background: "#1E2330", color: white, fontSize: "11px", padding: "2px 8px", borderRadius: "4px" }}>
+                        {s.reps}×{s.weight}kg
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+    </>
+  )}
+
+  {/* ── HISTORY VIEW ── */}
+  {view === "history" && (
+    <>
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px", marginBottom: "14px" }}>
+        <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "10px" }}>SÉLECTIONNER UN EXERCICE</div>
+        <select
+          value={histExercise}
+          onChange={(e) => setHistExercise(e.target.value)}
+          style={{ width: "100%", background: "#0D0F12", color: white, border: `1px solid ${cardBorder}`, borderRadius: "6px", padding: "10px 12px", fontSize: "12px", fontFamily: "'DM Mono', monospace", cursor: "pointer" }}
+        >
+          {EXERCISE_GROUPS.map((g) => (
+            <optgroup key={g.group} label={g.group}>
+              {g.exercises.map((ex) => {
+                const count = allSessions.filter((s) => s.exercise === ex).length;
+                return <option key={ex} value={ex}>{ex}{count > 0 ? ` (${count})` : ""}</option>;
+              })}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+
+      {histSessions.length === 0 ? (
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "30px 16px", textAlign: "center" }}>
+          <div style={{ fontSize: "32px", marginBottom: "10px" }}>📭</div>
+          <div style={{ fontSize: "12px", color: muted }}>Aucune séance enregistrée pour cet exercice.</div>
+          <div style={{ fontSize: "11px", color: "#4B5563", marginTop: "6px" }}>Va dans "ENREGISTRER" pour logger ta première séance.</div>
+        </div>
+      ) : (
+        <>
+          {/* Stats rapides */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "14px" }}>
+            {[
+              { val: histSessions.length, label: "Séances" },
+              { val: chartData.length ? Math.max(...chartData.map((d) => d.max)) + "kg" : "—", label: "Record" },
+              { val: chartData.length ? chartData[chartData.length - 1].max + "kg" : "—", label: "Dernière" },
+            ].map((s) => (
+              <div key={s.label} style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "6px", padding: "12px", textAlign: "center" }}>
+                <span style={{ fontSize: "18px", fontWeight: "700", color: accent, display: "block" }}>{s.val}</span>
+                <span style={{ fontSize: "10px", color: muted, letterSpacing: "1px", textTransform: "uppercase", marginTop: "2px" }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Recommandation */}
+          {rec && usesWeight && (
+            <div style={{ background: "#0A1200", border: `1px solid ${rec.color}55`, borderLeft: `3px solid ${rec.color}`, borderRadius: "8px", padding: "14px 16px", marginBottom: "14px" }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: rec.color, letterSpacing: "1px", marginBottom: "6px" }}>🎯 PROCHAINE SÉANCE — RECOMMANDATION</div>
+              <div style={{ fontSize: "20px", fontWeight: "700", color: rec.color, marginBottom: "6px" }}>{rec.nextWeight} kg</div>
+              <div style={{ fontSize: "11px", color: "#9CA3AF", lineHeight: "1.7" }}>{rec.advice}</div>
+            </div>
+          )}
+
+          {/* Graphique poids max */}
+          {usesWeight && chartData.length >= 2 && (
+            <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px", marginBottom: "14px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "14px" }}>PROGRESSION DU POIDS MAX (kg)</div>
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2330" />
+                  <XAxis dataKey="date" tick={{ fill: muted, fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: muted, fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: "#141720", border: `1px solid ${cardBorder}`, borderRadius: "6px", fontSize: "11px", fontFamily: "'DM Mono', monospace" }}
+                    labelStyle={{ color: accent }}
+                    itemStyle={{ color: white }}
+                  />
+                  <Line type="monotone" dataKey="max" stroke={accent} strokeWidth={2} dot={{ fill: accent, r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} name="Max kg" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Graphique volume */}
+          {usesWeight && chartData.length >= 2 && (
+            <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px", marginBottom: "14px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: "#818CF8", marginBottom: "4px" }}>VOLUME TOTAL PAR SÉANCE (kg×reps)</div>
+              <div style={{ fontSize: "10px", color: muted, marginBottom: "14px" }}>Indice de charge totale — doit progresser dans le temps</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2330" />
+                  <XAxis dataKey="date" tick={{ fill: muted, fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: muted, fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: "#141720", border: `1px solid ${cardBorder}`, borderRadius: "6px", fontSize: "11px", fontFamily: "'DM Mono', monospace" }}
+                    labelStyle={{ color: "#818CF8" }}
+                    itemStyle={{ color: white }}
+                  />
+                  <Line type="monotone" dataKey="volume" stroke="#818CF8" strokeWidth={2} dot={{ fill: "#818CF8", r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} name="Volume" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Historique détaillé */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "8px", padding: "16px" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "2px", color: accent, marginBottom: "12px" }}>HISTORIQUE DÉTAILLÉ</div>
+            {[...histSessions].reverse().map((session, idx) => {
+              const weights = (session.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+              const maxW = weights.length ? Math.max(...weights) : 0;
+              const vol = (session.sets || []).reduce((a, x) => a + (parseFloat(x.weight) || 0) * (parseInt(x.reps) || 0), 0);
+              const isNew = idx === 0;
+              return (
+                <div key={session.id} style={{ borderBottom: idx < histSessions.length - 1 ? `1px solid ${cardBorder}` : "none", paddingBottom: "12px", marginBottom: "12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "12px", color: white, fontWeight: "700" }}>{session.date}</span>
+                      {isNew && <span style={{ background: accent + "33", color: accent, fontSize: "9px", fontWeight: "700", padding: "1px 6px", borderRadius: "3px", letterSpacing: "1px" }}>RÉCENT</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {maxW > 0 && <span style={{ fontSize: "11px", color: accent, fontWeight: "700" }}>{maxW}kg</span>}
+                      <button onClick={() => deleteSession(session.id)} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "13px", padding: "0" }}>🗑</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "4px" }}>
+                    {(session.sets || []).map((s, si) => (
+                      <span key={si} style={{ background: "#1E2330", color: white, fontSize: "11px", padding: "3px 8px", borderRadius: "4px", fontFamily: "'DM Mono', monospace" }}>
+                        {s.reps}×{s.weight}{s.weight ? "kg" : ""}
+                      </span>
+                    ))}
+                  </div>
+                  {vol > 0 && <div style={{ fontSize: "10px", color: "#4B5563", marginTop: "4px" }}>Volume : {Math.round(vol)} kg×reps</div>}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  )}
+</>
+```
+
+);
+}
+
+// ── REST OF THE PROGRAM DATA ──────────────────────────────────────────────────
+const styles = {
+root: { fontFamily: “‘DM Mono’, ‘Courier New’, monospace”, background: dark, color: white, minHeight: “100vh”, padding: “0 0 80px 0” },
+header: { background: “linear-gradient(135deg, #0D0F12 0%, #141E2E 100%)”, borderBottom: `1px solid ${cardBorder}`, padding: “28px 20px 20px” },
+tag: { display: “inline-block”, background: accent, color: dark, fontWeight: “700”, fontSize: “10px”, letterSpacing: “2px”, padding: “3px 10px”, marginBottom: “10px” },
+title: { fontSize: “22px”, fontWeight: “700”, color: white, margin: “0 0 4px 0”, letterSpacing: “-0.5px” },
+subtitle: { fontSize: “12px”, color: muted, letterSpacing: “1px” },
+nav: { display: “flex”, borderBottom: `1px solid ${cardBorder}`, background: “#0D0F12”, overflowX: “auto”, padding: “0 8px” },
+navBtn: (active) => ({ background: “none”, border: “none”, borderBottom: active ? `2px solid ${accent}` : “2px solid transparent”, color: active ? accent : muted, fontFamily: “‘DM Mono’, monospace”, fontSize: “11px”, fontWeight: “700”, letterSpacing: “1px”, padding: “14px 12px”, cursor: “pointer”, whiteSpace: “nowrap” }),
+content: { padding: “20px 16px”, maxWidth: “680px”, margin: “0 auto” },
+card: { background: card, border: `1px solid ${cardBorder}`, borderRadius: “8px”, padding: “16px”, marginBottom: “14px” },
+cardTitle: { fontSize: “12px”, fontWeight: “700”, letterSpacing: “2px”, color: accent, marginBottom: “10px”, textTransform: “uppercase” },
+sciNote: { background: “#0A1020”, border: `1px solid #1E3A5F`, borderLeft: `3px solid #3B82F6`, borderRadius: “6px”, padding: “10px 12px”, fontSize: “11px”, color: “#93C5FD”, marginTop: “10px”, lineHeight: “1.6” },
+row: { display: “flex”, justifyContent: “space-between”, alignItems: “center”, borderBottom: `1px solid ${cardBorder}`, padding: “8px 0”, gap: “8px” },
+exo: { flex: 1, color: white },
+param: { color: accent, fontWeight: “700”, fontSize: “12px”, textAlign: “right”, whiteSpace: “nowrap” },
+warning: { background: “#1A0E00”, border: `1px solid #92400E`, borderLeft: `3px solid #F59E0B`, borderRadius: “6px”, padding: “10px 12px”, fontSize: “11px”, color: “#FCD34D”, marginBottom: “14px”, lineHeight: “1.6” },
+statGrid: { display: “grid”, gridTemplateColumns: “1fr 1fr”, gap: “10px”, marginBottom: “10px” },
+stat: { background: “#0D0F12”, border: `1px solid ${cardBorder}`, borderRadius: “6px”, padding: “12px”, textAlign: “center” },
+statVal: { fontSize: “20px”, fontWeight: “700”, color: accent, display: “block” },
+statLabel: { fontSize: “10px”, color: muted, letterSpacing: “1px”, textTransform: “uppercase”, marginTop: “2px” },
+p: { fontSize: “12px”, color: “#9CA3AF”, lineHeight: “1.7”, marginBottom: “8px” },
+dayChip: (color) => ({ display: “inline-flex”, alignItems: “center”, gap: “6px”, background: color + “22”, border: `1px solid ${color}55`, color, fontSize: “11px”, fontWeight: “700”, padding: “4px 10px”, borderRadius: “20px”, marginBottom: “12px”, letterSpacing: “0.5px” }),
+};
+
+const DAYS_V1 = [
+{ id: “j1”, label: “J1 — Bas Force”, color: “#818CF8”, theme: “BAS DU CORPS · FORCE & EXPLOSIVITÉ”, duration: “75 min”, intensity: “Haute”, blocks: [{ name: “ACTIVATION (10 min)”, exercises: [{ name: “Corde à sauter”, params: “3 min continu”, note: “rythme régulier” }, { name: “Hip circle élastique”, params: “2×15 / sens” }, { name: “Mobilité cheville (mur)”, params: “2×10 / jambe” }] }, { name: “EXPLOSIVITÉ (priorité)”, sci: “Pliométrie AVANT charge lourde = exploitation de l’état neural frais. Maximise le recrutement des fibres de type II. (Post-Activation Potentiation)”, exercises: [{ name: “Box Jump”, params: “5×3 reps”, note: “repos 90s — descente contrôlée” }, { name: “Broad Jump”, params: “4×3 reps”, note: “repos 90s — max distance” }] }, { name: “FORCE”, sci: “Volume réduit vs PPL pour limiter l’interférence AMPK/mTOR. Priorité intensité (% 1RM) > volume.”, exercises: [{ name: “Squat barre (tempo 3-1-1)”, params: “5×3 @ 80–85%”, note: “repos 3 min” }, { name: “Romanian Deadlift”, params: “4×6 @ 70%”, note: “repos 2 min” }, { name: “Fentes marchées barre”, params: “3×8 / jambe”, note: “repos 90s” }] }, { name: “CORE ATHLÉTIQUE”, exercises: [{ name: “Dead bug”, params: “3×8 / côté” }, { name: “Gainage latéral dynamique”, params: “3×30s / côté” }, { name: “Farmer walk”, params: “3×30m lourd” }] }] },
+{ id: “j2”, label: “J2 — Haut Athlé”, color: “#F472B6”, theme: “HAUT DU CORPS · ATHLÉTIQUE”, duration: “70 min”, intensity: “Haute”, blocks: [{ name: “ACTIVATION (10 min)”, exercises: [{ name: “Band pull-apart”, params: “3×15” }, { name: “Cercles épaules + Y-T-W”, params: “2×10 chaque” }, { name: “Cat-cow + rotation thoracique”, params: “2×10 / côté” }] }, { name: “EXPLOSIVITÉ HAUT DU CORPS”, sci: “Lancer med ball = puissance en chaîne cinétique complète + stimulation SNC. (Force-Vitesse continuum)”, exercises: [{ name: “Lancer med ball poitrine”, params: “5×5”, note: “explosif total” }, { name: “Lancer rotationnel”, params: “4×5 / côté” }] }, { name: “FORCE HAUT DU CORPS”, sci: “Développé incliné haltères → moins de stress en rotation interne. Protège tes tendinites épaules.”, exercises: [{ name: “Tractions lestées”, params: “5×5”, note: “repos 2 min” }, { name: “Développé incliné haltères 45°”, params: “4×6–8”, note: “PAS de flat bench lourd” }, { name: “Row barre Pendlay”, params: “4×5”, note: “barre sol” }, { name: “Push press”, params: “3×5” }] }, { name: “SANTÉ ÉPAULES”, sci: “Ratio 2:1 tirage/poussée. Rééquilibrage rotateurs externes → prévention tendinite.”, exercises: [{ name: “Face pull élastique/poulie”, params: “4×15” }, { name: “Y-T-W élastique allongé”, params: “3×10 chaque” }] }] },
+{ id: “j3”, label: “J3 — Conditioning”, color: “#FBBF24”, theme: “CONDITIONING · COMBAT-READY”, duration: “50 min”, intensity: “Très haute”, blocks: [{ name: “ÉCHAUFFEMENT (5 min)”, exercises: [{ name: “Rameur ou vélo”, params: “5 min Z2” }] }, { name: “INTERVALLES”, sci: “30s/90s = filière anaérobie lactique + VO2max. Tolérance au lactate sport de combat. (Buchheit, 2013)”, exercises: [{ name: “Airbike / Rameur / Course”, params: “10 × (30s ON / 90s OFF)”, note: “90–95% FCmax” }] }, { name: “CIRCUIT COMBAT (4 tours)”, sci: “Travail sous fatigue → exigences des sports de combat. Technique sous charge cardio.”, exercises: [{ name: “KB Swing lourd”, params: “×20” }, { name: “Burpees”, params: “×10” }, { name: “Farmer walk”, params: “30m A/R” }, { name: “Repos entre tours”, params: “2 min” }] }, { name: “RÉCUP ACTIVE”, exercises: [{ name: “Marche + respiration nasale”, params: “5 min” }, { name: “Étirements actifs”, params: “5 min” }] }] },
+{ id: “j4”, label: “J4 — Full Body”, color: “#34D399”, theme: “FULL BODY · PUISSANCE”, duration: “75 min”, intensity: “Haute”, blocks: [{ name: “ACTIVATION SNC”, exercises: [{ name: “Corde à sauter”, params: “3 min” }, { name: “Sprint 10m × 5”, params: “repos 45s” }] }, { name: “MOUVEMENT OLYMPIQUE”, sci: “Power Clean = meilleur exercice pour le RFD (Rate of Force Development). Transforme force brute → puissance athlétique. (Stone et al., 2006)”, exercises: [{ name: “Power Clean”, params: “6×3”, note: “repos 2–3 min — qualité absolue” }, { name: “Hang Power Clean (sem. 1–4)”, params: “apprentissage” }] }, { name: “FORCE GLOBALE”, exercises: [{ name: “Soulevé de terre trap bar”, params: “4×4 @ 85%”, note: “repos 3 min” }, { name: “Push press barre”, params: “4×4” }, { name: “Row unilatéral haltère lourd”, params: “3×8 / bras” }] }, { name: “CORE ANTI-ROTATION”, sci: “Core anti-rotation = plus fonctionnel pour sports de combat. Stabilise la colonne sous charge dynamique. (McGill, 2010)”, exercises: [{ name: “Pallof press”, params: “3×12 / côté” }, { name: “Hanging leg raise contrôlé”, params: “3×10–12” }, { name: “Planche dynamique (shoulder tap)”, params: “3×20 touches” }] }] },
+{ id: “j5”, label: “J5 — Endurance”, color: “#60A5FA”, theme: “ENDURANCE & MOBILITÉ”, duration: “60 min”, intensity: “Basse / Récup”, blocks: [{ name: “ZONE 2 (35–40 min)”, sci: “Zone 2 (65–70% FCmax) = densité mitochondriale + oxydation des graisses. Priorité N°1 à 90kg/23% BF. (Seiler, 2010)”, exercises: [{ name: “Course lente / Vélo / Rameur”, params: “35–40 min”, note: “65–70% FCmax” }] }, { name: “MOBILITÉ CIBLÉE”, sci: “Mobilité articulaire = réduction risque tendinite + économie de mouvement.”, exercises: [{ name: “90/90 hip stretch”, params: “2×60s / côté” }, { name: “Pigeon yoga”, params: “2×60s / côté” }, { name: “Rotation thoracique”, params: “2×10 / côté” }, { name: “Stretch pec mineur (45°)”, params: “2×45s / côté” }, { name: “Flexibilité cheville mur”, params: “2×10 / jambe” }] }, { name: “RESPIRATION”, sci: “Box breathing active le système parasympathique → récupération accélérée + qualité du sommeil améliorée.”, exercises: [{ name: “Box breathing (4s/4s/4s)”, params: “5–8 min” }, { name: “Auto-massage rouleau”, params: “5 min” }] }] },
+];
+
+const DAYS_V2 = [
+{ id: “j1”, label: “J1 — Bas Force”, color: “#818CF8”, theme: “BAS DU CORPS · FORCE & EXPLOSIVITÉ”, duration: “75 min”, intensity: “Haute”, blocks: [{ name: “ACTIVATION (10 min)”, exercises: [{ name: “Corde à sauter”, params: “3 min” }, { name: “Mobilité hanches / chevilles”, params: “5 min” }] }, { name: “EXPLOSIVITÉ”, exercises: [{ name: “Box Jump”, params: “5×3”, note: “repos long — qualité max” }] }, { name: “FORCE”, exercises: [{ name: “Squat barre”, params: “5×3 @ 80–85%” }, { name: “RDL”, params: “4×6” }, { name: “Fentes marchées”, params: “3×10 / jambe” }] }, { name: “CORE”, exercises: [{ name: “Gainage latéral”, params: “3×30–45s” }, { name: “Dead bug”, params: “3×10” }] }] },
+{ id: “j2”, label: “J2 — Haut Athlé”, color: “#F472B6”, theme: “HAUT DU CORPS · ATHLÉTIQUE”, duration: “70 min”, intensity: “Haute”, blocks: [{ name: “EXPLOSIVITÉ”, exercises: [{ name: “Lancer med ball poitrine”, params: “5×5” }, { name: “Lancer rotationnel”, params: “4×5 / côté” }] }, { name: “FORCE”, exercises: [{ name: “Tractions lestées”, params: “5×5” }, { name: “Développé incliné haltères”, params: “4×6–8” }, { name: “Rowing barre explosif”, params: “4×6” }] }, { name: “SANTÉ ÉPAULES”, exercises: [{ name: “Y-T-W élastiques”, params: “3×12” }, { name: “Face pull”, params: “3×15” }] }] },
+{ id: “j3”, label: “J3 — Conditioning”, color: “#FBBF24”, theme: “CONDITIONING · COMBAT-READY”, duration: “45–60 min”, intensity: “Très haute”, blocks: [{ name: “BLOC 1 — INTERVALLES”, exercises: [{ name: “Airbike / Rameur / Course”, params: “10 × (30s ON / 90s OFF)” }] }, { name: “BLOC 2 — CIRCUIT (4 tours)”, exercises: [{ name: “Kettlebell swing”, params: “×20” }, { name: “Burpees”, params: “×10” }, { name: “Farmer walk”, params: “40m” }, { name: “Repos”, params: “2 min” }] }, { name: “FIN”, exercises: [{ name: “Étirements actifs + respiration”, params: “5–10 min” }] }] },
+{ id: “j4”, label: “J4 — Full Body”, color: “#34D399”, theme: “FULL BODY · PUISSANCE”, duration: “75 min”, intensity: “Haute”, blocks: [{ name: “PUISSANCE”, exercises: [{ name: “Power Clean”, params: “6×3”, note: “ou KB Swing lourd” }] }, { name: “FORCE”, exercises: [{ name: “Push press”, params: “4×4” }, { name: “Soulevé de terre trap bar”, params: “4×5” }, { name: “Row unilatéral”, params: “3×8 / bras” }] }, { name: “CORE”, exercises: [{ name: “Pallof press”, params: “3×12” }, { name: “Hanging leg raise”, params: “3×10” }] }] },
+{ id: “j5”, label: “J5 — Endurance”, color: “#60A5FA”, theme: “ENDURANCE & MOBILITÉ”, duration: “60 min”, intensity: “Basse / Récup”, blocks: [{ name: “ENDURANCE”, exercises: [{ name: “Zone 2 — Course / Vélo / Rameur”, params: “35–45 min” }] }, { name: “MOBILITÉ PROFONDE”, exercises: [{ name: “Hanches”, params: “2×60s / côté” }, { name: “Épaules”, params: “2×45s / côté” }, { name: “Colonne”, params: “2×10 / côté” }, { name: “Chevilles”, params: “2×10 / jambe” }] }, { name: “RESPIRATION”, exercises: [{ name: “Nasal / Box breathing”, params: “5 min” }] }] },
+];
+
+const PHASES = [
+{ id: “p1”, name: “PHASE 1 — FONDATION”, weeks: “Sem. 1–4”, color: “#818CF8”, pct: 70, focus: “Adaptation neurologique & motrice”, desc: “Ton corps apprend les nouveaux patterns. Priorité QUALITÉ technique. Ne cherche pas à pousser les charges.”, keys: [“Squat : 75–80% (pas de PR)”, “Power Clean : technique avant tout”, “Zone 2 : 2× minimum / semaine”, “Séances : 5/sem — 4 si fatigue”], sci: “Le SNC s’adapte AVANT les muscles. Réduire le volume muscu de 20% évite l’interférence AMPK/mTOR.” },
+{ id: “p2”, name: “PHASE 2 — DÉVELOPPEMENT”, weeks: “Sem. 5–8”, color: “#FBBF24”, pct: 85, focus: “Charge progressive & conditionnement”, desc: “Augmentation des charges (+5–10%). Intervalles plus denses. Tu dois sentir une vraie différence sur le souffle et l’explosivité.”, keys: [“Squat / SDT : retour 85–90%”, “Intervalles : 12×30s/90s sur J3”, “Zone 2 : 40–50 min sur J5”, “Début du Contrast Training”], sci: “Le Contrast Training amplifie la PAP : puissance explosive +15–25% dans les 4–8 min post-effort lourd.” },
+{ id: “p3”, name: “PHASE 3 — PERFORMANCE”, weeks: “Sem. 9–12”, color: accent, pct: 100, focus: “Pic d’intensité & transformation”, desc: “Volume baisse, intensité monte. Sprints max, PRs sur lifts, circuits haute intensité. Récupération critique.”, keys: [“Sprints 30m × 8 intégrés J1/J4”, “Tentative PR semaine 10”, “Intervals : 15×20s/40s”, “Zone 2 : sortie longue 60 min”, “Semaine 12 = DELOAD 50% volume”], sci: “La supercompensation se produit pendant la RÉCUPÉRATION. Le deload semaine 12 est obligatoire. (Zatsiorsky & Kraemer, 2006)” },
+];
+
+function DayView({ days, showSci }) {
+const [activeDay, setActiveDay] = useState(days[0].id);
+const day = days.find((d) => d.id === activeDay);
+return (
+<>
+<div style={{ display: “flex”, gap: “6px”, marginBottom: “16px”, flexWrap: “wrap” }}>
+{days.map((d) => (
+<button key={d.id} onClick={() => setActiveDay(d.id)} style={{ background: activeDay === d.id ? d.color : card, color: activeDay === d.id ? dark : muted, border: `1px solid ${activeDay === d.id ? d.color : cardBorder}`, borderRadius: “6px”, padding: “6px 12px”, fontSize: “10px”, fontWeight: “700”, fontFamily: “‘DM Mono’, monospace”, cursor: “pointer” }}>
+{d.id.toUpperCase()}
+</button>
+))}
+</div>
+{day && (
+<>
+<div style={styles.dayChip(day.color)}>◆ {day.theme}</div>
+<div style={{ display: “flex”, gap: “8px”, marginBottom: “16px” }}>
+<span style={{ background: “#1E2330”, color: muted, fontSize: “10px”, fontWeight: “700”, padding: “2px 8px”, borderRadius: “4px” }}>{day.duration}</span>
+<span style={{ background: day.color + “33”, color: day.color, fontSize: “10px”, fontWeight: “700”, padding: “2px 8px”, borderRadius: “4px” }}>INTENSITÉ {day.intensity.toUpperCase()}</span>
+</div>
+{day.blocks.map((block, bi) => (
+<div key={bi} style={styles.card}>
+<div style={styles.cardTitle}>{block.name}</div>
+{block.exercises.map((ex, ei) => (
+<div key={ei} style={{ …styles.row, borderBottom: ei < block.exercises.length - 1 ? `1px solid ${cardBorder}` : “none” }}>
+<div style={styles.exo}>
+<div style={{ fontSize: “12px”, color: white }}>{ex.name}</div>
+{ex.note && <div style={{ fontSize: “10px”, color: muted, marginTop: “2px” }}>{ex.note}</div>}
+</div>
+<div style={styles.param}>{ex.params}</div>
+</div>
+))}
+{showSci && block.sci && <div style={styles.sciNote}>🔬 {block.sci}</div>}
+</div>
+))}
+</>
+)}
+</>
+);
+}
+
+export default function HybridProgram() {
+const [tab, setTab] = useState(“overview”);
+const TABS = [
+{ id: “overview”, label: “APERÇU” },
+{ id: “sessions”, label: “SÉANCES V1+” },
+{ id: “sessions2”, label: “SÉANCES V2” },
+{ id: “journal”, label: “📓 JOURNAL” },
+{ id: “phases”, label: “PROGRESSION” },
+{ id: “nutrition”, label: “NUTRITION” },
+{ id: “science”, label: “SCIENCE” },
+];
+
+return (
+<div style={styles.root}>
+<div style={styles.header}>
+<div style={styles.tag}>PROGRAMME HYBRIDE · 12 SEMAINES</div>
+<h1 style={styles.title}>HYBRID ATHLETIC SYSTEM</h1>
+<p style={styles.subtitle}>90KG · 1M75 · EX-COMBAT · SCIENCE-BASED</p>
+</div>
+<div style={styles.nav}>
+{TABS.map((t) => <button key={t.id} style={styles.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
+</div>
+<div style={styles.content}>
+
+```
+    {tab === "overview" && (
+      <>
+        <div style={styles.warning}>⚠️ DIAGNOSTIC : Fort mais rigide, essoufflé, gras malgré l'entraînement. Cause : PPL pur, zéro cardio, séances trop longues, 6h de sommeil.</div>
+        <div style={styles.statGrid}>
+          {[{ val: "5", label: "Séances / sem." }, { val: "12", label: "Semaines" }, { val: "75'", label: "Max / séance" }, { val: "3", label: "Phases" }].map((s) => (
+            <div key={s.label} style={styles.stat}><span style={styles.statVal}>{s.val}</span><span style={styles.statLabel}>{s.label}</span></div>
+          ))}
+        </div>
+        <div style={{ ...styles.card, border: `1px solid ${accent}44`, background: "#0A1200" }}>
+          <div style={{ ...styles.cardTitle, color: accent }}>CHOISIR TA VERSION</div>
+          {[{ id: "sessions", v: "V1 +", color: "#818CF8", title: "VERSION AVANCÉE", desc: "Détails complets, notes scientifiques, tempos, % 1RM. Idéal pour comprendre et débuter." }, { id: "sessions2", v: "V2", color: "#FBBF24", title: "VERSION ÉPURÉE", desc: "Exercices essentiels, paramètres clairs. Ouvre et entraîne-toi." }, { id: "journal", v: "📓", color: accent, title: "JOURNAL D'ENTRAÎNEMENT", desc: "Logge tes séances, suis ta progression graphiquement et obtiens des recommandations de charge pour chaque exercice." }].map((item, idx) => (
+            <div key={item.v} style={{ display: "flex", gap: "12px", marginBottom: "12px", paddingBottom: "12px", borderBottom: idx < 2 ? `1px solid ${cardBorder}` : "none" }}>
+              <button onClick={() => setTab(item.id)} style={{ background: item.color, color: dark, border: "none", borderRadius: "6px", padding: "6px 10px", fontSize: "10px", fontWeight: "700", fontFamily: "'DM Mono', monospace", cursor: "pointer", flexShrink: 0, minWidth: "36px" }}>{item.v}</button>
+              <div>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: item.color, letterSpacing: "1px" }}>{item.title}</div>
+                <div style={{ fontSize: "11px", color: muted, lineHeight: "1.6", marginTop: "2px" }}>{item.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>STRUCTURE SEMAINE</div>
+          {DAYS_V1.map((d) => (
+            <div key={d.id} style={styles.row}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ color: d.color, fontSize: "16px" }}>●</span>
+                <span style={{ fontSize: "12px", color: white }}>{d.label}</span>
+              </div>
+              <span style={{ color: muted, fontSize: "11px" }}>{d.duration}</span>
+            </div>
+          ))}
+          <div style={{ ...styles.row, borderBottom: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ color: muted, fontSize: "16px" }}>●</span>
+              <span style={{ fontSize: "12px", color: muted }}>J6–J7 — Repos / Récup active</span>
+            </div>
+          </div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>RÈGLES NON NÉGOCIABLES</div>
+          {["Séances MAX 75–90 min", "Explosif TOUJOURS en premier (SNC frais)", "Pas de flat bench lourd (tendinites)", "Zone 2 minimum 1× / semaine", "Objectif 7h de sommeil", "Créatine 5g/jour"].map((r, i) => (
+            <div key={i} style={{ ...styles.row, borderBottom: i < 5 ? `1px solid ${cardBorder}` : "none" }}>
+              <span style={{ color: accent, marginRight: "8px" }}>→</span>
+              <span style={{ fontSize: "11px", color: "#D1D5DB" }}>{r}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {tab === "sessions" && (
+      <>
+        <div style={{ ...styles.warning, borderColor: "#818CF866", background: "#0D0A1A" }}>📋 <strong>VERSION AVANCÉE</strong> — Activation complète, % 1RM, repos précis et notes scientifiques.</div>
+        <DayView days={DAYS_V1} showSci={true} />
+      </>
+    )}
+
+    {tab === "sessions2" && (
+      <>
+        <div style={{ ...styles.warning, borderColor: "#FBBF2466", background: "#1A1100" }}>⚡ <strong>VERSION ÉPURÉE</strong> — Même programme, moins de texte. Ouvre et entraîne-toi.</div>
+        <DayView days={DAYS_V2} showSci={false} />
+      </>
+    )}
+
+    {tab === "journal" && <JournalTab />}
+
+    {tab === "phases" && (
+      <>
+        {PHASES.map((phase) => (
+          <div key={phase.id} style={styles.card}>
+            <div style={{ ...styles.cardTitle, color: phase.color }}>{phase.name}</div>
+            <div style={{ fontSize: "11px", color: muted, marginBottom: "6px" }}>{phase.weeks}</div>
+            <div style={{ height: "6px", background: "#1E2330", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
+              <div style={{ height: "100%", width: `${phase.pct}%`, background: phase.color, borderRadius: "3px" }} />
+            </div>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: white, marginBottom: "8px" }}>{phase.focus}</div>
+            <p style={styles.p}>{phase.desc}</p>
+            {phase.keys.map((k, i) => (
+              <div key={i} style={{ fontSize: "11px", color: "#9CA3AF", padding: "4px 0", borderBottom: i < phase.keys.length - 1 ? `1px solid ${cardBorder}` : "none" }}>
+                <span style={{ color: phase.color, marginRight: "8px" }}>→</span>{k}
+              </div>
+            ))}
+            <div style={styles.sciNote}>🔬 {phase.sci}</div>
+          </div>
+        ))}
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>RÉSULTATS ATTENDUS</div>
+          {[{ metric: "Masse grasse", delta: "−5 à 8 kg", color: "#34D399" }, { metric: "Force (SDT / Squat)", delta: "Maintenue ou +", color: accent }, { metric: "Explosivité (CMJ)", delta: "+15–25%", color: "#F472B6" }, { metric: "VO2max", delta: "+8–15%", color: "#60A5FA" }, { metric: "Mobilité globale", delta: "Nettement améliorée", color: "#FBBF24" }].map((r, i) => (
+            <div key={i} style={{ ...styles.row, borderBottom: i < 4 ? `1px solid ${cardBorder}` : "none" }}>
+              <span style={{ fontSize: "12px", color: "#D1D5DB" }}>{r.metric}</span>
+              <span style={{ fontSize: "12px", fontWeight: "700", color: r.color }}>{r.delta}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {tab === "nutrition" && (
+      <>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>CIBLES JOURNALIÈRES</div>
+          <div style={styles.statGrid}>
+            {[{ val: "2 500", label: "kcal / jour", color: accent }, { val: "198g", label: "Protéines", color: accent }, { val: "220g", label: "Glucides", color: "#FBBF24" }, { val: "72g", label: "Lipides", color: "#F472B6" }].map((s) => (
+              <div key={s.label} style={styles.stat}><span style={{ ...styles.statVal, color: s.color }}>{s.val}</span><span style={styles.statLabel}>{s.label}</span></div>
+            ))}
+          </div>
+          <div style={styles.sciNote}>🔬 Léger déficit ~300 kcal. À 90kg/23-25% BF, réserves suffisantes pour brûler du gras ET maintenir la masse musculaire. Protéines 2.1g/kg = protection maximale. (Helms et al., 2014)</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>TIMING NUTRITIONNEL</div>
+          {[{ meal: "Matin", content: "Protéines rapides + glucides lents", example: "Flocons + œufs ou skyr" }, { meal: "Pré-séance (-90 min)", content: "Glucides + protéines", example: "Riz + poulet" }, { meal: "Post-séance (+30 min)", content: "Protéines rapides + glucides", example: "Whey + banane" }, { meal: "Dîner", content: "Protéines + légumes + lipides", example: "Saumon + patate douce" }, { meal: "Avant lit", content: "Caséine lente", example: "Fromage blanc 0%" }].map((t, i) => (
+            <div key={i} style={{ marginBottom: "12px", paddingBottom: "12px", borderBottom: i < 4 ? `1px solid ${cardBorder}` : "none" }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: accent, marginBottom: "2px" }}>{t.meal}</div>
+              <div style={{ fontSize: "12px", color: white }}>{t.content}</div>
+              <div style={{ fontSize: "11px", color: muted, marginTop: "2px" }}>ex : {t.example}</div>
+            </div>
+          ))}
+        </div>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>SUPPLÉMENTS</div>
+          {[{ name: "Créatine monohydrate", dose: "5g / jour", priority: "ESSENTIEL" }, { name: "Whey", dose: "1–2 shakes / jour si manque", priority: "UTILE" }, { name: "Magnésium bisglycinate", dose: "300mg soir", priority: "SOMMEIL" }, { name: "Vitamine D3", dose: "2000–4000 UI / jour", priority: "GÉNÉRAL" }].map((s, i) => (
+            <div key={i} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < 3 ? `1px solid ${cardBorder}` : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: "12px", color: white, fontWeight: "700" }}>{s.name}</div>
+                <div style={{ fontSize: "11px", color: accent, marginTop: "2px" }}>{s.dose}</div>
+              </div>
+              <span style={{ fontSize: "10px", fontWeight: "700", color: accent, background: accent + "22", padding: "2px 8px", borderRadius: "4px" }}>{s.priority}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {tab === "science" && (
+      <>
+        {[{ title: "EFFET D'INTERFÉRENCE (AMPK vs mTOR)", color: "#F472B6", body: "Cardio et musculation activent des voies moléculaires concurrentes. L'AMPK inhibe mTOR (synthèse protéique). Solution : séparer cardio et force de 6h minimum. J3 est une séance dédiée — aucun conflit.", ref: "Coffey & Hawley, 2007" }, { title: "SRA — STIMULUS, RÉCUPÉRATION, ADAPTATION", color: "#60A5FA", body: "Le tendon récupère en 72–96h vs 48h pour le muscle. J1 et J4 sont séparées par J2 et J3 — jamais consécutives. Le deload semaine 12 permet la supercompensation.", ref: "Zatsiorsky & Kraemer, 2006" }, { title: "RATE OF FORCE DEVELOPMENT (RFD)", color: accent, body: "Puissance = Force × Vitesse. Le Power Clean, sauts et lancers de med ball développent la vitesse de production de force — compétence perdue avec le PPL pur. Le RFD est directement corrélé à la performance en combat.", ref: "Stone et al., 2006" }, { title: "ENTRAÎNEMENT POLARISÉ", color: "#34D399", body: "80% du temps en faible intensité (Zone 2) + 20% en haute intensité (HIIT). Le modèle 'tempo' est moins efficace. Ce programme respecte exactement cette structure.", ref: "Seiler & Tønnessen, 2009" }, { title: "POST-ACTIVATION POTENTIATION (PAP)", color: "#FBBF24", body: "Un mouvement lourd crée une potentialisation qui augmente la puissance explosive dans les 4–8 min suivantes. Mouvements explosifs toujours AVANT les charges lourdes.", ref: "Robbins, 2005" }, { title: "VOLUME MINIMUM EFFICACE vs MRV", color: "#818CF8", body: "Tes séances PPL de 2–3h dépassent ton Volume Maximum Récupérable. Ce programme cible le MEV en musculation pour libérer de la capacité de récupération pour l'athlétisme.", ref: "Israetel, Hoffmann & Smith — RP" }].map((s, i) => (
+          <div key={i} style={styles.card}>
+            <div style={{ ...styles.cardTitle, color: s.color }}>{s.title}</div>
+            <p style={styles.p}>{s.body}</p>
+            <div style={{ fontSize: "10px", color: "#6B7280", borderTop: `1px solid ${cardBorder}`, paddingTop: "8px", fontStyle: "italic" }}>📚 {s.ref}</div>
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+</div>
+```
+
+);
+}

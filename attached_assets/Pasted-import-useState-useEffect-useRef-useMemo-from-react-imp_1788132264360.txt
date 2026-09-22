@@ -1,0 +1,1315 @@
+import { useState, useEffect, useRef, useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
+
+// ── THEME ────────────────────────────────────────────────────────────────────
+const T = {
+  bg:"#060910",bg2:"#0A0F1A",card:"#0D1525",card2:"#111D30",card3:"#162238",
+  border:"#1A2840",border2:"#243555",
+  accent:"#C8FF00",strength:"#7C6FFF",hyper:"#FF5FA0",cardio:"#FFB020",
+  power:"#00E5A0",combat:"#FF4455",endurance:"#60A5FA",warn:"#F59E0B",
+  white:"#EDF2FF",text:"#8896B3",muted:"#5A6680",dim:"#1A2840",
+};
+const ff="'DM Mono','Courier New',monospace";
+
+// ── STYLE HELPERS ─────────────────────────────────────────────────────────────
+const c={
+  card:(border)=>({background:T.card,border:`1px solid ${border||T.border}`,borderRadius:10,padding:14,marginBottom:10}),
+  accentCard:(col)=>({background:col?col+"0D":T.card2,border:`1px solid ${col?col+"30":T.border}`,borderLeft:`3px solid ${col||T.accent}`,borderRadius:10,padding:14,marginBottom:10}),
+  title:{fontSize:10,fontWeight:700,letterSpacing:"2px",color:T.accent,marginBottom:10,textTransform:"uppercase"},
+  row:{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.border}`,padding:"7px 0",gap:8},
+  inp:(col)=>({background:T.card2,color:col||T.white,border:`1px solid ${T.border}`,borderRadius:6,padding:"0 10px",height:36,fontSize:13,fontFamily:ff,fontWeight:700,textAlign:"center",width:"100%",boxSizing:"border-box",outline:"none"}),
+  btn:(bg,fg,fw)=>({background:bg||T.accent,color:fg||T.bg,border:"none",borderRadius:8,padding:fw?"11px 0":"7px 14px",fontSize:11,fontWeight:700,fontFamily:ff,cursor:"pointer",letterSpacing:"0.5px",width:fw?"100%":"auto"}),
+  sel:{width:"100%",background:T.card2,color:T.white,border:`1px solid ${T.border}`,borderRadius:6,padding:"9px 12px",fontSize:12,fontFamily:ff,cursor:"pointer",marginBottom:10,outline:"none"},
+  sci:{background:"#040C1E",border:`1px solid #1E3A5F`,borderLeft:"3px solid #3B82F6",borderRadius:6,padding:"9px 12px",fontSize:11,color:"#93C5FD",marginTop:10,lineHeight:1.6},
+  p:{fontSize:11,color:T.text,lineHeight:1.75,marginBottom:8},
+};
+
+const Pill=({label,col,small})=>(
+  <span style={{display:"inline-flex",alignItems:"center",background:col+"20",border:`1px solid ${col}40`,color:col,fontSize:small?9:10,fontWeight:700,padding:small?"2px 7px":"3px 10px",borderRadius:20,whiteSpace:"nowrap"}}>{label}</span>
+);
+const AlertBox=({type,children})=>{
+  const cols={warn:[T.warn,"#FCD34D"],danger:[T.combat,"#FCA5A5"],info:[T.endurance,"#93C5FD"],success:[T.power,"#86EFAC"]};
+  const[border,text]=cols[type]||cols.info;
+  return <div style={{background:border+"12",border:`1px solid ${border}35`,borderLeft:`3px solid ${border}`,borderRadius:10,padding:"11px 14px",marginBottom:12,fontSize:11,color:text,lineHeight:1.65}}>{children}</div>;
+};
+const SciBox=({children})=><div style={c.sci}>🔬 {children}</div>;
+const CardTitle=({children,col})=><div style={{...c.title,color:col||T.accent,display:"flex",alignItems:"center",gap:6}}>{children}</div>;
+const Btn=({children,onClick,col,outline,full,small})=>(
+  <button onClick={onClick} style={{background:outline?"transparent":(col||T.accent),color:outline?(col||T.accent):T.bg,border:outline?`1px solid ${(col||T.accent)+"60"}`:"none",borderRadius:8,padding:small?"6px 12px":"10px 16px",fontSize:small?10:11,fontWeight:700,fontFamily:ff,cursor:"pointer",letterSpacing:"0.5px",width:full?"100%":"auto"}}>{children}</button>
+);
+const SportHero=({col,icon,title,sub})=>(
+  <div style={{position:"relative",borderRadius:14,overflow:"hidden",marginBottom:14,height:100}}>
+    <div style={{position:"absolute",inset:0,background:`linear-gradient(135deg,${col}25 0%,${T.bg} 80%)`}}/>
+    <div style={{position:"absolute",inset:0,backgroundImage:`radial-gradient(ellipse at 80% 50%,${col}18 0%,transparent 70%)`}}/>
+    <svg style={{position:"absolute",right:0,top:0,opacity:0.06}} width={180} height={100} viewBox="0 0 180 100"><circle cx={150} cy={20} r={80} fill={col}/><circle cx={100} cy={80} r={50} fill={col}/></svg>
+    <div style={{position:"relative",padding:"16px 20px",height:"100%",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+      <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
+      <div style={{fontSize:16,fontWeight:700,color:T.white,letterSpacing:"-0.5px"}}>{title}</div>
+      {sub&&<div style={{fontSize:9,color:col,letterSpacing:"1.5px",marginTop:2,textTransform:"uppercase"}}>{sub}</div>}
+    </div>
+  </div>
+);
+const StatCard=({val,label,col,icon,sub})=>(
+  <div style={{background:T.card,border:`1px solid ${T.border}`,borderTop:`2px solid ${col||T.accent}`,borderRadius:10,padding:"11px 8px",textAlign:"center"}}>
+    {icon&&<div style={{fontSize:16,marginBottom:2}}>{icon}</div>}
+    <div style={{fontSize:18,fontWeight:700,color:col||T.accent}}>{val}</div>
+    <div style={{fontSize:9,color:T.muted,letterSpacing:"0.5px",textTransform:"uppercase",marginTop:2}}>{label}</div>
+    {sub&&<div style={{fontSize:10,color:col||T.accent,marginTop:2,opacity:0.7}}>{sub}</div>}
+  </div>
+);
+
+// ── EXERCISE ROW ────────────────────────────────────────────────────────────────
+const ExRow=({name,params,note,sci,isLast,col})=>(
+  <div style={{borderBottom:isLast?`none`:`1px solid ${T.border}`,paddingBottom:8,marginBottom:8}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+      <div style={{flex:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:T.white}}>{name}</span>
+                  </div>
+        {note&&<div style={{fontSize:10,color:T.muted,marginTop:2}}>{note}</div>}
+      </div>
+      <span style={{fontSize:12,color:col||T.accent,fontWeight:700,whiteSpace:"nowrap"}}>{params}</span>
+    </div>
+    {sci&&<SciBox>{sci}</SciBox>}
+  </div>
+);
+
+// ── STORAGE ──────────────────────────────────────────────────────────────────
+const DB={
+  get:async(k)=>{try{const r=await window.storage.get(k);return r?.value?JSON.parse(r.value):null;}catch{return null;}},
+  set:async(k,v)=>{try{await window.storage.set(k,JSON.stringify(v));}catch{}},
+};
+
+// ── FORMULAS ─────────────────────────────────────────────────────────────────
+const est1RM=(w,r)=>{if(!w||!r)return 0;const e=w*(1+r/30),b=r>=37?w:w*36/(37-r);return Math.round((e+b)/2);};
+const pctOf=(orm,pct)=>Math.round(orm*pct/100/2.5)*2.5;
+const getInc=(ex)=>{
+  if(["Squat barre","Squat avant barre","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Hip thrust barre","Fentes marchées","Fentes bulgares"].includes(ex))return 5;
+  if(["Power Clean","Hang Power Clean","KB Swing"].includes(ex))return 2.5;
+  if(ex.includes("Curl")||ex.includes("Triceps")||ex.includes("Élévation")||ex.includes("Face pull")||ex.includes("Kickback"))return 1.25;
+  return 2.5;
+};
+const calcACWR=(sessions)=>{
+  const now=new Date();
+  const d7=new Date(now-7*864e5).toISOString().split("T")[0];
+  const d28=new Date(now-28*864e5).toISOString().split("T")[0];
+  const vol=(s)=>(s.sets||[]).reduce((a,x)=>a+(+x.kg||0)*(+x.reps||0)+(+x.duration_min||0)*10+(+x.rounds||0)*30,0);
+  const acute=sessions.filter(s=>s.dateISO>=d7).reduce((a,s)=>a+vol(s),0)/7;
+  const chronic=sessions.filter(s=>s.dateISO>=d28).reduce((a,s)=>a+vol(s),0)/28;
+  if(!chronic)return null;
+  return{ratio:+(acute/chronic).toFixed(2),acute:Math.round(acute),chronic:Math.round(chronic)};
+};
+const MG_MAP={"Pectoraux":["Développé couché barre","Développé couché haltères","Développé incliné barre","Développé incliné haltères","Développé décliné barre","Close grip bench press","Dips banc","Dips lestés"],"Dos":["Tractions pronation","Tractions supination","Tractions neutres","Tractions lestées","Tirage vertical poulie","Tirage horizontal poulie","Row barre Pendlay","Row barre incliné","Row unilatéral haltère","Row T-bar","Face pull"],"Épaules":["Développé militaire barre","Développé militaire haltères","Push press","Élévation latérale haltères","Élévation frontale haltères","Y-T-W élastique"],"Jambes":["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Fentes marchées","Fentes bulgares","Leg curl allongé","Leg extension","Hip thrust barre","Mollets debout"],"Bras":["Curl haltères","Curl marteau","Curl barre droite","Curl barre EZ","Triceps poulie haute corde","Triceps poulie haute barre","Extension overhead haltère","Skull crusher EZ"],"Core":["Planche frontale","Gainage latéral","Dead bug","Hanging leg raise","Ab wheel rollout","Pallof press","Dragon flag"],"Cardio":["Airbike","Rameur","Course à pied","Vélo","Corde à sauter","Burpees"],"Combat":["Shadow boxing","Sac de frappe","Sparring boxe","Sparring MMA","Grappling","Randori judo","Sparring JJB"]};
+
+// ── EXERCISE DATABASE ──────────────────────────────────────────────────────────
+const ET={W:"W",BW:"BW",T:"T",C:"C",R:"R"};
+const EX_DB=[
+  {g:"💪 POUSSÉ HAUT",col:T.strength,type:ET.W,list:["Développé couché barre","Développé couché haltères","Développé incliné barre","Développé incliné haltères","Développé décliné barre","Développé militaire barre","Développé militaire haltères","Push press","Close grip bench press","Dips lestés"]},
+  {g:"🔙 TIRAGE HAUT",col:T.strength,type:ET.W,list:["Tractions lestées","Tirage vertical poulie","Tirage horizontal poulie","Row barre Pendlay","Row barre incliné","Row unilatéral haltère","Row T-bar","Shrug barre","Upright row","Face pull"]},
+  {g:"🔙 TIRAGE POIDS DU CORPS",col:T.strength,type:ET.BW,list:["Tractions pronation","Tractions supination","Tractions neutres"]},
+  {g:"🦵 BAS DU CORPS",col:T.power,type:ET.W,list:["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Soulevé de terre sumo","Good morning","Fentes marchées","Fentes bulgares","Single-leg RDL haltères","Step-up explosif","Leg curl allongé","Leg curl assis","Leg extension","Hip thrust barre","Glute bridge","Mollets debout","Mollets assis"]},
+  {g:"⚡ PUISSANCE & OLYMPIQUE",col:T.power,type:ET.W,list:["Power Clean","Hang Power Clean","KB Swing","KB Snatch","Farmer walk"]},
+  {g:"📏 PLIOMÉTRIE",col:T.power,type:ET.BW,list:["Box Jump","Broad Jump","Lateral Bound","Saut vertical","Sprint 30m","Sprint 10m","Sprint 60m","Sprint côte 20m"]},
+  {g:"💪 BICEPS",col:T.hyper,type:ET.W,list:["Curl haltères","Curl marteau","Curl barre droite","Curl barre EZ","Curl incliné haltères","Curl concentré","Curl cable poulie basse","Curl machine","Curl Zottman"]},
+  {g:"🔱 TRICEPS",col:T.hyper,type:ET.W,list:["Triceps poulie haute corde","Triceps poulie haute barre","Extension overhead haltère","Extension overhead barre","Skull crusher EZ","Skull crusher barre","Kickback haltère","Dips banc"]},
+  {g:"🫀 ÉPAULES",col:T.hyper,type:ET.W,list:["Élévation latérale haltères","Élévation frontale haltères","Élévation latérale cable","Oiseau haltères","Y-T-W élastique"]},
+  {g:"🧘 CORE CHRONOMÉTRÉ",col:T.endurance,type:ET.T,list:["Planche frontale","Gainage latéral","Hollow body hold","L-sit"]},
+  {g:"🧘 CORE DYNAMIQUE",col:T.endurance,type:ET.BW,list:["Dead bug","Hanging leg raise","Ab wheel rollout","Dragon flag","Landmine rotation","Pallof press","Mountain climbers","Crunch cable"]},
+  {g:"🫀 CARDIO & CONDITIONING",col:T.cardio,type:ET.C,list:["Airbike","Rameur","Course à pied","Vélo","Corde à sauter","Burpees","Sled push","Battle rope","Fartlek"]},
+  {g:"🥊 COMBAT & SKILLS",col:T.combat,type:ET.R,list:["Shadow boxing","Sac de frappe","Sparring boxe","Sparring MMA","Grappling","Randori judo","Sparring JJB","Drills techniques","Wrist roller","Plate pinch"]},
+];
+const ALL_EX=EX_DB.flatMap(g=>g.list);
+const EX_TYPE_MAP={};const EX_COL_MAP={};
+EX_DB.forEach(g=>g.list.forEach(ex=>{EX_TYPE_MAP[ex]=g.type;EX_COL_MAP[ex]=g.col;}));
+const WEIGHT_EX=new Set(EX_DB.filter(g=>g.type===ET.W).flatMap(g=>g.list));
+
+// ── PLAN DATA — V1+ ───────────────────────────────────────────────────────────
+const PLAN_V1=[
+  {id:"j1",col:T.strength,place:"🏋️ SALLE",theme:"BAS DU CORPS · FORCE & EXPLOSIVITÉ",dur:"75 min",blks:[
+    {n:"ACTIVATION",ex:[["Corde à sauter","3 min"],["Hip circle élastique","2×15"],["Mobilité cheville","2×10/j"]]},
+    {n:"EXPLOSIVITÉ",sci:"Pliométrie AVANT charge = exploitation état neural frais. Recrutement fibres type II max. (PAP)",ex:[["Box Jump","5×3 · repos 90s"],["Broad Jump","4×3 · repos 90s"]]},
+    {n:"FORCE",sci:"Volume réduit vs PPL → limite interférence AMPK/mTOR. Intensité > volume.",ex:[["Squat barre (tempo 3-1-1)","5×3 @ 80–85%","repos 3 min"],["Romanian Deadlift","4×6 @ 70%","repos 2 min"],["Fentes marchées barre","3×8/jambe"]]},
+    {n:"CORE ATHLÉTIQUE",ex:[["Dead bug","3×8/côté"],["Gainage latéral","3×30s"],["Farmer walk","3×30m lourd"]]},
+  ]},
+  {id:"j2",col:T.hyper,place:"🏋️ SALLE",theme:"HAUT DU CORPS · ATHLÉTIQUE",dur:"70 min",blks:[
+    {n:"ACTIVATION",ex:[["Y-T-W élastique","3×10"],["Band pull-apart","3×15"],["Rotation thoracique","2×10/côté"]]},
+    {n:"EXPLOSIVITÉ",sci:"Lancer med ball = puissance en chaîne cinétique complète + stimulation SNC. (Force-Vitesse continuum)",ex:[["Med ball slam sol","5×5 · repos 90s"],["Lancer rotationnel mur","4×5/côté · repos 90s"]]},
+    {n:"FORCE",sci:"Développé incliné haltères → réduction stress rotation interne. Protection tendinites épaules.",ex:[["Tractions lestées","5×5 · repos 2 min"],["Développé incliné haltères","4×6–8 · repos 90s","PAS de flat bench lourd"],["Row barre Pendlay","4×5 · repos 2 min"],["Push press","3×5"]]},
+    {n:"SANTÉ ÉPAULES",sci:"Ratio 2:1 tirage/poussée. Rééquilibrage rotateurs externes → prévention tendinite.",ex:[["Face pull","4×15"],["Y-T-W élastique allongé","3×10"]]},
+  ]},
+  {id:"j3",col:T.cardio,place:"🏋️ SALLE",theme:"CONDITIONING · COMBAT-READY",dur:"50 min",blks:[
+    {n:"ÉCHAUFFEMENT",ex:[["Rameur","5 min Zone 2"]]},
+    {n:"HIIT",sci:"30s/90s = filière anaérobie lactique + VO2max. Tolérance lactate combat. (Buchheit, 2013)",ex:[["Airbike","10 × (30s ON / 90s OFF)","90–95% FCmax"]]},
+    {n:"CIRCUIT COMBAT (4 tours)",sci:"Travail sous fatigue → exigences sports de combat. Maintient la technique sous charge cardio.",ex:[["KB Swing","×20"],["Burpees","×10"],["Farmer walk","30m A/R"],["Battle rope","20s"]]},
+  ]},
+  {id:"j4",col:T.power,place:"🏋️ SALLE",theme:"FULL BODY · PUISSANCE",dur:"75 min",blks:[
+    {n:"ACTIVATION SNC",ex:[["Sprint 30m","×5 · repos 2 min"]]},
+    {n:"OLYMPIQUE",sci:"Power Clean = meilleur exercice pour le RFD. Force brute → puissance athlétique. (Stone et al., 2006)",ex:[["Power Clean","6×3 · repos 3 min","qualité absolue"]]},
+    {n:"FORCE GLOBALE",ex:[["Soulevé de terre trap bar","4×4 @ 85% · repos 3 min"],["Push press barre","4×4"],["Row unilatéral haltère","3×8/bras"]]},
+    {n:"CORE ANTI-ROTATION",sci:"Core anti-rotation = plus fonctionnel pour sports de combat. (McGill, 2010)",ex:[["Pallof press","3×12/côté"],["Hanging leg raise","3×10"]]},
+  ]},
+  {id:"j5",col:T.endurance,place:"🏋️ SALLE",theme:"ENDURANCE & MOBILITÉ",dur:"60 min",blks:[
+    {n:"ZONE 2 (35–40 min)",sci:"Zone 2 (65–70% FCmax) = densité mitochondriale + oxydation graisses. Priorité N°1. (Seiler, 2010)",ex:[["Rameur","35–40 min","65–70% FCmax — tu dois pouvoir parler"]]},
+    {n:"MOBILITÉ CIBLÉE",sci:"Mobilité articulaire = réduction risque tendinite + économie de mouvement.",ex:[["90/90 hip stretch","2×60s/côté"],["Pigeon yoga","2×60s/côté"],["Rotation thoracique","2×10/côté"],["Stretch pec mineur","2×45s/côté"]]},
+    {n:"RESPIRATION",sci:"Box breathing active le parasympathique → récupération + qualité du sommeil améliorés.",ex:[["Box breathing (4/4/4/4)","5–8 min"],["Auto-massage rouleau","5 min"]]},
+  ]},
+];
+
+const PLAN_V2=[
+  {id:"j1",col:T.strength,place:"🏋️ SALLE",theme:"BAS DU CORPS · FORCE",dur:"75 min",blks:[
+    {n:"ACTIVATION",ex:[["Corde à sauter","3 min"],["Mobilité hanches","5 min"]]},
+    {n:"EXPLOSIVITÉ",ex:[["Box Jump","5×3"]]},
+    {n:"FORCE",ex:[["Squat barre","5×3 @ 80–85%"],["RDL","4×6"],["Fentes marchées","3×10/j"]]},
+    {n:"CORE",ex:[["Gainage latéral","3×30s"],["Dead bug","3×10"]]},
+  ]},
+  {id:"j2",col:T.hyper,place:"🏋️ SALLE",theme:"HAUT DU CORPS · ATHLÉTIQUE",dur:"70 min",blks:[
+    {n:"EXPLOSIVITÉ",ex:[["Med ball slam sol","5×5"],["Lancer rotationnel mur","4×5/côté"]]},
+    {n:"FORCE",ex:[["Tractions lestées","5×5"],["Développé incliné haltères","4×6–8"],["Row barre Pendlay","4×6"]]},
+    {n:"SANTÉ ÉPAULES",ex:[["Y-T-W élastique","3×12"],["Face pull","3×15"]]},
+  ]},
+  {id:"j3",col:T.cardio,place:"🏋️ SALLE",theme:"CONDITIONING",dur:"45–60 min",blks:[
+    {n:"INTERVALLES",ex:[["Airbike","10 × 30s ON / 90s OFF"]]},
+    {n:"CIRCUIT (4 tours)",ex:[["KB Swing","×20"],["Burpees","×10"],["Farmer walk","40m"],["Repos","2 min"]]},
+  ]},
+  {id:"j4",col:T.power,place:"🏋️ SALLE",theme:"FULL BODY · PUISSANCE",dur:"75 min",blks:[
+    {n:"PUISSANCE",ex:[["Power Clean","6×3"]]},
+    {n:"FORCE",ex:[["Push press","4×4"],["Soulevé de terre trap bar","4×5"],["Row unilatéral haltère","3×8/bras"]]},
+    {n:"CORE",ex:[["Pallof press","3×12"],["Hanging leg raise","3×10"]]},
+  ]},
+  {id:"j5",col:T.endurance,place:"🏋️ SALLE",theme:"ENDURANCE & MOBILITÉ",dur:"60 min",blks:[
+    {n:"ZONE 2",ex:[["Rameur","35–45 min"]]},
+    {n:"MOBILITÉ",ex:[["Hanches","2×60s/côté"],["Épaules","2×45s/côté"],["Colonne","2×10/côté"]]},
+    {n:"RESPIRATION",ex:[["Box breathing","5 min"]]},
+  ]},
+];
+
+// ── PLAN DATA — COMBAT REBUILD ────────────────────────────────────────────────
+const PLAN_COMBAT=[
+  {id:"j1",col:T.strength,place:"🏋️ SALLE",theme:"FORCE ATHLÉTIQUE + EXPLOSIVITÉ",dur:"80 min",blks:[
+    {n:"ACTIVATION (10 min)",ex:[
+      ["Corde à sauter","3 min","coordination + activation légère"],
+      ["Hip circle élastique","2×10/sens"],
+      ["Squat profond tenu","2×30s"],
+      ["Rotation thoracique genou à terre","2×10/côté"],
+    ]},
+    {n:"EXPLOSIVITÉ MULTI-DIRECTIONNELLE",sci:"Lateral bound = déplacement latéral dominant en boxe (esquive, circling). Avant toute charge — SNC frais = recrutement fibres type II maximal.",ex:[
+      ["Box Jump","5×3 · repos 90s","hauteur maximale — qualité absolue"],
+      ["Lateral Bound (saut latéral)","4×4/côté · repos 90s","même distance à chaque bond"],
+    ]},
+    {n:"FORCE RELATIVE",sci:"Force relative (force/poids) > force absolue pour un combattant. Charges modérées, vitesse d'exécution maximale.",ex:[
+      ["Squat barre","4×4 @ 80%","explosif en montée · repos 3 min"],
+      ["Romanian Deadlift","4×6 @ 68%","focus chaîne postérieure · repos 2 min"],
+      ["Single-leg RDL haltères","3×8/jambe","proprioception + stabilité grappling"],
+      ["Step-up explosif","3×8/jambe","pattern boxeur sortant de la garde"],
+    ]},
+    {n:"CORE ANTI-ROTATION",sci:"Transmission de force frappe et projection = stabilité anti-rotationelle de la colonne. (McGill, 2010)",ex:[
+      ["Pallof press","3×12/côté · repos 60s"],
+      ["Dead bug avec bande élastique","3×8/côté"],
+      ["Farmer walk lourd","3×30m"],
+    ]},
+  ]},
+  {id:"j2",col:T.cardio,place:"🏃 PISTE / EXTÉRIEUR",theme:"VITESSE + SPRINT + AGILITÉ",dur:"55 min",blks:[
+    {n:"ÉCHAUFFEMENT OBLIGATOIRE (15 min)",sci:"Après une phase d'hypertrophie, le système cardio-vasculaire est déconditionné. L'échauffement progressif réduit le risque de claquage musculaire de 40%.",ex:[
+      ["Course à pied","5 min très léger · footing"],
+      ["Montées de genoux","20m × 2"],
+      ["Talons-fesses","20m × 2"],
+      ["Skipping","20m × 2"],
+      ["Accélérations progressives 30m","× 3 (50%, 70%, 85%)"],
+    ]},
+    {n:"PHASE 1 — SEM. 1–4 : RÉAPPRENTISSAGE",sci:"Reconstruction de la mécanique de course et base cardio. Pas de vitesse maximale avant semaine 5 — risque de blessure sur corps déconditionné.",ex:[
+      ["Sprint 30m","× 6 @ 80% vitesse max · repos 2 min 30"],
+      ["Fartlek","15 min : 1 min effort / 1 min marche"],
+      ["Corde à sauter","5 × 2 min · repos 1 min"],
+    ]},
+    {n:"PHASE 2 — SEM. 5–8 : DÉVELOPPEMENT",ex:[
+      ["Sprint 30m","× 8 @ 95% vitesse max · repos 3 min"],
+      ["Intervalles 200m","× 6 @ 80% allure · repos 90s"],
+      ["Corde à sauter","4 × 3 min · repos 1 min"],
+    ]},
+    {n:"PHASE 3 — SEM. 9–12 : VITESSE MAXIMALE",ex:[
+      ["Sprint 60m","× 6 @ 100% · repos 3 min 30"],
+      ["Intervalles 400m","× 4 @ allure soutenue · repos 3 min"],
+      ["Sprint côte 20m","× 6 si disponible · repos 3 min"],
+      ["Corde à sauter","3 × 3 min vitesse"],
+    ]},
+  ]},
+  {id:"j3",col:T.hyper,place:"🏋️ SALLE",theme:"PUISSANCE ROTATIONELLE + HAUT COMBAT",dur:"70 min",blks:[
+    {n:"ACTIVATION — MÉMOIRE MOTRICE",sci:"Le shadow boxing active les patterns neurologiques de boxe. 2-3 semaines suffisent pour retrouver 80% de la mémoire motrice après un arrêt.",ex:[
+      ["Shadow boxing","3 min léger · focus footwork et jabs"],
+      ["Band pull-apart","3×15"],
+      ["Shoulder CARs","2×5/épaule · lent et contrôlé"],
+    ]},
+    {n:"PUISSANCE ROTATIONELLE",sci:"La rotation = source N°1 de puissance en boxe. Un crochet génère 70% de sa force depuis les hanches et la rotation du tronc. (Lenetsky et al., 2013)",ex:[
+      ["Med ball slam sol","4×5 · repos 90s · explosif total"],
+      ["Med ball rotation throw mur","5×5/côté · repos 90s · hanches en premier"],
+      ["Med ball overhead throw mur","4×5 · repos 90s"],
+    ]},
+    {n:"TIRAGE DOMINANT — GRAPPLING",sci:"Ratio 3:2 tirage/poussée pour un combattant. Le tirage = clinch, plaquage, récupération de garde.",ex:[
+      ["Tractions pronation","5×5 · repos 2 min"],
+      ["Row barre Pendlay","4×5 @ 72% · explosif · repos 2 min"],
+      ["Face pull","3×15 · santé épaules obligatoire"],
+    ]},
+    {n:"POUSSÉ — PUISSANCE FRAPPE",ex:[
+      ["Développé incliné haltères","4×6–8 · repos 90s","PAS barre plate — tendinites"],
+      ["Cable chest press debout","3×10","force de frappe en position de combat"],
+    ]},
+    {n:"SHADOW BOXING TECHNIQUE",sci:"Intégrer la technique après l'effort physique pour habituer le corps à maintenir la qualité sous fatigue — condition de combat réelle.",ex:[
+      ["Shadow boxing","3 × 3 min · repos 1 min","focus jabs, crochets, déplacements"],
+    ]},
+    {n:"GRIP TRAINING",sci:"La force de préhension est déterminante en grappling et clinch. Souvent négligée en salle de muscu.",ex:[
+      ["Wrist roller","3×30s ou jusqu'à échec"],
+      ["Plate pinch","3×20s · plaque de fonte pincée"],
+    ]},
+  ]},
+  {id:"j4",col:T.power,place:"🌿 EXTÉRIEUR / PISTE",theme:"ZONE 2 + FARTLEK",dur:"50 min",blks:[
+    {n:"ZONE 2 — BASE AÉROBIE (35–40 min)",sci:"La Zone 2 = fondation du moteur de boxeur. Elle développe la densité mitochondriale et la récupération entre les reprises. Pour quelqu'un sans cardio depuis longtemps, c'est la priorité N°1 avant tout HIIT.",ex:[
+      ["Course à pied","35–40 min","65–70% FCmax — tu dois pouvoir parler normalement"],
+    ]},
+    {n:"PROGRESSION ZONE 2",ex:[
+      ["Sem. 1–2 : Run/Walk","2 min course · 1 min marche si nécessaire"],
+      ["Sem. 3–4 : Course continue","30 min"],
+      ["Sem. 5–8 : Course continue","38–42 min"],
+      ["Sem. 9–12 : Course continue","45–50 min"],
+    ]},
+    {n:"FARTLEK (10 min · Sem. 5+)",sci:"Fartlek = accélérations spontanées sur repères naturels. Simule les changements de rythme en combat sans structure rigide.",ex:[
+      ["Fartlek spontané","10 min · accélérations 20–30s sur repères · marche entre"],
+    ]},
+  ]},
+  {id:"j5",col:T.combat,place:"🏋️ SALLE",theme:"FORCE GLOBALE + CONDITIONNEMENT MÉTABOLIQUE",dur:"75 min",blks:[
+    {n:"ACTIVATION SNC",ex:[
+      ["Sprint 30m","×4 · repos 2 min","jambes légères · intention max"],
+      ["Box Jump","3×3"],
+    ]},
+    {n:"OLYMPIQUE — RECONSTRUCTION RFD",sci:"Le Power Clean reconstruit le taux de développement de force (RFD) perdu pendant la phase hypertrophie. C'est l'exercice le plus transférable aux projections en grappling.",ex:[
+      ["Hang Power Clean","5×3 · repos 3 min","SEM. 1–4 : technique + charges légères"],
+      ["Power Clean","5×3 · repos 3 min","SEM. 5+ : charges progressives"],
+    ]},
+    {n:"FORCE GLOBALE",ex:[
+      ["Soulevé de terre trap bar","4×4 @ 83% · repos 3 min"],
+      ["Push press","4×4","coordination jambes-épaules = puissance frappe"],
+      ["Tractions lestées","4×4 · repos 2 min"],
+    ]},
+    {n:"CONDITIONNEMENT MÉTABOLIQUE (3 filières)",sci:"Ce circuit cible successivement les filières alactique (sprints), lactique (circuit) et aérobie (finisher). Reproduit exactement la demande énergétique d'un combat de boxe.",ex:[
+      ["Sprint 10m","×4 · repos 3 min","filière alactique — max 10 secondes"],
+      ["Airbike ou Rameur","4 × (20s ON / 40s OFF)","filière lactique"],
+      ["Circuit : Burpees ×8 · KB Swing ×15 · Battle rope 20s","4 tours · repos 90s entre tours","sous fatigue — maintenir la forme"],
+    ]},
+    {n:"CORE FONCTIONNEL",ex:[
+      ["Hanging leg raise","3×10"],
+      ["Pallof press","3×12/côté"],
+    ]},
+  ]},
+  {id:"j6",col:T.muted,place:"🌿 EXTÉRIEUR",theme:"CARDIO ACTIF — OPTIONNEL",dur:"40 min",blks:[
+    {n:"AU CHOIX SELON LA FORME",ex:[
+      ["Marche rapide ou randonnée","45–60 min · récupération active"],
+      ["Vélo Zone 2 extérieur","40 min · 60% FCmax"],
+      ["Shadow boxing détendu","20 min · technique uniquement"],
+      ["Natation","30–40 min si accès · full body sans impact"],
+    ]},
+  ]},
+];
+
+// ── TIMERS ────────────────────────────────────────────────────────────────────
+function RestTimer(){
+  const[preset,setPreset]=useState(90);const[rem,setRem]=useState(90);const[active,setActive]=useState(false);const ref=useRef(null);
+  useEffect(()=>{if(active)ref.current=setInterval(()=>setRem(r=>{if(r<=1){clearInterval(ref.current);setActive(false);return preset;}return r-1;}),1000);else clearInterval(ref.current);return()=>clearInterval(ref.current);},[active,preset]);
+  const fmt=(s)=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const pct=(preset-rem)/preset;const r=26,cx=32,cy=32,circ=2*Math.PI*r;
+  return(
+    <div style={{background:T.card2,border:`1px solid ${active?T.accent+"50":T.border}`,borderRadius:12,padding:14,marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",gap:14}}>
+        <div style={{position:"relative",width:64,height:64,flexShrink:0}}>
+          <svg width={64} height={64} style={{transform:"rotate(-90deg)"}}>
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.dim} strokeWidth={4}/>
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={active?T.accent:T.muted} strokeWidth={4} strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset 0.9s linear,stroke 0.3s"}}/>
+          </svg>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:active?T.accent:T.muted}}>{fmt(rem)}</div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:"1px",marginBottom:8}}>⏱ REPOS</div>
+          <div style={{display:"flex",gap:4,marginBottom:7}}>
+            {[60,90,120,180].map(p=><button key={p} onClick={()=>{setPreset(p);setRem(p);setActive(false);}} style={{flex:1,background:preset===p?T.accent:T.dim,color:preset===p?T.bg:T.muted,border:"none",borderRadius:5,padding:"4px 0",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{fmt(p)}</button>)}
+          </div>
+          <div style={{display:"flex",gap:5}}>
+            <button onClick={()=>{if(!active)setRem(preset);setActive(!active);}} style={{flex:2,background:active?T.combat+"30":T.accent,color:active?T.combat:T.bg,border:active?`1px solid ${T.combat+"50"}`:"none",borderRadius:6,padding:"6px",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{active?"⏸ PAUSE":"▶ START"}</button>
+            <button onClick={()=>{setActive(false);setRem(preset);}} style={{flex:1,background:T.dim,color:T.muted,border:"none",borderRadius:6,padding:"6px",fontSize:9,fontFamily:ff,cursor:"pointer"}}>↺</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionTimer({running,onToggle,elapsed}){
+  const fmt=(s)=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;};
+  const over=elapsed>75*60;
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:10,background:T.card2,border:`1px solid ${over?T.combat+"60":T.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12}}>
+      <div style={{fontSize:22,fontWeight:700,color:over?T.combat:T.accent}}>{fmt(elapsed)}</div>
+      {over&&<div style={{fontSize:10,color:T.combat}}>⚠ 75 min dépassées</div>}
+      <div style={{marginLeft:"auto"}}>
+        <button onClick={onToggle} style={{background:running?T.combat+"30":T.power+"30",color:running?T.combat:T.power,border:`1px solid ${running?T.combat+"50":T.power+"50"}`,borderRadius:6,padding:"5px 12px",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{running?"⏸":"▶ SÉANCE"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── PLAN TAB ─────────────────────────────────────────────────────────────────
+function PlanTab(){
+  const[ver,setVer]=useState("combat");
+  const[active,setActive]=useState("j1");
+  const versions={v1:PLAN_V1,v2:PLAN_V2,combat:PLAN_COMBAT};
+  const days=versions[ver];
+  const day=days.find(d=>d.id===active);
+
+  return(
+    <>
+      {/* Version selector */}
+      <div style={{background:T.card2,borderRadius:12,padding:4,marginBottom:14,display:"flex",gap:4}}>
+        {[
+          {id:"combat",label:"🥊 COMBAT REBUILD",col:T.combat},
+          {id:"v1",label:"V1+ HYBRIDE",col:T.strength},
+          {id:"v2",label:"V2 ÉPURÉ",col:T.cardio},
+        ].map(v=>(
+          <button key={v.id} onClick={()=>{setVer(v.id);setActive("j1");}} style={{flex:1,background:ver===v.id?v.col:T.card2,color:ver===v.id?T.bg:T.muted,border:`1px solid ${ver===v.id?v.col:T.border}`,borderRadius:9,padding:"9px 4px",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer",lineHeight:1.4,textAlign:"center"}}>
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Program description */}
+      {ver==="combat"&&(
+        <div style={{background:`linear-gradient(135deg,${T.combat}15,transparent)`,border:`1px solid ${T.combat}35`,borderRadius:12,padding:14,marginBottom:12}}>
+          <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+            <div style={{fontSize:28}}>🥊</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:T.combat,marginBottom:4}}>COMBAT ATHLETE REBUILD</div>
+              <div style={{fontSize:11,color:T.text,lineHeight:1.65}}>Conçu pour reconstruire le moteur de boxeur. 93kg → corps athlétique de combat. Intègre piste d'athlétisme + salle Basic Fit. 3 filières énergétiques ciblées séparément.</div>
+              <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                <Pill label="Basic Fit" col={T.strength} small/>
+                <Pill label="Piste athlé" col={T.cardio} small/>
+                <Pill label="Extérieur" col={T.power} small/>
+                <Pill label="12 semaines" col={T.accent} small/>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {ver==="v1"&&<AlertBox type="info">📋 Programme hybride V1+ — version détaillée avec notes scientifiques et paramètres précis.</AlertBox>}
+      {ver==="v2"&&<AlertBox type="warn">⚡ Programme hybride V2 — structure épurée. Ouvre et entraîne-toi.</AlertBox>}
+
+      {/* Day selector */}
+      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>
+        {days.map(d=>(
+          <button key={d.id} onClick={()=>setActive(d.id)} style={{flex:1,minWidth:40,background:active===d.id?d.col:T.card,color:active===d.id?T.bg:T.muted,border:`1px solid ${active===d.id?d.col:T.border}`,borderRadius:8,padding:"8px 2px",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer",textAlign:"center"}}>
+            {d.id.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {day&&(
+        <>
+          {/* Day header */}
+          <div style={{background:`linear-gradient(135deg,${day.col}20,transparent)`,border:`1px solid ${day.col}30`,borderLeft:`3px solid ${day.col}`,borderRadius:12,padding:"12px 16px",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div>
+                <div style={{fontSize:9,color:day.col,letterSpacing:"1.5px",fontWeight:700,marginBottom:4}}>{day.place}</div>
+                <div style={{fontSize:12,fontWeight:700,color:day.col}}>{day.theme}</div>
+              </div>
+              <Pill label={day.dur} col={day.col} small/>
+            </div>
+          </div>
+
+          {/* Blocks */}
+          {day.blks.map((blk,bi)=>(
+            <div key={bi} style={c.card()}>
+              <CardTitle>{blk.n}</CardTitle>
+              {blk.ex.map(([name,params,note],ei)=>(
+                <ExRow key={ei} name={name} params={params} note={note} isLast={ei===blk.ex.length-1} col={day.col}/>
+              ))}
+              {blk.sci&&<SciBox>{blk.sci}</SciBox>}
+            </div>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── EXERCISE TYPE ─────────────────────────────────────────────────────────────
+function SmartSetRow({set,idx,type,onUpdate,onRemove}){
+  const inp=(field,placeholder,col,step)=>(
+    <input type="number" min="0" step={step||1} placeholder={placeholder} value={set[field]||""} onChange={e=>onUpdate(idx,field,e.target.value)}
+      style={{background:T.card,color:col||T.white,border:`1px solid ${T.border}`,borderRadius:6,padding:"0 8px",height:36,fontSize:13,fontFamily:ff,fontWeight:700,textAlign:"center",width:"100%",boxSizing:"border-box",outline:"none"}}/>
+  );
+  const rmBtn=<button onClick={()=>onRemove(idx)} style={{background:T.combat+"20",color:T.combat,border:"none",borderRadius:5,height:36,width:32,cursor:"pointer",fontSize:15,flexShrink:0}}>×</button>;
+  const numBadge=<div style={{background:T.dim,borderRadius:5,height:36,minWidth:26,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:T.muted,flexShrink:0}}>{idx+1}</div>;
+  if(type===ET.W||type===ET.WBW)return(<div style={{display:"grid",gridTemplateColumns:"26px 1fr 1fr 1fr 32px",gap:4,marginBottom:4,alignItems:"center"}}>{numBadge}{inp("reps","10")}{inp("kg","60",T.accent,"0.5")}{inp("rpe","8",T.cardio)}{rmBtn}</div>);
+  if(type===ET.BW)return(<div style={{display:"grid",gridTemplateColumns:"26px 1fr 1fr 32px",gap:4,marginBottom:4,alignItems:"center"}}>{numBadge}{inp("reps","10")}{inp("rpe","8",T.cardio)}{rmBtn}</div>);
+  if(type===ET.T)return(<div style={{display:"grid",gridTemplateColumns:"26px 1fr 32px",gap:4,marginBottom:4,alignItems:"center"}}>{numBadge}{inp("duration_sec","30",T.endurance)}{rmBtn}</div>);
+  if(type===ET.C)return(<div style={{display:"grid",gridTemplateColumns:"26px 1fr 1fr 1fr 32px",gap:4,marginBottom:4,alignItems:"center"}}>{numBadge}{inp("duration_min","30",T.cardio)}{inp("distance","5",T.power,"0.1")}{inp("calories","200",T.hyper)}{rmBtn}</div>);
+  if(type===ET.R)return(<div style={{display:"grid",gridTemplateColumns:"26px 1fr 1fr 1fr 32px",gap:4,marginBottom:4,alignItems:"center"}}>{numBadge}{inp("rounds","4",T.combat)}{inp("duration_min","3",T.cardio)}{inp("intensity","7",T.cardio)}{rmBtn}</div>);
+  return null;
+}
+function SmartHeaders({type}){
+  const cols={[ET.W]:"26px 1fr 1fr 1fr 32px",[ET.BW]:"26px 1fr 1fr 32px",[ET.T]:"26px 1fr 32px",[ET.C]:"26px 1fr 1fr 1fr 32px",[ET.R]:"26px 1fr 1fr 1fr 32px"};
+  const labels={[ET.W]:["Reps","Kg","RPE"],[ET.BW]:["Reps","RPE"],[ET.T]:["Durée (sec)"],[ET.C]:["Min","Km/m","Cal"],[ET.R]:["Rounds","Min/Round","Intensité"]};
+  return(<div style={{display:"grid",gridTemplateColumns:cols[type],gap:4,marginBottom:6}}>{["#",...(labels[type]||[]),""].map(l=><span key={l} style={{fontSize:9,color:T.muted,textAlign:"center"}}>{l.toUpperCase()}</span>)}</div>);
+}
+
+// ── JOURNAL TAB ───────────────────────────────────────────────────────────────
+function JournalTab({sessions,setSessions,timerRunning,timerElapsed,onToggleTimer}){
+  const[view,setView]=useState("log");
+  const[selEx,setSelEx]=useState(ALL_EX[0]);
+  const[sets,setSets]=useState([{reps:"",kg:"",rpe:""}]);
+  const[notes,setNotes]=useState("");
+  const[msg,setMsg]=useState("");
+  const[histEx,setHistEx]=useState(ALL_EX[0]);
+  const[chartMode,setChartMode]=useState("max");
+  const[prFlash,setPrFlash]=useState(null);
+
+  const type=EX_TYPE_MAP[selEx]||ET.W;
+  const histType=EX_TYPE_MAP[histEx]||ET.W;
+  const exCol=EX_COL_MAP[selEx]||T.accent;
+  const histCol=EX_COL_MAP[histEx]||T.accent;
+  const persist=d=>DB.set("journal_v5",d);
+  const defSet=t=>{
+    if(t===ET.W)return{reps:"",kg:"",rpe:""};
+    if(t===ET.BW)return{reps:"",rpe:""};
+    if(t===ET.T)return{duration_sec:""};
+    if(t===ET.C)return{duration_min:"",distance:"",calories:""};
+    if(t===ET.R)return{rounds:"",duration_min:"",intensity:""};
+    return{};
+  };
+
+  const logSession=async()=>{
+    const valid=sets.filter(s=>Object.values(s).some(v=>v!==""));
+    if(!valid.length)return;
+    const entry={id:Date.now(),date:new Date().toLocaleDateString("fr-FR"),dateISO:new Date().toISOString().split("T")[0],exercise:selEx,type,sets:valid,notes,elapsed:timerElapsed};
+    const updated=[...sessions,entry];
+    const prev=sessions.filter(s=>s.exercise===selEx);
+    const prevORM=Math.max(0,...prev.flatMap(s=>(s.sets||[]).filter(x=>x.kg&&x.reps).map(x=>est1RM(+x.kg,+x.reps))));
+    const newORM=Math.max(0,...valid.filter(x=>x.kg&&x.reps).map(x=>est1RM(+x.kg,+x.reps)));
+    if(newORM>prevORM&&newORM>0){setPrFlash({ex:selEx,orm:newORM});setTimeout(()=>setPrFlash(null),5000);}
+    setSessions(updated);await persist(updated);
+    setSets([defSet(type)]);setNotes("");
+    setMsg("✓ Séance enregistrée !");setTimeout(()=>setMsg(""),2500);
+  };
+
+  const delSession=async(id)=>{const u=sessions.filter(s=>s.id!==id);setSessions(u);await persist(u);};
+
+  const histSessions=sessions.filter(s=>s.exercise===histEx).sort((a,b)=>a.dateISO>b.dateISO?1:-1);
+  const chartData=histSessions.map(s=>{
+    const ws=(s.sets||[]).map(x=>+x.kg).filter(Boolean);
+    const vol=(s.sets||[]).reduce((a,x)=>a+(+x.kg||0)*(+x.reps||0)+(+x.duration_min||0)*10+(+x.rounds||0)*30,0);
+    const rpeArr=(s.sets||[]).filter(x=>x.rpe).map(x=>+x.rpe);
+    return{date:s.date.slice(0,5),max:ws.length?Math.max(...ws):0,orm:ws.length?Math.max(...(s.sets||[]).filter(x=>x.kg&&x.reps).map(x=>est1RM(+x.kg,+x.reps))):0,volume:Math.round(vol),rpe:rpeArr.length?+(rpeArr.reduce((a,b)=>a+b,0)/rpeArr.length).toFixed(1):null};
+  });
+
+  const getRec=()=>{
+    if(!histSessions.length)return null;
+    const last=histSessions[histSessions.length-1];
+    const ws=(last.sets||[]).map(x=>+x.kg).filter(Boolean);
+    if(!ws.length)return null;
+    const maxW=Math.max(...ws),avgReps=(last.sets||[]).reduce((a,s)=>a+(+s.reps||0),0)/last.sets.length;
+    const rpeArr=(last.sets||[]).filter(s=>s.rpe).map(s=>+s.rpe);
+    const avgRpe=rpeArr.length?rpeArr.reduce((a,b)=>a+b,0)/rpeArr.length:null;
+    const inc=getInc(histEx);
+    let nextW=maxW,col=T.cardio,icon="→",advice="";
+    if(avgReps>=7&&(!avgRpe||avgRpe<=8)){nextW=maxW+inc;col=T.accent;icon="📈";advice=`Séance réussie → +${inc}kg. Vise ${nextW}kg.`;}
+    else if(avgReps>=5){col=T.cardio;icon="→";advice=`Consolide ${maxW}kg. RPE ≤ 8 avant d'augmenter.`;}
+    else{nextW=Math.max(0,maxW-inc);col=T.hyper;icon="📉";advice=`Reps insuffisantes → réduis à ${nextW}kg.`;}
+    if(avgRpe)advice+=` RPE moy. : ${avgRpe.toFixed(1)}/10.`;
+    const allORM=(last.sets||[]).filter(x=>x.kg&&x.reps).map(x=>est1RM(+x.kg,+x.reps));
+    return{nextW,col,icon,advice,oneRM:allORM.length?Math.max(...allORM):null};
+  };
+  const rec=getRec();
+  const recentForEx=sessions.filter(s=>s.exercise===selEx).slice(-3).reverse();
+
+  return(
+    <>
+      <SessionTimer running={timerRunning} elapsed={timerElapsed} onToggle={onToggleTimer}/>
+      <RestTimer/>
+
+      {prFlash&&(
+        <div style={{background:`linear-gradient(135deg,${T.hyper}20,${T.accent}10)`,border:`1px solid ${T.hyper}60`,borderRadius:12,padding:"14px 16px",marginBottom:12,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:4}}>🏆</div>
+          <div style={{fontSize:14,fontWeight:700,color:T.hyper}}>NOUVEAU PR — {prFlash.ex}</div>
+          <div style={{fontSize:12,color:T.text,marginTop:4}}>1RM estimé : <strong style={{color:T.accent,fontSize:16}}>{prFlash.orm} kg</strong></div>
+        </div>
+      )}
+
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {[{id:"log",l:"📝 Enregistrer"},{id:"history",l:"📊 Historique"}].map(v=>(
+          <button key={v.id} onClick={()=>setView(v.id)} style={{flex:1,background:view===v.id?T.accent:T.card,color:view===v.id?T.bg:T.muted,border:`1px solid ${view===v.id?T.accent:T.border}`,borderRadius:8,padding:9,fontSize:11,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{v.l}</button>
+        ))}
+      </div>
+
+      {view==="log"&&(
+        <>
+          <div style={c.card()}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <div style={{width:4,height:20,background:exCol,borderRadius:2}}/>
+              <CardTitle col={exCol}>EXERCICE</CardTitle>
+            </div>
+            <select value={selEx} onChange={e=>{setSelEx(e.target.value);setSets([defSet(EX_TYPE_MAP[e.target.value]||ET.W)]);}} style={c.sel}>
+              {EX_DB.map(g=><optgroup key={g.g} label={g.g}>{g.list.map(ex=><option key={ex} value={ex}>{ex}</option>)}</optgroup>)}
+            </select>
+            <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+              <Pill label={`TYPE: ${type}`} col={exCol} small/>
+                          </div>
+            <CardTitle>SÉRIES</CardTitle>
+            <SmartHeaders type={type}/>
+            {sets.map((sv,i)=><SmartSetRow key={i} set={sv} idx={i} type={type} onUpdate={(idx,f,v)=>setSets(sets.map((s,j)=>j===idx?{...s,[f]:v}:s))} onRemove={idx=>setSets(sets.filter((_,j)=>j!==idx))}/>)}
+            {type===ET.W&&<div style={{fontSize:9,color:T.muted,textAlign:"right",marginBottom:8}}>RPE : 6=facile · 8=dur · 10=max</div>}
+            {type===ET.C&&<div style={{fontSize:9,color:T.muted,marginBottom:8}}>Distance : km (course) ou mètres (rameur) · Calories : airbike</div>}
+            <button onClick={()=>setSets([...sets,defSet(type)])} style={{width:"100%",background:T.card2,color:T.muted,border:`1px dashed ${T.border}`,borderRadius:8,padding:8,fontSize:10,fontFamily:ff,cursor:"pointer",marginBottom:12}}>+ AJOUTER SÉRIE</button>
+            <CardTitle>📝 NOTES</CardTitle>
+            <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Dos qui tire, super forme, charge trop lourde..." rows={2}
+              style={{width:"100%",background:T.card2,color:T.text,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 12px",fontSize:11,fontFamily:ff,resize:"vertical",boxSizing:"border-box",outline:"none",lineHeight:1.5}}/>
+          </div>
+          <Btn full onClick={logSession}>ENREGISTRER LA SÉANCE</Btn>
+          {msg&&<AlertBox type="success">{msg}</AlertBox>}
+          {recentForEx.length>0&&(
+            <div style={{...c.card(),marginTop:10}}>
+              <CardTitle col={exCol}>DERNIÈRES — {selEx.slice(0,22).toUpperCase()}</CardTitle>
+              {recentForEx.map((session,idx)=>{
+                const mw=Math.max(0,...(session.sets||[]).map(x=>+x.kg||0));
+                return(
+                  <div key={session.id} style={{borderBottom:idx<recentForEx.length-1?`1px solid ${T.border}`:"none",paddingBottom:10,marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <span style={{fontSize:11,color:T.white,fontWeight:700}}>{session.date}</span>
+                        {mw>0&&<Pill label={`${mw}kg`} col={T.accent} small/>}
+                      </div>
+                      <button onClick={()=>delSession(session.id)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer"}}>🗑</button>
+                    </div>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {(session.sets||[]).map((sv,si)=>{const parts=[sv.reps&&`${sv.reps}×`,sv.kg&&`${sv.kg}kg`,sv.duration_sec&&`${sv.duration_sec}s`,sv.duration_min&&`${sv.duration_min}min`,sv.rounds&&`${sv.rounds}rds`,sv.rpe&&`@${sv.rpe}`].filter(Boolean).join("");return<span key={si} style={{background:T.card2,color:T.white,fontSize:10,padding:"2px 7px",borderRadius:4}}>{parts}</span>;})}
+                    </div>
+                    {session.notes&&<div style={{fontSize:10,color:T.muted,fontStyle:"italic",marginTop:4}}>"{session.notes}"</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {view==="history"&&(
+        <>
+          <div style={c.card()}>
+            <CardTitle col={histCol}>EXERCICE</CardTitle>
+            <select value={histEx} onChange={e=>setHistEx(e.target.value)} style={c.sel}>
+              {EX_DB.map(g=><optgroup key={g.g} label={g.g}>{g.list.map(ex=>{const cnt=sessions.filter(s=>s.exercise===ex).length;return<option key={ex} value={ex}>{ex}{cnt?` (${cnt})`:""}</option>;})}</optgroup>)}
+            </select>
+          </div>
+          {histSessions.length===0?(
+            <div style={{textAlign:"center",padding:"40px 16px",color:T.muted}}><div style={{fontSize:40,marginBottom:12}}>📭</div><div style={{fontSize:12}}>Aucune séance pour cet exercice.</div></div>
+          ):(
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                <StatCard val={histSessions.length} label="Séances" col={histCol} icon="📅"/>
+                {WEIGHT_EX.has(histEx)&&<StatCard val={chartData.length?Math.max(...chartData.map(d=>d.max))+"kg":"—"} label="Record" col={T.accent} icon="🏆"/>}
+                <StatCard val={chartData.length?chartData[chartData.length-1].max+"kg":"—"} label="Dernière" col={T.endurance} icon="📊"/>
+              </div>
+              {rec&&(
+                <div style={{...c.accentCard(rec.col),marginBottom:10}}>
+                  <div style={{fontSize:10,fontWeight:700,color:rec.col,letterSpacing:"1px",marginBottom:6}}>🎯 PROCHAINE SÉANCE</div>
+                  <div style={{fontSize:24,fontWeight:700,color:rec.col,marginBottom:6}}>{rec.icon} {rec.nextW} kg</div>
+                  <div style={{fontSize:11,color:T.text,lineHeight:1.7,marginBottom:rec.oneRM?12:0}}>{rec.advice}</div>
+                  {rec.oneRM&&(
+                    <>
+                      <div style={{height:1,background:rec.col+"30",margin:"10px 0"}}/>
+                      <div style={{fontSize:10,color:T.muted,marginBottom:8}}>1RM ESTIMÉ : <strong style={{color:rec.col}}>{rec.oneRM}kg</strong></div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {[50,60,70,75,80,85,90,95].map(p=>(
+                          <span key={p} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 7px",fontSize:10}}>
+                            <span style={{color:T.muted}}>{p}%=</span><span style={{color:T.white,fontWeight:700}}>{pctOf(rec.oneRM,p)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {chartData.length>=2&&(
+                <div style={c.card()}>
+                  <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
+                    {[{id:"max",l:"POIDS",col:T.accent},{id:"orm",l:"1RM",col:T.strength},{id:"volume",l:"VOLUME",col:T.hyper},{id:"rpe",l:"RPE",col:T.cardio}].map(m=>(
+                      <button key={m.id} onClick={()=>setChartMode(m.id)} style={{background:chartMode===m.id?m.col:T.dim,color:chartMode===m.id?T.bg:T.muted,border:"none",borderRadius:5,padding:"4px 9px",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{m.l}</button>
+                    ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <AreaChart data={chartData} margin={{top:4,right:4,left:-26,bottom:0}}>
+                      <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={histCol} stopOpacity={0.3}/><stop offset="95%" stopColor={histCol} stopOpacity={0}/></linearGradient></defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                      <XAxis dataKey="date" tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                      <YAxis tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                      <Tooltip contentStyle={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,fontSize:11,fontFamily:ff}} labelStyle={{color:histCol}}/>
+                      <Area type="monotone" dataKey={chartMode} stroke={histCol} strokeWidth={2} fill="url(#cg)" dot={{fill:histCol,r:3,strokeWidth:0}} connectNulls/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              <div style={c.card()}>
+                <CardTitle>HISTORIQUE COMPLET</CardTitle>
+                {[...histSessions].reverse().map((s,idx)=>{
+                  const mw=Math.max(0,...(s.sets||[]).map(x=>+x.kg||0));
+                  const vol=(s.sets||[]).reduce((a,x)=>a+(+x.kg||0)*(+x.reps||0),0);
+                  return(
+                    <div key={s.id} style={{borderBottom:idx<histSessions.length-1?`1px solid ${T.border}`:"none",paddingBottom:10,marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:12,color:T.white,fontWeight:700}}>{s.date}</span>
+                          {idx===0&&<Pill label="RÉCENT" col={histCol} small/>}
+                          {mw>0&&<Pill label={`${mw}kg`} col={T.accent} small/>}
+                        </div>
+                        <button onClick={()=>delSession(s.id)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13}}>🗑</button>
+                      </div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                        {(s.sets||[]).map((sv,si)=>{const parts=[sv.reps&&`${sv.reps}×`,sv.kg&&`${sv.kg}kg`,sv.duration_sec&&`${sv.duration_sec}s`,sv.duration_min&&`${sv.duration_min}min`,sv.rounds&&`${sv.rounds}rds`,sv.rpe&&`@${sv.rpe}`].filter(Boolean).join("");return<span key={si} style={{background:T.card2,color:T.white,fontSize:10,padding:"2px 7px",borderRadius:4}}>{parts}</span>;})}
+                      </div>
+                      {s.notes&&<div style={{fontSize:10,color:T.muted,fontStyle:"italic",marginTop:4}}>💬 {s.notes}</div>}
+                      {vol>0&&<div style={{fontSize:10,color:T.muted,marginTop:3}}>Volume : {Math.round(vol).toLocaleString()} kg×reps</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── HISTORY TAB ───────────────────────────────────────────────────────────────
+function HistoryTab({sessions}){
+  const[filter,setFilter]=useState("week");
+  const cut=new Date(Date.now()-{week:7,month:30,all:365*10}[filter]*864e5).toISOString().split("T")[0];
+  const filtered=[...sessions].filter(s=>s.dateISO>=cut).sort((a,b)=>b.dateISO>a.dateISO?1:-1);
+  const grouped={};filtered.forEach(s=>{if(!grouped[s.dateISO])grouped[s.dateISO]=[];grouped[s.dateISO].push(s);});
+  return(
+    <>
+      <div style={{display:"flex",gap:5,marginBottom:14,background:T.card2,borderRadius:10,padding:4}}>
+        {[["week","7 JOURS"],["month","30 JOURS"],["all","TOUT"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setFilter(id)} style={{flex:1,background:filter===id?T.accent:"transparent",color:filter===id?T.bg:T.muted,border:"none",borderRadius:7,padding:"8px 4px",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      {Object.keys(grouped).length===0&&<div style={{textAlign:"center",padding:"40px 16px",color:T.muted}}><div style={{fontSize:40,marginBottom:12}}>📭</div><div style={{fontSize:12}}>Aucune séance sur cette période.</div></div>}
+      {Object.entries(grouped).sort((a,b)=>b[0]>a[0]?1:-1).map(([date,daySessions])=>{
+        const dayLabel=new Date(date).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
+        const totalVol=daySessions.reduce((a,s)=>a+(s.sets||[]).reduce((b,x)=>b+(+x.kg||0)*(+x.reps||0),0),0);
+        return(
+          <div key={date} style={{marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:700,color:T.accent,textTransform:"uppercase"}}>{dayLabel}</div>
+              {totalVol>0&&<Pill label={`${(totalVol/1000).toFixed(1)}t`} col={T.strength} small/>}
+              <div style={{flex:1,height:1,background:T.border}}/>
+            </div>
+            {daySessions.map(s=>{
+              const col=EX_COL_MAP[s.exercise]||T.accent;
+              const mw=Math.max(0,...(s.sets||[]).map(x=>+x.kg||0));
+              return(
+                <div key={s.id} style={{background:T.card,border:`1px solid ${T.border}`,borderLeft:`3px solid ${col}`,borderRadius:10,padding:"10px 14px",marginBottom:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:12,fontWeight:700,color:T.white}}>{s.exercise}</span>
+                                          </div>
+                    <div style={{display:"flex",gap:5}}>{mw>0&&<Pill label={`${mw}kg`} col={T.accent} small/>}<Pill label={`×${s.sets?.length||0}`} col={col} small/></div>
+                  </div>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                    {(s.sets||[]).map((sv,si)=>{const parts=[sv.reps&&`${sv.reps}×`,sv.kg&&`${sv.kg}kg`,sv.duration_sec&&`${sv.duration_sec}s`,sv.duration_min&&`${sv.duration_min}min`,sv.rounds&&`${sv.rounds}rds`,sv.rpe&&`@${sv.rpe}`].filter(Boolean).join("");return<span key={si} style={{background:T.card2,color:T.text,fontSize:10,padding:"2px 6px",borderRadius:4}}>{parts}</span>;})}
+                  </div>
+                  {s.notes&&<div style={{fontSize:10,color:T.muted,fontStyle:"italic",marginTop:5}}>💬 {s.notes}</div>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// ── PRs TAB ───────────────────────────────────────────────────────────────────
+function PRsTab({sessions}){
+  const[objectives,setObjectives]=useState([]);
+  const[showAdd,setShowAdd]=useState(false);
+  const[objEx,setObjEx]=useState(ALL_EX[0]);
+  const[objTarget,setObjTarget]=useState("");
+  const[objDate,setObjDate]=useState("");
+  const[loaded,setLoaded]=useState(false);
+  useEffect(()=>{DB.get("objectives_v2").then(d=>{if(d)setObjectives(d);setLoaded(true);});},[]);
+  const persistObj=d=>DB.set("objectives_v2",d);
+  const addObj=async()=>{
+    if(!objTarget)return;
+    const o={id:Date.now(),exercise:objEx,target:+objTarget,targetDate:objDate,created:new Date().toLocaleDateString("fr-FR")};
+    const updated=[...objectives,o];setObjectives(updated);await persistObj(updated);setShowAdd(false);setObjTarget("");setObjDate("");
+  };
+  const delObj=async(id)=>{const u=objectives.filter(o=>o.id!==id);setObjectives(u);await persistObj(u);};
+  const prMap={};
+  sessions.forEach(s=>{(s.sets||[]).forEach(x=>{if(!x.kg||!x.reps)return;const orm=est1RM(+x.kg,+x.reps);if(!prMap[s.exercise]||orm>prMap[s.exercise].orm)prMap[s.exercise]={orm,date:s.date,w:+x.kg,r:+x.reps};});});
+  const prs=Object.entries(prMap).sort((a,b)=>b[1].orm-a[1].orm);
+  return(
+    <>
+      <SportHero col={T.hyper} icon="🏆" title="Personal Records" sub="1RM estimé Epley + Brzycki"/>
+      <div style={c.card()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <CardTitle col={T.power}>🎯 OBJECTIFS</CardTitle>
+          <Btn small col={T.power} onClick={()=>setShowAdd(!showAdd)}>{showAdd?"ANNULER":"+ AJOUTER"}</Btn>
+        </div>
+        {showAdd&&(
+          <div style={{background:T.card2,borderRadius:10,padding:12,marginBottom:12}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6}}>EXERCICE</div>
+            <select value={objEx} onChange={e=>setObjEx(e.target.value)} style={{...c.sel,marginBottom:8}}>
+              {EX_DB.map(g=><optgroup key={g.g} label={g.g}>{g.list.map(ex=><option key={ex} value={ex}>{ex}</option>)}</optgroup>)}
+            </select>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <div><div style={{fontSize:10,color:T.muted,marginBottom:4}}>OBJECTIF (kg / 1RM)</div><input type="number" placeholder="100" value={objTarget} onChange={e=>setObjTarget(e.target.value)} style={{background:T.card,color:T.white,border:`1px solid ${T.border}`,borderRadius:6,padding:"8px",fontSize:14,fontFamily:ff,fontWeight:700,width:"100%",boxSizing:"border-box",outline:"none",textAlign:"center"}}/></div>
+              <div><div style={{fontSize:10,color:T.muted,marginBottom:4}}>DATE CIBLE</div><input type="date" value={objDate} onChange={e=>setObjDate(e.target.value)} style={{background:T.card,color:T.white,border:`1px solid ${T.border}`,borderRadius:6,padding:"8px",fontSize:11,fontFamily:ff,width:"100%",boxSizing:"border-box",outline:"none"}}/></div>
+            </div>
+            <Btn full col={T.power} onClick={addObj}>CRÉER L'OBJECTIF</Btn>
+          </div>
+        )}
+        {objectives.length===0&&!showAdd&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"16px 0"}}>Aucun objectif. Définis-en un pour suivre ta progression.</div>}
+        {objectives.map(obj=>{
+          const pr=prMap[obj.exercise];const current=pr?pr.orm:0;const pct=Math.min(100,Math.round(current/obj.target*100));
+          const daysLeft=obj.targetDate?Math.max(0,Math.round((new Date(obj.targetDate)-new Date())/864e5)):null;
+          const col=pct>=100?T.power:pct>=80?T.cardio:T.strength;
+          return(
+            <div key={obj.id} style={{background:T.card2,borderRadius:10,padding:12,marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div><div style={{fontSize:12,fontWeight:700,color:T.white}}>{obj.exercise}</div><div style={{fontSize:10,color:T.muted}}>Créé le {obj.created}{daysLeft!==null?` · ${daysLeft}j restants`:""}</div></div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:14,fontWeight:700,color:col}}>{current}→{obj.target}kg</div><div style={{fontSize:9,color:T.muted}}>actuel → cible</div></div>
+                  <button onClick={()=>delObj(obj.id)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer"}}>🗑</button>
+                </div>
+              </div>
+              <div style={{height:8,background:T.dim,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${col},${col}AA)`,borderRadius:4}}/></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><span style={{fontSize:10,color:T.muted}}>0kg</span><span style={{fontSize:10,fontWeight:700,color:col}}>{pct}%</span><span style={{fontSize:10,color:T.muted}}>{obj.target}kg</span></div>
+              {pct>=100&&<div style={{fontSize:11,color:T.power,marginTop:6,fontWeight:700}}>🎉 OBJECTIF ATTEINT !</div>}
+            </div>
+          );
+        })}
+      </div>
+      {prs.length===0&&<div style={{textAlign:"center",padding:"30px 16px",color:T.muted}}><div style={{fontSize:32,marginBottom:8}}>📭</div><div style={{fontSize:12}}>Aucun PR détecté. Commence à logger tes séances.</div></div>}
+      {prs.length>0&&(
+        <div style={c.card()}>
+          <CardTitle>{prs.length} PRs ENREGISTRÉS</CardTitle>
+          {prs.map(([ex,pr],i)=>(
+            <div key={ex} style={{borderBottom:i<prs.length-1?`1px solid ${T.border}`:"none",paddingBottom:12,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                    <span style={{fontSize:12,color:T.white,fontWeight:700}}>{ex}</span>
+                                      </div>
+                  <div style={{fontSize:10,color:T.muted}}>{pr.date} · {pr.w}kg × {pr.r} rep{+pr.r>1?"s":""}</div>
+                </div>
+                <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:700,color:T.hyper}}>≈{pr.orm}kg</div><div style={{fontSize:9,color:T.muted}}>1RM estimé</div></div>
+              </div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {[65,70,75,80,85,90,95].map(p=>(
+                  <span key={p} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:5,padding:"2px 7px",fontSize:10}}>
+                    <span style={{color:T.muted}}>{p}%=</span><span style={{color:T.accent,fontWeight:700}}>{pctOf(pr.orm,p)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── SUIVI TAB ─────────────────────────────────────────────────────────────────
+function SuiviTab({sessions,bodyData,setBodyData,recovery,setRecovery}){
+  const[view,setView]=useState("form");
+  const[bw,setBw]=useState("");const[sleep,setSleep]=useState("");const[fatigue,setFatigue]=useState(3);const[stress,setStress]=useState(3);
+  const[protScore,setProtScore]=useState(null);const[carbScore,setCarbScore]=useState(null);const[hydration,setHydration]=useState(6);
+  const[msg,setMsg]=useState("");
+  const save=async()=>{
+    const today=new Date().toLocaleDateString("fr-FR");const iso=new Date().toISOString().split("T")[0];
+    if(bw){const b=[...bodyData,{date:today,dateISO:iso,weight:+bw}];setBodyData(b);await DB.set("body_v5",b);}
+    const entry={id:Date.now(),date:today,dateISO:iso,sleep:+sleep||null,fatigue,stress,protScore,carbScore,hydration};
+    const r=[...recovery,entry];setRecovery(r);await DB.set("recov_v5",r);
+    setBw("");setSleep("");setMsg("✓ Données enregistrées !");setTimeout(()=>setMsg(""),2500);
+  };
+  const acwr=useMemo(()=>calcACWR(sessions),[sessions]);
+  const corrData=useMemo(()=>{
+    const days=[...new Set(sessions.map(s=>s.dateISO))].sort().slice(-14);
+    return days.map(iso=>{
+      const ds=sessions.filter(s=>s.dateISO===iso);
+      const rpeArr=ds.flatMap(s=>(s.sets||[]).filter(x=>x.rpe).map(x=>+x.rpe));
+      const avgRPE=rpeArr.length?+(rpeArr.reduce((a,b)=>a+b,0)/rpeArr.length).toFixed(1):null;
+      const re=recovery.find(r=>r.dateISO===iso);
+      const date=new Date(iso).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
+      return{date,avgRPE,fatigue:re?.fatigue||null,sleep:re?.sleep||null};
+    });
+  },[sessions,recovery]);
+  const radarData=useMemo(()=>{
+    const weekAgo=new Date(Date.now()-7*864e5).toISOString().split("T")[0];
+    const recent=sessions.filter(s=>s.dateISO>=weekAgo);
+    return Object.entries(MG_MAP).map(([group,exercises])=>({group:group.slice(0,6),count:recent.filter(s=>exercises.includes(s.exercise)).length,fullMark:6}));
+  },[sessions]);
+  const bodyChart=bodyData.slice(-20).sort((a,b)=>a.dateISO>b.dateISO?1:-1);
+  const recovChart=recovery.slice(-14).sort((a,b)=>a.dateISO>b.dateISO?1:-1);
+  const avgFatigue3=recovery.slice(-3).reduce((a,r)=>a+r.fatigue,0)/Math.max(1,recovery.slice(-3).length);
+  const avgSleep5=recovery.filter(r=>r.sleep).slice(-5).reduce((a,r,_,arr)=>a+r.sleep/arr.length,0);
+  return(
+    <>
+      {avgFatigue3>=4&&<AlertBox type="danger">🔴 Fatigue élevée ({avgFatigue3.toFixed(1)}/5 sur 3 jours) → Réduis le volume de 40% cette semaine.</AlertBox>}
+      {avgSleep5>0&&avgSleep5<6.5&&<AlertBox type="warn">⚠️ Sommeil insuffisant (moy. {avgSleep5.toFixed(1)}h) → Priorise le sommeil. Réduis les séances du soir.</AlertBox>}
+      {acwr&&(
+        <div style={c.card()}>
+          <CardTitle col={acwr.ratio>1.5?T.combat:acwr.ratio>1.3?T.cardio:T.power}>⚡ ACWR — {acwr.ratio}</CardTitle>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+            <StatCard val={acwr.ratio} label="Ratio" col={acwr.ratio>1.5?T.combat:acwr.ratio>1.3?T.cardio:T.power}/>
+            <StatCard val={acwr.acute} label="Charge 7j" col={T.strength}/>
+            <StatCard val={acwr.chronic} label="Charge 28j" col={T.endurance}/>
+          </div>
+          <div style={{height:8,background:T.dim,borderRadius:4,overflow:"hidden",marginBottom:6}}><div style={{height:"100%",width:`${Math.min(100,acwr.ratio/2*100)}%`,background:acwr.ratio>1.5?T.combat:acwr.ratio>1.3?T.cardio:T.power,borderRadius:4}}/></div>
+          <div style={{fontSize:11,color:T.text}}>{acwr.ratio<0.8?"⬇️ Charge trop faible — tu peux augmenter.":acwr.ratio<=1.3?"✅ Zone optimale — bonne progression.":acwr.ratio<=1.5?"⚠️ Charge élevée — surveille la fatigue.":"🔴 Zone rouge — risque blessure élevé. Réduis."}</div>
+        </div>
+      )}
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {[{id:"form",l:"📋 Saisir"},{id:"graphs",l:"📈 Graphiques"}].map(v=><button key={v.id} onClick={()=>setView(v.id)} style={{flex:1,background:view===v.id?T.accent:T.card,color:view===v.id?T.bg:T.muted,border:`1px solid ${view===v.id?T.accent:T.border}`,borderRadius:8,padding:9,fontSize:11,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{v.l}</button>)}
+      </div>
+      {view==="form"&&(
+        <div style={c.card()}>
+          <CardTitle>{new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase()}</CardTitle>
+          {[{label:"POIDS DE CORPS (kg)",val:bw,set:setBw,placeholder:"93.0",col:T.endurance,step:"0.1",min:50,max:200},{label:"SOMMEIL (heures)",val:sleep,set:setSleep,placeholder:"7.5",col:T.strength,step:"0.5",min:3,max:12}].map(({label,val,set,placeholder,col,step,min,max})=>(
+            <div key={label} style={{marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:col,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
+              <input type="number" min={min} max={max} step={step} placeholder={placeholder} value={val} onChange={e=>set(e.target.value)} style={{background:T.card2,color:col,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px",fontSize:16,fontFamily:ff,fontWeight:700,width:"100%",boxSizing:"border-box",outline:"none",textAlign:"center"}}/>
+            </div>
+          ))}
+          {[{label:"FATIGUE MUSCULAIRE",val:fatigue,set:setFatigue,col:T.cardio,legend:["Fraîche","Légère","Modérée","Élevée","Épuisé"]},{label:"STRESS GÉNÉRAL",val:stress,set:setStress,col:T.hyper,legend:["Zen","Calme","Moyen","Élevé","Max"]}].map(({label,val,set,col,legend})=>(
+            <div key={label} style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{fontSize:10,fontWeight:700,color:col,textTransform:"uppercase",letterSpacing:"1px"}}>{label}</div><span style={{fontSize:10,color:col}}>{legend[val-1]}</span></div>
+              <div style={{display:"flex",gap:4}}>{[1,2,3,4,5].map(v=><button key={v} onClick={()=>set(v)} style={{flex:1,background:val>=v?col:T.dim,color:val>=v?T.bg:T.muted,border:"none",borderRadius:6,padding:"8px 0",fontSize:12,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{v}</button>)}</div>
+            </div>
+          ))}
+          <div style={{height:1,background:T.border,margin:"12px 0"}}/>
+          <CardTitle>🍽 NUTRITION</CardTitle>
+          {[{label:"PROTÉINES (~200g/j)",val:protScore,set:setProtScore,opts:[["oui","✓ ATTEINT",T.power],["partial","≈ PARTIEL",T.cardio],["non","✗ MANQUÉ",T.combat]]},{label:"GLUCIDES PRÉ/POST SÉANCE",val:carbScore,set:setCarbScore,opts:[["oui","✓ OUI",T.power],["partial","≈ PARTIEL",T.cardio],["non","✗ NON",T.combat]]}].map(({label,val,set,opts})=>(
+            <div key={label} style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>{label}</div>
+              <div style={{display:"flex",gap:5}}>{opts.map(([v,l,col])=><button key={v} onClick={()=>set(v)} style={{flex:1,background:val===v?col:T.dim,color:val===v?T.bg:T.muted,border:"none",borderRadius:7,padding:"8px 0",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{l}</button>)}</div>
+            </div>
+          ))}
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"1px"}}>💧 HYDRATATION</div><span style={{fontSize:10,color:T.endurance}}>{hydration} verres</span></div>
+            <div style={{display:"flex",gap:3}}>{[4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setHydration(v)} style={{flex:1,background:hydration>=v?T.endurance:T.dim,color:hydration>=v?T.bg:T.muted,border:"none",borderRadius:5,padding:"7px 0",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{v}</button>)}</div>
+          </div>
+          <Btn full onClick={save}>ENREGISTRER</Btn>
+          {msg&&<AlertBox type="success">{msg}</AlertBox>}
+        </div>
+      )}
+      {view==="graphs"&&(
+        <>
+          <div style={c.card()}>
+            <CardTitle>🕸 ÉQUILIBRE MUSCULAIRE — 7 JOURS</CardTitle>
+            <ResponsiveContainer width="100%" height={200}>
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                <PolarGrid stroke={T.border}/><PolarAngleAxis dataKey="group" tick={{fill:T.muted,fontSize:10}}/>
+                <Radar name="Séances" dataKey="count" stroke={T.accent} fill={T.accent} fillOpacity={0.2}/>
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          {corrData.filter(d=>d.avgRPE||d.fatigue).length>=2&&(
+            <div style={c.card()}>
+              <CardTitle>📈 FORME vs RÉCUPÉRATION</CardTitle>
+              <ResponsiveContainer width="100%" height={140}>
+                <LineChart data={corrData} margin={{top:4,right:4,left:-26,bottom:0}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                  <XAxis dataKey="date" tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                  <Tooltip contentStyle={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,fontSize:11,fontFamily:ff}}/>
+                  <Line type="monotone" dataKey="avgRPE" stroke={T.cardio} strokeWidth={2} dot={{fill:T.cardio,r:3,strokeWidth:0}} name="RPE" connectNulls/>
+                  <Line type="monotone" dataKey="fatigue" stroke={T.hyper} strokeWidth={2} dot={{fill:T.hyper,r:3,strokeWidth:0}} name="Fatigue /5" connectNulls/>
+                  <Line type="monotone" dataKey="sleep" stroke={T.endurance} strokeWidth={2} dot={{fill:T.endurance,r:3,strokeWidth:0}} name="Sommeil (h)" connectNulls/>
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{display:"flex",gap:14,marginTop:8}}>{[["RPE",T.cardio],["Fatigue /5",T.hyper],["Sommeil",T.endurance]].map(([l,col])=><span key={l} style={{fontSize:10,color:col}}>■ {l}</span>)}</div>
+            </div>
+          )}
+          {bodyChart.length>=2&&(
+            <div style={c.card()}>
+              <CardTitle col={T.endurance}>POIDS DE CORPS</CardTitle>
+              <ResponsiveContainer width="100%" height={140}>
+                <AreaChart data={bodyChart} margin={{top:4,right:4,left:-26,bottom:0}}>
+                  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.endurance} stopOpacity={0.3}/><stop offset="95%" stopColor={T.endurance} stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                  <XAxis dataKey="date" tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false} domain={["auto","auto"]}/>
+                  <Tooltip contentStyle={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,fontSize:11,fontFamily:ff}} labelStyle={{color:T.endurance}}/>
+                  <Area type="monotone" dataKey="weight" stroke={T.endurance} strokeWidth={2} fill="url(#bg)" dot={{fill:T.endurance,r:3,strokeWidth:0}} name="Poids (kg)"/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {recovChart.length>=2&&(
+            <div style={c.card()}>
+              <CardTitle col={T.cardio}>FATIGUE & SOMMEIL</CardTitle>
+              <ResponsiveContainer width="100%" height={140}>
+                <LineChart data={recovChart} margin={{top:4,right:4,left:-26,bottom:0}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
+                  <XAxis dataKey="date" tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{fill:T.muted,fontSize:8}} tickLine={false} axisLine={false}/>
+                  <Tooltip contentStyle={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,fontSize:11,fontFamily:ff}}/>
+                  <Line type="monotone" dataKey="fatigue" stroke={T.cardio} strokeWidth={2} dot={{fill:T.cardio,r:3,strokeWidth:0}} name="Fatigue /5"/>
+                  <Line type="monotone" dataKey="sleep" stroke={T.endurance} strokeWidth={2} dot={{fill:T.endurance,r:3,strokeWidth:0}} name="Sommeil (h)" connectNulls/>
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{display:"flex",gap:14,marginTop:8}}><span style={{fontSize:10,color:T.cardio}}>■ Fatigue /5</span><span style={{fontSize:10,color:T.endurance}}>■ Sommeil (h)</span></div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── MACROS TAB ────────────────────────────────────────────────────────────────
+function MacrosTab({bodyData}){
+  const lastW=bodyData.length?bodyData[bodyData.length-1].weight:93;
+  const[weight,setWeight]=useState(lastW);
+  const[goal,setGoal]=useState("recomp");
+  const[activity,setActivity]=useState("moderate");
+  const[result,setResult]=useState(null);
+  const calc=()=>{
+    const bmr=10*weight+6.25*175-5*22+5;
+    const actMult={low:1.375,moderate:1.55,high:1.725}[activity];
+    const tdee=Math.round(bmr*actMult);
+    const adj={cut:-400,recomp:-150,bulk:300}[goal];
+    const kcal=tdee+adj;const prot=Math.round(weight*2.1);const fat=Math.round(weight*0.9);
+    const carbs=Math.round((kcal-prot*4-fat*9)/4);
+    setResult({kcal,prot,carbs:Math.max(0,carbs),fat,tdee});
+  };
+  return(
+    <>
+      <SportHero col={T.power} icon="🍽" title="Calculateur Macros" sub="Personnalisé selon ta morphologie"/>
+      <div style={c.card()}>
+        <div style={{marginBottom:14}}><div style={{fontSize:10,color:T.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:6}}>POIDS ACTUEL (kg)</div><input type="number" value={weight} onChange={e=>setWeight(+e.target.value)} style={{background:T.card2,color:T.accent,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px",fontSize:18,fontFamily:ff,fontWeight:700,width:"100%",boxSizing:"border-box",outline:"none",textAlign:"center"}}/></div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:8}}>OBJECTIF</div>
+          {[["cut","🔥 PERTE DE GRAS","-400 kcal/j",T.hyper],["recomp","⚖️ RECOMPOSITION","-150 kcal/j",T.cardio],["bulk","💪 PRISE DE MASSE","+300 kcal/j",T.power]].map(([id,l,sub,col])=>(
+            <button key={id} onClick={()=>setGoal(id)} style={{width:"100%",background:goal===id?col+"20":T.card2,color:goal===id?col:T.muted,border:`1px solid ${goal===id?col+"50":T.border}`,borderRadius:8,padding:"10px 14px",fontSize:11,fontWeight:700,fontFamily:ff,cursor:"pointer",marginBottom:5,textAlign:"left",display:"flex",justifyContent:"space-between"}}>
+              <span>{l}</span><span style={{fontSize:10,opacity:0.7}}>{sub}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:8}}>NIVEAU D'ACTIVITÉ</div>
+          {[["low","🚶 LÉGER","1-3 séances/sem"],["moderate","🏋️ MODÉRÉ","4-5 séances/sem"],["high","⚡ ÉLEVÉ","6+ séances/sem"]].map(([id,l,sub])=>(
+            <button key={id} onClick={()=>setActivity(id)} style={{width:"100%",background:activity===id?T.accent+"20":T.card2,color:activity===id?T.accent:T.muted,border:`1px solid ${activity===id?T.accent+"50":T.border}`,borderRadius:8,padding:"10px 14px",fontSize:11,fontWeight:700,fontFamily:ff,cursor:"pointer",marginBottom:5,textAlign:"left",display:"flex",justifyContent:"space-between"}}>
+              <span>{l}</span><span style={{fontSize:10,opacity:0.7}}>{sub}</span>
+            </button>
+          ))}
+        </div>
+        <Btn full col={T.power} onClick={calc}>CALCULER MES MACROS</Btn>
+      </div>
+      {result&&(
+        <>
+          <div style={{...c.accentCard(T.power),padding:16}}>
+            <div style={{fontSize:10,color:T.power,fontWeight:700,letterSpacing:"2px",marginBottom:8}}>RÉSULTATS — TDEE : {result.tdee} kcal</div>
+            <div style={{fontSize:28,fontWeight:700,color:T.accent,marginBottom:14}}>{result.kcal} kcal / jour</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[{val:result.prot+"g",l:"Protéines",col:T.strength,sub:`${result.prot*4} kcal`},{val:result.carbs+"g",l:"Glucides",col:T.cardio,sub:`${result.carbs*4} kcal`},{val:result.fat+"g",l:"Lipides",col:T.hyper,sub:`${result.fat*9} kcal`}].map(sv=>(
+                <div key={sv.l} style={{background:T.card,border:`1px solid ${sv.col}30`,borderTop:`2px solid ${sv.col}`,borderRadius:10,padding:10,textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:sv.col}}>{sv.val}</div>
+                  <div style={{fontSize:9,color:T.muted}}>{sv.l.toUpperCase()}</div>
+                  <div style={{fontSize:9,color:sv.col,marginTop:2,opacity:0.7}}>{sv.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ── HOME TAB ──────────────────────────────────────────────────────────────────
+function HomeTab({sessions,bodyData,recovery,onTab}){
+  const today=new Date().toISOString().split("T")[0];
+  const weekAgo=new Date(Date.now()-7*864e5).toISOString().split("T")[0];
+  const thisWeek=sessions.filter(s=>s.dateISO>=weekAgo);
+  const days=[...new Set(sessions.map(s=>s.dateISO))].sort().reverse();
+  let streak=0,check=today;
+  for(const d of days){const diff=(new Date(check)-new Date(d))/864e5;if(diff<=1){streak++;check=d;}else break;}
+  const acwr=useMemo(()=>calcACWR(sessions),[sessions]);
+  const lastW=bodyData.length?bodyData[bodyData.length-1].weight:null;
+  const prevW=bodyData.length>=2?bodyData[bodyData.length-2].weight:null;
+  const weightDelta=lastW&&prevW?(lastW-prevW).toFixed(1):null;
+  const weekVol=thisWeek.reduce((a,s)=>a+(s.sets||[]).reduce((b,x)=>b+(+x.kg||0)*(+x.reps||0),0),0);
+  const prMap={};sessions.forEach(s=>{(s.sets||[]).forEach(x=>{if(!x.kg||!x.reps)return;const orm=est1RM(+x.kg,+x.reps);if(!prMap[s.exercise]||orm>prMap[s.exercise].orm)prMap[s.exercise]={orm,date:s.date,w:+x.kg,r:+x.reps};});});
+  const prs=Object.entries(prMap).sort((a,b)=>b[1].date>a[1].date?1:-1).slice(0,4);
+  const avgFatigue=recovery.slice(-3).reduce((a,r)=>a+r.fatigue,0)/Math.max(1,recovery.slice(-3).length);
+  const avgSleep=recovery.filter(r=>r.sleep).slice(-5).reduce((a,r,_,arr)=>a+r.sleep/arr.length,0);
+  const needsDeload=avgFatigue>=4||avgSleep<6.5||(acwr&&acwr.ratio>1.5);
+  return(
+    <>
+      <div style={{position:"relative",borderRadius:16,overflow:"hidden",marginBottom:16,background:"linear-gradient(135deg,#0A1628 0%,#0D1F3A 50%,#050C18 100%)",border:`1px solid ${T.border}`,padding:"22px 20px"}}>
+        <div style={{position:"absolute",top:-30,right:-30,width:180,height:180,borderRadius:"50%",background:`radial-gradient(circle,${T.accent}15 0%,transparent 70%)`,pointerEvents:"none"}}/>
+        <div style={{position:"relative"}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6}}>{new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</div>
+          <div style={{fontSize:20,fontWeight:700,color:T.white,letterSpacing:"-0.5px",marginBottom:8}}>{sessions.some(s=>s.dateISO===today)?"Séance loggée ✓":"Bonne séance aujourd'hui ?"}</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <Pill label={`🔥 ${streak} jours`} col={T.accent}/>
+            <Pill label={`💪 ${thisWeek.length} séances/sem`} col={T.strength}/>
+            {lastW&&<Pill label={`⚖️ ${lastW}kg`} col={T.endurance}/>}
+          </div>
+        </div>
+      </div>
+      {needsDeload&&<AlertBox type="danger">⚠️ <strong>SIGNAL DE DÉCHARGE</strong> — {avgFatigue>=4?`Fatigue : ${avgFatigue.toFixed(1)}/5. `:""}{avgSleep>0&&avgSleep<6.5?`Sommeil : ${avgSleep.toFixed(1)}h. `:""}{acwr?.ratio>1.5?`ACWR : ${acwr.ratio}. `:""}Réduis le volume de 40-50% cette semaine.</AlertBox>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+        <StatCard val={streak} label="Streak" col={T.accent} icon="🔥"/>
+        <StatCard val={prs.length} label="PRs" col={T.hyper} icon="🏆"/>
+        <StatCard val={acwr?acwr.ratio:"—"} label="ACWR" col={acwr?(acwr.ratio>1.5?T.combat:acwr.ratio>1.3?T.cardio:T.power):T.muted} icon="⚡"/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        <StatCard val={weekVol>0?`${(weekVol/1000).toFixed(1)}t`:"—"} label="Volume / sem." col={T.strength} icon="📊" sub={`${thisWeek.length} séances`}/>
+        <StatCard val={lastW?`${lastW}kg`:"—"} label="Poids corps" col={T.endurance} icon="⚖️" sub={weightDelta?`${+weightDelta>0?"+":""}${weightDelta}kg`:""}/>
+      </div>
+      <div style={c.card()}>
+        <CardTitle>ACCÈS RAPIDE</CardTitle>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {[["🎯 Ma séance du jour","seance",T.accent],["📓 Logger une séance","journal",T.strength],["📅 Historique","history",T.cardio],["🏆 Voir mes PRs","prs",T.hyper],["📊 Suivi quotidien","suivi",T.endurance],["🍽 Calculer mes macros","macros",T.power]].map(([l,tab,col])=>(
+            <button key={tab} onClick={()=>onTab(tab)} style={{background:col+"12",color:col,border:`1px solid ${col}30`,borderRadius:8,padding:"10px 12px",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer",textAlign:"left"}}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {prs.length>0&&(
+        <div style={c.card()}>
+          <CardTitle col={T.hyper}>🏆 DERNIERS PRs</CardTitle>
+          {prs.map(([ex,pr],i)=>(
+            <div key={ex} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<prs.length-1?`1px solid ${T.border}`:"none",padding:"7px 0"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{fontSize:11,color:T.white,fontWeight:700}}>{ex}</span></div>
+                <div style={{fontSize:10,color:T.muted}}>{pr.date} · {pr.w}kg × {pr.r} reps</div>
+              </div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:700,color:T.hyper}}>≈{pr.orm}kg</div><div style={{fontSize:9,color:T.muted}}>1RM</div></div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={c.card()}>
+        <CardTitle>📅 SEMAINE EN COURS</CardTitle>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+          {["L","M","M","J","V","S","D"].map((day,i)=>{
+            const date=new Date();const dow=date.getDay();const diff=i-(dow===0?6:dow-1);date.setDate(date.getDate()+diff);
+            const iso=date.toISOString().split("T")[0];const cnt=sessions.filter(s=>s.dateISO===iso).length;const isToday=iso===today;
+            return(
+              <div key={i} style={{textAlign:"center"}}>
+                <div style={{fontSize:9,color:isToday?T.accent:T.muted,fontWeight:isToday?700:400,marginBottom:4}}>{day}</div>
+                <div style={{height:34,borderRadius:7,background:cnt>0?T.accent:isToday?T.dim:T.card2,border:`1px solid ${isToday?T.accent+"60":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cnt>0?12:11,color:cnt>0?T.bg:isToday?T.accent:T.muted,fontWeight:700}}>
+                  {cnt>0?"✓":isToday?"·":""}
+                </div>
+                {cnt>1&&<div style={{fontSize:8,color:T.accent,marginTop:2}}>×{cnt}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── SESSION GENERATOR ─────────────────────────────────────────────────────────
+const SESSIONS={
+  force_court:{label:"Force Express",col:T.strength,dur:"40 min",focus:"force",desc:"Lifts principaux, intensité maximale.",blks:[{n:"ACTIVATION",items:[["Corde à sauter","3 min"],["Box Jump","4×3"]]},{n:"FORCE PURE",items:[["Squat barre","4×3 @ 85%","RPE 8"],["Soulevé de terre trap bar","3×3 @ 85%","RPE 8"]]},{n:"CORE",items:[["Dead bug","2×8/côté"],["Gainage latéral","2×30s"]]}]},
+  force_long:{label:"Force Complète",col:T.strength,dur:"90 min",focus:"force",desc:"5 lifts + accessoires. Session référence.",blks:[{n:"ACTIVATION",items:[["Corde à sauter","3 min"],["Box Jump","4×3"]]},{n:"SQUAT / HINGE",items:[["Squat barre","5×4 @ 80%","RPE 8"],["Romanian Deadlift","4×6 @ 70%","RPE 7"]]},{n:"HAUT DU CORPS",items:[["Développé incliné haltères","4×6","RPE 8"],["Row barre Pendlay","4×5","RPE 8"]]},{n:"ACCESSOIRES",items:[["Tractions pronation","3×max"],["Fentes marchées","3×8/jambe"]]},{n:"CORE",items:[["Pallof press","3×12/côté"],["Hanging leg raise","3×10"]]}]},
+  hyper_court:{label:"Hypertrophie Express",col:T.hyper,dur:"45 min",focus:"hyper",desc:"Supersets antagonistes. Pump maximal.",blks:[{n:"SUPERSET A (3 tours)",items:[["Développé couché haltères","10 reps →","RPE 8"],["Tractions pronation","8 reps","RPE 8"]]},{n:"SUPERSET B (3 tours)",items:[["Leg press","12 reps →","RPE 8"],["Leg curl allongé","12 reps","RPE 8"]]},{n:"BRAS",items:[["Curl marteau","3×12"],["Triceps poulie haute corde","3×15"]]}]},
+  hyper_long:{label:"Hypertrophie Complète",col:T.hyper,dur:"80 min",focus:"hyper",desc:"Volume élevé, connexion musculaire.",blks:[{n:"PUSH",items:[["Développé incliné haltères","4×10","RPE 8"],["Élévation latérale haltères","4×15"]]},{n:"PULL",items:[["Tirage vertical poulie","4×10","RPE 8"],["Row unilatéral haltère","4×10"],["Face pull","3×15"]]},{n:"BRAS",items:[["Curl barre EZ","3×12"],["Curl marteau","3×10"],["Skull crusher EZ","3×12"],["Triceps poulie haute corde","3×15"]]}]},
+  cardio_court:{label:"HIIT Express",col:T.cardio,dur:"30 min",focus:"cardio",desc:"Intervalles haute intensité purs.",blks:[{n:"ÉCHAUFFEMENT",items:[["Rameur","3 min Z2"]]},{n:"HIIT",items:[["Airbike","12 × 20s ON / 40s OFF","95% FCmax"]]},{n:"FINISHER",items:[["Burpees","3×10"],["KB Swing","3×20"]]}]},
+  cardio_long:{label:"Endurance & Combat",col:T.cardio,dur:"60 min",focus:"cardio",desc:"Zone 2 + circuit combat.",blks:[{n:"ZONE 2",items:[["Course à pied","35 min","65-70% FCmax"]]},{n:"CIRCUIT (4 tours)",items:[["KB Swing","×20"],["Burpees","×10"],["Farmer walk","30m A/R"]]}]},
+  piste_sprint:{label:"Piste — Sprints",col:T.combat,dur:"55 min",focus:"combat",desc:"Séance piste. Vitesse et réactivité.",blks:[{n:"ÉCHAUFFEMENT PISTE (15 min)",items:[["Course à pied","5 min léger"],["Gammes athlétiques","8 min (montées genoux, talon-fesses, skipping)"],["Accélérations progressives 30m","×3 (50%,70%,85%)"]]},{n:"SPRINTS",items:[["Sprint 30m","×8 @ 95% · repos 3 min"],["Sprint 10m","×4 @ max · repos 2 min 30"]]},{n:"CONDITIONING",items:[["Corde à sauter","4×3 min · repos 1 min"],["Fartlek","10 min spontané"]]}]},
+  puissance:{label:"Puissance & RFD",col:T.power,dur:"70 min",focus:"puissance",desc:"Explosivité et taux de développement de force.",blks:[{n:"ACTIVATION SNC",items:[["Sprint 30m","×4 · repos 2 min"]]},{n:"OLYMPIQUE",items:[["Power Clean","6×3","RPE 7 · repos 3 min"],["Box Jump","5×3"]]},{n:"FORCE-VITESSE",items:[["Squat barre","4×3 @ 85%","RPE 8"],["Push press","4×4","RPE 8"]]},{n:"CORE",items:[["Pallof press","3×12/côté"],["Hanging leg raise","3×10"]]}]},
+  combat:{label:"Combat & Skills",col:T.combat,dur:"60 min",focus:"combat",desc:"Conditioning boxe + technique + grappling.",blks:[{n:"ÉCHAUFFEMENT",items:[["Corde à sauter","5 min"]]},{n:"TECHNIQUE",items:[["Shadow boxing","4×3 min · repos 1 min"],["Drills techniques","3×5 min"]]},{n:"SPARRING",items:[["Sparring boxe","selon dispo"],["Grappling","selon dispo"]]},{n:"FINISHER",items:[["Burpees","3×15"],["KB Swing","3×20"]]}]},
+  mobilite:{label:"Mobilité & Récup",col:T.endurance,dur:"40 min",focus:"mobilite",desc:"Récupération active. Tendinites prévention.",blks:[{n:"ZONE 2 LÉGÈRE",items:[["Rameur","20 min","60% FCmax"]]},{n:"MOBILITÉ",items:[["90/90 hip stretch","2×60s/côté"],["Pigeon yoga","2×60s/côté"],["Rotation thoracique","2×10/côté"]]},{n:"ÉPAULES",items:[["Y-T-W élastique","3×10"],["Face pull","3×15"]]},{n:"RESPIRATION",items:[["Box breathing","8 min nasal"]]}]},
+};
+
+function SeanceTab(){
+  const[durFil,setDurFil]=useState("all");const[focFil,setFocFil]=useState("all");const[sel,setSel]=useState(null);
+  const focusOpts=[{id:"all",label:"TOUT",col:T.muted},{id:"force",label:"FORCE",col:T.strength},{id:"hyper",label:"HYPER",col:T.hyper},{id:"cardio",label:"CARDIO",col:T.cardio},{id:"puissance",label:"PUISSANCE",col:T.power},{id:"combat",label:"COMBAT",col:T.combat},{id:"mobilite",label:"MOBILITÉ",col:T.endurance}];
+  const visible=Object.entries(SESSIONS).filter(([k,v])=>{const dur=parseInt(v.dur);const durOk=durFil==="all"||(durFil==="court"&&dur<=45)||(durFil==="long"&&dur>=60);const focOk=focFil==="all"||v.focus===focFil;return durOk&&focOk;});
+  const tmpl=sel?SESSIONS[sel]:null;
+  if(tmpl)return(
+    <>
+      <button onClick={()=>setSel(null)} style={{background:T.dim,color:T.muted,border:"none",borderRadius:7,padding:"6px 14px",fontSize:10,fontWeight:700,fontFamily:ff,cursor:"pointer",marginBottom:14}}>← RETOUR</button>
+      <SportHero col={tmpl.col} icon="💪" title={tmpl.label} sub={tmpl.dur}/>
+      <AlertBox type="info">{tmpl.desc}</AlertBox>
+      {tmpl.blks.map((blk,bi)=>(
+        <div key={bi} style={c.card()}>
+          <CardTitle>{blk.n}</CardTitle>
+          {blk.items.map(([ex,prm,note],ii)=>(
+            <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:ii<blk.items.length-1?`1px solid ${T.border}`:"none",padding:"7px 0",gap:8}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:12,color:T.white,fontWeight:700}}>{ex}</span>
+                                  </div>
+                {note&&<div style={{fontSize:10,color:T.muted,marginTop:2}}>{note}</div>}
+              </div>
+              <span style={{fontSize:12,color:T.accent,fontWeight:700,whiteSpace:"nowrap"}}>{prm}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+  return(
+    <>
+      <SportHero col={T.accent} icon="🎯" title="Générateur de séance" sub="Filtre et choisis en 2 secondes"/>
+      <div style={c.card()}><CardTitle>DURÉE</CardTitle><div style={{display:"flex",gap:5}}>{[["all","TOUTES"],["court","≤ 45 MIN"],["long","60–90 MIN"]].map(([id,l])=><button key={id} onClick={()=>setDurFil(id)} style={{flex:1,background:durFil===id?T.accent:T.dim,color:durFil===id?T.bg:T.muted,border:"none",borderRadius:7,padding:"8px 0",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{l}</button>)}</div></div>
+      <div style={c.card()}><CardTitle>OBJECTIF</CardTitle><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{focusOpts.map(f=><button key={f.id} onClick={()=>setFocFil(f.id)} style={{background:focFil===f.id?f.col:T.dim,color:focFil===f.id?T.bg:T.muted,border:"none",borderRadius:7,padding:"6px 12px",fontSize:9,fontWeight:700,fontFamily:ff,cursor:"pointer"}}>{f.label}</button>)}</div></div>
+      <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"1px"}}>{visible.length} SÉANCE{visible.length>1?"S":""} DISPONIBLE{visible.length>1?"S":""}</div>
+      {visible.map(([key,tmpl])=>(
+        <button key={key} onClick={()=>setSel(key)} style={{width:"100%",background:T.card,border:`1px solid ${tmpl.col+"35"}`,borderLeft:`3px solid ${tmpl.col}`,borderRadius:12,padding:14,marginBottom:8,cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><div style={{fontSize:12,fontWeight:700,color:tmpl.col,marginBottom:4}}>{tmpl.label}</div><div style={{fontSize:10,color:T.muted,lineHeight:1.5}}>{tmpl.desc}</div></div>
+          <div style={{flexShrink:0,marginLeft:10,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}><Pill label={tmpl.dur} col={tmpl.col} small/><span style={{fontSize:12,color:T.muted}}>→</span></div>
+        </button>
+      ))}
+    </>
+  );
+}
+
+// ── PHASES & SCIENCE ─────────────────────────────────────────────────────────
+function PhasesTab(){
+  const phs=[
+    {n:"PHASE 1 — FONDATION",wk:"Sem. 1–4",col:T.strength,pct:70,focus:"Adaptation neurologique & motrice",d:"Apprentissage des patterns. Qualité technique avant tout. Pour le Combat Rebuild : réapprentissage de la course et base aérobie prioritaire.",keys:["Squat : 75–80% · Power Clean : technique","Zone 2 : 2×/semaine obligatoire","Piste : accélérations 80% max (pas de sprint max)","Séances : 4/sem si fatigue"],sci:"Le SNC s'adapte AVANT les muscles. Réduire le volume muscu de 20% évite l'interférence AMPK/mTOR."},
+    {n:"PHASE 2 — DÉVELOPPEMENT",wk:"Sem. 5–8",col:T.cardio,pct:85,focus:"Charge progressive & conditionnement",d:"Charges +5–10%. Intervalles plus denses. Sprints à 95% sur piste. Début du Contrast Training.",keys:["Squat / SDT : 85–90%","Piste : sprints 30m × 8 @ 95%","Intervalles 200m × 6","Zone 2 : 40–50 min"],sci:"Le Contrast Training amplifie la PAP : puissance explosive +15–25% dans les 4–8 min post-effort lourd."},
+    {n:"PHASE 3 — PERFORMANCE",wk:"Sem. 9–12",col:T.accent,pct:100,focus:"Pic d'intensité & transformation",d:"Volume baisse, intensité monte. Sprints 60m maximum, PRs sur lifts. Récupération et sommeil critiques.",keys:["Sprints 60m × 6 @ 100%","PR tentative semaine 10","Zone 2 : sortie longue 50 min","Sem. 12 = DELOAD 50% volume"],sci:"La supercompensation se produit pendant la RÉCUPÉRATION, pas l'effort. Le deload est obligatoire. (Zatsiorsky, 2006)"},
+  ];
+  return(
+    <>
+      {phs.map(p=>(
+        <div key={p.n} style={c.card()}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><CardTitle col={p.col}>{p.n}</CardTitle><Pill label={p.wk} col={p.col} small/></div>
+          <div style={{height:6,background:T.dim,borderRadius:3,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${p.pct}%`,background:`linear-gradient(90deg,${p.col},${p.col}80)`,borderRadius:3}}/></div>
+          <div style={{fontSize:12,fontWeight:700,color:T.white,marginBottom:6}}>{p.focus}</div>
+          <div style={c.p}>{p.d}</div>
+          {p.keys.map((k,i)=><div key={i} style={{fontSize:11,color:T.text,padding:"4px 0",borderBottom:i<p.keys.length-1?`1px solid ${T.border}`:"none"}}><span style={{color:p.col,marginRight:8}}>→</span>{k}</div>)}
+          <SciBox>{p.sci}</SciBox>
+        </div>
+      ))}
+      <div style={c.card()}>
+        <CardTitle>RÉSULTATS ATTENDUS — 12 SEMAINES</CardTitle>
+        {[["Poids","84–87kg (−6 à −9kg gras)",T.power],["Souffle","6–8 rounds confortables",T.cardio],["Explosivité","80% du niveau boxe",T.hyper],["Force","Maintenue ou améliorée",T.accent],["Mobilité","Nettement améliorée",T.endurance]].map(([m,d,col],i)=>(
+          <div key={m} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<4?`1px solid ${T.border}`:"none",padding:"8px 0"}}>
+            <span style={{fontSize:12,color:T.text}}>{m}</span><span style={{fontSize:12,fontWeight:700,color:col}}>{d}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ScienceTab(){
+  return(
+    <>
+      <SportHero col={T.strength} icon="🔬" title="Base Scientifique" sub="Principes appliqués au programme"/>
+      {[
+        {t:"EFFET D'INTERFÉRENCE (AMPK vs mTOR)",col:T.hyper,b:"Cardio et musculation activent des voies moléculaires concurrentes. L'AMPK inhibe mTOR. Solution : séparer cardio et force de 6h minimum. Les séances piste (J2/J4) sont dédiées.",ref:"Coffey & Hawley, 2007"},
+        {t:"RATE OF FORCE DEVELOPMENT (RFD)",col:T.accent,b:"Puissance = Force × Vitesse. Power Clean, sauts et lancers développent la vitesse de production de force — compétence perdue en hypertrophie pur. Directement corrélé à la performance en boxe et grappling.",ref:"Stone et al., 2006"},
+        {t:"PAP — POST-ACTIVATION POTENTIATION",col:T.cardio,b:"Un mouvement lourd crée une potentialisation +15–25% de puissance explosive dans les 4–8 min suivantes. Mouvements explosifs TOUJOURS avant les charges lourdes dans ce programme.",ref:"Robbins, 2005"},
+        {t:"ENTRAÎNEMENT POLARISÉ (80/20)",col:T.power,b:"80% du temps en Zone 2 + 20% en HIIT. Particulièrement important pour reconstruire un moteur aérobie après une longue période d'hypertrophie. Sans base aérobie, le HIIT est inefficace.",ref:"Seiler & Tønnessen, 2009"},
+        {t:"ACWR — RATIO DE CHARGE AIGUË/CHRONIQUE",col:T.endurance,b:"Ratio charge aiguë (7j) / charge chronique (28j). Zone optimale : 0.8–1.3. Au-delà de 1.5, risque de blessure élevé. Calculé automatiquement depuis tes séances loggées.",ref:"Gabbett, 2016"},
+        {t:"PUISSANCE ROTATIONELLE EN BOXE",col:T.combat,b:"Un crochet génère 70% de sa puissance depuis les hanches et la rotation du tronc. D'où l'intégration massive de med ball rotationnel, cable woodchop et shadow boxing structuré dans le programme Combat Rebuild.",ref:"Lenetsky et al., 2013"},
+      ].map((sv,i)=>(
+        <div key={i} style={c.card()}>
+          <CardTitle col={sv.col}>{sv.t}</CardTitle>
+          <div style={c.p}>{sv.b}</div>
+          <div style={{fontSize:10,color:T.muted,borderTop:`1px solid ${T.border}`,paddingTop:8,fontStyle:"italic"}}>📚 {sv.ref}</div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ── APP ROOT ──────────────────────────────────────────────────────────────────
+const TABS=[
+  {id:"home",l:"🏠"},{id:"seance",l:"🎯"},{id:"plan",l:"📋"},{id:"journal",l:"📓"},
+  {id:"prs",l:"🏆"},{id:"history",l:"📅"},{id:"suivi",l:"📊"},{id:"macros",l:"🍽"},
+  {id:"phases",l:"⚡"},{id:"science",l:"🔬"},
+];
+const TAB_LABELS={home:"HOME",seance:"SÉANCE",plan:"PLAN",journal:"JOURNAL",prs:"PRs",history:"HISTORIQUE",suivi:"SUIVI",macros:"MACROS",phases:"PROGRESSION",science:"SCIENCE"};
+
+export default function App(){
+  const[tab,setTab]=useState("home");
+  const[sessions,setSessions]=useState([]);
+  const[bodyData,setBodyData]=useState([]);
+  const[recovery,setRecovery]=useState([]);
+  const[loaded,setLoaded]=useState(false);
+  const[timerRunning,setTimerRunning]=useState(false);
+  const[timerElapsed,setTimerElapsed]=useState(0);
+  const timerRef=useRef(null);
+
+  useEffect(()=>{
+    (async()=>{
+      const j=await DB.get("journal_v5");if(j)setSessions(j);
+      const b=await DB.get("body_v5");if(b)setBodyData(b);
+      const r=await DB.get("recov_v5");if(r)setRecovery(r);
+      setLoaded(true);
+    })();
+  },[]);
+
+  useEffect(()=>{
+    if(timerRunning)timerRef.current=setInterval(()=>setTimerElapsed(e=>e+1),1000);
+    else clearInterval(timerRef.current);
+    return()=>clearInterval(timerRef.current);
+  },[timerRunning]);
+
+  const toggleTimer=()=>{if(timerRunning){setTimerRunning(false);}else{setTimerElapsed(0);setTimerRunning(true);}};
+
+  if(!loaded)return(
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:ff}}>
+      <div style={{textAlign:"center"}}><div style={{fontSize:40,marginBottom:16}}>⚡</div><div style={{fontSize:10,color:T.muted,letterSpacing:"3px"}}>CHARGEMENT...</div></div>
+    </div>
+  );
+
+  return(
+    <div style={{fontFamily:ff,background:T.bg,color:T.white,minHeight:"100vh",paddingBottom:80}}>
+      {/* HEADER */}
+      <div style={{background:"linear-gradient(180deg,#0A1628 0%,#060910 100%)",borderBottom:`1px solid ${T.border}`,padding:"16px 16px 12px",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{display:"inline-block",background:T.accent,color:T.bg,fontWeight:700,fontSize:8,letterSpacing:"2.5px",padding:"2px 8px",borderRadius:4,marginBottom:5}}>HYBRID ATHLETIC SYSTEM</div>
+            <div style={{fontSize:16,fontWeight:700,color:T.white,letterSpacing:"-0.5px"}}>{TAB_LABELS[tab]}</div>
+          </div>
+          {timerRunning&&(
+            <div style={{background:T.accent+"20",border:`1px solid ${T.accent+"60"}`,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,color:T.accent}}>
+              {`${String(Math.floor(timerElapsed/60)).padStart(2,"0")}:${String(timerElapsed%60).padStart(2,"0")}`} ▶
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* NAV */}
+      <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,background:T.bg2,overflowX:"auto",padding:"0 4px",position:"sticky",top:52,zIndex:99}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{background:"none",border:"none",borderBottom:tab===t.id?`2px solid ${T.accent}`:"2px solid transparent",color:tab===t.id?T.accent:T.muted,fontFamily:ff,fontSize:16,padding:"10px 14px",cursor:"pointer",whiteSpace:"nowrap"}}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"14px 14px 20px",maxWidth:680,margin:"0 auto"}}>
+        {tab==="home"&&<HomeTab sessions={sessions} bodyData={bodyData} recovery={recovery} onTab={setTab}/>}
+        {tab==="seance"&&<SeanceTab/>}
+        {tab==="plan"&&<PlanTab/>}
+        {tab==="journal"&&<JournalTab sessions={sessions} setSessions={setSessions} timerRunning={timerRunning} timerElapsed={timerElapsed} onToggleTimer={toggleTimer}/>}
+        {tab==="prs"&&<PRsTab sessions={sessions}/>}
+        {tab==="history"&&<HistoryTab sessions={sessions}/>}
+        {tab==="suivi"&&<SuiviTab sessions={sessions} bodyData={bodyData} setBodyData={setBodyData} recovery={recovery} setRecovery={setRecovery}/>}
+        {tab==="macros"&&<MacrosTab bodyData={bodyData}/>}
+        {tab==="phases"&&<PhasesTab/>}
+        {tab==="science"&&<ScienceTab/>}
+      </div>
+    </div>
+  );
+}

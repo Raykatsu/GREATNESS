@@ -1,0 +1,982 @@
+import { useState, useEffect, useRef, useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+
+// ─── THEME ──────────────────────────────────────────────────────────────────
+const T = {
+  bg: "#070B11", card: "#0F1520", card2: "#131B28", border: "#1C2535", border2: "#243045",
+  accent: "#C8FF00", muted: "#5A6680", dim: "#2A3550", white: "#EEF2FF", text: "#A8B5CC",
+  strength: "#818CF8", hyper: "#F472B6", cardio: "#FBBF24", power: "#34D399",
+  combat: "#EF4444", endurance: "#60A5FA", warn: "#F59E0B",
+};
+
+// ─── STYLE HELPERS ──────────────────────────────────────────────────────────
+const c = {
+  wrap: { padding: "14px 14px 20px", maxWidth: 680, margin: "0 auto" },
+  card: (border) => ({ background: T.card, border: `1px solid ${border || T.border}`, borderRadius: 10, padding: 14, marginBottom: 10 }),
+  accentCard: (col) => ({ background: col ? col + "0D" : T.card2, border: `1px solid ${col ? col + "30" : T.border}`, borderLeft: `3px solid ${col || T.accent}`, borderRadius: 10, padding: 14, marginBottom: 10 }),
+  title: { fontSize: 10, fontWeight: 700, letterSpacing: "2px", color: T.accent, marginBottom: 10, textTransform: "uppercase" },
+  label: (col) => ({ fontSize: 10, fontWeight: 700, letterSpacing: "1.5px", color: col || T.muted, marginBottom: 6, textTransform: "uppercase", display: "block" }),
+  row: { display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.border}`, padding: "7px 0", gap: 8 },
+  inp: (col) => ({ background: T.card2, color: col || T.white, border: `1px solid ${T.border}`, borderRadius: 6, padding: "0 10px", height: 36, fontSize: 13, fontFamily: "inherit", fontWeight: 700, textAlign: "center", width: "100%", boxSizing: "border-box", outline: "none" }),
+  btn: (bg, fg, fw) => ({ background: bg || T.accent, color: fg || T.bg, border: "none", borderRadius: 8, padding: fw ? "11px 0" : "7px 14px", fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", letterSpacing: "0.5px", width: fw ? "100%" : "auto" }),
+  ghostBtn: (col) => ({ background: (col || T.accent) + "15", color: col || T.accent, border: `1px solid ${(col || T.accent) + "40"}`, borderRadius: 6, padding: "5px 12px", fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", letterSpacing: "0.5px" }),
+  badge: (col) => ({ display: "inline-flex", alignItems: "center", background: col + "20", color: col, fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, letterSpacing: "0.5px" }),
+  chip: (col) => ({ display: "inline-flex", alignItems: "center", gap: 5, background: col + "18", border: `1px solid ${col}35`, color: col, fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 14 }),
+  sci: { background: "#0A1628", border: `1px solid #1E3A5F`, borderLeft: `3px solid #3B82F6`, borderRadius: 6, padding: "9px 12px", fontSize: 11, color: "#93C5FD", marginTop: 10, lineHeight: 1.6 },
+  p: { fontSize: 11, color: T.text, lineHeight: 1.75, marginBottom: 8 },
+  sel: { width: "100%", background: T.card2, color: T.white, border: `1px solid ${T.border}`, borderRadius: 6, padding: "9px 12px", fontSize: 12, fontFamily: "inherit", cursor: "pointer", marginBottom: 10, outline: "none" },
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 },
+  grid3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 },
+};
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
+const store = {
+  get: async (k) => { try { const r = await window.storage.get(k); return r?.value ? JSON.parse(r.value) : null; } catch { return null; } },
+  set: async (k, v) => { try { await window.storage.set(k, JSON.stringify(v)); } catch {} },
+};
+
+// ─── FORMULAS ────────────────────────────────────────────────────────────────
+const epley = (w, r) => r === 1 ? w : Math.round(w * (1 + r / 30));
+const brzycki = (w, r) => r >= 37 ? w : Math.round(w * 36 / (37 - r));
+const est1RM = (w, r) => Math.round((epley(w, r) + brzycki(w, r)) / 2);
+const pctOf = (oneRM, pct) => Math.round(oneRM * pct / 100 / 2.5) * 2.5;
+
+// ─── EXERCISE DATABASE ────────────────────────────────────────────────────────
+const EX = [
+  { g: "💪 POUSSÉ HAUT", list: ["Développé couché barre","Développé couché haltères","Développé incliné barre","Développé incliné haltères","Développé décliné barre","Développé militaire barre","Développé militaire haltères","Push press","Dips lestés","Close grip bench press"] },
+  { g: "🔙 TIRAGE HAUT", list: ["Tractions lestées","Tractions pronation","Tractions supination","Tirage vertical poulie","Tirage horizontal poulie","Row barre Pendlay","Row barre incliné","Row unilatéral haltère","Row T-bar","Face pull","Shrug barre","Upright row"] },
+  { g: "🦵 BAS DU CORPS", list: ["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Soulevé de terre sumo","Good morning","Fentes marchées","Fentes bulgares","Leg curl allongé","Leg curl assis","Leg extension","Hip thrust barre","Glute bridge","Mollets debout","Mollets assis"] },
+  { g: "⚡ PUISSANCE & OLYMPIQUE", list: ["Power Clean","Hang Power Clean","KB Swing","KB Snatch","Box Jump (cm)","Broad Jump (cm)","Farmer walk","Saut vertical","Sprint 30m","Trap bar deadlift explosif"] },
+  { g: "💪 BICEPS", list: ["Curl haltères","Curl marteau","Curl barre droite","Curl barre EZ","Curl incliné haltères","Curl concentré","Curl cable poulie basse","Curl machine","Curl Zottman"] },
+  { g: "🔱 TRICEPS", list: ["Triceps poulie haute corde","Triceps poulie haute barre","Extension overhead haltère","Extension overhead barre","Skull crusher EZ","Skull crusher barre droite","Kickback haltère","Dips banc","Close grip bench press"] },
+  { g: "🫀 ÉPAULES", list: ["Élévation latérale haltères","Élévation frontale haltères","Élévation latérale cable","Oiseau haltères","Oiseau cable","Y-T-W élastique"] },
+  { g: "🧘 CORE & GAINAGE", list: ["Planche frontale (sec)","Gainage latéral (sec)","Dead bug","Pallof press","Hanging leg raise","Crunch cable","Ab wheel rollout","Dragon flag","Landmine rotation","Hollow body hold"] },
+  { g: "🫀 CONDITIONING", list: ["Airbike (calories)","Rameur (mètres)","Ski erg (mètres)","Course Zone 2 (min)","Corde à sauter (min)","Burpees","KB Swing circuit","Sled push (m)"] },
+  { g: "🥊 COMBAT & SKILLS", list: ["Rounds shadow boxing","Rounds sac de frappe","Rounds sparring boxe","Rounds grappling","Rounds MMA","Randori judo","Sparring JJB","Drills pieds-mains"] },
+];
+const ALL_EX = EX.flatMap((g) => g.list);
+const WEIGHT_EX = new Set(EX.slice(0, 8).flatMap((g) => g.list));
+const LOWER_EX = new Set(["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Soulevé de terre sumo","Fentes marchées","Fentes bulgares","Hip thrust barre"]);
+
+// ─── SESSION TEMPLATES ────────────────────────────────────────────────────────
+const SESSIONS = {
+  force_court: { label: "Force Express", col: T.strength, dur: "40 min", focus: "force", desc: "Lifts principaux uniquement, intensité maximale.", blks: [{ n: "ACTIVATION", items: [["Corde à sauter","3 min"]] }, { n: "FORCE PURE", items: [["Squat barre","4×3 @ 85%",7],["Soulevé de terre","3×3 @ 85%",8]] }, { n: "CORE", items: [["Dead bug","2×8/côté"],["Gainage latéral (sec)","2×30s"]] }] },
+  force_long: { label: "Force Complète", col: T.strength, dur: "90 min", focus: "force", desc: "5 lifts principaux + accessoires. Session référence.", blks: [{ n: "ACTIVATION & PLYO", items: [["Corde à sauter","3 min"],["Box Jump (cm)","4×3"]] }, { n: "SQUAT / HINGE", items: [["Squat barre","5×4 @ 80%",8],["Romanian Deadlift","4×6 @ 70%",7]] }, { n: "HAUT DU CORPS", items: [["Développé incliné haltères","4×6",8],["Row barre Pendlay","4×5",8]] }, { n: "ACCESSOIRES", items: [["Tractions pronation","3×max"],["Fentes marchées","3×8/jambe"]] }, { n: "CORE", items: [["Pallof press","3×12/côté"],["Hanging leg raise","3×10"]] }] },
+  hyper_court: { label: "Hypertrophie Express", col: T.hyper, dur: "45 min", focus: "hyper", desc: "Supersets antagonistes, repos courts, pump maximal.", blks: [{ n: "SUPERSET A (3 tours)", items: [["Développé couché haltères","10 reps →",8],["Tractions pronation","8 reps",8]] }, { n: "SUPERSET B (3 tours)", items: [["Leg press","12 reps →",8],["Leg curl allongé","12 reps",8]] }, { n: "FINISHER BRAS", items: [["Curl marteau","3×12"],["Triceps poulie haute corde","3×15"]] }] },
+  hyper_long: { label: "Hypertrophie Complète", col: T.hyper, dur: "80 min", focus: "hyper", desc: "Volume élevé, amplitude complète, connexion musculaire.", blks: [{ n: "PUSH", items: [["Développé incliné haltères","4×10",8],["Développé couché barre","3×12",7],["Élévation latérale haltères","4×15"]] }, { n: "PULL", items: [["Tirage vertical poulie","4×10",8],["Row unilatéral haltère","4×10"],["Face pull","3×15"]] }, { n: "BRAS", items: [["Curl barre EZ","3×12"],["Curl marteau","3×10"],["Skull crusher EZ","3×12"],["Triceps poulie haute corde","3×15"]] }] },
+  cardio_court: { label: "HIIT Express", col: T.cardio, dur: "30 min", focus: "cardio", desc: "Intervalles haute intensité purs. Efficacité max.", blks: [{ n: "ÉCHAUFFEMENT", items: [["Rameur (mètres)","3 min Z2"]] }, { n: "HIIT", items: [["Airbike (calories)","12 × 20s ON / 40s OFF"]] }, { n: "FINISHER", items: [["Burpees","3×10"],["KB Swing circuit","3×20"]] }] },
+  cardio_long: { label: "Endurance & Combat", col: T.cardio, dur: "60 min", focus: "cardio", desc: "Zone 2 + circuit conditioning style combat.", blks: [{ n: "ZONE 2", items: [["Course Zone 2 (min)","35 min"]] }, { n: "CIRCUIT COMBAT (4 tours)", items: [["KB Swing circuit","×20"],["Burpees","×10"],["Farmer walk","30m A/R"]] }] },
+  puissance: { label: "Puissance & RFD", col: T.power, dur: "70 min", focus: "puissance", desc: "Explosivité et taux de développement de la force.", blks: [{ n: "ACTIVATION SNC", items: [["Sprint 30m","6× repos 2 min"]] }, { n: "OLYMPIQUE", items: [["Power Clean","6×3",7],["Box Jump (cm)","5×3"]] }, { n: "FORCE-VITESSE", items: [["Squat barre","4×3 @ 85%",8],["Push press","4×4",8]] }, { n: "CORE DYNAMIQUE", items: [["Pallof press","3×12/côté"],["Landmine rotation","3×8/côté"]] }] },
+  combat: { label: "Combat & Skills", col: T.combat, dur: "60 min", focus: "combat", desc: "Conditioning combat + technique. Background MMA/boxe.", blks: [{ n: "ÉCHAUFFEMENT", items: [["Corde à sauter (min)","5 min"]] }, { n: "TECHNIQUE", items: [["Rounds shadow boxing","4×3 min / 1 min récup"],["Drills pieds-mains","3×5 min"]] }, { n: "SPARRING / GRAPPLING", items: [["Rounds sparring boxe","selon dispo"],["Rounds grappling","selon dispo"]] }, { n: "FINISHER", items: [["Burpees","3×15"],["KB Swing circuit","3×20"]] }] },
+  mobilite: { label: "Mobilité & Récup", col: T.endurance, dur: "40 min", focus: "mobilite", desc: "Récupération active. Essentiel pour prévenir les tendinites.", blks: [{ n: "ZONE 2 LÉGÈRE", items: [["Course Zone 2 (min)","20 min à 60% FCmax"]] }, { n: "MOBILITÉ HANCHES", items: [["Saut vertical","90/90 hip — 2×60s/côté"],["Saut vertical","Pigeon — 2×60s/côté"]] }, { n: "ÉPAULES & THORACIQUE", items: [["Y-T-W élastique","3×10"],["Face pull","3×15"]] }, { n: "RESPIRATION", items: [["Corde à sauter (min)","Box breathing 4/4/4/4 — 8 min"]] }] },
+};
+
+// ─── REST TIMER ───────────────────────────────────────────────────────────────
+function RestTimer() {
+  const [preset, setPreset] = useState(90);
+  const [rem, setRem] = useState(90);
+  const [active, setActive] = useState(false);
+  const iRef = useRef(null);
+  useEffect(() => {
+    if (active) { iRef.current = setInterval(() => setRem((r) => { if (r <= 1) { clearInterval(iRef.current); setActive(false); return preset; } return r - 1; }), 1000); }
+    else clearInterval(iRef.current);
+    return () => clearInterval(iRef.current);
+  }, [active, preset]);
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const pct = (preset - rem) / preset;
+  const r = 28, cx = 34, cy = 34, circ = 2 * Math.PI * r;
+  return (
+    <div style={{ ...c.card(), background: active ? "#0A1800" : T.card, border: `1px solid ${active ? T.accent + "55" : T.border}`, transition: "all 0.3s" }}>
+      <div style={c.title}>⏱ TIMER DE REPOS</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ position: "relative", width: 68, height: 68, flexShrink: 0 }}>
+          <svg width={68} height={68} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.dim} strokeWidth={5} />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={active ? T.accent : T.muted} strokeWidth={5}
+              strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+              strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: active ? T.accent : T.muted }}>{fmt(rem)}</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
+            {[60, 90, 120, 180].map((p) => (
+              <button key={p} onClick={() => { setPreset(p); setRem(p); setActive(false); }}
+                style={{ flex: 1, background: preset === p ? T.accent : T.dim, color: preset === p ? T.bg : T.muted, border: "none", borderRadius: 5, padding: "4px 0", fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+                {fmt(p)}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => { if (!active) setRem(preset); setActive(!active); }}
+              style={{ flex: 2, background: active ? T.combat + "30" : T.accent, color: active ? T.combat : T.bg, border: active ? `1px solid ${T.combat + "50"}` : "none", borderRadius: 6, padding: "7px", fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+              {active ? "⏸ PAUSE" : "▶ START"}
+            </button>
+            <button onClick={() => { setActive(false); setRem(preset); }}
+              style={{ flex: 1, background: T.dim, color: T.muted, border: "none", borderRadius: 6, padding: "7px", fontSize: 10, fontFamily: "inherit", cursor: "pointer" }}>RESET</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── HOME TAB ────────────────────────────────────────────────────────────────
+function HomeTab({ sessions, bodyData, recovery, onTab }) {
+  const today = new Date().toISOString().split("T")[0];
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().split("T")[0];
+  const thisWeek = sessions.filter((s) => s.dateISO >= weekAgo);
+  const todayLogged = sessions.some((s) => s.dateISO === today);
+
+  // Streak
+  let streak = 0;
+  const days = [...new Set(sessions.map((s) => s.dateISO))].sort().reverse();
+  let check = today;
+  for (const d of days) {
+    const diff = (new Date(check) - new Date(d)) / 864e5;
+    if (diff <= 1) { streak++; check = d; } else break;
+  }
+
+  // Deload alert
+  const lastRecov = recovery.slice(-3);
+  const avgFatigue = lastRecov.length >= 3 ? lastRecov.reduce((a, r) => a + r.fatigue, 0) / 3 : 0;
+  const avgSleep = lastRecov.filter((r) => r.sleep).length >= 2 ? lastRecov.filter((r) => r.sleep).reduce((a, r) => a + r.sleep, 0) / lastRecov.filter((r) => r.sleep).length : 8;
+  const recentRPE = sessions.slice(-5).flatMap((s) => (s.sets || []).filter((x) => x.rpe).map((x) => +x.rpe));
+  const avgRPE = recentRPE.length ? recentRPE.reduce((a, b) => a + b, 0) / recentRPE.length : 0;
+  const needsDeload = avgFatigue >= 4 || avgSleep < 6.5 || avgRPE >= 8.8;
+
+  // PRs
+  const prMap = {};
+  sessions.forEach((s) => {
+    (s.sets || []).forEach((x) => {
+      if (!x.weight || !x.reps) return;
+      const orm = est1RM(+x.weight, +x.reps);
+      if (!prMap[s.exercise] || orm > prMap[s.exercise].orm) prMap[s.exercise] = { orm, date: s.date, w: x.weight, r: x.reps };
+    });
+  });
+  const prs = Object.entries(prMap).sort((a, b) => b[1].date > a[1].date ? 1 : -1).slice(0, 5);
+
+  // Weekly volume
+  const weekVol = thisWeek.reduce((a, s) => a + (s.sets || []).reduce((b, x) => b + (+x.weight || 0) * (+x.reps || 0), 0), 0);
+
+  const lastWeight = bodyData.length ? bodyData[bodyData.length - 1].weight : null;
+  const prevWeight = bodyData.length >= 2 ? bodyData[bodyData.length - 2].weight : null;
+  const weightDelta = lastWeight && prevWeight ? (lastWeight - prevWeight).toFixed(1) : null;
+
+  return (
+    <>
+      {/* Greeting */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: T.muted, letterSpacing: "1px", marginBottom: 4 }}>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: T.white, letterSpacing: "-0.5px" }}>
+          {todayLogged ? "Séance loggée ✓" : "Quelle séance aujourd'hui ?"}
+        </div>
+      </div>
+
+      {/* Deload alert */}
+      {needsDeload && (
+        <div style={{ ...c.accentCard(T.warn), color: "#FCD34D" }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 11 }}>⚠️ SIGNAL DE DÉCHARGE DÉTECTÉ</div>
+          <div style={{ fontSize: 11, lineHeight: 1.6, color: "#FCD34D99" }}>
+            {avgFatigue >= 4 ? `Fatigue élevée (moy. ${avgFatigue.toFixed(1)}/5). ` : ""}
+            {avgSleep < 6.5 ? `Sommeil insuffisant (moy. ${avgSleep.toFixed(1)}h). ` : ""}
+            {avgRPE >= 8.8 ? `RPE moyen élevé (${avgRPE.toFixed(1)}/10). ` : ""}
+            → Réduis le volume de 40–50% cette semaine.
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div style={c.grid3}>
+        {[
+          { val: streak, label: "Jours consécutifs", col: T.accent, icon: "🔥" },
+          { val: thisWeek.length, label: "Séances / semaine", col: T.endurance, icon: "💪" },
+          { val: prs.length, label: "PRs enregistrés", col: T.hyper, icon: "🏆" },
+        ].map((st) => (
+          <div key={st.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, marginBottom: 2 }}>{st.icon}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: st.col }}>{st.val}</div>
+            <div style={{ fontSize: 9, color: T.muted, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: 2 }}>{st.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick stats row */}
+      <div style={c.grid2}>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 9, color: T.muted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 4 }}>VOLUME SEMAINE</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.strength }}>{weekVol > 0 ? `${Math.round(weekVol / 1000)}t` : "—"}</div>
+          <div style={{ fontSize: 9, color: T.muted }}>kg × reps total</div>
+        </div>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 9, color: T.muted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 4 }}>POIDS DE CORPS</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.endurance }}>{lastWeight ? `${lastWeight}kg` : "—"}</div>
+          {weightDelta && <div style={{ fontSize: 9, color: +weightDelta > 0 ? T.warn : T.power }}>{+weightDelta > 0 ? "+" : ""}{weightDelta}kg vs hier</div>}
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div style={c.card()}>
+        <div style={c.title}>ACCÈS RAPIDE</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {[
+            { label: "🎯 Choisir ma séance du jour", tab: "seance", col: T.accent },
+            { label: "📓 Logger une séance", tab: "journal", col: T.strength },
+            { label: "📊 Saisir mon suivi quotidien", tab: "suivi", col: T.endurance },
+            { label: "🏆 Voir mes PRs", tab: "prs", col: T.hyper },
+          ].map((a) => (
+            <button key={a.tab} onClick={() => onTab(a.tab)}
+              style={{ background: a.col + "15", color: a.col, border: `1px solid ${a.col + "30"}`, borderRadius: 8, padding: "10px 14px", fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", textAlign: "left" }}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent PRs */}
+      {prs.length > 0 && (
+        <div style={c.card()}>
+          <div style={c.title}>🏆 DERNIERS PRs</div>
+          {prs.map(([ex, pr], i) => (
+            <div key={ex} style={{ ...c.row, borderBottom: i < prs.length - 1 ? `1px solid ${T.border}` : "none" }}>
+              <div>
+                <div style={{ fontSize: 11, color: T.white, fontWeight: 700 }}>{ex}</div>
+                <div style={{ fontSize: 10, color: T.muted }}>{pr.date} · {pr.w}kg × {pr.r} reps</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.hyper }}>≈{pr.orm}kg</div>
+                <div style={{ fontSize: 9, color: T.muted }}>1RM est.</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Weekly calendar */}
+      <div style={c.card()}>
+        <div style={c.title}>📅 SEMAINE EN COURS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5 }}>
+          {["L","M","M","J","V","S","D"].map((day, i) => {
+            const date = new Date(); date.setDate(date.getDate() - date.getDay() + i + 1);
+            const iso = date.toISOString().split("T")[0];
+            const sessionsOnDay = sessions.filter((s) => s.dateISO === iso);
+            const isToday = iso === today;
+            const hasSesh = sessionsOnDay.length > 0;
+            return (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: T.muted, marginBottom: 4, fontWeight: isToday ? 700 : 400, color: isToday ? T.accent : T.muted }}>{day}</div>
+                <div style={{ height: 32, borderRadius: 6, background: hasSesh ? T.accent : isToday ? T.dim : T.card2, border: `1px solid ${isToday ? T.accent + "50" : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
+                  {hasSesh ? "✓" : isToday ? "·" : ""}
+                </div>
+                <div style={{ fontSize: 8, color: hasSesh ? T.accent : T.muted, marginTop: 2 }}>{sessionsOnDay.length ? `×${sessionsOnDay.length}` : ""}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── SESSION GENERATOR ────────────────────────────────────────────────────────
+function SeanceTab() {
+  const [durFil, setDurFil] = useState("all");
+  const [focFil, setFocFil] = useState("all");
+  const [sel, setSel] = useState(null);
+  const focusOpts = [
+    { id: "all", label: "TOUT", col: T.muted },
+    { id: "force", label: "FORCE", col: T.strength },
+    { id: "hyper", label: "HYPER", col: T.hyper },
+    { id: "cardio", label: "CARDIO", col: T.cardio },
+    { id: "puissance", label: "PUISSANCE", col: T.power },
+    { id: "combat", label: "COMBAT", col: T.combat },
+    { id: "mobilite", label: "MOBILITÉ", col: T.endurance },
+  ];
+  const visible = Object.entries(SESSIONS).filter(([k, v]) => {
+    const dur = parseInt(v.dur);
+    const durOk = durFil === "all" || (durFil === "court" && dur <= 45) || (durFil === "long" && dur >= 60);
+    const focOk = focFil === "all" || v.focus === focFil;
+    return durOk && focOk;
+  });
+  const tmpl = sel ? SESSIONS[sel] : null;
+
+  if (tmpl) return (
+    <>
+      <button onClick={() => setSel(null)} style={{ ...c.ghostBtn(T.muted), marginBottom: 12 }}>← RETOUR</button>
+      <div style={c.chip(tmpl.col)}>◆ {tmpl.label.toUpperCase()}</div>
+      <div style={{ display: "flex", gap: 8, margin: "10px 0 14px" }}>
+        <span style={c.badge(tmpl.col)}>{tmpl.dur}</span>
+        <span style={c.badge(T.muted)}>{tmpl.focus.toUpperCase()}</span>
+      </div>
+      <div style={{ ...c.accentCard(tmpl.col), marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: tmpl.col }}>{tmpl.desc}</div>
+      </div>
+      {tmpl.blks.map((blk, bi) => (
+        <div key={bi} style={c.card()}>
+          <div style={c.title}>{blk.n}</div>
+          {blk.items.map(([ex, prm, rpe], ii) => (
+            <div key={ii} style={{ ...c.row, borderBottom: ii < blk.items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+              <span style={{ fontSize: 12, color: T.white, flex: 1 }}>{ex}</span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {rpe && <span style={c.badge(T.cardio)}>RPE {rpe}</span>}
+                <span style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>{prm}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div style={{ ...c.sci, marginTop: 10 }}>💡 <strong>Log tes séries dans JOURNAL</strong> pour obtenir des recommandations de charge personnalisées et détecter tes PRs automatiquement.</div>
+    </>
+  );
+
+  return (
+    <>
+      <div style={{ ...c.accentCard(T.accent), marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 4 }}>QUELLE SÉANCE AUJOURD'HUI ?</div>
+        <div style={{ fontSize: 11, color: T.text }}>Filtre par durée et objectif. Choisis ta séance en un tap.</div>
+      </div>
+      <div style={c.card()}>
+        <div style={c.title}>DURÉE</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["all","TOUTES"],["court","≤ 45 MIN"],["long","60–90 MIN"]].map(([id, lbl]) => (
+            <button key={id} onClick={() => setDurFil(id)} style={{ flex: 1, background: durFil === id ? T.accent : T.dim, color: durFil === id ? T.bg : T.muted, border: "none", borderRadius: 6, padding: "7px 0", fontSize: 9, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", letterSpacing: "0.5px" }}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+      <div style={c.card()}>
+        <div style={c.title}>OBJECTIF</div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {focusOpts.map((f) => (
+            <button key={f.id} onClick={() => setFocFil(f.id)} style={{ background: focFil === f.id ? f.col : T.dim, color: focFil === f.id ? T.bg : T.muted, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 9, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", letterSpacing: "0.5px" }}>{f.label}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: T.muted, marginBottom: 8, letterSpacing: "1px" }}>{visible.length} SÉANCE{visible.length > 1 ? "S" : ""} DISPONIBLE{visible.length > 1 ? "S" : ""}</div>
+      {visible.map(([key, tmpl]) => (
+        <button key={key} onClick={() => setSel(key)}
+          style={{ width: "100%", background: T.card, border: `1px solid ${tmpl.col + "35"}`, borderRadius: 10, padding: 14, marginBottom: 8, cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: tmpl.col, marginBottom: 3 }}>{tmpl.label}</div>
+            <div style={{ fontSize: 10, color: T.muted, lineHeight: 1.5 }}>{tmpl.desc}</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0, marginLeft: 10 }}>
+            <span style={c.badge(tmpl.col)}>{tmpl.dur}</span>
+            <span style={{ fontSize: 10, color: T.muted }}>→</span>
+          </div>
+        </button>
+      ))}
+      {visible.length === 0 && <div style={{ textAlign: "center", padding: "30px 16px", color: T.muted, fontSize: 12 }}>Aucune séance avec ces filtres.</div>}
+    </>
+  );
+}
+
+// ─── JOURNAL TAB ─────────────────────────────────────────────────────────────
+function JournalTab({ sessions, setSessions }) {
+  const [view, setView] = useState("log");
+  const [selEx, setSelEx] = useState(ALL_EX[0]);
+  const [sets, setSets] = useState([{ reps: "", weight: "", rpe: "" }]);
+  const [msg, setMsg] = useState("");
+  const [histEx, setHistEx] = useState(ALL_EX[0]);
+  const [chartMode, setChartMode] = useState("max");
+  const [prFlash, setPrFlash] = useState(null);
+
+  const persist = (data) => store.set("journal_v4", data);
+
+  const getInc = (ex) => {
+    if (LOWER_EX.has(ex)) return 5;
+    if (["Power Clean","Hang Power Clean","KB Swing","KB Snatch"].includes(ex)) return 2.5;
+    if (ex.includes("Curl") || ex.includes("Triceps") || ex.includes("Élévation") || ex.includes("Face pull")) return 1.25;
+    return 2.5;
+  };
+
+  const logSession = async () => {
+    const valid = sets.filter((s) => s.reps || s.weight);
+    if (!valid.length) return;
+    const entry = { id: Date.now(), date: new Date().toLocaleDateString("fr-FR"), dateISO: new Date().toISOString().split("T")[0], exercise: selEx, sets: valid };
+    const updated = [...sessions, entry];
+
+    // PR detection
+    const prevSessions = sessions.filter((s) => s.exercise === selEx);
+    const prevMaxOrm = Math.max(0, ...prevSessions.flatMap((s) => (s.sets || []).filter((x) => x.weight && x.reps).map((x) => est1RM(+x.weight, +x.reps))));
+    const newMaxOrm = Math.max(0, ...valid.filter((x) => x.weight && x.reps).map((x) => est1RM(+x.weight, +x.reps)));
+    if (newMaxOrm > prevMaxOrm && newMaxOrm > 0) setPrFlash({ ex: selEx, orm: newMaxOrm });
+
+    setSessions(updated); await persist(updated);
+    setSets([{ reps: "", weight: "", rpe: "" }]);
+    setMsg("✓ Séance enregistrée !"); setTimeout(() => setMsg(""), 2500);
+    setTimeout(() => setPrFlash(null), 4000);
+  };
+
+  const delSession = async (id) => { const u = sessions.filter((s) => s.id !== id); setSessions(u); await persist(u); };
+
+  const histSessions = sessions.filter((s) => s.exercise === histEx).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+  const chartData = histSessions.map((s) => {
+    const ws = (s.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+    const vol = (s.sets || []).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0), 0);
+    const rpeArr = (s.sets || []).filter((x) => x.rpe).map((x) => +x.rpe);
+    return { date: s.date, max: ws.length ? Math.max(...ws) : 0, orm: ws.length ? Math.max(...(s.sets || []).filter((x) => x.weight && x.reps).map((x) => est1RM(+x.weight, +x.reps))) : 0, volume: Math.round(vol), rpe: rpeArr.length ? +(rpeArr.reduce((a, b) => a + b, 0) / rpeArr.length).toFixed(1) : null };
+  });
+
+  // Recommendation
+  const getRec = () => {
+    if (!histSessions.length) return null;
+    const last = histSessions[histSessions.length - 1];
+    const ws = (last.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+    if (!ws.length) return null;
+    const maxW = Math.max(...ws);
+    const avgReps = (last.sets || []).reduce((a, s) => a + (+s.reps || 0), 0) / last.sets.length;
+    const rpeArr = (last.sets || []).filter((s) => s.rpe).map((s) => +s.rpe);
+    const avgRpe = rpeArr.length ? rpeArr.reduce((a, b) => a + b, 0) / rpeArr.length : null;
+    const inc = getInc(histEx);
+    let nextW = maxW, col = T.cardio, icon = "→", advice = "";
+    if (avgReps >= 7 && (!avgRpe || avgRpe <= 8)) { nextW = maxW + inc; col = T.accent; icon = "📈"; advice = `Séance réussie → +${inc}kg. Vise ${nextW}kg.`; }
+    else if (avgReps >= 5) { col = T.cardio; icon = "→"; advice = `Consolide ${maxW}kg avant d'augmenter.`; }
+    else { nextW = Math.max(0, maxW - inc); col = T.hyper; icon = "📉"; advice = `Reps insuffisantes → réduis à ${nextW}kg.`; }
+    if (avgRpe) advice += ` RPE moy. : ${avgRpe.toFixed(1)}/10.`;
+    if (histSessions.length >= 2) {
+      const prev = histSessions[histSessions.length - 2];
+      const prevWs = (prev.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+      if (prevWs.length) { const diff = maxW - Math.max(...prevWs); if (diff > 0) advice += ` +${diff}kg vs précédente.`; }
+    }
+    // 1RM
+    const allOrm = (last.sets || []).filter((x) => x.weight && x.reps).map((x) => est1RM(+x.weight, +x.reps));
+    const oneRM = allOrm.length ? Math.max(...allOrm) : null;
+    return { nextW, col, icon, advice, oneRM };
+  };
+  const rec = getRec();
+  const usesW = WEIGHT_EX.has(histEx);
+
+  const recentForEx = sessions.filter((s) => s.exercise === selEx).slice(-3).reverse();
+
+  const views = [{ id: "log", l: "📝 LOG" }, { id: "history", l: "📊 HISTORIQUE" }];
+
+  return (
+    <>
+      <RestTimer />
+
+      {prFlash && (
+        <div style={{ background: T.hyper + "20", border: `1px solid ${T.hyper}60`, borderRadius: 10, padding: "12px 14px", marginBottom: 10, textAlign: "center" }}>
+          <div style={{ fontSize: 22, marginBottom: 4 }}>🏆</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.hyper }}>NOUVEAU PR — {prFlash.ex}</div>
+          <div style={{ fontSize: 11, color: T.text, marginTop: 4 }}>1RM estimé : <strong style={{ color: T.hyper }}>{prFlash.orm}kg</strong></div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {views.map((v) => <button key={v.id} onClick={() => setView(v.id)} style={{ flex: 1, background: view === v.id ? T.accent : T.card, color: view === v.id ? T.bg : T.muted, border: `1px solid ${view === v.id ? T.accent : T.border}`, borderRadius: 8, padding: 9, fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{v.l}</button>)}
+      </div>
+
+      {view === "log" && (
+        <>
+          <div style={c.card()}>
+            <span style={c.label()}>EXERCICE</span>
+            <select value={selEx} onChange={(e) => setSelEx(e.target.value)} style={c.sel}>
+              {EX.map((g) => <optgroup key={g.g} label={g.g}>{g.list.map((ex) => <option key={ex} value={ex}>{ex}</option>)}</optgroup>)}
+            </select>
+            <span style={c.label()}>SÉRIES</span>
+            <div style={{ display: "grid", gridTemplateColumns: "22px 1fr 1fr 1fr 28px", gap: 4, marginBottom: 8 }}>
+              {["#","REPS","KG","RPE",""].map((h) => <span key={h} style={{ fontSize: 9, color: T.muted, textAlign: "center" }}>{h}</span>)}
+            </div>
+            {sets.map((sv, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "22px 1fr 1fr 1fr 28px", gap: 4, marginBottom: 4 }}>
+                <div style={{ background: T.dim, borderRadius: 4, height: 36, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>{i + 1}</div>
+                <input type="number" min="0" placeholder="10" value={sv.reps} onChange={(e) => setSets(sets.map((s, j) => j === i ? { ...s, reps: e.target.value } : s))} style={c.inp()} />
+                <input type="number" min="0" step="0.5" placeholder="60" value={sv.weight} onChange={(e) => setSets(sets.map((s, j) => j === i ? { ...s, weight: e.target.value } : s))} style={c.inp(T.accent)} />
+                <input type="number" min="1" max="10" placeholder="7" value={sv.rpe} onChange={(e) => setSets(sets.map((s, j) => j === i ? { ...s, rpe: e.target.value } : s))} style={c.inp(T.cardio)} />
+                <button onClick={() => setSets(sets.filter((_, j) => j !== i))} style={{ background: "#1A0A0A", color: T.combat, border: `1px solid #3F1010`, borderRadius: 4, height: 36, width: 28, cursor: "pointer", fontSize: 14 }}>×</button>
+              </div>
+            ))}
+            <div style={{ fontSize: 9, color: T.muted, textAlign: "right", marginBottom: 8 }}>RPE: 6=facile · 8=dur · 10=max</div>
+            <button onClick={() => setSets([...sets, { reps: "", weight: "", rpe: "" }])} style={{ width: "100%", background: T.card2, color: T.muted, border: `1px dashed ${T.border}`, borderRadius: 6, padding: 8, fontSize: 10, fontFamily: "inherit", cursor: "pointer" }}>+ AJOUTER SÉRIE</button>
+          </div>
+          <button onClick={logSession} style={c.btn(T.accent, T.bg, true)}>ENREGISTRER LA SÉANCE</button>
+          {msg && <div style={{ ...c.accentCard(T.accent), textAlign: "center", marginTop: 8 }}>{msg}</div>}
+
+          {recentForEx.length > 0 && (
+            <div style={{ ...c.card(), marginTop: 10 }}>
+              <div style={c.title}>DERNIÈRES — {selEx.slice(0, 22).toUpperCase()}</div>
+              {recentForEx.map((session, idx) => {
+                const mw = Math.max(0, ...(session.sets || []).map((x) => +x.weight || 0));
+                return (
+                  <div key={session.id} style={{ borderBottom: idx < recentForEx.length - 1 ? `1px solid ${T.border}` : "none", paddingBottom: 10, marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: T.muted }}>{session.date}</span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {mw > 0 && <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>{mw}kg</span>}
+                        <button onClick={() => delSession(session.id)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 12 }}>🗑</button>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {(session.sets || []).map((sv, si) => <span key={si} style={{ background: T.card2, color: T.white, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>{sv.reps}×{sv.weight}{sv.weight ? "kg" : ""}{sv.rpe ? ` @${sv.rpe}` : ""}</span>)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {view === "history" && (
+        <>
+          <div style={c.card()}>
+            <span style={c.label()}>EXERCICE</span>
+            <select value={histEx} onChange={(e) => setHistEx(e.target.value)} style={c.sel}>
+              {EX.map((g) => <optgroup key={g.g} label={g.g}>{g.list.map((ex) => { const cnt = sessions.filter((s) => s.exercise === ex).length; return <option key={ex} value={ex}>{ex}{cnt ? ` (${cnt})` : ""}</option>; })}</optgroup>)}
+            </select>
+          </div>
+
+          {histSessions.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "30px 16px", color: T.muted }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+              <div style={{ fontSize: 12 }}>Aucune séance enregistrée pour cet exercice.</div>
+            </div>
+          ) : (
+            <>
+              <div style={c.grid3}>
+                {[{ val: histSessions.length, l: "Séances", col: T.accent }, { val: chartData.length ? Math.max(...chartData.map((d) => d.max)) + "kg" : "—", l: "Record kg", col: T.strength }, { val: chartData.length ? chartData[chartData.length - 1].max + "kg" : "—", l: "Dernière", col: T.endurance }].map((sv) => (
+                  <div key={sv.l} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 6px", textAlign: "center" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: sv.col }}>{sv.val}</div>
+                    <div style={{ fontSize: 9, color: T.muted, letterSpacing: "0.5px", textTransform: "uppercase", marginTop: 2 }}>{sv.l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {rec && (
+                <div style={{ ...c.accentCard(rec.col), marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: rec.col, letterSpacing: "1px", marginBottom: 6 }}>🎯 RECOMMANDATION PROCHAINE SÉANCE</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: rec.col, marginBottom: 6 }}>{rec.icon} {rec.nextW} kg</div>
+                  <div style={{ fontSize: 11, color: T.text, lineHeight: 1.7 }}>{rec.advice}</div>
+                  {rec.oneRM && usesW && (
+                    <div style={{ marginTop: 10, padding: "8px 0 0", borderTop: `1px solid ${rec.col}30` }}>
+                      <div style={{ fontSize: 10, color: T.muted, marginBottom: 6 }}>1RM ESTIMÉ · {rec.oneRM}kg</div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {[50,60,70,75,80,85,90,95].map((p) => (
+                          <span key={p} style={{ background: T.card2, border: `1px solid ${T.border}`, borderRadius: 5, padding: "3px 7px", fontSize: 10 }}>
+                            <span style={{ color: T.muted }}>{p}%</span> <span style={{ color: T.white, fontWeight: 700 }}>{pctOf(rec.oneRM, p)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {usesW && chartData.length >= 2 && (
+                <div style={c.card()}>
+                  <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
+                    {[{ id: "max", l: "POIDS MAX", col: T.accent }, { id: "orm", l: "1RM EST.", col: T.strength }, { id: "volume", l: "VOLUME", col: T.hyper }, { id: "rpe", l: "RPE", col: T.cardio }].map((m) => (
+                      <button key={m.id} onClick={() => setChartMode(m.id)} style={{ background: chartMode === m.id ? m.col : T.dim, color: chartMode === m.id ? T.bg : T.muted, border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 9, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{m.l}</button>
+                    ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={chartMode === "max" ? T.accent : chartMode === "orm" ? T.strength : chartMode === "volume" ? T.hyper : T.cardio} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={chartMode === "max" ? T.accent : chartMode === "orm" ? T.strength : chartMode === "volume" ? T.hyper : T.cardio} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                      <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, fontSize: 11, fontFamily: "inherit" }} labelStyle={{ color: T.accent }} />
+                      <Area type="monotone" dataKey={chartMode} stroke={chartMode === "max" ? T.accent : chartMode === "orm" ? T.strength : chartMode === "volume" ? T.hyper : T.cardio} strokeWidth={2} fill="url(#grad)" dot={{ fill: chartMode === "max" ? T.accent : chartMode === "orm" ? T.strength : chartMode === "volume" ? T.hyper : T.cardio, r: 3, strokeWidth: 0 }} connectNulls />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <div style={c.card()}>
+                <div style={c.title}>HISTORIQUE DÉTAILLÉ</div>
+                {[...histSessions].reverse().map((session, idx) => {
+                  const ws = (session.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+                  const mw = ws.length ? Math.max(...ws) : 0;
+                  const vol = (session.sets || []).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0), 0);
+                  return (
+                    <div key={session.id} style={{ borderBottom: idx < histSessions.length - 1 ? `1px solid ${T.border}` : "none", paddingBottom: 10, marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 12, color: T.white, fontWeight: 700 }}>{session.date}</span>
+                          {idx === 0 && <span style={c.badge(T.accent)}>RÉCENT</span>}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {mw > 0 && <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>{mw}kg</span>}
+                          <button onClick={() => delSession(session.id)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 12 }}>🗑</button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+                        {(session.sets || []).map((sv, si) => <span key={si} style={{ background: T.card2, color: T.white, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>{sv.reps}×{sv.weight}{sv.weight ? "kg" : ""}{sv.rpe ? ` @${sv.rpe}` : ""}</span>)}
+                      </div>
+                      {vol > 0 && <div style={{ fontSize: 10, color: T.muted }}>Volume : {Math.round(vol).toLocaleString()} kg×reps</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── PRs TAB ─────────────────────────────────────────────────────────────────
+function PRsTab({ sessions }) {
+  const prMap = {};
+  sessions.forEach((s) => {
+    (s.sets || []).forEach((x) => {
+      if (!x.weight || !x.reps) return;
+      const orm = est1RM(+x.weight, +x.reps);
+      if (!prMap[s.exercise] || orm > prMap[s.exercise].orm) prMap[s.exercise] = { orm, date: s.date, w: +x.weight, r: +x.reps };
+    });
+  });
+  const prs = Object.entries(prMap).sort((a, b) => b[1].orm - a[1].orm);
+  if (!prs.length) return <div style={{ textAlign: "center", padding: "40px 16px", color: T.muted }}><div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div><div style={{ fontSize: 13 }}>Aucun PR encore enregistré.</div><div style={{ fontSize: 11, marginTop: 6, color: T.dim }}>Commence à logger tes séances pour voir tes PRs apparaître automatiquement.</div></div>;
+  return (
+    <>
+      <div style={{ ...c.accentCard(T.hyper), marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.hyper, marginBottom: 4 }}>🏆 {prs.length} PERSONAL RECORDS</div>
+        <div style={{ fontSize: 11, color: T.text }}>1RM estimé via formule Epley + Brzycki (moyenne). Mis à jour automatiquement à chaque séance.</div>
+      </div>
+      <div style={c.card()}>
+        {prs.map(([ex, pr], i) => (
+          <div key={ex} style={{ ...c.row, borderBottom: i < prs.length - 1 ? `1px solid ${T.border}` : "none", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 12, color: T.white, fontWeight: 700 }}>{ex}</div>
+                <div style={{ fontSize: 10, color: T.muted }}>{pr.date} · {pr.w}kg × {pr.r} rep{+pr.r > 1 ? "s" : ""}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: T.hyper }}>≈{pr.orm}kg</div>
+                <div style={{ fontSize: 9, color: T.muted }}>1RM estimé</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {[70, 75, 80, 85, 90, 95].map((p) => (
+                <span key={p} style={{ background: T.card2, border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10 }}>
+                  <span style={{ color: T.muted }}>{p}%=</span><span style={{ color: T.accent, fontWeight: 700 }}>{pctOf(pr.orm, p)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─── SUIVI TAB ────────────────────────────────────────────────────────────────
+function SuiviTab({ bodyData, setBodyData, recovery, setRecovery }) {
+  const [view, setView] = useState("form");
+  const [bw, setBw] = useState("");
+  const [sleep, setSleep] = useState("");
+  const [fatigue, setFatigue] = useState(3);
+  const [stress, setStress] = useState(3);
+  const [protScore, setProtScore] = useState(null);
+  const [carbScore, setCarbScore] = useState(null);
+  const [hydration, setHydration] = useState(6);
+  const [msg, setMsg] = useState("");
+
+  const save = async () => {
+    const today = new Date().toLocaleDateString("fr-FR");
+    const iso = new Date().toISOString().split("T")[0];
+    let updB = bodyData, updR = recovery;
+    if (bw) { updB = [...bodyData, { date: today, dateISO: iso, weight: +bw }]; setBodyData(updB); await store.set("body_v4", updB); }
+    const entry = { id: Date.now(), date: today, dateISO: iso, sleep: +sleep || null, fatigue, stress, protScore, carbScore, hydration };
+    updR = [...recovery, entry]; setRecovery(updR); await store.set("recov_v4", updR);
+    setBw(""); setSleep("");
+    setMsg("✓ Données enregistrées !"); setTimeout(() => setMsg(""), 2500);
+  };
+
+  const bodyChart = bodyData.slice(-20).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+  const recovChart = recovery.slice(-14).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+
+  const lastRecov = recovery.slice(-3);
+  const avgFatigue = lastRecov.length >= 3 ? lastRecov.reduce((a, r) => a + r.fatigue, 0) / 3 : 0;
+  const avgSleep = recovery.filter((r) => r.sleep).slice(-5).reduce((a, r, _, arr) => a + r.sleep / arr.length, 0);
+
+  const nutrData = recovery.filter((r) => r.protScore !== null).slice(-7).map((r) => ({
+    date: r.date.slice(0, 5),
+    prot: r.protScore === "oui" ? 100 : r.protScore === "partial" ? 60 : 20,
+    hydration: Math.round((r.hydration || 0) / 8 * 100),
+  }));
+
+  const ScoreBtn = ({ val, options, onSet }) => (
+    <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+      {options.map(([v, l, col]) => <button key={v} onClick={() => onSet(v)} style={{ flex: 1, background: val === v ? col : T.dim, color: val === v ? T.bg : T.muted, border: "none", borderRadius: 6, padding: "7px 0", fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{l}</button>)}
+    </div>
+  );
+
+  return (
+    <>
+      {avgFatigue >= 4 && <div style={{ ...c.accentCard(T.combat), color: "#FCA5A5", marginBottom: 10 }}>🔴 Fatigue élevée ({avgFatigue.toFixed(1)}/5 sur 3 jours) → Réduis le volume de 40% ou prends un jour de repos.</div>}
+      {avgSleep > 0 && avgSleep < 6.5 && <div style={{ ...c.accentCard(T.warn), color: "#FCD34D", marginBottom: 10 }}>⚠️ Sommeil insuffisant (moy. {avgSleep.toFixed(1)}h) → Priorise le sommeil. Réduis les séances du soir.</div>}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[{ id: "form", l: "📋 SAISIR" }, { id: "graphs", l: "📈 GRAPHIQUES" }].map((v) => <button key={v.id} onClick={() => setView(v.id)} style={{ flex: 1, background: view === v.id ? T.accent : T.card, color: view === v.id ? T.bg : T.muted, border: `1px solid ${view === v.id ? T.accent : T.border}`, borderRadius: 8, padding: 9, fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{v.l}</button>)}
+      </div>
+
+      {view === "form" && (
+        <div style={c.card()}>
+          <div style={c.title}>SAISIE QUOTIDIENNE — {new Date().toLocaleDateString("fr-FR")}</div>
+
+          <span style={c.label(T.endurance)}>POIDS DE CORPS (kg)</span>
+          <input type="number" min="50" max="200" step="0.1" placeholder="ex : 89.4" value={bw} onChange={(e) => setBw(e.target.value)} style={{ ...c.inp(T.endurance), marginBottom: 12 }} />
+
+          <span style={c.label(T.endurance)}>SOMMEIL (heures)</span>
+          <input type="number" min="3" max="12" step="0.5" placeholder="ex : 7.5" value={sleep} onChange={(e) => setSleep(e.target.value)} style={{ ...c.inp(T.endurance), marginBottom: 12 }} />
+
+          <span style={c.label(T.cardio)}>FATIGUE MUSCULAIRE — {fatigue}/5</span>
+          <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
+            {[1,2,3,4,5].map((v) => <button key={v} onClick={() => setFatigue(v)} style={{ flex: 1, background: fatigue >= v ? T.cardio : T.dim, color: fatigue >= v ? T.bg : T.muted, border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{v}</button>)}
+          </div>
+
+          <span style={c.label(T.hyper)}>STRESS GÉNÉRAL — {stress}/5</span>
+          <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
+            {[1,2,3,4,5].map((v) => <button key={v} onClick={() => setStress(v)} style={{ flex: 1, background: stress >= v ? T.hyper : T.dim, color: stress >= v ? T.bg : T.muted, border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{v}</button>)}
+          </div>
+
+          <span style={c.label(T.power)}>🥩 PROTÉINES DU JOUR</span>
+          <ScoreBtn val={protScore} onSet={setProtScore} options={[["oui","ATTEINT ✓",T.power],["partial","PARTIEL ≈",T.cardio],["non","MANQUÉ ✗",T.combat]]} />
+
+          <span style={c.label(T.strength)}>🍚 GLUCIDES AUTOUR ENTRAÎNEMENT</span>
+          <ScoreBtn val={carbScore} onSet={setCarbScore} options={[["oui","OUI ✓",T.power],["partial","PARTIEL",T.cardio],["non","NON ✗",T.combat]]} />
+
+          <span style={c.label(T.endurance)}>💧 HYDRATATION — {hydration} verres</span>
+          <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+            {[4,5,6,7,8,9,10].map((v) => <button key={v} onClick={() => setHydration(v)} style={{ flex: 1, background: hydration >= v ? T.endurance : T.dim, color: hydration >= v ? T.bg : T.muted, border: "none", borderRadius: 5, padding: "6px 0", fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{v}</button>)}
+          </div>
+
+          <button onClick={save} style={c.btn(T.accent, T.bg, true)}>ENREGISTRER</button>
+          {msg && <div style={{ textAlign: "center", color: T.accent, fontSize: 12, marginTop: 10 }}>{msg}</div>}
+        </div>
+      )}
+
+      {view === "graphs" && (
+        <>
+          {bodyChart.length >= 2 ? (
+            <div style={c.card()}>
+              <div style={c.title}>POIDS DE CORPS (kg)</div>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={bodyChart} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                  <defs><linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.endurance} stopOpacity={0.3} /><stop offset="95%" stopColor={T.endurance} stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
+                  <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, fontSize: 11, fontFamily: "inherit" }} labelStyle={{ color: T.endurance }} />
+                  <Area type="monotone" dataKey="weight" stroke={T.endurance} strokeWidth={2} fill="url(#bodyGrad)" dot={{ fill: T.endurance, r: 3, strokeWidth: 0 }} name="Poids (kg)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <div style={{ textAlign: "center", padding: "20px", color: T.muted, fontSize: 11 }}>Enregistre au moins 2 jours pour voir le graphique.</div>}
+
+          {recovChart.length >= 2 && (
+            <div style={c.card()}>
+              <div style={c.title}>FATIGUE & SOMMEIL</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <LineChart data={recovChart} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+                  <XAxis dataKey="date" tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: T.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, fontSize: 11, fontFamily: "inherit" }} />
+                  <Line type="monotone" dataKey="fatigue" stroke={T.cardio} strokeWidth={2} dot={{ fill: T.cardio, r: 3, strokeWidth: 0 }} name="Fatigue /5" />
+                  <Line type="monotone" dataKey="sleep" stroke={T.endurance} strokeWidth={2} dot={{ fill: T.endurance, r: 3, strokeWidth: 0 }} name="Sommeil (h)" connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+                <span style={{ fontSize: 10, color: T.cardio }}>■ Fatigue /5</span>
+                <span style={{ fontSize: 10, color: T.endurance }}>■ Sommeil (h)</span>
+              </div>
+            </div>
+          )}
+
+          {nutrData.length >= 2 && (
+            <div style={c.card()}>
+              <div style={c.title}>NUTRITION — 7 DERNIERS JOURS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {nutrData.reverse().map((d, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 10, color: T.muted, width: 34 }}>{d.date}</span>
+                    <div style={{ flex: 1, height: 8, background: T.dim, borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${d.prot}%`, background: d.prot >= 100 ? T.power : d.prot >= 60 ? T.cardio : T.combat, borderRadius: 4, transition: "width 0.5s" }} />
+                    </div>
+                    <span style={{ fontSize: 9, color: T.muted, width: 32 }}>💧{d.hydration ? Math.round(d.hydration / 12.5) : "—"}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 9, color: T.muted, marginTop: 8 }}>Barre verte = protéines atteintes · Orange = partiel · Rouge = manqué</div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── PLAN TAB ────────────────────────────────────────────────────────────────
+const DAYS_V1 = [
+  { id: "j1", label: "J1", col: T.strength, theme: "BAS DU CORPS · FORCE & EXPLOSIVITÉ", dur: "75 min", blks: [{ n: "ACTIVATION", ex: [["Corde à sauter","3 min"],["Hip circle élastique","2×15"],["Mobilité cheville","2×10/jambe"]] }, { n: "EXPLOSIVITÉ", sci: "Pliométrie AVANT charge = exploitation état neural frais. Recrutement type II max. (PAP)", ex: [["Box Jump (cm)","5×3",true],["Broad Jump (cm)","4×3",true]] }, { n: "FORCE", sci: "Volume réduit vs PPL → limite interférence AMPK/mTOR. Intensité > volume.", ex: [["Squat barre (tempo 3-1-1)","5×3 @ 80–85%"],["Romanian Deadlift","4×6 @ 70%"],["Fentes marchées barre","3×8/jambe"]] }, { n: "CORE ATHLÉTIQUE", ex: [["Dead bug","3×8/côté"],["Gainage latéral (sec)","3×30s"],["Farmer walk","3×30m lourd"]] }] },
+  { id: "j2", label: "J2", col: T.hyper, theme: "HAUT DU CORPS · ATHLÉTIQUE", dur: "70 min", blks: [{ n: "ACTIVATION", ex: [["Band pull-apart","3×15"],["Y-T-W élastique","2×10"],["Rotation thoracique","2×10/côté"]] }, { n: "EXPLOSIVITÉ", sci: "Lancer med ball = puissance en chaîne cinétique + stimulation SNC. (Force-Vitesse continuum)", ex: [["Lancer med ball poitrine","5×5"],["Lancer rotationnel","4×5/côté"]] }, { n: "FORCE", sci: "Développé incliné haltères → moins de stress en rotation interne. Protège tes tendinites.", ex: [["Tractions lestées","5×5"],["Développé incliné haltères","4×6–8"],["Row barre Pendlay","4×5"],["Push press","3×5"]] }, { n: "SANTÉ ÉPAULES", sci: "Ratio 2:1 tirage/poussée. Rééquilibrage rotateurs externes pour prévenir récidive.", ex: [["Face pull","4×15"],["Y-T-W élastique allongé","3×10 chaque"]] }] },
+  { id: "j3", label: "J3", col: T.cardio, theme: "CONDITIONING · COMBAT-READY", dur: "50 min", blks: [{ n: "ÉCHAUFFEMENT", ex: [["Rameur (mètres)","5 min Z2"]] }, { n: "HIIT", sci: "30s/90s = filière anaérobie lactique + VO2max. Tolérance au lactate sport de combat. (Buchheit, 2013)", ex: [["Airbike (calories)","10 × 30s ON / 90s OFF"]] }, { n: "CIRCUIT COMBAT (4 tours)", sci: "Travail sous fatigue → exigences sports de combat. Maintient la technique sous charge cardio.", ex: [["KB Swing","×20"],["Burpees","×10"],["Farmer walk","30m A/R"],["Repos","2 min"]] }] },
+  { id: "j4", label: "J4", col: T.power, theme: "FULL BODY · PUISSANCE", dur: "75 min", blks: [{ n: "ACTIVATION SNC", ex: [["Sprint 30m","×5 repos 2 min"]] }, { n: "OLYMPIQUE", sci: "Power Clean = meilleur exercice pour le RFD. Transforme force brute → puissance athlétique. (Stone et al., 2006)", ex: [["Power Clean","6×3","qualité absolue"]] }, { n: "FORCE GLOBALE", ex: [["Soulevé de terre trap bar","4×4 @ 85%"],["Push press barre","4×4"],["Row unilatéral haltère","3×8/bras"]] }, { n: "CORE ANTI-ROTATION", sci: "Core anti-rotation = plus fonctionnel pour sports de combat. (McGill, 2010)", ex: [["Pallof press","3×12/côté"],["Hanging leg raise","3×10"]] }] },
+  { id: "j5", label: "J5", col: T.endurance, theme: "ENDURANCE & MOBILITÉ", dur: "60 min", blks: [{ n: "ZONE 2 (35–40 min)", sci: "Zone 2 (65–70% FCmax) = densité mitochondriale + oxydation graisses. Priorité N°1 à 90kg. (Seiler, 2010)", ex: [["Course Zone 2 (min)","35–40 min"]] }, { n: "MOBILITÉ CIBLÉE", sci: "Mobilité = réduction risque tendinite + économie de mouvement. Priorité hanches et épaules.", ex: [["90/90 hip stretch","2×60s/côté"],["Pigeon yoga","2×60s/côté"],["Rotation thoracique","2×10/côté"],["Stretch pec mineur","2×45s/côté"]] }, { n: "RESPIRATION", sci: "Box breathing active le parasympathique → récupération + qualité sommeil améliorés.", ex: [["Box breathing 4/4/4/4","5–8 min"],["Auto-massage rouleau","5 min"]] }] },
+];
+const DAYS_V2 = [
+  { id: "j1", label: "J1", col: T.strength, theme: "BAS DU CORPS · FORCE", dur: "75 min", blks: [{ n: "ACTIVATION", ex: [["Corde à sauter","3 min"],["Mobilité hanches","5 min"]] }, { n: "EXPLOSIVITÉ", ex: [["Box Jump (cm)","5×3"]] }, { n: "FORCE", ex: [["Squat barre","5×3 @ 80–85%"],["RDL","4×6"],["Fentes marchées","3×10/jambe"]] }, { n: "CORE", ex: [["Gainage latéral (sec)","3×30s"],["Dead bug","3×10"]] }] },
+  { id: "j2", label: "J2", col: T.hyper, theme: "HAUT DU CORPS · ATHLÉTIQUE", dur: "70 min", blks: [{ n: "EXPLOSIVITÉ", ex: [["Lancer med ball poitrine","5×5"],["Lancer rotationnel","4×5/côté"]] }, { n: "FORCE", ex: [["Tractions lestées","5×5"],["Développé incliné haltères","4×6–8"],["Row barre Pendlay","4×6"]] }, { n: "SANTÉ ÉPAULES", ex: [["Y-T-W élastique","3×12"],["Face pull","3×15"]] }] },
+  { id: "j3", label: "J3", col: T.cardio, theme: "CONDITIONING", dur: "45–60 min", blks: [{ n: "INTERVALLES", ex: [["Airbike / Rameur / Course","10 × 30s ON / 90s OFF"]] }, { n: "CIRCUIT (4 tours)", ex: [["KB Swing","×20"],["Burpees","×10"],["Farmer walk","40m"],["Repos","2 min"]] }] },
+  { id: "j4", label: "J4", col: T.power, theme: "FULL BODY · PUISSANCE", dur: "75 min", blks: [{ n: "PUISSANCE", ex: [["Power Clean","6×3"]] }, { n: "FORCE", ex: [["Push press","4×4"],["Soulevé de terre trap bar","4×5"],["Row unilatéral","3×8/bras"]] }, { n: "CORE", ex: [["Pallof press","3×12"],["Hanging leg raise","3×10"]] }] },
+  { id: "j5", label: "J5", col: T.endurance, theme: "ENDURANCE & MOBILITÉ", dur: "60 min", blks: [{ n: "ZONE 2", ex: [["Course / Vélo / Rameur","35–45 min"]] }, { n: "MOBILITÉ", ex: [["Hanches","2×60s/côté"],["Épaules","2×45s/côté"],["Colonne","2×10/côté"]] }, { n: "RESPIRATION", ex: [["Box breathing","5 min"]] }] },
+];
+
+function PlanTab() {
+  const [ver, setVer] = useState("v1");
+  const [active, setActive] = useState("j1");
+  const days = ver === "v1" ? DAYS_V1 : DAYS_V2;
+  const day = days.find((d) => d.id === active);
+  return (
+    <>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[["v1","V1+ COMPLET",T.strength],["v2","V2 ÉPURÉ",T.cardio]].map(([id, l, col]) => (
+          <button key={id} onClick={() => setVer(id)} style={{ flex: 1, background: ver === id ? col : T.card, color: ver === id ? T.bg : T.muted, border: `1px solid ${ver === id ? col : T.border}`, borderRadius: 8, padding: 9, fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{l}</button>
+        ))}
+      </div>
+      {ver === "v1" && <div style={{ ...c.accentCard(T.strength), marginBottom: 12, fontSize: 11, color: T.text }}>📋 Version détaillée avec activation complète, notes scientifiques et paramètres précis.</div>}
+      {ver === "v2" && <div style={{ ...c.accentCard(T.cardio), marginBottom: 12, fontSize: 11, color: T.text }}>⚡ Version épurée. Ouvre et entraîne-toi sans surcharge d'info.</div>}
+      <div style={{ display: "flex", gap: 5, marginBottom: 14, flexWrap: "wrap" }}>
+        {days.map((d) => <button key={d.id} onClick={() => setActive(d.id)} style={{ background: active === d.id ? d.col : T.card, color: active === d.id ? T.bg : T.muted, border: `1px solid ${active === d.id ? d.col : T.border}`, borderRadius: 7, padding: "6px 14px", fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{d.id.toUpperCase()}</button>)}
+      </div>
+      {day && (
+        <>
+          <div style={c.chip(day.col)}>◆ {day.theme}</div>
+          <div style={{ display: "flex", gap: 6, margin: "10px 0 14px" }}>
+            <span style={c.badge(day.col)}>{day.dur}</span>
+          </div>
+          {day.blks.map((blk, bi) => (
+            <div key={bi} style={c.card()}>
+              <div style={c.title}>{blk.n}</div>
+              {blk.ex.map((ex, ei) => (
+                <div key={ei} style={{ ...c.row, borderBottom: ei < blk.ex.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                  <span style={{ fontSize: 12, color: T.white, flex: 1 }}>{ex[0]}</span>
+                  <span style={{ fontSize: 12, color: T.accent, fontWeight: 700, textAlign: "right" }}>{ex[1]}</span>
+                </div>
+              ))}
+              {ver === "v1" && blk.sci && <div style={c.sci}>🔬 {blk.sci}</div>}
+            </div>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── SCIENCE TAB ─────────────────────────────────────────────────────────────
+function ScienceTab() {
+  const items = [
+    { t: "EFFET D'INTERFÉRENCE (AMPK vs mTOR)", col: T.hyper, b: "Cardio et musculation activent des voies moléculaires concurrentes. L'AMPK inhibe mTOR (synthèse protéique). Solution : séparer cardio et force de 6h minimum. J3 est dédié — aucun conflit.", ref: "Coffey & Hawley, 2007" },
+    { t: "RATE OF FORCE DEVELOPMENT (RFD)", col: T.accent, b: "Puissance = Force × Vitesse. Le Power Clean, sauts et lancers développent la vitesse de production de force — compétence perdue avec le PPL pur. Le RFD est directement corrélé à la performance en sports de combat.", ref: "Stone et al., 2006" },
+    { t: "POST-ACTIVATION POTENTIATION (PAP)", col: T.cardio, b: "Un mouvement lourd crée une potentialisation qui augmente la puissance explosive dans les 4–8 min suivantes. Mouvements explosifs TOUJOURS avant les charges lourdes dans ce programme.", ref: "Robbins, 2005" },
+    { t: "ENTRAÎNEMENT POLARISÉ (80/20)", col: T.power, b: "80% du temps en Zone 2 + 20% en HIIT. Le modèle 'tempo' (effort modéré constant) est moins efficace sur la VO2max et l'endurance fondamentale. Ce programme respecte exactement cette structure.", ref: "Seiler & Tønnessen, 2009" },
+    { t: "SRA — STIMULUS, RÉCUPÉRATION, ADAPTATION", col: T.endurance, b: "Le tendon récupère en 72–96h vs 48h pour le muscle. J1 et J4 séparées par J2 et J3 — jamais consécutives. Le RPE par série permet de calibrer l'intensité réelle et détecter le surentraînement.", ref: "Zatsiorsky & Kraemer, 2006" },
+    { t: "VOLUME MINIMUM EFFICACE vs MRV", col: T.strength, b: "Tes séances PPL de 2–3h dépassent ton Volume Maximum Récupérable. Ce programme cible le MEV en musculation pour libérer de la capacité de récupération pour l'athlétisme. Moins de volume — plus d'adaptation.", ref: "Israetel, Hoffmann & Smith — RP" },
+  ];
+  return <>{items.map((it, i) => <div key={i} style={c.card()}><div style={{ ...c.title, color: it.col }}>{it.t}</div><div style={c.p}>{it.b}</div><div style={{ fontSize: 10, color: T.muted, borderTop: `1px solid ${T.border}`, paddingTop: 8, fontStyle: "italic" }}>📚 {it.ref}</div></div>)}</>;
+}
+
+// ─── PHASES TAB ──────────────────────────────────────────────────────────────
+function PhasesTab() {
+  const phases = [
+    { n: "PHASE 1 — FONDATION", weeks: "Sem. 1–4", col: T.strength, pct: 70, focus: "Adaptation neurologique & motrice", desc: "Apprentissage des patterns. Qualité technique avant tout. Tu vas te sentir peu chargé — c'est voulu.", keys: ["Squat : 75–80% (pas de PR)","Power Clean : technique, charges légères","Zone 2 : 2× minimum / semaine","Séances : 5/sem — 4 si fatigue"], sci: "Le SNC s'adapte AVANT les muscles. Réduire le volume muscu de 20% évite l'interférence AMPK/mTOR." },
+    { n: "PHASE 2 — DÉVELOPPEMENT", weeks: "Sem. 5–8", col: T.cardio, pct: 85, focus: "Charge progressive & conditionnement", desc: "+5–10% sur tous les lifts. Intervalles plus denses. Tu dois sentir une vraie différence sur le souffle et l'explosivité.", keys: ["Squat / SDT : retour 85–90%","Intervalles : 12×30s/90s","Zone 2 : 40–50 min","Contrast Training : lourd → explosif en superset"], sci: "Le Contrast Training amplifie la PAP : puissance explosive +15–25% dans les 4–8 min post-effort lourd." },
+    { n: "PHASE 3 — PERFORMANCE", weeks: "Sem. 9–12", col: T.accent, pct: 100, focus: "Pic d'intensité & transformation", desc: "Volume baisse, intensité monte. PRs, sprints maximaux. Récupération et sommeil deviennent critiques.", keys: ["Sprints 30m × 8 intégrés J1/J4","Tentative PR semaine 10","Intervals : 15×20s/40s","Semaine 12 = DELOAD obligatoire (50% volume)"], sci: "La supercompensation se produit pendant la RÉCUPÉRATION, pas pendant l'effort. Le deload est obligatoire. (Zatsiorsky, 2006)" },
+  ];
+  return (
+    <>
+      {phases.map((p) => (
+        <div key={p.n} style={c.card()}>
+          <div style={{ ...c.title, color: p.col }}>{p.n}</div>
+          <div style={{ fontSize: 10, color: T.muted, marginBottom: 6 }}>{p.weeks}</div>
+          <div style={{ height: 5, background: T.dim, borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ height: "100%", width: `${p.pct}%`, background: p.col, borderRadius: 3 }} />
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.white, marginBottom: 6 }}>{p.focus}</div>
+          <div style={c.p}>{p.desc}</div>
+          {p.keys.map((k, i) => <div key={i} style={{ fontSize: 11, color: T.text, padding: "4px 0", borderBottom: i < p.keys.length - 1 ? `1px solid ${T.border}` : "none" }}><span style={{ color: p.col, marginRight: 8 }}>→</span>{k}</div>)}
+          <div style={c.sci}>🔬 {p.sci}</div>
+        </div>
+      ))}
+      <div style={c.card()}>
+        <div style={c.title}>RÉSULTATS ATTENDUS — 12 SEMAINES</div>
+        {[["Masse grasse","−5 à 8 kg",T.power],["Force (SDT / Squat)","Maintenue ou +",T.accent],["Explosivité (CMJ)","+15–25%",T.hyper],["VO2max estimé","+8–15%",T.endurance],["Mobilité globale","Nettement améliorée",T.cardio]].map(([m, d, col], i) => (
+          <div key={m} style={{ ...c.row, borderBottom: i < 4 ? `1px solid ${T.border}` : "none" }}>
+            <span style={{ fontSize: 12, color: T.text }}>{m}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: col }}>{d}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [tab, setTab] = useState("home");
+  const [sessions, setSessions] = useState([]);
+  const [bodyData, setBodyData] = useState([]);
+  const [recovery, setRecovery] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const j = await store.get("journal_v4"); if (j) setSessions(j);
+      const b = await store.get("body_v4"); if (b) setBodyData(b);
+      const r = await store.get("recov_v4"); if (r) setRecovery(r);
+      setLoaded(true);
+    })();
+  }, []);
+
+  const TABS = [
+    { id: "home", l: "🏠 HOME" },
+    { id: "seance", l: "🎯 SÉANCE" },
+    { id: "plan", l: "📋 PLAN" },
+    { id: "journal", l: "📓 JOURNAL" },
+    { id: "prs", l: "🏆 PRs" },
+    { id: "suivi", l: "📊 SUIVI" },
+    { id: "phases", l: "PROGRESSION" },
+    { id: "science", l: "SCIENCE" },
+  ];
+
+  if (!loaded) return <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono','Courier New',monospace" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>⚡</div><div style={{ fontSize: 12, color: T.muted, letterSpacing: "2px" }}>CHARGEMENT...</div></div></div>;
+
+  return (
+    <div style={{ fontFamily: "'DM Mono','Courier New',monospace", background: T.bg, color: T.white, minHeight: "100vh", paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg,#070B11 0%,#0F1A2E 100%)", borderBottom: `1px solid ${T.border}`, padding: "22px 16px 16px" }}>
+        <div style={{ display: "inline-block", background: T.accent, color: T.bg, fontWeight: 700, fontSize: 9, letterSpacing: "2px", padding: "3px 10px", marginBottom: 8 }}>PROGRAMME HYBRIDE · 12 SEMAINES</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: T.white, letterSpacing: "-0.5px", marginBottom: 2 }}>HYBRID ATHLETIC SYSTEM</div>
+        <div style={{ fontSize: 10, color: T.muted, letterSpacing: "1.5px" }}>90KG · 1M75 · EX-COMBAT · SCIENCE-BASED</div>
+      </div>
+
+      {/* Nav */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: "#05080E", overflowX: "auto", padding: "0 6px" }}>
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ background: "none", border: "none", borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", color: tab === t.id ? T.accent : T.muted, fontFamily: "inherit", fontSize: 10, fontWeight: 700, letterSpacing: "0.5px", padding: "12px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      <div style={c.wrap}>
+        {tab === "home" && <HomeTab sessions={sessions} bodyData={bodyData} recovery={recovery} onTab={setTab} />}
+        {tab === "seance" && <SeanceTab />}
+        {tab === "plan" && <PlanTab />}
+        {tab === "journal" && <JournalTab sessions={sessions} setSessions={setSessions} />}
+        {tab === "prs" && <PRsTab sessions={sessions} />}
+        {tab === "suivi" && <SuiviTab bodyData={bodyData} setBodyData={setBodyData} recovery={recovery} setRecovery={setRecovery} />}
+        {tab === "phases" && <PhasesTab />}
+        {tab === "science" && <ScienceTab />}
+      </div>
+    </div>
+  );
+}

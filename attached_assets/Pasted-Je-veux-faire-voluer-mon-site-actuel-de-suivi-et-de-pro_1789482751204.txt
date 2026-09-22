@@ -1,0 +1,342 @@
+Je veux faire évoluer mon site actuel de suivi et de programmation de séances sportives.
+
+**IMPORTANT : avant de modifier quoi que ce soit, analyse entièrement le projet existant.**
+Comprends l’architecture, le framework utilisé, la base de données éventuelle, les composants, les pages, les fonctionnalités déjà présentes et la manière dont les séances sont actuellement stockées et affichées.
+
+Je ne veux pas repartir de zéro. Je veux **améliorer le site existant en conservant son fonctionnement et son design autant que possible.**
+
+# OBJECTIF PRINCIPAL
+
+Je veux connecter mon site à Internet et intégrer une **IA sportive performante** qui puisse agir comme un véritable coach personnel.
+
+L'utilisateur doit pouvoir discuter avec l'IA en langage naturel et lui demander par exemple :
+
+* « Fais-moi une séance de dos pour aujourd'hui »
+* « J'ai seulement 45 minutes »
+* « Je suis fatigué aujourd'hui, adapte ma séance »
+* « Remplace cet exercice, je n'ai pas cette machine »
+* « Je veux une séance plus orientée explosivité »
+* « Fais-moi une séance jambes sans squat »
+* « Modifie ma séance pour que je puisse la faire chez moi »
+* « J'ai fait 120 kg au développé couché aujourd'hui, adapte ma progression »
+* « Quelle séance dois-je faire aujourd'hui ? »
+* « Analyse ma progression »
+* « Est-ce que je progresse sur mon développé couché ? »
+* « Diminue le volume cette semaine »
+* « Prépare-moi ma séance de demain »
+* « Ajoute cette séance à mon programme »
+
+L'IA doit être capable de **comprendre le contexte de l'utilisateur et d'utiliser les données présentes dans le site pour prendre ses décisions.**
+
+# CONNEXION INTERNET ET IA
+
+Je veux utiliser une API d'IA moderne et performante plutôt qu'une IA simulée.
+
+L'architecture doit être conçue proprement :
+
+Frontend
+↓
+Backend sécurisé
+↓
+API IA
+↓
+Base de données / données utilisateur
+
+**NE JAMAIS exposer la clé API de l'IA dans le frontend.**
+
+Les clés API et secrets doivent être stockés dans les variables d'environnement / Secrets de Replit.
+
+Utilise l'API d'IA la plus adaptée disponible dans le projet et, si plusieurs fournisseurs sont possibles, privilégie un modèle suffisamment performant pour comprendre des demandes complexes et générer des programmes sportifs cohérents.
+
+Le système doit être conçu pour pouvoir changer de modèle facilement plus tard.
+
+# MÉMOIRE ET CONTEXTE UTILISATEUR
+
+L'IA doit pouvoir accéder aux informations pertinentes de l'utilisateur disponibles dans le site.
+
+Elle doit notamment pouvoir utiliser, lorsque ces informations existent :
+
+* poids
+* taille
+* objectifs
+* niveau sportif
+* historique d'entraînement
+* exercices réalisés
+* charges utilisées
+* séries
+* répétitions
+* temps de repos
+* performances
+* séances précédentes
+* programme actuel
+* fréquence d'entraînement
+* disponibilité
+* matériel disponible
+* préférences
+* contraintes déclarées par l'utilisateur
+
+L'IA ne doit pas seulement répondre à partir du dernier message.
+
+Elle doit pouvoir récupérer le contexte nécessaire depuis la base de données avant de répondre.
+
+# GÉNÉRATION DES SÉANCES
+
+Lorsque l'utilisateur demande une séance, l'IA doit générer une séance structurée et exploitable par le site.
+
+Une séance doit pouvoir contenir :
+
+* nom de la séance
+* objectif
+* durée estimée
+* échauffement
+* exercices
+* séries
+* répétitions
+* charge ou pourcentage si pertinent
+* RPE/RIR si pertinent
+* temps de repos
+* tempo si pertinent
+* consignes techniques
+* ordre des exercices
+* retour au calme si pertinent
+
+Exemple :
+
+Développé couché
+4 séries × 6 répétitions
+RPE 8
+Repos : 3 min
+
+L'IA doit pouvoir générer ces informations sous une structure JSON stricte lorsque le site doit afficher ou enregistrer automatiquement une séance.
+
+# MODIFICATION EN TEMPS RÉEL
+
+Je veux que l'IA puisse modifier une séance existante.
+
+Par exemple :
+
+Séance initiale :
+Développé couché 4×8
+
+Utilisateur :
+« Aujourd'hui je suis fatigué, réduis le volume. »
+
+L'IA doit pouvoir proposer :
+
+Développé couché 3×8
+RPE 7
+
+Mais surtout, la modification doit être reflétée dans l'interface du site.
+
+L'objectif est que l'IA ne soit pas uniquement conversationnelle.
+
+Elle doit pouvoir **agir sur les données du site lorsque l'utilisateur lui demande de le faire.**
+
+# FONCTIONS / OUTILS DE L'IA
+
+Mets en place un système de fonctions/outils permettant à l'IA d'interagir avec l'application.
+
+Par exemple :
+
+get_user_profile()
+get_current_program()
+get_workout()
+get_workout_history()
+get_exercise_history()
+get_recent_performance()
+create_workout()
+update_workout()
+add_exercise_to_workout()
+replace_exercise()
+delete_exercise()
+save_workout()
+record_performance()
+
+L'IA doit utiliser ces fonctions lorsqu'elles sont nécessaires plutôt que d'inventer les données.
+
+Exemple :
+
+Utilisateur :
+« Combien j'ai fait au développé couché la dernière fois ? »
+
+L'IA doit récupérer la donnée depuis la base de données.
+
+Elle ne doit jamais inventer une performance.
+
+# CHAT IA
+
+Ajoute une interface de chat propre au site.
+
+Le chat doit permettre à l'utilisateur de discuter naturellement avec le coach.
+
+Il doit être possible de :
+
+* envoyer un message
+* recevoir une réponse
+* conserver l'historique de conversation
+* afficher les séances générées
+* modifier une séance depuis la conversation
+* ajouter une séance au programme
+* demander des modifications successives
+
+Exemple :
+
+Utilisateur :
+« Fais-moi une séance poitrine. »
+
+IA :
+« Voici une séance poitrine adaptée à ton niveau... »
+
+Utilisateur :
+« Je n'ai que 1h. »
+
+IA :
+« D'accord, j'ai réduit la séance à environ 55 minutes. »
+
+Utilisateur :
+« Remplace les dips. »
+
+IA :
+« Je les remplace par... »
+
+Utilisateur :
+« Ajoute-la à mon programme. »
+
+IA :
+→ crée réellement la séance dans la base de données.
+
+# CALIBRATION DES SÉANCES
+
+Je veux que l'IA puisse progressivement calibrer les séances en fonction des performances réelles.
+
+Exemple :
+
+Séance précédente :
+Développé couché
+100 kg — 4×8
+RPE 7
+
+Nouvelle séance :
+L'utilisateur indique :
+100 kg — 4×8
+RPE 9
+
+L'IA doit pouvoir comprendre que la charge était probablement trop élevée pour l'objectif prévu et adapter la prochaine séance.
+
+À l'inverse, si :
+
+100 kg — 4×8
+RPE 6
+
+l'IA peut considérer que la charge était relativement facile et proposer une progression cohérente.
+
+Le système doit donc exploiter l'historique plutôt que traiter chaque séance indépendamment.
+
+# IMPORTANT : NE PAS LAISSER L'IA INVENTER
+
+Je veux une séparation claire entre :
+
+1. les informations provenant de la base de données ;
+2. les informations données par l'utilisateur ;
+3. les recommandations générées par l'IA.
+
+L'IA ne doit jamais prétendre connaître une donnée qu'elle n'a pas récupérée.
+
+Si une information importante manque, elle doit demander à l'utilisateur.
+
+# SÉCURITÉ
+
+Le système doit :
+
+* protéger les clés API ;
+* ne jamais envoyer inutilement toutes les données personnelles au modèle ;
+* vérifier les permissions utilisateur ;
+* empêcher un utilisateur d'accéder aux données d'un autre utilisateur ;
+* valider les données reçues de l'IA avant de les enregistrer ;
+* empêcher l'IA d'exécuter des actions non autorisées ;
+* gérer correctement les erreurs API ;
+* prévoir une limitation du nombre de requêtes si nécessaire.
+
+# ARCHITECTURE
+
+Je veux une architecture propre et évolutive.
+
+Sépare clairement :
+
+* interface utilisateur
+* logique métier
+* service IA
+* API/backend
+* base de données
+* authentification
+* gestion des séances
+
+Ne mets pas toute la logique dans un seul fichier.
+
+Si le projet possède déjà une architecture correcte, conserve-la et adapte-la plutôt que de tout réécrire.
+
+# FORMAT DES DONNÉES
+
+Lorsque l'IA doit créer ou modifier une séance, utilise une structure de données fiable et validée.
+
+Par exemple :
+
+{
+"name": "Push - Force",
+"duration_minutes": 75,
+"objective": "Force",
+"exercises": [
+{
+"name": "Développé couché",
+"sets": 4,
+"reps": 6,
+"rir": 2,
+"rest_seconds": 180
+}
+]
+}
+
+Utilise une validation côté backend avant d'enregistrer ces données.
+
+# EXPÉRIENCE UTILISATEUR
+
+Je veux que l'intégration soit naturelle.
+
+L'IA doit donner l'impression de faire partie intégrante de l'application et non d'être un chatbot ajouté à côté.
+
+Les séances générées doivent pouvoir être affichées sous forme de cartes/composants propres.
+
+L'utilisateur doit pouvoir :
+
+* accepter une séance ;
+* la modifier ;
+* l'enregistrer ;
+* la supprimer ;
+* l'ajouter à son calendrier/programme ;
+* demander une nouvelle version.
+
+# INTERNET
+
+Lorsque cela est pertinent, je veux également prévoir la possibilité pour l'IA d'utiliser des informations externes actualisées.
+
+Cependant, **ne donne pas automatiquement un accès Internet illimité à l'IA.**
+
+Conçois plutôt une architecture permettant d'ajouter ultérieurement des outils de recherche/API externes si nécessaire.
+
+# RÈGLE IMPORTANTE POUR LE DÉVELOPPEMENT
+
+Avant de coder :
+
+1. analyse le projet ;
+2. identifie les technologies utilisées ;
+3. identifie comment les séances sont actuellement stockées ;
+4. identifie si une base de données existe ;
+5. identifie le système d'authentification ;
+6. explique brièvement l'architecture actuelle ;
+7. propose les modifications nécessaires.
+
+Ensuite seulement, implémente la fonctionnalité.
+
+**Ne casse aucune fonctionnalité existante.**
+
+Après chaque modification importante, vérifie que l

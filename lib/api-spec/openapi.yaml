@@ -1,0 +1,471 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: athlete
+    description: Athlete profile and training data
+  - name: coach
+    description: AI coach conversations and actions
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /me/overview:
+    get:
+      operationId: getMyOverview
+      tags: [athlete]
+      summary: Get the authenticated athlete overview
+      responses:
+        "200":
+          description: Athlete overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AthleteOverview"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      tags: [athlete]
+      summary: Update the authenticated athlete profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AthleteProfile"
+  /me/import:
+    post:
+      operationId: importMyLocalData
+      tags: [athlete]
+      summary: Import data previously stored in the browser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocalDataImport"
+      responses:
+        "200":
+          description: Imported overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+  /coach/conversations:
+    get:
+      operationId: listCoachConversations
+      tags: [coach]
+      summary: List the authenticated athlete conversations
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoachConversation"
+    post:
+      operationId: createCoachConversation
+      tags: [coach]
+      summary: Create a coach conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachConversation"
+  /coach/conversations/{id}:
+    get:
+      operationId: getCoachConversation
+      tags: [coach]
+      summary: Get a conversation with its messages
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: Conversation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachConversationDetail"
+        "404":
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /coach/conversations/{id}/messages:
+    post:
+      operationId: sendCoachMessage
+      tags: [coach]
+      summary: Send a message to the AI coach
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachMessageInput"
+      responses:
+        "200":
+          description: Coach response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachMessageResponse"
+        "503":
+          description: AI provider is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: AI provider failed or returned an invalid response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  parameters:
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    AthleteProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        displayName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        goals:
+          type: ["string", "null"]
+        constraints:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, displayName, email, goals, constraints, createdAt, updatedAt]
+    ProfileInput:
+      type: object
+      properties:
+        displayName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        goals:
+          type: ["string", "null"]
+        constraints:
+          type: ["string", "null"]
+    WorkoutSet:
+      type: object
+      properties:
+        reps:
+          type: string
+        weight:
+          type: string
+        rpe:
+          type: ["string", "null"]
+      required: [reps, weight, rpe]
+    WorkoutSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        legacyId:
+          type: ["integer", "null"]
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        exercise:
+          type: string
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSet"
+      required: [id, legacyId, date, dateISO, exercise, sets]
+    BodyMetric:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        weight:
+          type: number
+      required: [id, date, dateISO, weight]
+    RecoveryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        legacyId:
+          type: ["integer", "null"]
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        sleep:
+          type: ["number", "null"]
+        fatigue:
+          type: integer
+        stress:
+          type: integer
+        protScore:
+          type: ["string", "null"]
+        carbScore:
+          type: ["string", "null"]
+        hydration:
+          type: integer
+      required: [id, legacyId, date, dateISO, sleep, fatigue, stress, protScore, carbScore, hydration]
+    AthleteOverview:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/AthleteProfile"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSession"
+        bodyMetrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/BodyMetric"
+        recovery:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryEntry"
+        imported:
+          type: boolean
+      required: [profile, sessions, bodyMetrics, recovery, imported]
+    LocalSetInput:
+      type: object
+      properties:
+        reps:
+          type: string
+        weight:
+          type: string
+        rpe:
+          type: ["string", "null"]
+      required: [reps, weight, rpe]
+    LocalSessionInput:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        exercise:
+          type: string
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocalSetInput"
+      required: [id, date, dateISO, exercise, sets]
+    LocalBodyInput:
+      type: object
+      properties:
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        weight:
+          type: number
+      required: [date, dateISO, weight]
+    LocalRecoveryInput:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        dateISO:
+          type: string
+          format: date
+        sleep:
+          type: ["number", "null"]
+        fatigue:
+          type: integer
+        stress:
+          type: integer
+        protScore:
+          type: ["string", "null"]
+        carbScore:
+          type: ["string", "null"]
+        hydration:
+          type: integer
+      required: [id, date, dateISO, sleep, fatigue, stress, protScore, carbScore, hydration]
+    LocalDataImport:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocalSessionInput"
+        bodyMetrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocalBodyInput"
+        recovery:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocalRecoveryInput"
+      required: [sessions, bodyMetrics, recovery]
+    ImportResult:
+      type: object
+      properties:
+        sessionsImported:
+          type: integer
+        bodyMetricsImported:
+          type: integer
+        recoveryImported:
+          type: integer
+      required: [sessionsImported, bodyMetricsImported, recoveryImported]
+    CoachConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, createdAt, updatedAt]
+    CoachMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, role, content, createdAt]
+    CoachConversationDetail:
+      allOf:
+        - $ref: "#/components/schemas/CoachConversation"
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/CoachMessage"
+          required: [messages]
+    ConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+      required: [title]
+    CoachMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+      required: [content]
+    CoachAction:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [create_session, update_session, log_performance, recommendation]
+        label:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required: [type, label, payload]
+    CoachMessageResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/CoachMessage"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachAction"
+        aiAvailable:
+          type: boolean
+      required: [message, actions, aiAvailable]

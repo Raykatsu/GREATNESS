@@ -1,0 +1,800 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+
+// ── THEME ────────────────────────────────────────────────────────────────────
+const C = { accent: "#C8FF00", dark: "#0D0F12", card: "#141720", border: "#1E2330", muted: "#6B7280", white: "#F1F3F9", blue: "#60A5FA", purple: "#818CF8", pink: "#F472B6", yellow: "#FBBF24", green: "#34D399", red: "#EF4444" };
+
+const s = {
+  root: { fontFamily: "'DM Mono','Courier New',monospace", background: C.dark, color: C.white, minHeight: "100vh", paddingBottom: 80 },
+  hdr: { background: "linear-gradient(135deg,#0D0F12 0%,#141E2E 100%)", borderBottom: `1px solid ${C.border}`, padding: "24px 16px 18px" },
+  tag: { display: "inline-block", background: C.accent, color: C.dark, fontWeight: 700, fontSize: 10, letterSpacing: 2, padding: "3px 10px", marginBottom: 8 },
+  h1: { fontSize: 20, fontWeight: 700, color: C.white, margin: "0 0 2px", letterSpacing: -0.5 },
+  h2: { fontSize: 11, color: C.muted, letterSpacing: 1 },
+  nav: { display: "flex", borderBottom: `1px solid ${C.border}`, background: "#0D0F12", overflowX: "auto", padding: "0 8px" },
+  nb: (a) => ({ background: "none", border: "none", borderBottom: a ? `2px solid ${C.accent}` : "2px solid transparent", color: a ? C.accent : C.muted, fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: "12px 10px", cursor: "pointer", whiteSpace: "nowrap" }),
+  wrap: { padding: "16px", maxWidth: 680, margin: "0 auto" },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, marginBottom: 12 },
+  ct: { fontSize: 11, fontWeight: 700, letterSpacing: 2, color: C.accent, marginBottom: 10, textTransform: "uppercase" },
+  row: { display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0", gap: 8 },
+  sci: { background: "#0A1020", border: `1px solid #1E3A5F`, borderLeft: `3px solid #3B82F6`, borderRadius: 6, padding: "10px 12px", fontSize: 11, color: "#93C5FD", marginTop: 10, lineHeight: 1.6 },
+  inp: { background: "#0D0F12", color: C.white, border: `1px solid ${C.border}`, borderRadius: 6, padding: "0 10px", height: 36, fontSize: 13, fontFamily: "'DM Mono',monospace", fontWeight: 700, textAlign: "center", width: "100%", boxSizing: "border-box" },
+  btn: (bg, co) => ({ background: bg || C.accent, color: co || C.dark, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer", letterSpacing: 1 }),
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 },
+  grid3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 },
+  stat: { background: "#0D0F12", border: `1px solid ${C.border}`, borderRadius: 6, padding: 12, textAlign: "center" },
+  sv: (col) => ({ fontSize: 18, fontWeight: 700, color: col || C.accent, display: "block" }),
+  sl: { fontSize: 10, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 },
+  warn: { background: "#1A0E00", border: `1px solid #92400E`, borderLeft: `3px solid #F59E0B`, borderRadius: 6, padding: "10px 12px", fontSize: 11, color: "#FCD34D", marginBottom: 12, lineHeight: 1.6 },
+  chip: (col) => ({ display: "inline-flex", alignItems: "center", gap: 6, background: col + "22", border: `1px solid ${col}55`, color: col, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, marginBottom: 12 }),
+  p: { fontSize: 11, color: "#9CA3AF", lineHeight: 1.7, marginBottom: 8 },
+  sel: { width: "100%", background: "#0D0F12", color: C.white, border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px 12px", fontSize: 12, fontFamily: "'DM Mono',monospace", cursor: "pointer", marginBottom: 12 },
+};
+
+// ── EXERCISE DATABASE ─────────────────────────────────────────────────────────
+const EX_GROUPS = [
+  { group: "🏋️ FORCE — POUSSÉ HAUT", exercises: ["Développé couché barre","Développé couché haltères","Développé incliné barre","Développé incliné haltères","Développé décliné barre","Développé militaire barre","Développé militaire haltères","Push press","Dips lestés","Dips barre parallèles"] },
+  { group: "🔙 FORCE — TIRAGE HAUT", exercises: ["Tractions lestées","Tractions pronation","Tractions supination","Tirage vertical poulie","Tirage horizontal poulie","Row barre Pendlay","Row barre incliné","Row unilatéral haltère","Row T-bar","Face pull"] },
+  { group: "🦵 FORCE — BAS DU CORPS", exercises: ["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Soulevé de terre sumo","Good morning","Fentes marchées","Fentes bulgares","Leg curl allongé","Leg curl assis","Leg extension","Hip thrust barre","Glute bridge","Mollets debout","Mollets assis"] },
+  { group: "⚡ PUISSANCE & OLYMPIQUE", exercises: ["Power Clean","Hang Power Clean","KB Swing","KB Snatch","Box Jump (cm)","Broad Jump (cm)","Farmer walk","Trap bar deadlift explosif","Saut vertical"] },
+  { group: "💪 BICEPS", exercises: ["Curl haltères","Curl marteau","Curl barre droite","Curl barre EZ","Curl incliné haltères","Curl concentré","Curl cable poulie basse","Curl machine","Curl Zottman"] },
+  { group: "🔱 TRICEPS", exercises: ["Triceps poulie haute corde","Triceps poulie haute barre","Extension triceps overhead haltère","Extension triceps overhead barre","Skull crusher barre EZ","Skull crusher barre droite","Kickback haltère","Dips banc","Close grip bench press"] },
+  { group: "🫀 ÉPAULES & TRAPÈZES", exercises: ["Élévation latérale haltères","Élévation frontale haltères","Élévation latérale cable","Oiseau haltères","Oiseau cable","Y-T-W élastique","Shrug barre","Shrug haltères","Upright row barre"] },
+  { group: "🧘 CORE & GAINAGE", exercises: ["Planche frontale (sec)","Gainage latéral (sec)","Dead bug","Pallof press","Hanging leg raise","Crunch cable","Ab wheel rollout","Dragon flag","Landmine rotation","Hollow body hold"] },
+  { group: "🫀 CONDITIONING & CARDIO", exercises: ["Airbike (calories)","Rameur (mètres)","Ski erg (mètres)","Course Zone 2 (min)","Sprint 30m","Corde à sauter (min)","Burpees","KB Swing circuit","Sled push","Sled pull"] },
+  { group: "🥊 COMBAT & SKILLS", exercises: ["Rounds shadow boxing","Rounds sac de frappe","Rounds sparring boxe","Rounds grappling","Rounds MMA","Randori judo","Sparring JJB","Drills pieds-mains"] },
+];
+
+const ALL_EX = EX_GROUPS.flatMap((g) => g.exercises);
+const WEIGHT_EX = new Set(EX_GROUPS.slice(0,8).flatMap((g) => g.exercises));
+const LOWER_EX = new Set(["Squat barre","Squat avant barre","Squat hack machine","Leg press","Romanian Deadlift","Soulevé de terre conventionnel","Soulevé de terre trap bar","Soulevé de terre sumo","Fentes marchées","Fentes bulgares","Hip thrust barre"]);
+const OLYMPIC_EX = new Set(["Power Clean","Hang Power Clean","KB Swing","KB Snatch"]);
+const UPPER_COMPOUND = new Set(["Développé couché barre","Développé couché haltères","Développé incliné barre","Développé incliné haltères","Tractions lestées","Tractions pronation","Row barre Pendlay"]);
+
+// ── SESSION GENERATOR DATA ────────────────────────────────────────────────────
+const SESSION_TEMPLATES = {
+  force_court: { label: "Force Courte", color: C.purple, dur: "45 min", desc: "Lifts principaux uniquement, intensité max, minimum de volume.", blocks: [{ name: "ACTIVATION (5 min)", items: [{ ex: "Corde à sauter", sets: 1, reps: "3 min", kg: null }] }, { name: "FORCE — PRIORITÉ", items: [{ ex: "Squat barre", sets: 4, reps: "3", kg: "85%", rpe: 8 }, { ex: "Soulevé de terre conventionnel", sets: 3, reps: "3", kg: "85%", rpe: 8 }] }, { name: "CORE (express)", items: [{ ex: "Dead bug", sets: 2, reps: "8/côté", kg: null }, { ex: "Gainage latéral (sec)", sets: 2, reps: "30s/côté", kg: null }] }] },
+  force_long: { label: "Force Longue", color: C.purple, dur: "90 min", desc: "Volume complet sur les 5 lifts principaux avec accessoires.", blocks: [{ name: "ACTIVATION (10 min)", items: [{ ex: "Corde à sauter", sets: 1, reps: "3 min", kg: null }, { ex: "Box Jump (cm)", sets: 3, reps: "3", kg: null }] }, { name: "SQUAT / HINGE", items: [{ ex: "Squat barre", sets: 5, reps: "5", kg: "80%", rpe: 8 }, { ex: "Romanian Deadlift", sets: 4, reps: "6", kg: "70%", rpe: 7 }] }, { name: "UPPER PUSH / PULL", items: [{ ex: "Développé incliné haltères", sets: 4, reps: "6", kg: null, rpe: 8 }, { ex: "Row barre Pendlay", sets: 4, reps: "5", kg: null, rpe: 8 }] }, { name: "ACCESSOIRES", items: [{ ex: "Fentes marchées", sets: 3, reps: "8/jambe", kg: null }, { ex: "Tractions pronation", sets: 3, reps: "max", kg: null }] }, { name: "CORE", items: [{ ex: "Pallof press", sets: 3, reps: "12/côté", kg: null }, { ex: "Hanging leg raise", sets: 3, reps: "10", kg: null }] }] },
+  hyper_court: { label: "Hypertrophie Courte", color: C.pink, dur: "45 min", desc: "Supersets antagonistes, repos courts, pump maximal.", blocks: [{ name: "SUPERSET A — POUSSÉ / TIRAGE", items: [{ ex: "Développé couché haltères", sets: 3, reps: "10", kg: null, rpe: 8, note: "superset avec →" }, { ex: "Tractions pronation", sets: 3, reps: "8", kg: null, rpe: 8 }] }, { name: "SUPERSET B — JAMBES", items: [{ ex: "Leg press", sets: 3, reps: "12", kg: null, rpe: 8, note: "superset avec →" }, { ex: "Leg curl allongé", sets: 3, reps: "12", kg: null, rpe: 8 }] }, { name: "FINISHER BRAS", items: [{ ex: "Curl marteau", sets: 3, reps: "12", kg: null }, { ex: "Triceps poulie haute corde", sets: 3, reps: "15", kg: null }] }] },
+  hyper_long: { label: "Hypertrophie Longue", color: C.pink, dur: "80 min", desc: "Volume élevé, amplitude complète, focus sur la connexion musculaire.", blocks: [{ name: "HAUT DU CORPS PUSH", items: [{ ex: "Développé incliné haltères", sets: 4, reps: "10", kg: null, rpe: 8 }, { ex: "Développé couché barre", sets: 3, reps: "12", kg: null, rpe: 7 }, { ex: "Élévation latérale haltères", sets: 4, reps: "15", kg: null }] }, { name: "HAUT DU CORPS PULL", items: [{ ex: "Tirage vertical poulie", sets: 4, reps: "10", kg: null, rpe: 8 }, { ex: "Row unilatéral haltère", sets: 4, reps: "10", kg: null }, { ex: "Face pull", sets: 3, reps: "15", kg: null }] }, { name: "BRAS", items: [{ ex: "Curl barre EZ", sets: 3, reps: "12", kg: null }, { ex: "Curl marteau", sets: 3, reps: "10", kg: null }, { ex: "Skull crusher barre EZ", sets: 3, reps: "12", kg: null }, { ex: "Triceps poulie haute corde", sets: 3, reps: "15", kg: null }] }] },
+  cardio_court: { label: "Cardio Court", color: C.yellow, dur: "30 min", desc: "HIIT pur. Intensité maximale, efficacité maximum.", blocks: [{ name: "ÉCHAUFFEMENT", items: [{ ex: "Rameur (mètres)", sets: 1, reps: "3 min Z2", kg: null }] }, { name: "HIIT BLOC 1", items: [{ ex: "Airbike (calories)", sets: 1, reps: "10 × 20s ON / 40s OFF", kg: null, note: "effort 95% FCmax" }] }, { name: "CIRCUIT FINISHER", items: [{ ex: "Burpees", sets: 3, reps: "10", kg: null }, { ex: "KB Swing circuit", sets: 3, reps: "20", kg: null }] }] },
+  cardio_long: { label: "Cardio Long", color: C.yellow, dur: "60 min", desc: "Zone 2 + circuit combat. Endurance fondamentale et conditioning.", blocks: [{ name: "ZONE 2 — BASE", items: [{ ex: "Course Zone 2 (min)", sets: 1, reps: "35 min", kg: null, note: "65-70% FCmax — tu peux parler" }] }, { name: "CIRCUIT COMBAT (4 tours)", items: [{ ex: "KB Swing circuit", sets: 4, reps: "20", kg: null }, { ex: "Burpees", sets: 4, reps: "10", kg: null }, { ex: "Farmer walk", sets: 4, reps: "30m A/R", kg: null }] }] },
+  puissance: { label: "Puissance", color: C.green, dur: "70 min", desc: "Explosivité et RFD. Pliométrie + olympique + sprints.", blocks: [{ name: "ACTIVATION SNC", items: [{ ex: "Sprint 30m", sets: 5, reps: "1", kg: null, note: "repos 2 min — vitesse max" }] }, { name: "OLYMPIQUE", items: [{ ex: "Power Clean", sets: 6, reps: "3", kg: null, rpe: 7, note: "repos 3 min — qualité absolue" }, { ex: "Box Jump (cm)", sets: 5, reps: "3", kg: null, note: "hauteur max" }] }, { name: "FORCE-VITESSE", items: [{ ex: "Squat barre", sets: 4, reps: "3", kg: "85%", rpe: 8 }, { ex: "Push press", sets: 4, reps: "4", kg: null, rpe: 8 }] }, { name: "CORE DYNAMIQUE", items: [{ ex: "Pallof press", sets: 3, reps: "12/côté", kg: null }, { ex: "Landmine rotation", sets: 3, reps: "8/côté", kg: null }] }] },
+  combat: { label: "Combat / Skills", color: C.red, dur: "60 min", desc: "Séance orientée sports de combat. Conditionnement + technique.", blocks: [{ name: "ÉCHAUFFEMENT", items: [{ ex: "Corde à sauter (min)", sets: 1, reps: "5 min", kg: null }] }, { name: "TECHNIQUE", items: [{ ex: "Rounds shadow boxing", sets: 4, reps: "3 min", kg: null, note: "1 min récup active" }, { ex: "Drills pieds-mains", sets: 3, reps: "5 min", kg: null }] }, { name: "SPARRING / GRAPPLING", items: [{ ex: "Rounds sparring boxe", sets: 0, reps: "selon dispo", kg: null }, { ex: "Rounds grappling", sets: 0, reps: "selon dispo", kg: null }] }, { name: "CONDITIONING FINISHER", items: [{ ex: "Burpees", sets: 3, reps: "15", kg: null }, { ex: "KB Swing circuit", sets: 3, reps: "20", kg: null }] }] },
+  mobilite: { label: "Mobilité & Récup", color: C.blue, dur: "45 min", desc: "Récupération active, mobilité profonde, respiration.", blocks: [{ name: "ZONE 2 LÉGÈRE", items: [{ ex: "Course Zone 2 (min)", sets: 1, reps: "20 min", kg: null, note: "60% FCmax — très confortable" }] }, { name: "MOBILITÉ HANCHES", items: [{ ex: "Saut vertical", sets: 0, reps: "90/90 hip stretch — 2×60s/côté", kg: null }, { ex: "Saut vertical", sets: 0, reps: "Pigeon — 2×60s/côté", kg: null }] }, { name: "ÉPAULES & THORACIQUE", items: [{ ex: "Y-T-W élastique", sets: 3, reps: "10", kg: null }, { ex: "Face pull", sets: 3, reps: "15", kg: null }] }, { name: "RESPIRATION", items: [{ ex: "Corde à sauter (min)", sets: 0, reps: "Box breathing 4/4/4/4 — 8 min", kg: null }] }] },
+};
+
+const DURATION_FILTERS = [
+  { id: "all", label: "TOUTES" },
+  { id: "court", label: "≤ 45 MIN" },
+  { id: "long", label: "60–90 MIN" },
+];
+
+const FOCUS_FILTERS = [
+  { id: "all", label: "TOUT", color: C.muted },
+  { id: "force", label: "FORCE", color: C.purple },
+  { id: "hyper", label: "HYPER", color: C.pink },
+  { id: "cardio", label: "CARDIO", color: C.yellow },
+  { id: "puissance", label: "PUISSANCE", color: C.green },
+  { id: "combat", label: "COMBAT", color: C.red },
+  { id: "mobilite", label: "MOBILITÉ", color: C.blue },
+];
+
+function matchesDuration(key, dur) {
+  if (dur === "all") return true;
+  const t = SESSION_TEMPLATES[key];
+  const mins = parseInt(t.dur);
+  if (dur === "court") return mins <= 45;
+  if (dur === "long") return mins >= 60;
+  return true;
+}
+
+function matchesFocus(key, foc) {
+  if (foc === "all") return true;
+  return key.startsWith(foc);
+}
+
+// ── REST TIMER ────────────────────────────────────────────────────────────────
+function RestTimer() {
+  const [active, setActive] = useState(false);
+  const [preset, setPreset] = useState(90);
+  const [remaining, setRemaining] = useState(90);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (active) {
+      ref.current = setInterval(() => {
+        setRemaining((r) => {
+          if (r <= 1) { clearInterval(ref.current); setActive(false); return preset; }
+          return r - 1;
+        });
+      }, 1000);
+    } else clearInterval(ref.current);
+    return () => clearInterval(ref.current);
+  }, [active, preset]);
+
+  const pct = ((preset - remaining) / preset) * 100;
+  const fmt = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${active ? C.accent + "77" : C.border}`, borderRadius: 8, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: C.accent, marginBottom: 10 }}>⏱ TIMER DE REPOS</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {[60, 90, 120, 180].map((p) => (
+          <button key={p} onClick={() => { setPreset(p); setRemaining(p); setActive(false); }} style={{ background: preset === p ? C.accent : "#1E2330", color: preset === p ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>
+            {fmt(p)}
+          </button>
+        ))}
+      </div>
+      {/* Progress ring */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ position: "relative", width: 70, height: 70 }}>
+          <svg width={70} height={70} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={35} cy={35} r={30} fill="none" stroke={C.border} strokeWidth={5} />
+            <circle cx={35} cy={35} r={30} fill="none" stroke={active ? C.accent : "#4B5563"} strokeWidth={5} strokeDasharray={`${2 * Math.PI * 30}`} strokeDashoffset={`${2 * Math.PI * 30 * (1 - pct / 100)}`} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear" }} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: active ? C.accent : C.muted }}>{fmt(remaining)}</div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+          <button onClick={() => { if (!active) { setRemaining(preset); } setActive(!active); }} style={{ background: active ? "#1A0A0A" : C.accent, color: active ? C.red : C.dark, border: active ? `1px solid ${C.red}` : "none", borderRadius: 6, padding: "8px", fontSize: 12, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>
+            {active ? "⏸ PAUSE" : "▶ START"}
+          </button>
+          <button onClick={() => { setActive(false); setRemaining(preset); }} style={{ background: "#1E2330", color: C.muted, border: "none", borderRadius: 6, padding: "5px", fontSize: 10, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>RESET</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RECOMMENDATION ENGINE ─────────────────────────────────────────────────────
+function getRecommendation(sessions, exercise) {
+  if (!sessions.length) return null;
+  const last = sessions[sessions.length - 1];
+  if (!last.sets?.length) return null;
+  const weights = last.sets.map((s) => parseFloat(s.weight)).filter(Boolean);
+  if (!weights.length) return null;
+  const maxW = Math.max(...weights);
+  const avgReps = last.sets.reduce((a, s) => a + (parseInt(s.reps) || 0), 0) / last.sets.length;
+  const avgRpe = last.sets.reduce((a, s) => a + (parseInt(s.rpe) || 0), 0) / last.sets.filter((s) => s.rpe).length;
+
+  let inc = 2.5;
+  if (LOWER_EX.has(exercise)) inc = 5;
+  if (OLYMPIC_EX.has(exercise)) inc = 2.5;
+  if (exercise.includes("Curl") || exercise.includes("Triceps") || exercise.includes("Élévation") || exercise.includes("Face pull")) inc = 1.25;
+
+  let nextW = maxW;
+  let advice = "";
+  let color = C.yellow;
+  let icon = "→";
+
+  const rpeOk = isNaN(avgRpe) || avgRpe <= 8;
+  const repsOk = avgReps >= 7;
+
+  if (repsOk && rpeOk) {
+    nextW = maxW + inc;
+    advice = `Reps complètes + RPE dans la cible → augmente de ${inc}kg. Vise ${nextW}kg.`;
+    color = C.accent; icon = "📈";
+  } else if (repsOk && !rpeOk) {
+    nextW = maxW;
+    advice = `Reps ok mais RPE élevé (${avgRpe.toFixed(0)}/10) → maintiens ${maxW}kg. Consolide avant d'augmenter.`;
+    color = C.yellow; icon = "⚠️";
+  } else {
+    nextW = Math.max(0, maxW - inc);
+    advice = `Reps insuffisantes ou RPE trop haut → réduis à ${nextW}kg. Travaille la technique.`;
+    color = C.pink; icon = "📉";
+  }
+
+  if (sessions.length >= 2) {
+    const prev = sessions[sessions.length - 2];
+    const prevMax = Math.max(...(prev.sets || []).map((s) => parseFloat(s.weight)).filter(Boolean));
+    if (prevMax) {
+      const diff = maxW - prevMax;
+      if (diff > 0) advice += ` Progression : +${diff}kg vs séance précédente.`;
+      else if (diff < 0) advice += ` Régression : ${diff}kg vs séance précédente — surveille la fatigue.`;
+    }
+  }
+
+  return { nextW, advice, color, icon, lastW: maxW };
+}
+
+// ── JOURNAL TAB ───────────────────────────────────────────────────────────────
+function JournalTab() {
+  const [view, setView] = useState("log");
+  const [sessions, setSessions] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [selEx, setSelEx] = useState(ALL_EX[0]);
+  const [sets, setSets] = useState([{ reps: "", weight: "", rpe: "" }]);
+  const [msg, setMsg] = useState("");
+  const [histEx, setHistEx] = useState(ALL_EX[0]);
+  const [chartMode, setChartMode] = useState("max");
+
+  useEffect(() => {
+    (async () => {
+      try { const r = await window.storage.get("journal_v2"); if (r?.value) setSessions(JSON.parse(r.value)); } catch {}
+      setLoaded(true);
+    })();
+  }, []);
+
+  const persist = async (data) => { try { await window.storage.set("journal_v2", JSON.stringify(data)); } catch {} };
+  const addSet = () => setSets([...sets, { reps: "", weight: "", rpe: "" }]);
+  const rmSet = (i) => setSets(sets.filter((_, j) => j !== i));
+  const upSet = (i, f, v) => setSets(sets.map((s, j) => j === i ? { ...s, [f]: v } : s));
+
+  const logSession = async () => {
+    const valid = sets.filter((s) => s.reps || s.weight);
+    if (!valid.length) return;
+    const entry = { id: Date.now(), date: new Date().toLocaleDateString("fr-FR"), dateISO: new Date().toISOString().split("T")[0], exercise: selEx, sets: valid };
+    const updated = [...sessions, entry];
+    setSessions(updated); await persist(updated);
+    setSets([{ reps: "", weight: "", rpe: "" }]);
+    setMsg("✓ Séance enregistrée !"); setTimeout(() => setMsg(""), 2500);
+  };
+
+  const delSession = async (id) => { const u = sessions.filter((s) => s.id !== id); setSessions(u); await persist(u); };
+
+  const histSessions = sessions.filter((s) => s.exercise === histEx).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+  const chartData = histSessions.map((s) => {
+    const ws = (s.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+    const vol = (s.sets || []).reduce((a, x) => a + (parseFloat(x.weight) || 0) * (parseInt(x.reps) || 0), 0);
+    const rpeavg = (s.sets || []).filter((x) => x.rpe).reduce((a, x) => a + parseInt(x.rpe), 0) / (s.sets || []).filter((x) => x.rpe).length;
+    return { date: s.date, max: ws.length ? Math.max(...ws) : 0, volume: Math.round(vol), rpe: rpeavg ? parseFloat(rpeavg.toFixed(1)) : null };
+  });
+
+  const rec = getRecommendation(histSessions, histEx);
+  const usesW = WEIGHT_EX.has(histEx);
+  const recentForEx = sessions.filter((s) => s.exercise === selEx).slice(-3).reverse();
+
+  if (!loaded) return <div style={{ padding: 30, color: C.muted, textAlign: "center", fontSize: 12 }}>Chargement...</div>;
+
+  return (
+    <>
+      <RestTimer />
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        {[{ id: "log", l: "📝 ENREGISTRER" }, { id: "history", l: "📊 HISTORIQUE" }].map((v) => (
+          <button key={v.id} onClick={() => setView(v.id)} style={{ flex: 1, background: view === v.id ? C.accent : C.card, color: view === v.id ? C.dark : C.muted, border: `1px solid ${view === v.id ? C.accent : C.border}`, borderRadius: 8, padding: 10, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>
+            {v.l}
+          </button>
+        ))}
+      </div>
+
+      {view === "log" && (
+        <>
+          <div style={s.card}>
+            <div style={s.ct}>EXERCICE</div>
+            <select value={selEx} onChange={(e) => setSelEx(e.target.value)} style={s.sel}>
+              {EX_GROUPS.map((g) => <optgroup key={g.group} label={g.group}>{g.exercises.map((ex) => <option key={ex} value={ex}>{ex}</option>)}</optgroup>)}
+            </select>
+            <div style={s.ct}>SÉRIES — REPS / KG / RPE</div>
+            <div style={{ display: "grid", gridTemplateColumns: "22px 1fr 1fr 1fr 28px", gap: 5, marginBottom: 8 }}>
+              {["#", "REPS", "KG", "RPE", ""].map((h) => <span key={h} style={{ fontSize: 9, color: C.muted, textAlign: "center" }}>{h}</span>)}
+            </div>
+            {sets.map((sv, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "22px 1fr 1fr 1fr 28px", gap: 5, marginBottom: 5, alignItems: "center" }}>
+                <div style={{ background: "#1E2330", borderRadius: 4, height: 36, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: C.muted }}>{i + 1}</div>
+                <input type="number" min="0" placeholder="10" value={sv.reps} onChange={(e) => upSet(i, "reps", e.target.value)} style={s.inp} />
+                <input type="number" min="0" step="0.5" placeholder="60" value={sv.weight} onChange={(e) => upSet(i, "weight", e.target.value)} style={{ ...s.inp, color: C.accent }} />
+                <input type="number" min="1" max="10" placeholder="7" value={sv.rpe} onChange={(e) => upSet(i, "rpe", e.target.value)} style={{ ...s.inp, color: "#FBBF24" }} />
+                <button onClick={() => rmSet(i)} style={{ background: "#1A0A0A", color: C.red, border: `1px solid #3F1010`, borderRadius: 4, height: 36, width: 28, cursor: "pointer", fontSize: 14 }}>×</button>
+              </div>
+            ))}
+            <div style={{ fontSize: 9, color: C.muted, marginBottom: 10, textAlign: "right" }}>RPE : 6 = facile · 8 = dur · 10 = max</div>
+            <button onClick={addSet} style={{ width: "100%", background: "#0D0F12", color: C.muted, border: `1px dashed ${C.border}`, borderRadius: 6, padding: 8, fontSize: 10, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>+ AJOUTER SÉRIE</button>
+          </div>
+
+          <button onClick={logSession} style={{ ...s.btn(), width: "100%", padding: 14, fontSize: 13, marginBottom: 8 }}>ENREGISTRER LA SÉANCE</button>
+          {msg && <div style={{ background: "#0A1A00", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: 10, fontSize: 12, color: C.accent, textAlign: "center", marginBottom: 12 }}>{msg}</div>}
+
+          {recentForEx.length > 0 && (
+            <div style={s.card}>
+              <div style={s.ct}>DERNIÈRES SÉANCES — {selEx.toUpperCase().slice(0, 28)}</div>
+              {recentForEx.map((session) => {
+                const mw = Math.max(...(session.sets || []).map((x) => parseFloat(x.weight) || 0));
+                return (
+                  <div key={session.id} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: 10, marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>{session.date}</span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {mw > 0 && <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>{mw}kg</span>}
+                        <button onClick={() => delSession(session.id)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>🗑</button>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {(session.sets || []).map((sv, si) => (
+                        <span key={si} style={{ background: "#1E2330", color: C.white, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>
+                          {sv.reps}×{sv.weight}{sv.weight ? "kg" : ""}{sv.rpe ? ` @${sv.rpe}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {view === "history" && (
+        <>
+          <div style={s.card}>
+            <div style={s.ct}>EXERCICE</div>
+            <select value={histEx} onChange={(e) => setHistEx(e.target.value)} style={s.sel}>
+              {EX_GROUPS.map((g) => <optgroup key={g.group} label={g.group}>{g.exercises.map((ex) => { const cnt = sessions.filter((se) => se.exercise === ex).length; return <option key={ex} value={ex}>{ex}{cnt ? ` (${cnt})` : ""}</option>; })}</optgroup>)}
+            </select>
+          </div>
+
+          {histSessions.length === 0 ? (
+            <div style={{ ...s.card, textAlign: "center", padding: "30px 16px" }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
+              <div style={{ fontSize: 12, color: C.muted }}>Aucune séance pour cet exercice.</div>
+            </div>
+          ) : (
+            <>
+              <div style={s.grid3}>
+                {[{ val: histSessions.length, l: "Séances" }, { val: chartData.length ? Math.max(...chartData.map((d) => d.max)) + "kg" : "—", l: "Record" }, { val: chartData.length ? chartData[chartData.length - 1].max + "kg" : "—", l: "Dernière" }].map((sv) => (
+                  <div key={sv.l} style={s.stat}><span style={s.sv()}>{sv.val}</span><span style={s.sl}>{sv.l}</span></div>
+                ))}
+              </div>
+
+              {rec && usesW && (
+                <div style={{ background: "#0A1200", border: `1px solid ${rec.color}55`, borderLeft: `3px solid ${rec.color}`, borderRadius: 8, padding: 14, marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: rec.color, letterSpacing: 1, marginBottom: 6 }}>🎯 RECOMMANDATION PROCHAINE SÉANCE</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: rec.color, marginBottom: 6 }}>{rec.icon} {rec.nextW} kg</div>
+                  <div style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.7 }}>{rec.advice}</div>
+                </div>
+              )}
+
+              {usesW && chartData.length >= 2 && (
+                <div style={s.card}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                    {[{ id: "max", l: "POIDS MAX", col: C.accent }, { id: "volume", l: "VOLUME", col: C.purple }, { id: "rpe", l: "RPE MOY.", col: C.yellow }].map((m) => (
+                      <button key={m.id} onClick={() => setChartMode(m.id)} style={{ background: chartMode === m.id ? m.col : "#1E2330", color: chartMode === m.id ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 9, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>{m.l}</button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: chartMode === "max" ? C.accent : chartMode === "volume" ? C.purple : C.yellow, marginBottom: 8 }}>
+                    {chartMode === "max" ? "PROGRESSION DU POIDS MAX (kg)" : chartMode === "volume" ? "VOLUME TOTAL (kg × reps)" : "RPE MOYEN PAR SÉANCE"}
+                  </div>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1E2330" />
+                      <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ background: "#141720", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "'DM Mono',monospace" }} labelStyle={{ color: C.accent }} itemStyle={{ color: C.white }} />
+                      <Line type="monotone" dataKey={chartMode} stroke={chartMode === "max" ? C.accent : chartMode === "volume" ? C.purple : C.yellow} strokeWidth={2} dot={{ fill: chartMode === "max" ? C.accent : chartMode === "volume" ? C.purple : C.yellow, r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} name={chartMode === "max" ? "Max kg" : chartMode === "volume" ? "Volume" : "RPE"} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <div style={s.card}>
+                <div style={s.ct}>HISTORIQUE DÉTAILLÉ</div>
+                {[...histSessions].reverse().map((session, idx) => {
+                  const ws = (session.sets || []).map((x) => parseFloat(x.weight)).filter(Boolean);
+                  const mw = ws.length ? Math.max(...ws) : 0;
+                  const vol = (session.sets || []).reduce((a, x) => a + (parseFloat(x.weight) || 0) * (parseInt(x.reps) || 0), 0);
+                  return (
+                    <div key={session.id} style={{ borderBottom: idx < histSessions.length - 1 ? `1px solid ${C.border}` : "none", paddingBottom: 10, marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 12, color: C.white, fontWeight: 700 }}>{session.date}</span>
+                          {idx === 0 && <span style={{ background: C.accent + "33", color: C.accent, fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>RÉCENT</span>}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {mw > 0 && <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>{mw}kg</span>}
+                          <button onClick={() => delSession(session.id)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>🗑</button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 4 }}>
+                        {(session.sets || []).map((sv, si) => (
+                          <span key={si} style={{ background: "#1E2330", color: C.white, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>
+                            {sv.reps}×{sv.weight}{sv.weight ? "kg" : ""}{sv.rpe ? ` @${sv.rpe}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                      {vol > 0 && <div style={{ fontSize: 10, color: "#4B5563" }}>Volume : {Math.round(vol)} kg×reps</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── SUIVI TAB ─────────────────────────────────────────────────────────────────
+function SuiviTab() {
+  const [bodyData, setBodyData] = useState([]);
+  const [recov, setRecov] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [bw, setBw] = useState("");
+  const [sleep, setSleep] = useState("");
+  const [fatigue, setFatigue] = useState(3);
+  const [stress, setStress] = useState(3);
+  const [msg, setMsg] = useState("");
+  const [view, setView] = useState("form");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const b = await window.storage.get("body_tracking"); if (b?.value) setBodyData(JSON.parse(b.value));
+        const r = await window.storage.get("recovery_tracking"); if (r?.value) setRecov(JSON.parse(r.value));
+      } catch {}
+      setLoaded(true);
+    })();
+  }, []);
+
+  const save = async () => {
+    const today = new Date().toLocaleDateString("fr-FR");
+    const isoDate = new Date().toISOString().split("T")[0];
+    let updatedB = bodyData, updatedR = recov;
+
+    if (bw) {
+      updatedB = [...bodyData, { date: today, dateISO: isoDate, weight: parseFloat(bw) }];
+      setBodyData(updatedB);
+      try { await window.storage.set("body_tracking", JSON.stringify(updatedB)); } catch {}
+    }
+
+    const entry = { id: Date.now(), date: today, dateISO: isoDate, sleep: parseFloat(sleep) || null, fatigue, stress };
+    updatedR = [...recov, entry];
+    setRecov(updatedR);
+    try { await window.storage.set("recovery_tracking", JSON.stringify(updatedR)); } catch {}
+
+    setBw(""); setSleep("");
+    setMsg("✓ Données enregistrées !"); setTimeout(() => setMsg(""), 2500);
+  };
+
+  const bodyChart = bodyData.slice(-20).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+  const recovChart = recov.slice(-14).sort((a, b) => a.dateISO > b.dateISO ? 1 : -1);
+
+  const lastRecov = recov[recov.length - 1];
+  let alertMsg = null;
+  if (recovChart.length >= 3) {
+    const lastThree = recovChart.slice(-3);
+    const avgFatigue = lastThree.reduce((a, r) => a + r.fatigue, 0) / 3;
+    const avgSleep = lastThree.filter((r) => r.sleep).reduce((a, r) => a + r.sleep, 0) / lastThree.filter((r) => r.sleep).length;
+    if (avgFatigue >= 4) alertMsg = { type: "danger", msg: `Fatigue élevée depuis 3 jours (moy. ${avgFatigue.toFixed(1)}/5) → Réduis le volume de 20% cette semaine.` };
+    else if (avgSleep && avgSleep < 6.5) alertMsg = { type: "warn", msg: `Sommeil insuffisant (moy. ${avgSleep.toFixed(1)}h) → Limite les séances à 4 cette semaine.` };
+  }
+
+  if (!loaded) return <div style={{ padding: 30, color: C.muted, textAlign: "center", fontSize: 12 }}>Chargement...</div>;
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        {[{ id: "form", l: "📋 SAISIR" }, { id: "graphs", l: "📈 GRAPHIQUES" }].map((v) => (
+          <button key={v.id} onClick={() => setView(v.id)} style={{ flex: 1, background: view === v.id ? C.accent : C.card, color: view === v.id ? C.dark : C.muted, border: `1px solid ${view === v.id ? C.accent : C.border}`, borderRadius: 8, padding: 10, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>
+            {v.l}
+          </button>
+        ))}
+      </div>
+
+      {alertMsg && (
+        <div style={{ background: alertMsg.type === "danger" ? "#1A0000" : "#1A0E00", border: `1px solid ${alertMsg.type === "danger" ? C.red : C.yellow}55`, borderLeft: `3px solid ${alertMsg.type === "danger" ? C.red : C.yellow}`, borderRadius: 6, padding: "10px 12px", fontSize: 11, color: alertMsg.type === "danger" ? "#FCA5A5" : "#FCD34D", marginBottom: 12, lineHeight: 1.6 }}>
+          {alertMsg.type === "danger" ? "🔴" : "⚠️"} {alertMsg.msg}
+        </div>
+      )}
+
+      {view === "form" && (
+        <div style={s.card}>
+          <div style={s.ct}>SAISIE QUOTIDIENNE — {new Date().toLocaleDateString("fr-FR")}</div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: 1, marginBottom: 8 }}>POIDS DE CORPS (kg)</div>
+          <input type="number" min="50" max="200" step="0.1" placeholder="ex : 89.4" value={bw} onChange={(e) => setBw(e.target.value)} style={{ ...s.inp, marginBottom: 14, color: C.blue, fontSize: 16 }} />
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, letterSpacing: 1, marginBottom: 8 }}>SOMMEIL (heures)</div>
+          <input type="number" min="3" max="12" step="0.5" placeholder="ex : 7.5" value={sleep} onChange={(e) => setSleep(e.target.value)} style={{ ...s.inp, marginBottom: 14, color: C.blue }} />
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.yellow, letterSpacing: 1, marginBottom: 8 }}>FATIGUE MUSCULAIRE — {fatigue}/5</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            {[1, 2, 3, 4, 5].map((v) => (
+              <button key={v} onClick={() => setFatigue(v)} style={{ flex: 1, background: fatigue >= v ? C.yellow : "#1E2330", color: fatigue >= v ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>{v}</button>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.pink, letterSpacing: 1, marginBottom: 8 }}>STRESS GÉNÉRAL — {stress}/5</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+            {[1, 2, 3, 4, 5].map((v) => (
+              <button key={v} onClick={() => setStress(v)} style={{ flex: 1, background: stress >= v ? C.pink : "#1E2330", color: stress >= v ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>{v}</button>
+            ))}
+          </div>
+
+          <button onClick={save} style={{ ...s.btn(), width: "100%", padding: 12 }}>ENREGISTRER</button>
+          {msg && <div style={{ fontSize: 12, color: C.accent, textAlign: "center", marginTop: 10 }}>{msg}</div>}
+        </div>
+      )}
+
+      {view === "graphs" && (
+        <>
+          {bodyChart.length >= 2 ? (
+            <div style={s.card}>
+              <div style={s.ct}>POIDS DE CORPS (kg)</div>
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={bodyChart} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2330" />
+                  <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
+                  <Tooltip contentStyle={{ background: "#141720", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "'DM Mono',monospace" }} labelStyle={{ color: C.blue }} />
+                  <Line type="monotone" dataKey="weight" stroke={C.blue} strokeWidth={2} dot={{ fill: C.blue, r: 4, strokeWidth: 0 }} name="Poids (kg)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <div style={{ ...s.card, textAlign: "center", color: C.muted, fontSize: 11, padding: "20px 16px" }}>Enregistre au moins 2 jours pour voir le graphique poids.</div>}
+
+          {recovChart.length >= 2 ? (
+            <div style={s.card}>
+              <div style={s.ct}>FATIGUE & SOMMEIL</div>
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={recovChart} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2330" />
+                  <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ background: "#141720", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "'DM Mono',monospace" }} labelStyle={{ color: C.yellow }} />
+                  <Line type="monotone" dataKey="fatigue" stroke={C.yellow} strokeWidth={2} dot={{ fill: C.yellow, r: 3, strokeWidth: 0 }} name="Fatigue /5" />
+                  <Line type="monotone" dataKey="sleep" stroke={C.blue} strokeWidth={2} dot={{ fill: C.blue, r: 3, strokeWidth: 0 }} name="Sommeil (h)" connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                <span style={{ fontSize: 10, color: C.yellow }}>■ Fatigue /5</span>
+                <span style={{ fontSize: 10, color: C.blue }}>■ Sommeil (h)</span>
+              </div>
+            </div>
+          ) : <div style={{ ...s.card, textAlign: "center", color: C.muted, fontSize: 11, padding: "20px 16px" }}>Enregistre au moins 2 jours pour voir l'évolution.</div>}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── SESSION GENERATOR TAB ─────────────────────────────────────────────────────
+function GenerateurTab() {
+  const [durFilter, setDurFilter] = useState("all");
+  const [focFilter, setFocFilter] = useState("all");
+  const [selected, setSelected] = useState(null);
+
+  const visible = Object.entries(SESSION_TEMPLATES).filter(([k]) => matchesDuration(k, durFilter) && matchesFocus(k, focFilter));
+  const tmpl = selected ? SESSION_TEMPLATES[selected] : null;
+
+  return (
+    <>
+      {!selected ? (
+        <>
+          <div style={{ ...s.card, background: "#0A1200", border: `1px solid ${C.accent}44` }}>
+            <div style={{ ...s.ct, color: C.accent }}>QUELLE SÉANCE AUJOURD'HUI ?</div>
+            <p style={s.p}>Filtre par durée et par objectif. Le programme génère une séance adaptée directement.</p>
+          </div>
+
+          <div style={s.card}>
+            <div style={s.ct}>DURÉE</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+              {DURATION_FILTERS.map((f) => (
+                <button key={f.id} onClick={() => setDurFilter(f.id)} style={{ flex: 1, background: durFilter === f.id ? C.accent : "#1E2330", color: durFilter === f.id ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "7px 0", fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>{f.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={s.card}>
+            <div style={s.ct}>OBJECTIF</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {FOCUS_FILTERS.map((f) => (
+                <button key={f.id} onClick={() => setFocFilter(f.id)} style={{ background: focFilter === f.id ? f.color : "#1E2330", color: focFilter === f.id ? C.dark : C.muted, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>{f.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ fontSize: 10, color: C.muted, marginBottom: 10, letterSpacing: 1 }}>{visible.length} SÉANCE{visible.length > 1 ? "S" : ""} DISPONIBLE{visible.length > 1 ? "S" : ""}</div>
+
+          {visible.length === 0 && (
+            <div style={{ ...s.card, textAlign: "center", padding: "24px 16px" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🤔</div>
+              <div style={{ fontSize: 12, color: C.muted }}>Aucune séance avec ces filtres. Essaie une combinaison différente.</div>
+            </div>
+          )}
+
+          {visible.map(([key, tmpl]) => (
+            <button key={key} onClick={() => setSelected(key)} style={{ width: "100%", background: C.card, border: `1px solid ${tmpl.color}44`, borderRadius: 8, padding: 14, marginBottom: 8, cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: tmpl.color, marginBottom: 4 }}>{tmpl.label}</div>
+                <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5 }}>{tmpl.desc}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0, marginLeft: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: tmpl.color, background: tmpl.color + "22", padding: "2px 8px", borderRadius: 4 }}>{tmpl.dur}</span>
+                <span style={{ fontSize: 10, color: C.muted }}>→ voir</span>
+              </div>
+            </button>
+          ))}
+        </>
+      ) : (
+        <>
+          <button onClick={() => setSelected(null)} style={{ background: "#1E2330", color: C.muted, border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer", marginBottom: 14 }}>← RETOUR</button>
+
+          <div style={s.chip(tmpl.color)}>◆ {tmpl.label.toUpperCase()}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <span style={{ background: "#1E2330", color: C.muted, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{tmpl.dur}</span>
+          </div>
+          <div style={{ ...s.card, background: "#0A1200", border: `1px solid ${tmpl.color}33`, marginBottom: 12 }}>
+            <p style={{ ...s.p, marginBottom: 0, color: tmpl.color }}>{tmpl.desc}</p>
+          </div>
+
+          {tmpl.blocks.map((block, bi) => (
+            <div key={bi} style={s.card}>
+              <div style={s.ct}>{block.name}</div>
+              {block.items.map((item, ii) => (
+                <div key={ii} style={{ ...s.row, borderBottom: ii < block.items.length - 1 ? `1px solid ${C.border}` : "none", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: C.white, fontWeight: 700 }}>{item.ex}</span>
+                    <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, whiteSpace: "nowrap", marginLeft: 8 }}>
+                      {item.sets > 0 ? `${item.sets}×${item.reps}` : item.reps}{item.kg ? ` @ ${item.kg}` : ""}{item.rpe ? ` RPE ${item.rpe}` : ""}
+                    </span>
+                  </div>
+                  {item.note && <div style={{ fontSize: 10, color: C.muted }}>{item.note}</div>}
+                </div>
+              ))}
+            </div>
+          ))}
+
+          <div style={{ ...s.card, background: "#0A1020", border: `1px solid #1E3A5F`, borderLeft: `3px solid #3B82F6` }}>
+            <div style={{ fontSize: 10, color: "#93C5FD", lineHeight: 1.6 }}>
+              💡 <strong>Log tes séries dans l'onglet JOURNAL</strong> pour que le système génère des recommandations de charge personnalisées pour cette séance.
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ── PROGRAM DAYS ──────────────────────────────────────────────────────────────
+const DAYS_V1 = [
+  { id: "j1", label: "J1 — Bas Force", color: C.purple, theme: "BAS DU CORPS · FORCE & EXPLOSIVITÉ", duration: "75 min", intensity: "Haute", blocks: [{ name: "ACTIVATION (10 min)", exercises: [{ name: "Corde à sauter", params: "3 min" }, { name: "Hip circle élastique", params: "2×15" }, { name: "Mobilité cheville", params: "2×10 / jambe" }] }, { name: "EXPLOSIVITÉ", sci: "Pliométrie AVANT charge = exploitation état neural frais. Recrutement fibres type II maximisé. (PAP)", exercises: [{ name: "Box Jump (cm)", params: "5×3", note: "repos 90s" }, { name: "Broad Jump (cm)", params: "4×3", note: "repos 90s" }] }, { name: "FORCE", sci: "Volume réduit vs PPL → limite interférence AMPK/mTOR. Intensité > volume.", exercises: [{ name: "Squat barre (tempo 3-1-1)", params: "5×3 @ 80–85%", note: "repos 3 min" }, { name: "Romanian Deadlift", params: "4×6 @ 70%", note: "repos 2 min" }, { name: "Fentes marchées barre", params: "3×8 / jambe" }] }, { name: "CORE ATHLÉTIQUE", exercises: [{ name: "Dead bug", params: "3×8 / côté" }, { name: "Gainage latéral (sec)", params: "3×30s" }, { name: "Farmer walk", params: "3×30m lourd" }] }] },
+  { id: "j2", label: "J2 — Haut Athlé", color: C.pink, theme: "HAUT DU CORPS · ATHLÉTIQUE", duration: "70 min", intensity: "Haute", blocks: [{ name: "ACTIVATION (10 min)", exercises: [{ name: "Band pull-apart", params: "3×15" }, { name: "Y-T-W élastique", params: "2×10" }, { name: "Rotation thoracique", params: "2×10 / côté" }] }, { name: "EXPLOSIVITÉ", sci: "Lancer med ball = puissance en chaîne cinétique complète + stimulation SNC. (Force-Vitesse continuum)", exercises: [{ name: "Lancer med ball poitrine", params: "5×5" }, { name: "Lancer rotationnel", params: "4×5 / côté" }] }, { name: "FORCE", sci: "Développé incliné haltères → moins de stress en rotation interne. Protège tes tendinites épaules.", exercises: [{ name: "Tractions lestées", params: "5×5", note: "repos 2 min" }, { name: "Développé incliné haltères", params: "4×6–8", note: "PAS flat bench lourd" }, { name: "Row barre Pendlay", params: "4×5" }, { name: "Push press", params: "3×5" }] }, { name: "SANTÉ ÉPAULES", sci: "Ratio 2:1 tirage/poussée. Rééquilibrage rotateurs externes.", exercises: [{ name: "Face pull", params: "4×15" }, { name: "Y-T-W élastique allongé", params: "3×10 chaque" }] }] },
+  { id: "j3", label: "J3 — Conditioning", color: C.yellow, theme: "CONDITIONING · COMBAT-READY", duration: "50 min", intensity: "Très haute", blocks: [{ name: "ÉCHAUFFEMENT", exercises: [{ name: "Rameur (mètres)", params: "5 min Z2" }] }, { name: "INTERVALLES", sci: "30s/90s = filière anaérobie lactique + VO2max. Tolérance lactate pour sports de combat. (Buchheit, 2013)", exercises: [{ name: "Airbike (calories)", params: "10 × 30s ON / 90s OFF", note: "90–95% FCmax" }] }, { name: "CIRCUIT COMBAT (4 tours)", sci: "Travail sous fatigue → exigences sports de combat. Technique sous charge cardio.", exercises: [{ name: "KB Swing", params: "×20" }, { name: "Burpees", params: "×10" }, { name: "Farmer walk", params: "30m A/R" }, { name: "Repos", params: "2 min" }] }, { name: "RÉCUP ACTIVE", exercises: [{ name: "Marche + respiration nasale", params: "5 min" }] }] },
+  { id: "j4", label: "J4 — Full Body", color: C.green, theme: "FULL BODY · PUISSANCE", duration: "75 min", intensity: "Haute", blocks: [{ name: "ACTIVATION SNC", exercises: [{ name: "Sprint 30m", params: "×5 repos 2 min" }] }, { name: "OLYMPIQUE", sci: "Power Clean = meilleur exercice pour le RFD. Transforme force brute → puissance athlétique. (Stone et al., 2006)", exercises: [{ name: "Power Clean", params: "6×3", note: "repos 3 min — qualité absolue" }] }, { name: "FORCE GLOBALE", exercises: [{ name: "Soulevé de terre trap bar", params: "4×4 @ 85%" }, { name: "Push press barre", params: "4×4" }, { name: "Row unilatéral haltère", params: "3×8 / bras" }] }, { name: "CORE ANTI-ROTATION", sci: "Core anti-rotation = plus fonctionnel pour sports de combat. (McGill, 2010)", exercises: [{ name: "Pallof press", params: "3×12 / côté" }, { name: "Hanging leg raise", params: "3×10" }] }] },
+  { id: "j5", label: "J5 — Endurance", color: C.blue, theme: "ENDURANCE & MOBILITÉ", duration: "60 min", intensity: "Basse / Récup", blocks: [{ name: "ZONE 2 (35–40 min)", sci: "Zone 2 (65–70% FCmax) = densité mitochondriale + oxydation graisses. Priorité N°1 à 90kg. (Seiler, 2010)", exercises: [{ name: "Course Zone 2 (min)", params: "35–40 min", note: "65–70% FCmax" }] }, { name: "MOBILITÉ CIBLÉE", sci: "Mobilité = réduction risque tendinite + économie de mouvement.", exercises: [{ name: "90/90 hip stretch", params: "2×60s / côté" }, { name: "Pigeon yoga", params: "2×60s / côté" }, { name: "Rotation thoracique", params: "2×10 / côté" }, { name: "Stretch pec mineur", params: "2×45s / côté" }] }, { name: "RESPIRATION", sci: "Box breathing active le parasympathique → récupération + sommeil améliorés.", exercises: [{ name: "Box breathing 4/4/4/4", params: "5–8 min" }, { name: "Auto-massage rouleau", params: "5 min" }] }] },
+];
+const DAYS_V2 = [
+  { id: "j1", label: "J1 — Bas Force", color: C.purple, theme: "BAS DU CORPS · FORCE & EXPLOSIVITÉ", duration: "75 min", intensity: "Haute", blocks: [{ name: "ACTIVATION (10 min)", exercises: [{ name: "Corde à sauter", params: "3 min" }, { name: "Mobilité hanches / chevilles", params: "5 min" }] }, { name: "EXPLOSIVITÉ", exercises: [{ name: "Box Jump (cm)", params: "5×3", note: "repos long" }] }, { name: "FORCE", exercises: [{ name: "Squat barre", params: "5×3 @ 80–85%" }, { name: "RDL", params: "4×6" }, { name: "Fentes marchées", params: "3×10 / jambe" }] }, { name: "CORE", exercises: [{ name: "Gainage latéral (sec)", params: "3×30s" }, { name: "Dead bug", params: "3×10" }] }] },
+  { id: "j2", label: "J2 — Haut Athlé", color: C.pink, theme: "HAUT DU CORPS · ATHLÉTIQUE", duration: "70 min", intensity: "Haute", blocks: [{ name: "EXPLOSIVITÉ", exercises: [{ name: "Lancer med ball poitrine", params: "5×5" }, { name: "Lancer rotationnel", params: "4×5 / côté" }] }, { name: "FORCE", exercises: [{ name: "Tractions lestées", params: "5×5" }, { name: "Développé incliné haltères", params: "4×6–8" }, { name: "Row barre Pendlay", params: "4×6" }] }, { name: "SANTÉ ÉPAULES", exercises: [{ name: "Y-T-W élastique", params: "3×12" }, { name: "Face pull", params: "3×15" }] }] },
+  { id: "j3", label: "J3 — Conditioning", color: C.yellow, theme: "CONDITIONING · COMBAT-READY", duration: "45–60 min", intensity: "Très haute", blocks: [{ name: "INTERVALLES", exercises: [{ name: "Airbike / Rameur / Course", params: "10 × 30s ON / 90s OFF" }] }, { name: "CIRCUIT (4 tours)", exercises: [{ name: "KB Swing", params: "×20" }, { name: "Burpees", params: "×10" }, { name: "Farmer walk", params: "40m" }, { name: "Repos", params: "2 min" }] }] },
+  { id: "j4", label: "J4 — Full Body", color: C.green, theme: "FULL BODY · PUISSANCE", duration: "75 min", intensity: "Haute", blocks: [{ name: "PUISSANCE", exercises: [{ name: "Power Clean", params: "6×3" }] }, { name: "FORCE", exercises: [{ name: "Push press", params: "4×4" }, { name: "Soulevé de terre trap bar", params: "4×5" }, { name: "Row unilatéral", params: "3×8 / bras" }] }, { name: "CORE", exercises: [{ name: "Pallof press", params: "3×12" }, { name: "Hanging leg raise", params: "3×10" }] }] },
+  { id: "j5", label: "J5 — Endurance", color: C.blue, theme: "ENDURANCE & MOBILITÉ", duration: "60 min", intensity: "Basse / Récup", blocks: [{ name: "ENDURANCE", exercises: [{ name: "Course Zone 2 (min)", params: "35–45 min" }] }, { name: "MOBILITÉ", exercises: [{ name: "Hanches", params: "2×60s / côté" }, { name: "Épaules", params: "2×45s / côté" }, { name: "Colonne", params: "2×10 / côté" }] }, { name: "RESPIRATION", exercises: [{ name: "Box breathing", params: "5 min" }] }] },
+];
+
+function DayView({ days, showSci }) {
+  const [active, setActive] = useState(days[0].id);
+  const day = days.find((d) => d.id === active);
+  return (
+    <>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+        {days.map((d) => (
+          <button key={d.id} onClick={() => setActive(d.id)} style={{ background: active === d.id ? d.color : C.card, color: active === d.id ? C.dark : C.muted, border: `1px solid ${active === d.id ? d.color : C.border}`, borderRadius: 6, padding: "5px 12px", fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace", cursor: "pointer" }}>
+            {d.id.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      {day && (
+        <>
+          <div style={s.chip(day.color)}>◆ {day.theme}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <span style={{ background: "#1E2330", color: C.muted, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{day.duration}</span>
+            <span style={{ background: day.color + "33", color: day.color, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>INTENSITÉ {day.intensity.toUpperCase()}</span>
+          </div>
+          {day.blocks.map((block, bi) => (
+            <div key={bi} style={s.card}>
+              <div style={s.ct}>{block.name}</div>
+              {block.exercises.map((ex, ei) => (
+                <div key={ei} style={{ ...s.row, borderBottom: ei < block.exercises.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: C.white }}>{ex.name}</div>
+                    {ex.note && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{ex.note}</div>}
+                  </div>
+                  <div style={{ color: C.accent, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>{ex.params}</div>
+                </div>
+              ))}
+              {showSci && block.sci && <div style={s.sci}>🔬 {block.sci}</div>}
+            </div>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── APP ROOT ──────────────────────────────────────────────────────────────────
+const TABS = [
+  { id: "gen", label: "🎯 SÉANCE" },
+  { id: "v1", label: "V1+ COMPLET" },
+  { id: "v2", label: "V2 ÉPURÉ" },
+  { id: "journal", label: "📓 JOURNAL" },
+  { id: "suivi", label: "📊 SUIVI" },
+  { id: "phases", label: "PROGRESSION" },
+  { id: "science", label: "SCIENCE" },
+];
+
+const PHASES = [
+  { name: "PHASE 1 — FONDATION", weeks: "Sem. 1–4", color: C.purple, pct: 70, focus: "Adaptation neurologique & motrice", desc: "Apprentissage des patterns. Qualité technique avant tout.", keys: ["Squat : 75–80%", "Power Clean : technique", "Zone 2 : 2× minimum / semaine"], sci: "Le SNC s'adapte AVANT les muscles. Réduire le volume muscu de 20% évite l'interférence AMPK/mTOR." },
+  { name: "PHASE 2 — DÉVELOPPEMENT", weeks: "Sem. 5–8", color: C.yellow, pct: 85, focus: "Charge progressive & conditionnement", desc: "+5–10% sur tous les lifts. Intervalles plus denses.", keys: ["Squat / SDT : retour 85–90%", "Intervalles : 12×30s/90s", "Zone 2 : 40–50 min"], sci: "Le Contrast Training amplifie la PAP : puissance explosive +15–25% dans les 4–8 min post-effort lourd." },
+  { name: "PHASE 3 — PERFORMANCE", weeks: "Sem. 9–12", color: C.accent, pct: 100, focus: "Pic d'intensité & transformation", desc: "Volume baisse, intensité monte. PRs et sprints maximaux.", keys: ["Sprints 30m × 8", "PR tentative semaine 10", "DELOAD semaine 12 (50% volume)"], sci: "La supercompensation se produit pendant la RÉCUPÉRATION. Le deload est obligatoire. (Zatsiorsky, 2006)" },
+];
+
+export default function App() {
+  const [tab, setTab] = useState("gen");
+  return (
+    <div style={s.root}>
+      <div style={s.hdr}>
+        <div style={s.tag}>PROGRAMME HYBRIDE · 12 SEMAINES</div>
+        <h1 style={s.h1}>HYBRID ATHLETIC SYSTEM</h1>
+        <p style={s.h2}>90KG · 1M75 · EX-COMBAT · SCIENCE-BASED</p>
+      </div>
+      <div style={s.nav}>
+        {TABS.map((t) => <button key={t.id} style={s.nb(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
+      </div>
+      <div style={s.wrap}>
+
+        {tab === "gen" && <GenerateurTab />}
+
+        {tab === "v1" && (
+          <>
+            <div style={{ ...s.warn, borderColor: "#818CF866", background: "#0D0A1A" }}>📋 <strong>VERSION AVANCÉE</strong> — Détails complets, % 1RM, repos précis et notes scientifiques.</div>
+            <DayView days={DAYS_V1} showSci={true} />
+          </>
+        )}
+
+        {tab === "v2" && (
+          <>
+            <div style={{ ...s.warn, borderColor: "#FBBF2466", background: "#1A1100" }}>⚡ <strong>VERSION ÉPURÉE</strong> — Même programme, moins de texte.</div>
+            <DayView days={DAYS_V2} showSci={false} />
+          </>
+        )}
+
+        {tab === "journal" && <JournalTab />}
+        {tab === "suivi" && <SuiviTab />}
+
+        {tab === "phases" && (
+          <>
+            {PHASES.map((p) => (
+              <div key={p.name} style={s.card}>
+                <div style={{ ...s.ct, color: p.color }}>{p.name}</div>
+                <div style={{ fontSize: 10, color: C.muted, marginBottom: 6 }}>{p.weeks}</div>
+                <div style={{ height: 5, background: "#1E2330", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+                  <div style={{ height: "100%", width: `${p.pct}%`, background: p.color, borderRadius: 3 }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 8 }}>{p.focus}</div>
+                <div style={s.p}>{p.desc}</div>
+                {p.keys.map((k, i) => <div key={i} style={{ fontSize: 11, color: "#9CA3AF", padding: "4px 0", borderBottom: i < p.keys.length - 1 ? `1px solid ${C.border}` : "none" }}><span style={{ color: p.color, marginRight: 8 }}>→</span>{k}</div>)}
+                <div style={s.sci}>🔬 {p.sci}</div>
+              </div>
+            ))}
+            <div style={s.card}>
+              <div style={s.ct}>RÉSULTATS ATTENDUS</div>
+              {[{ m: "Masse grasse", d: "−5 à 8 kg", col: C.green }, { m: "Force (SDT / Squat)", d: "Maintenue ou +", col: C.accent }, { m: "Explosivité (CMJ)", d: "+15–25%", col: C.pink }, { m: "VO2max", d: "+8–15%", col: C.blue }, { m: "Mobilité globale", d: "Nettement améliorée", col: C.yellow }].map((r, i) => (
+                <div key={i} style={{ ...s.row, borderBottom: i < 4 ? `1px solid ${C.border}` : "none" }}>
+                  <span style={{ fontSize: 12, color: "#D1D5DB" }}>{r.m}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: r.col }}>{r.d}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === "science" && (
+          <>
+            {[{ title: "EFFET D'INTERFÉRENCE (AMPK vs mTOR)", color: C.pink, body: "Cardio et musculation activent des voies moléculaires concurrentes. L'AMPK inhibe mTOR (synthèse protéique). Solution : séparer cardio et force de 6h minimum. J3 est dédié — aucun conflit.", ref: "Coffey & Hawley, 2007" },
+              { title: "RATE OF FORCE DEVELOPMENT (RFD)", color: C.accent, body: "Puissance = Force × Vitesse. Le Power Clean, sauts et lancers développent la vitesse de production de force — compétence perdue avec le PPL pur. Le RFD est directement corrélé à la performance en combat.", ref: "Stone et al., 2006" },
+              { title: "POST-ACTIVATION POTENTIATION (PAP)", color: C.yellow, body: "Un mouvement lourd crée une potentialisation qui augmente la puissance explosive dans les 4–8 min suivantes. Mouvements explosifs TOUJOURS avant les charges lourdes.", ref: "Robbins, 2005" },
+              { title: "ENTRAÎNEMENT POLARISÉ", color: C.green, body: "80% Zone 2 + 20% HIIT. Le modèle 'tempo' (effort modéré constant) est moins efficace. Ce programme respecte exactement cette structure polarisée.", ref: "Seiler & Tønnessen, 2009" },
+              { title: "SRA — STIMULUS, RÉCUPÉRATION, ADAPTATION", color: C.blue, body: "Le tendon récupère en 72–96h vs 48h pour le muscle. J1 et J4 séparées par J2 et J3 — jamais consécutives. Le RPE permet de calibrer l'intensité réelle et d'éviter le surentraînement.", ref: "Zatsiorsky & Kraemer, 2006" },
+              { title: "VOLUME MINIMUM EFFICACE vs MRV", color: C.purple, body: "Tes séances PPL de 2–3h dépassent ton Volume Maximum Récupérable. Ce programme cible le MEV en musculation pour libérer de la capacité de récupération pour l'athlétisme.", ref: "Israetel, Hoffmann & Smith — RP" }
+            ].map((sv, i) => (
+              <div key={i} style={s.card}>
+                <div style={{ ...s.ct, color: sv.color }}>{sv.title}</div>
+                <div style={s.p}>{sv.body}</div>
+                <div style={{ fontSize: 10, color: C.muted, borderTop: `1px solid ${C.border}`, paddingTop: 8, fontStyle: "italic" }}>📚 {sv.ref}</div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

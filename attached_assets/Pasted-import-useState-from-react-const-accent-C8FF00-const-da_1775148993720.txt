@@ -1,0 +1,850 @@
+import { useState } from “react”;
+
+const accent = “#C8FF00”;
+const dark = “#0D0F12”;
+const card = “#141720”;
+const cardBorder = “#1E2330”;
+const muted = “#6B7280”;
+const white = “#F1F3F9”;
+
+const styles = {
+root: {
+fontFamily: “‘DM Mono’, ‘Courier New’, monospace”,
+background: dark,
+color: white,
+minHeight: “100vh”,
+padding: “0 0 80px 0”,
+},
+header: {
+background: “linear-gradient(135deg, #0D0F12 0%, #141E2E 100%)”,
+borderBottom: `1px solid ${cardBorder}`,
+padding: “28px 20px 20px”,
+},
+tag: {
+display: “inline-block”,
+background: accent,
+color: dark,
+fontWeight: “700”,
+fontSize: “10px”,
+letterSpacing: “2px”,
+padding: “3px 10px”,
+marginBottom: “10px”,
+},
+title: {
+fontSize: “22px”,
+fontWeight: “700”,
+color: white,
+margin: “0 0 4px 0”,
+fontFamily: “‘DM Mono’, monospace”,
+letterSpacing: “-0.5px”,
+},
+subtitle: {
+fontSize: “12px”,
+color: muted,
+letterSpacing: “1px”,
+},
+nav: {
+display: “flex”,
+gap: “0”,
+borderBottom: `1px solid ${cardBorder}`,
+background: “#0D0F12”,
+overflowX: “auto”,
+padding: “0 8px”,
+},
+navBtn: (active) => ({
+background: “none”,
+border: “none”,
+borderBottom: active ? `2px solid ${accent}` : “2px solid transparent”,
+color: active ? accent : muted,
+fontFamily: “‘DM Mono’, monospace”,
+fontSize: “11px”,
+fontWeight: “700”,
+letterSpacing: “1px”,
+padding: “14px 14px”,
+cursor: “pointer”,
+whiteSpace: “nowrap”,
+transition: “color 0.2s”,
+}),
+content: {
+padding: “20px 16px”,
+maxWidth: “680px”,
+margin: “0 auto”,
+},
+card: {
+background: card,
+border: `1px solid ${cardBorder}`,
+borderRadius: “8px”,
+padding: “16px”,
+marginBottom: “14px”,
+},
+cardTitle: {
+fontSize: “12px”,
+fontWeight: “700”,
+letterSpacing: “2px”,
+color: accent,
+marginBottom: “10px”,
+textTransform: “uppercase”,
+},
+sciNote: {
+background: “#0A1020”,
+border: `1px solid #1E3A5F`,
+borderLeft: `3px solid #3B82F6`,
+borderRadius: “6px”,
+padding: “10px 12px”,
+fontSize: “11px”,
+color: “#93C5FD”,
+marginTop: “10px”,
+lineHeight: “1.6”,
+},
+badge: (color) => ({
+display: “inline-block”,
+background: color || “#1E2330”,
+color: color ? dark : muted,
+fontSize: “10px”,
+fontWeight: “700”,
+letterSpacing: “1px”,
+padding: “2px 8px”,
+borderRadius: “4px”,
+marginRight: “6px”,
+}),
+row: {
+display: “flex”,
+justifyContent: “space-between”,
+alignItems: “center”,
+borderBottom: `1px solid ${cardBorder}`,
+padding: “8px 0”,
+fontSize: “12px”,
+gap: “8px”,
+},
+exo: {
+flex: 1,
+color: white,
+},
+param: {
+color: accent,
+fontWeight: “700”,
+fontSize: “12px”,
+textAlign: “right”,
+whiteSpace: “nowrap”,
+},
+warning: {
+background: “#1A0E00”,
+border: `1px solid #92400E`,
+borderLeft: `3px solid #F59E0B`,
+borderRadius: “6px”,
+padding: “10px 12px”,
+fontSize: “11px”,
+color: “#FCD34D”,
+marginBottom: “14px”,
+lineHeight: “1.6”,
+},
+phaseBar: (pct, color) => ({
+height: “6px”,
+background: “#1E2330”,
+borderRadius: “3px”,
+overflow: “hidden”,
+marginTop: “6px”,
+marginBottom: “12px”,
+}),
+phaseFill: (pct, color) => ({
+height: “100%”,
+width: `${pct}%`,
+background: color,
+borderRadius: “3px”,
+}),
+weekLabel: {
+fontSize: “11px”,
+color: muted,
+letterSpacing: “1px”,
+},
+statGrid: {
+display: “grid”,
+gridTemplateColumns: “1fr 1fr”,
+gap: “10px”,
+marginBottom: “10px”,
+},
+stat: {
+background: “#0D0F12”,
+border: `1px solid ${cardBorder}`,
+borderRadius: “6px”,
+padding: “12px”,
+textAlign: “center”,
+},
+statVal: {
+fontSize: “20px”,
+fontWeight: “700”,
+color: accent,
+display: “block”,
+},
+statLabel: {
+fontSize: “10px”,
+color: muted,
+letterSpacing: “1px”,
+textTransform: “uppercase”,
+marginTop: “2px”,
+},
+sectionTitle: {
+fontSize: “13px”,
+fontWeight: “700”,
+color: white,
+marginBottom: “8px”,
+marginTop: “16px”,
+},
+p: {
+fontSize: “12px”,
+color: “#9CA3AF”,
+lineHeight: “1.7”,
+marginBottom: “8px”,
+},
+dayChip: (color) => ({
+display: “inline-flex”,
+alignItems: “center”,
+gap: “6px”,
+background: color + “22”,
+border: `1px solid ${color}55`,
+color: color,
+fontSize: “11px”,
+fontWeight: “700”,
+padding: “4px 10px”,
+borderRadius: “20px”,
+marginBottom: “12px”,
+letterSpacing: “0.5px”,
+}),
+};
+
+const DAYS = [
+{
+id: “j1”,
+label: “J1 — Bas Force”,
+color: “#818CF8”,
+theme: “BAS DU CORPS · FORCE & EXPLOSIVITÉ”,
+duration: “75 min”,
+intensity: “Haute”,
+blocks: [
+{
+name: “ACTIVATION (10 min)”,
+exercises: [
+{ name: “Corde à sauter”, params: “3 min continu”, note: “rythme régulier” },
+{ name: “Hip circle élastique”, params: “2×15 / sens” },
+{ name: “Mobilité cheville (mur)”, params: “2×10 / jambe” },
+],
+},
+{
+name: “EXPLOSIVITÉ (priorité)”,
+sci: “La pliométrie AVANT la charge lourde exploite l’état neural frais et maximise le recrutement des fibres de type II. (Potentiation Post-Activation)”,
+exercises: [
+{ name: “Box Jump”, params: “5×3 reps”, note: “repos 90s — descente contrôlée” },
+{ name: “Broad Jump”, params: “4×3 reps”, note: “repos 90s — max distance” },
+],
+},
+{
+name: “FORCE”,
+sci: “Volume réduit vs PPL classique pour limiter l’effet d’interférence AMPK/mTOR. Priorité à l’intensité (% 1RM) plutôt qu’au volume.”,
+exercises: [
+{ name: “Squat barre (tempo 3-1-1)”, params: “5×3 @ 80–85%”, note: “repos 3 min” },
+{ name: “Romanian Deadlift”, params: “4×6 @ 70%”, note: “repos 2 min — focus ischio” },
+{ name: “Fentes marchées barre”, params: “3×8 / jambe”, note: “repos 90s” },
+],
+},
+{
+name: “CORE ATHLÉTIQUE”,
+exercises: [
+{ name: “Dead bug (bras + jambe opposés)”, params: “3×8 / côté” },
+{ name: “Gainage latéral dynamique”, params: “3×30s / côté” },
+{ name: “Farmer walk”, params: “3×30m lourd” },
+],
+},
+],
+},
+{
+id: “j2”,
+label: “J2 — Haut Athlé”,
+color: “#F472B6”,
+theme: “HAUT DU CORPS · ATHLÉTIQUE”,
+duration: “70 min”,
+intensity: “Haute”,
+blocks: [
+{
+name: “ACTIVATION (10 min)”,
+exercises: [
+{ name: “Band pull-apart”, params: “3×15” },
+{ name: “Cercles d’épaules + Y-T-W”, params: “2×10 chaque” },
+{ name: “Cat-cow + rotation thoracique”, params: “2×10 / côté” },
+],
+},
+{
+name: “EXPLOSIVITÉ HAUT DU CORPS”,
+sci: “Le lancer de med ball développe la puissance en chaîne cinétique complète et stimule le SNC avant les charges lourdes. (Force-Vitesse continuum)”,
+exercises: [
+{ name: “Lancer med ball poitrine (mur)”, params: “5×5”, note: “repos 90s — explosif total” },
+{ name: “Lancer rotationnel (mur)”, params: “4×5 / côté”, note: “hanches en premier” },
+],
+},
+{
+name: “FORCE HAUT DU CORPS”,
+sci: “Développé incliné haltères (pas barre plate) — réduction du stress en rotation interne et sollicitation plus grande du faisceau claviculaire. Prescrit pour tes tendinites épaules. (Biomécanique gléno-humérale)”,
+exercises: [
+{ name: “Tractions lestées (lest ou élastique assistance)”, params: “5×5”, note: “repos 2 min — pleine amplitude” },
+{ name: “Développé incliné haltères 45°”, params: “4×6–8”, note: “repos 90s — NO FLAT BENCH LOURD” },
+{ name: “Row barre explosif (Pendlay)”, params: “4×5”, note: “repos 2 min — barre sol” },
+{ name: “Push press (barre ou haltères)”, params: “3×5”, note: “utiliser les jambes” },
+],
+},
+{
+name: “SANTÉ ÉPAULES (non négociable)”,
+sci: “Rééquilibrage rotateurs externes / subscapulaire. Ratio 2:1 tirage/poussée pour prévenir récidive tendinite.”,
+exercises: [
+{ name: “Face pull élastique/poulie”, params: “4×15”, note: “rotation externe finales” },
+{ name: “Y-T-W élastique allongé”, params: “3×10 chaque” },
+],
+},
+],
+},
+{
+id: “j3”,
+label: “J3 — Conditioning”,
+color: “#FBBF24”,
+theme: “CONDITIONING · COMBAT-READY”,
+duration: “50 min”,
+intensity: “Très haute”,
+blocks: [
+{
+name: “ÉCHAUFFEMENT CARDIO (5 min)”,
+exercises: [
+{ name: “Rameur ou vélo”, params: “5 min Z2”, note: “fréquence cardiaque 50–60%” },
+],
+},
+{
+name: “INTERVALLES HAUTE INTENSITÉ”,
+sci: “Le protocole 30s/90s cible la filière anaérobie lactique et améliore la VO2max. Adapté aux sportifs de combat pour développer la tolérance au lactate. (Tabata & HIIT research, Buchheit 2013)”,
+exercises: [
+{ name: “Airbike / Rameur / Course”, params: “10 × (30s ON / 90s OFF)”, note: “effort 90–95% FC max” },
+],
+},
+{
+name: “CIRCUIT COMBAT (4 tours)”,
+sci: “Travail en état de fatigue partielle — reproduit les exigences des sports de combat (boxe, grappling). Maintient la technique sous charge cardiovasculaire.”,
+exercises: [
+{ name: “KB Swing lourd”, params: “×20”, note: “hanches — pas dos” },
+{ name: “Burpees”, params: “×10”, note: “rythme soutenu” },
+{ name: “Farmer walk”, params: “30m A/R”, note: “prise max” },
+{ name: “Repos entre tours”, params: “2 min”, note: “” },
+],
+},
+{
+name: “RÉCUPÉRATION ACTIVE”,
+exercises: [
+{ name: “Marche lente + respiration nasale”, params: “5 min” },
+{ name: “Étirements actifs globaux”, params: “5 min” },
+],
+},
+],
+},
+{
+id: “j4”,
+label: “J4 — Full Body”,
+color: “#34D399”,
+theme: “FULL BODY · PUISSANCE”,
+duration: “75 min”,
+intensity: “Haute”,
+blocks: [
+{
+name: “ACTIVATION SYSTÈME NERVEUX (10 min)”,
+exercises: [
+{ name: “Corde à sauter en rythme”, params: “3 min” },
+{ name: “Sprint court 10m × 5”, params: “repos 45s”, note: “jambes légères” },
+],
+},
+{
+name: “MOUVEMENT OLYMPIQUE”,
+sci: “Le Power Clean développe le taux de développement de la force (RFD — Rate of Force Development), la coordination inter-musculaire et l’explosivité totale. Aucun autre exercice ne l’égale pour transformer un bodybuilder en athlète. (Stone et al., 2006)”,
+exercises: [
+{ name: “Power Clean (ou KB Swing lourd si apprentissage)”, params: “6×3”, note: “repos 2–3 min — qualité absolue” },
+{ name: “Hang Power Clean progression”, params: “SEMAINES 1–4 seulement”, note: “partiel à apprendre le mouvement” },
+],
+},
+{
+name: “FORCE GLOBALE”,
+exercises: [
+{ name: “Soulevé de terre trap bar (ou conventionnel)”, params: “4×4 @ 85%”, note: “repos 3 min” },
+{ name: “Push press barre”, params: “4×4”, note: “explosif, utiliser les jambes” },
+{ name: “Row unilatéral haltère lourd”, params: “3×8 / bras”, note: “repos 90s” },
+],
+},
+{
+name: “CORE ANTI-ROTATION”,
+sci: “Le core anti-rotation est plus fonctionnel pour les sports de combat que le crunch classique (McGill, 2010). Il stabilise la colonne sous charge dynamique.”,
+exercises: [
+{ name: “Pallof press poulie / élastique”, params: “3×12 / côté” },
+{ name: “Hanging leg raise contrôlé”, params: “3×10–12” },
+{ name: “Planche dynamique (shoulder tap)”, params: “3×20 touches” },
+],
+},
+],
+},
+{
+id: “j5”,
+label: “J5 — Endurance”,
+color: “#60A5FA”,
+theme: “ENDURANCE & MOBILITÉ”,
+duration: “60 min”,
+intensity: “Basse / Récup”,
+blocks: [
+{
+name: “ZONE 2 CARDIAQUE (35–40 min)”,
+sci: “La Zone 2 (65–70% FCmax) est la base de l’endurance aérobie. Elle améliore la densité mitochondriale, l’utilisation des graisses comme carburant et prépare le cœur à des efforts intenses répétés. À 90kg/23% BF, c’est ta priorité N°1. (Seiler, 2010 — Polarized Training)”,
+exercises: [
+{ name: “Course lente / Vélo / Rameur”, params: “35–40 min”, note: “65–70% FCmax — tu dois pouvoir parler” },
+],
+},
+{
+name: “MOBILITÉ CIBLÉE”,
+sci: “La mobilité articulaire réduit le risque de tendinite (déjà présente chez toi) et améliore l’économie de mouvement. Priorité hanches et épaules.”,
+exercises: [
+{ name: “90/90 hip stretch”, params: “2×60s / côté” },
+{ name: “Pigeon yoga (ou bande)”, params: “2×60s / côté” },
+{ name: “Rotation thoracique au sol”, params: “2×10 / côté” },
+{ name: “Stretch pec mineur (angle 45°)”, params: “2×45s / côté — tendinite prévention” },
+{ name: “Flexibilité cheville mur”, params: “2×10 / jambe” },
+],
+},
+{
+name: “RESPIRATION & RÉCUPÉRATION”,
+sci: “La cohérence cardiaque (4-7-8 ou box breathing) active le système parasympathique, accélère la récupération et améliore la qualité du sommeil — critique vu tes 6h.”,
+exercises: [
+{ name: “Box breathing (4s in / 4s hold / 4s out)”, params: “5–8 min” },
+{ name: “Auto-massage rouleau jambes + dos”, params: “5 min” },
+],
+},
+],
+},
+];
+
+const PHASES = [
+{
+id: “p1”,
+name: “PHASE 1 — FONDATION”,
+weeks: “Semaines 1–4”,
+color: “#818CF8”,
+pct: 70,
+focus: “Adaptation neurologique & motrice”,
+desc: “Ton corps apprend les nouveaux patterns. Ne cherche pas à pousser les charges. La priorité est la QUALITÉ technique sur les sauts, power clean et mouvements explosifs. Tu vas te sentir peu chargé en muscu — c’est normal et voulu.”,
+keys: [
+“Squat : charges à 75–80% (pas de PR)”,
+“Power Clean : apprentissage technique, charges légères”,
+“Cardio : adapte l’intensité à ta tolérance”,
+“Séances : 5/semaine idéal — 4 si fatigue”,
+“Zone 2 : 2× minimum dans la semaine”,
+],
+sci: “Semaines 1-4 = remodelage des unités motrices. Le système nerveux central s’adapte AVANT que les muscles ne changent. Réduire le volume muscu de 20% vs ton PPL évite le syndrome d’interférence AMPK/mTOR.”,
+},
+{
+id: “p2”,
+name: “PHASE 2 — DÉVELOPPEMENT”,
+weeks: “Semaines 5–8”,
+color: “#FBBF24”,
+pct: 85,
+focus: “Charge progressive & conditionnement”,
+desc: “Augmentation des charges (+5–10% sur tous les lifts). Les intervalles deviennent plus denses. Tu dois sentir une vraie différence sur ton souffle et ton explosivité.”,
+keys: [
+“Squat / SDT : retour aux charges lourdes (85–90%)”,
+“Power Clean : augmente la charge — qualité toujours prioritaire”,
+“Intervalles : passe à 12×30s/90s sur J3”,
+“Zone 2 : durée 40–50 min sur J5”,
+“Commencer le Contrast Training (voir ci-dessous)”,
+],
+sci: “Le Contrast Training (lourd → explosif en supersets) amplifie la PAP (Post-Activation Potentiation) : les fibres encore recrutées après un mouvement lourd produisent plus de puissance en pliométrie dans les 4–8 min suivantes.”,
+},
+{
+id: “p3”,
+name: “PHASE 3 — PERFORMANCE”,
+weeks: “Semaines 9–12”,
+color: accent,
+pct: 100,
+focus: “Pic d’intensité & transformation”,
+desc: “Volume baisse, intensité monte. Sprints maximaux, charges Record sur les lifts de force, circuits combat à haute intensité. Tu roules à plein régime — récupération et sommeil deviennent critiques.”,
+keys: [
+“Sprints 30m × 8 intégrés sur J1 ou J4”,
+“Squat / SDT : tentative PR sur semaine 10”,
+“Intervals : 15×20s/40s (alactique)”,
+“Zone 2 : une sortie longue 60 min”,
+“Semaine 12 = DELOAD (50% du volume)”,
+],
+sci: “La semaine de décharge (deload) en semaine 12 est obligatoire — pas optionnelle. C’est lors de la RÉCUPÉRATION que les super-compensations se produisent, pas pendant l’effort. (Zatsiorsky & Kraemer, 2006)”,
+},
+];
+
+const NUTRITION = {
+cals: “~2 400–2 600 kcal/jour (léger déficit ~300 kcal)”,
+protein: “190–200g / jour (2.1g/kg)”,
+carbs: “Autour entraînements — 60–80g 1–2h avant séance intense”,
+fats: “70–80g / jour”,
+creatine: “5g / jour — systématique (même les jours off)”,
+timing: [
+{ meal: “Matin (réveil)”, content: “Protéines rapides + glucides lents”, example: “Flocons d’avoine + œufs ou skyr” },
+{ meal: “Pré-séance (-90 min)”, content: “Glucides moyens + protéines”, example: “Riz + poulet ou pain complet + thon” },
+{ meal: “Post-séance (+30 min)”, content: “Protéines rapides + glucides”, example: “Whey + banane ou riz + steak” },
+{ meal: “Dîner”, content: “Protéines + légumes + lipides”, example: “Saumon + patate douce + légumes” },
+{ meal: “Avant lit”, content: “Caséine lente”, example: “Fromage blanc ou caséine en poudre” },
+],
+};
+
+export default function HybridProgram() {
+const [tab, setTab] = useState(“overview”);
+const [activeDay, setActiveDay] = useState(“j1”);
+
+const day = DAYS.find((d) => d.id === activeDay);
+
+return (
+<div style={styles.root}>
+{/* Header */}
+<div style={styles.header}>
+<div style={styles.tag}>PROGRAMME HYBRIDE · 12 SEMAINES</div>
+<h1 style={styles.title}>HYBRID ATHLETIC SYSTEM</h1>
+<p style={styles.subtitle}>90KG · 1M75 · EX-COMBAT · SCIENCE-BASED</p>
+</div>
+
+```
+  {/* Nav */}
+  <div style={styles.nav}>
+    {[
+      { id: "overview", label: "VUE D'ENSEMBLE" },
+      { id: "sessions", label: "SÉANCES" },
+      { id: "phases", label: "PROGRESSION" },
+      { id: "nutrition", label: "NUTRITION" },
+      { id: "science", label: "SCIENCE" },
+    ].map((t) => (
+      <button key={t.id} style={styles.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
+        {t.label}
+      </button>
+    ))}
+  </div>
+
+  <div style={styles.content}>
+    {/* === OVERVIEW === */}
+    {tab === "overview" && (
+      <>
+        <div style={styles.warning}>
+          ⚠️ DIAGNOSTIC : Fort mais rigide, essoufflé, gras malgré l'entraînement. Cause : PPL pur, zéro cardio, séances trop longues, 6h de sommeil. Programme conçu pour corriger ça sans sacrifier la force.
+        </div>
+
+        <div style={styles.statGrid}>
+          <div style={styles.stat}>
+            <span style={styles.statVal}>5</span>
+            <span style={styles.statLabel}>Séances / semaine</span>
+          </div>
+          <div style={styles.stat}>
+            <span style={styles.statVal}>12</span>
+            <span style={styles.statLabel}>Semaines</span>
+          </div>
+          <div style={styles.stat}>
+            <span style={styles.statVal}>75'</span>
+            <span style={styles.statLabel}>Max / séance</span>
+          </div>
+          <div style={styles.stat}>
+            <span style={styles.statVal}>3</span>
+            <span style={styles.statLabel}>Phases</span>
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>STRUCTURE HEBDOMADAIRE</div>
+          {DAYS.map((d) => (
+            <div key={d.id} style={styles.row}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ ...styles.badge(d.color), minWidth: 24, textAlign: "center" }}>●</span>
+                <span style={{ ...styles.exo, fontSize: "12px" }}>{d.label}</span>
+              </div>
+              <span style={{ color: muted, fontSize: "11px" }}>{d.duration}</span>
+            </div>
+          ))}
+          <div style={{ ...styles.row, borderBottom: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ ...styles.badge("#6B7280"), minWidth: 24, textAlign: "center" }}>●</span>
+              <span style={{ ...styles.exo, fontSize: "12px" }}>J6–J7 — Repos / Récupération</span>
+            </div>
+            <span style={{ color: muted, fontSize: "11px" }}>Actif léger</span>
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>4 PILIERS DU PROGRAMME</div>
+          {[
+            { num: "01", name: "FORCE MINIMALE EFFICACE", desc: "Maintenir SDT 200kg, Squat 120kg, Tractions lestées. Volume réduit, intensité préservée.", color: "#818CF8" },
+            { num: "02", name: "EXPLOSIVITÉ & VITESSE", desc: "Pliométrie, Power Clean, sprints. Transformer ta force brute en puissance athlétique.", color: "#F472B6" },
+            { num: "03", name: "CONDITIONNEMENT", desc: "Intervalles, circuits combat. Cardio adapté aux sports de combat — ton background.", color: "#FBBF24" },
+            { num: "04", name: "MOBILITÉ & RÉSILIENCE", desc: "Zone 2, étirements actifs, santé épaules. Prévenir les récidives de tendinite.", color: "#34D399" },
+          ].map((p) => (
+            <div key={p.num} style={{ display: "flex", gap: "12px", marginBottom: "14px" }}>
+              <div style={{ color: p.color, fontSize: "20px", fontWeight: "700", minWidth: "28px" }}>{p.num}</div>
+              <div>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: p.color, letterSpacing: "1px" }}>{p.name}</div>
+                <div style={{ fontSize: "11px", color: muted, lineHeight: "1.6", marginTop: "2px" }}>{p.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>RÈGLES NON NÉGOCIABLES</div>
+          {[
+            "Séances MAX 75–90 min — jamais plus",
+            "Explosif / puissance TOUJOURS en premier (SNC frais)",
+            "Aucun développé couché barre plat lourd (tendinites)",
+            "Zone 2 minimum 1× / semaine obligatoire",
+            "Sommeil : objectif 7h — en dessous → volume réduit",
+            "Créatine 5g/jour systématique",
+          ].map((r, i) => (
+            <div key={i} style={{ ...styles.row, borderBottom: i < 5 ? `1px solid ${cardBorder}` : "none" }}>
+              <span style={{ color: accent, marginRight: "8px", fontSize: "11px" }}>→</span>
+              <span style={{ fontSize: "11px", color: "#D1D5DB", lineHeight: "1.5" }}>{r}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {/* === SESSIONS === */}
+    {tab === "sessions" && (
+      <>
+        {/* Day selector */}
+        <div style={{ display: "flex", gap: "6px", marginBottom: "16px", flexWrap: "wrap" }}>
+          {DAYS.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setActiveDay(d.id)}
+              style={{
+                background: activeDay === d.id ? d.color : "#141720",
+                color: activeDay === d.id ? dark : muted,
+                border: `1px solid ${activeDay === d.id ? d.color : cardBorder}`,
+                borderRadius: "6px",
+                padding: "6px 12px",
+                fontSize: "10px",
+                fontWeight: "700",
+                fontFamily: "'DM Mono', monospace",
+                cursor: "pointer",
+                letterSpacing: "0.5px",
+              }}
+            >
+              {d.id.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {day && (
+          <>
+            <div style={styles.dayChip(day.color)}>
+              ◆ {day.theme}
+            </div>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              <span style={styles.badge("#1E2330")}>{day.duration}</span>
+              <span style={{ ...styles.badge(day.color + "33"), color: day.color }}>
+                INTENSITÉ {day.intensity.toUpperCase()}
+              </span>
+            </div>
+
+            {day.blocks.map((block, bi) => (
+              <div key={bi} style={styles.card}>
+                <div style={styles.cardTitle}>{block.name}</div>
+                {block.exercises.map((ex, ei) => (
+                  <div
+                    key={ei}
+                    style={{
+                      ...styles.row,
+                      borderBottom: ei < block.exercises.length - 1 ? `1px solid ${cardBorder}` : "none",
+                    }}
+                  >
+                    <div style={styles.exo}>
+                      <div style={{ fontSize: "12px", color: white }}>{ex.name}</div>
+                      {ex.note && <div style={{ fontSize: "10px", color: muted, marginTop: "2px" }}>{ex.note}</div>}
+                    </div>
+                    <div style={styles.param}>{ex.params}</div>
+                  </div>
+                ))}
+                {block.sci && <div style={styles.sciNote}>🔬 {block.sci}</div>}
+              </div>
+            ))}
+          </>
+        )}
+      </>
+    )}
+
+    {/* === PHASES === */}
+    {tab === "phases" && (
+      <>
+        {PHASES.map((phase) => (
+          <div key={phase.id} style={styles.card}>
+            <div style={{ ...styles.cardTitle, color: phase.color }}>{phase.name}</div>
+            <div style={styles.weekLabel}>{phase.weeks}</div>
+            <div style={styles.phaseBar()}>
+              <div style={styles.phaseFill(phase.pct, phase.color)} />
+            </div>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: white, marginBottom: "8px" }}>
+              {phase.focus}
+            </div>
+            <p style={styles.p}>{phase.desc}</p>
+            <div style={{ marginTop: "10px" }}>
+              {phase.keys.map((k, i) => (
+                <div key={i} style={{ fontSize: "11px", color: "#9CA3AF", padding: "4px 0", borderBottom: i < phase.keys.length - 1 ? `1px solid ${cardBorder}` : "none" }}>
+                  <span style={{ color: phase.color, marginRight: "8px" }}>→</span>{k}
+                </div>
+              ))}
+            </div>
+            <div style={styles.sciNote}>🔬 {phase.sci}</div>
+          </div>
+        ))}
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>RÉSULTATS ATTENDUS (12 semaines)</div>
+          {[
+            { metric: "Masse grasse", delta: "−5 à 8 kg", color: "#34D399" },
+            { metric: "Force (SDT / Squat)", delta: "Maintenue ou +", color: accent },
+            { metric: "Explosivité (CMJ)", delta: "+15–25%", color: "#F472B6" },
+            { metric: "VO2max estimé", delta: "+8–15%", color: "#60A5FA" },
+            { metric: "Mobilité globale", delta: "Nettement améliorée", color: "#FBBF24" },
+          ].map((r, i) => (
+            <div key={i} style={{ ...styles.row, borderBottom: i < 4 ? `1px solid ${cardBorder}` : "none" }}>
+              <span style={{ fontSize: "12px", color: "#D1D5DB" }}>{r.metric}</span>
+              <span style={{ fontSize: "12px", fontWeight: "700", color: r.color }}>{r.delta}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {/* === NUTRITION === */}
+    {tab === "nutrition" && (
+      <>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>CIBLES JOURNALIÈRES</div>
+          <div style={styles.statGrid}>
+            <div style={styles.stat}>
+              <span style={styles.statVal}>2 500</span>
+              <span style={styles.statLabel}>kcal / jour</span>
+            </div>
+            <div style={styles.stat}>
+              <span style={styles.statVal}>198g</span>
+              <span style={styles.statLabel}>Protéines</span>
+            </div>
+            <div style={styles.stat}>
+              <span style={{ ...styles.statVal, color: "#FBBF24" }}>220g</span>
+              <span style={styles.statLabel}>Glucides</span>
+            </div>
+            <div style={styles.stat}>
+              <span style={{ ...styles.statVal, color: "#F472B6" }}>72g</span>
+              <span style={styles.statLabel}>Lipides</span>
+            </div>
+          </div>
+          <div style={styles.sciNote}>🔬 Léger déficit de ~300 kcal ciblant la recomposition corporelle. À 90kg / 23-25% BF, tu as assez de réserves pour brûler du gras et maintenir la masse musculaire. Protéines à 2.1g/kg = protection maximale de la masse musculaire en déficit. (Helms et al., 2014)</div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>TIMING NUTRITIONNEL</div>
+          {NUTRITION.timing.map((t, i) => (
+            <div key={i} style={{ marginBottom: "12px", paddingBottom: "12px", borderBottom: i < NUTRITION.timing.length - 1 ? `1px solid ${cardBorder}` : "none" }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: accent, letterSpacing: "1px", marginBottom: "4px" }}>{t.meal}</div>
+              <div style={{ fontSize: "12px", color: white }}>{t.content}</div>
+              <div style={{ fontSize: "11px", color: muted, marginTop: "2px" }}>ex : {t.example}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>SUPPLÉMENTS</div>
+          {[
+            { name: "Créatine monohydrate", dose: "5g / jour", timing: "N'importe quand — consistance > timing", priority: "ESSENTIEL" },
+            { name: "Whey (si manque protéines)", dose: "1–2 shakes / jour", timing: "Post-séance ou avant lit", priority: "UTILE" },
+            { name: "Magnésium bisglycinate", dose: "300–400mg / soir", timing: "Avant sommeil", priority: "SOMMEIL" },
+            { name: "Vitamine D3", dose: "2000–4000 UI / jour", timing: "Avec repas gras", priority: "GÉNÉRAL" },
+          ].map((s, i) => (
+            <div key={i} style={{ ...styles.row, borderBottom: i < 3 ? `1px solid ${cardBorder}` : "none", alignItems: "flex-start", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                <span style={{ fontSize: "12px", color: white, fontWeight: "700" }}>{s.name}</span>
+                <span style={{ fontSize: "10px", fontWeight: "700", color: accent, background: accent + "22", padding: "2px 8px", borderRadius: "4px" }}>{s.priority}</span>
+              </div>
+              <span style={{ fontSize: "11px", color: accent }}>{s.dose}</span>
+              <span style={{ fontSize: "11px", color: muted }}>{s.timing}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>SOMMEIL — PRIORITÉ ABSOLUE</div>
+          <p style={styles.p}>Tes 6h actuelles te coûtent 30–40% de tes adaptations hormonales (GH, testostérone) et ta récupération musculaire.</p>
+          {[
+            "Couche-toi 30 min plus tôt dès semaine 1",
+            "Magnésium le soir (voir suppléments)",
+            "Pas d'écran bleu 45 min avant le lit",
+            "Chambre fraîche (18–19°C) = +15 min sommeil profond",
+            "Si <6h → réduis le volume de la séance de 20%",
+          ].map((r, i) => (
+            <div key={i} style={{ fontSize: "11px", color: "#D1D5DB", padding: "5px 0", borderBottom: i < 4 ? `1px solid ${cardBorder}` : "none" }}>
+              <span style={{ color: "#60A5FA", marginRight: "8px" }}>→</span>{r}
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {/* === SCIENCE === */}
+    {tab === "science" && (
+      <>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>POURQUOI CE PROGRAMME EST DIFFÉRENT</div>
+          <p style={styles.p}>Ce programme applique les principes de la littérature scientifique en sciences du sport. Voici les concepts clés utilisés.</p>
+        </div>
+
+        {[
+          {
+            title: "EFFET D'INTERFÉRENCE (AMPK vs mTOR)",
+            color: "#F472B6",
+            body: "La musculation et l'endurance activent des voies moléculaires concurrentes. L'entraînement cardio active l'AMPK qui inhibe la voie mTOR (synthèse protéique). Solution : séparer cardio et force de 6h minimum OU faire le cardio APRÈS la séance de force. J3 (conditioning) est une séance dédiée — aucun conflit.",
+            ref: "Coffey & Hawley, 2007 — Concurrent Training",
+          },
+          {
+            title: "SRA — STIMULUS, RÉCUPÉRATION, ADAPTATION",
+            color: "#60A5FA",
+            body: "Chaque tissu a une courbe SRA différente. Le tissu tendineux récupère en 72–96h (vs 48h pour le muscle). Vu tes tendinites, les séances J1 et J4 (force) sont séparées par J2 et J3 — jamais consécutives. Le deload en semaine 12 permet la supercompensation.",
+            ref: "Zatsiorsky & Kraemer, 2006 — Science and Practice of Strength Training",
+          },
+          {
+            title: "RATE OF FORCE DEVELOPMENT (RFD)",
+            color: accent,
+            body: "Un bodybuilder peut être fort mais lent. La puissance = Force × Vitesse. Le Power Clean, les sauts et les lancers de med ball entraînent la vitesse de production de force — la compétence la plus perdue avec un PPL pur. Le RFD est directement corrélé à la performance en sport de combat.",
+            ref: "Stone et al., 2006 — Weightlifting: A Brief Overview",
+          },
+          {
+            title: "ENTRAÎNEMENT POLARISÉ (Zone 2 + HIIT)",
+            color: "#34D399",
+            body: "La recherche de Stephen Seiler montre que les athlètes d'élite s'entraînent 80% du temps en faible intensité (Zone 2) et 20% en haute intensité. Le modèle 'tempo' (effort modéré constant) est moins efficace. Tu as Zone 2 (J5) + HIIT (J3) — exactement cette structure polarisée.",
+            ref: "Seiler & Tønnessen, 2009 — Polarized Training",
+          },
+          {
+            title: "POST-ACTIVATION POTENTIATION (PAP)",
+            color: "#FBBF24",
+            body: "Réaliser un mouvement lourd et intense crée une potentialisation qui augmente temporairement la puissance explosive dans les 4–8 minutes suivantes. C'est pourquoi les séances explosives (sauts, power clean) viennent TOUJOURS avant les charges lourdes dans ce programme.",
+            ref: "Robbins, 2005 — Postactivation Potentiation and its Practical Applicability",
+          },
+          {
+            title: "VOLUME MINIMUM EFFICACE vs MRV",
+            color: "#818CF8",
+            body: "Renaissance Periodization a popularisé les concepts de MEV (Volume Minimum Efficace) et MRV (Volume Maximum Récupérable). Tes séances PPL actuelles de 2–3h dépassent ton MRV. Ce programme vise le MEV en musculation pour libérer de la capacité de récupération pour l'athlétisme.",
+            ref: "Israetel, Hoffmann & Smith — Scientific Principles of Strength Training (RP)",
+          },
+        ].map((s, i) => (
+          <div key={i} style={styles.card}>
+            <div style={{ ...styles.cardTitle, color: s.color }}>{s.title}</div>
+            <p style={styles.p}>{s.body}</p>
+            <div style={{ fontSize: "10px", color: "#6B7280", borderTop: `1px solid ${cardBorder}`, paddingTop: "8px", marginTop: "4px", fontStyle: "italic" }}>
+              📚 {s.ref}
+            </div>
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+</div>
+```
+
+);
+}
