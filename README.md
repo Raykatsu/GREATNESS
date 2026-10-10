@@ -22,7 +22,7 @@ App d'entraînement avec **Spider-Man comme coach** : il se balade sur l'écran,
 
 ## Fonctionnalités
 
-- **22 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité) et **65 exercices**.
+- **22 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité) et **69 exercices**.
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
 - **Séance en direct** : tableau des séries (précédent / kg / reps), steppers, choix libre de l'exercice, annuler, ajouter une série, remplacer, minuteur de repos compact.
