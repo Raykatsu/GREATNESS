@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#06060b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>GREATNESS</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="halftone" aria-hidden="true"></div>
+
+  <main id="view" class="view"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <a href="#/" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>QG</span></a>
+    <a href="#/train" data-tab="train"><svg viewBox="0 0 24 24"><path d="M2 10h2v4H2zM20 10h2v4h-2zM5 7h3v10H5zM16 7h3v10h-3zM8 11h8v2H8z"/></svg><span>Séance</span></a>
+    <a href="#/coach" data-tab="coach" class="tab-coach"><span class="spider-btn"><svg viewBox="0 0 64 64"><use href="#spider"/></svg></span><span>KAREN</span></a>
+    <a href="#/history" data-tab="history"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-2.05-4.95L14 10h7V3l-2.64 2.64A8.96 8.96 0 0 0 12 3zm-1 5h2v5l4 2.4-1 1.7L11 14z"/></svg><span>Journal</span></a>
+    <a href="#/profile" data-tab="profile"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v2h18v-2c0-3.5-4-6-9-6z"/></svg><span>Profil</span></a>
+  </nav>
+
+  <div id="overlay"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Emblème araignée stylisé (original) -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <symbol id="spider" viewBox="0 0 64 64">
+        <g fill="currentColor">
+          <ellipse cx="32" cy="22" rx="5" ry="6"/>
+          <ellipse cx="32" cy="38" rx="7" ry="11"/>
+          <path d="M28 24 L14 10 L6 12 L13 13 L26 28Z M36 24 L50 10 L58 12 L51 13 L38 28Z
+                   M26 30 L10 24 L3 30 L10 27 L26 34Z M38 30 L54 24 L61 30 L54 27 L38 34Z
+                   M26 38 L12 44 L8 56 L14 46 L27 42Z M38 38 L52 44 L56 56 L50 46 L37 42Z
+                   M27 44 L20 54 L22 62 L23 55 L29 47Z M37 44 L44 54 L42 62 L41 55 L35 47Z"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
