@@ -1,11 +1,11 @@
 {
   "name": "GREATNESS — Coach IA",
   "short_name": "GREATNESS",
-  "description": "Entraînements pilotés par KAREN, ton coach IA en temps réel.",
+  "description": "Tes entraînements pilotés par ton coach Spider-Man, en temps réel.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#06060b",
-  "theme_color": "#06060b",
+  "background_color": "#09090d",
+  "theme_color": "#09090d",
   "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

@@ -1,13 +1,18 @@
 // Persistance locale (localStorage) — tout reste sur l'appareil.
-import { RANKS } from "./data.js";
+import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
 
 const KEY = "greatness.v2";
 
 const DEFAULT = {
-  profile: { name: "", voice: true, aiKey: "", aiEnabled: false, bodyweight: 75, goal: "force" },
+  profile: {
+    name: "", bodyweight: 75, goal: "muscle", days: 3, equipment: "gym",
+    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false,
+  },
   sessions: [],
   lifts: {},
   chat: [],
+  customPrograms: [],
+  weekPlan: null, // { 0..6 (lundi..dimanche): programId }
 };
 
 function load() {
@@ -32,6 +37,9 @@ export function resetAll() {
   location.reload();
 }
 
+export const allPrograms = () => [...PROGRAMS, ...state.customPrograms.map(p => ({ ...p, cat: "custom" }))];
+export const getProgram = id => allPrograms().find(p => p.id === id);
+
 export const totalXp = () => state.sessions.reduce((s, x) => s + (x.xp || 0), 0);
 
 export function rankInfo(xp = totalXp()) {
@@ -42,9 +50,11 @@ export function rankInfo(xp = totalXp()) {
   return { rank: cur, next, pct, xp, level: i + 1 };
 }
 
-// Série de jours consécutifs avec au moins une séance (tolère "aujourd'hui pas encore fait").
+const dayKey = d => new Date(d).toDateString();
+
+// Série de jours d'affilée avec au moins une séance (tolère "aujourd'hui pas encore fait").
 export function streak() {
-  const days = new Set(state.sessions.map(s => new Date(s.date).toDateString()));
+  const days = new Set(state.sessions.map(s => dayKey(s.date)));
   let n = 0;
   const d = new Date();
   if (!days.has(d.toDateString())) d.setDate(d.getDate() - 1);
@@ -52,17 +62,30 @@ export function streak() {
   return n;
 }
 
-// Volume (kg × reps) par jour sur les 7 derniers jours.
-export function weekVolume() {
-  const out = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
-    const vol = state.sessions
-      .filter(s => new Date(s.date).toDateString() === d.toDateString())
-      .reduce((a, s) => a + (s.volume || 0), 0);
-    out.push({ day: d.toLocaleDateString("fr-FR", { weekday: "narrow" }), vol, today: i === 0 });
-  }
-  return out;
+// Lundi de la semaine courante à 00:00
+export function weekStart(ref = new Date()) {
+  const d = new Date(ref); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+export const todayIndex = () => (new Date().getDay() + 6) % 7;
+
+export function sessionsOn(date) {
+  const k = dayKey(date);
+  return state.sessions.filter(s => dayKey(s.date) === k);
+}
+
+export function weekStats(offsetWeeks = 0) {
+  const start = weekStart(); start.setDate(start.getDate() - 7 * offsetWeeks);
+  const end = new Date(start); end.setDate(end.getDate() + 7);
+  const list = state.sessions.filter(s => s.date >= start && s.date < end);
+  return {
+    count: list.length,
+    volume: list.reduce((a, s) => a + (s.volume || 0), 0),
+    minutes: Math.round(list.reduce((a, s) => a + (s.durationSec || 0), 0) / 60),
+    prs: list.reduce((a, s) => a + (s.prs?.length || 0), 0),
+  };
 }
 
 // Estimation 1RM (Epley)
@@ -70,12 +93,32 @@ export const e1rm = (w, r) => (w > 0 ? w * (1 + r / 30) : 0);
 
 export function recordLift(exId, weight, reps) {
   const prev = state.lifts[exId];
-  const est = e1rm(weight, reps);
-  const isPR = !!prev && (est > (prev.best || 0) + 0.01 || (weight === 0 && reps > (prev.bestReps || 0)));
   state.lifts[exId] = {
     weight, reps, date: Date.now(),
-    best: Math.max(prev?.best || 0, est),
+    best: Math.max(prev?.best || 0, e1rm(weight, reps)),
     bestReps: Math.max(prev?.bestReps || 0, weight === 0 ? reps : 0),
   };
-  return isPR;
 }
+
+// Historique d'un exercice : une entrée par séance.
+export function exerciseHistory(exId) {
+  return state.sessions
+    .filter(s => s.sets.some(x => x.exId === exId))
+    .map(s => {
+      const sets = s.sets.filter(x => x.exId === exId);
+      const top = sets.reduce((b, x) => (score(x) > score(b) ? x : b), sets[0]);
+      return { date: s.date, sets, top, e1rm: e1rm(top.weight, top.reps), volume: sets.reduce((a, x) => a + x.weight * x.reps, 0) };
+    });
+}
+const score = s => (s.weight > 0 ? e1rm(s.weight, s.reps) : s.reps);
+
+// Séries de la dernière séance où cet exercice a été fait.
+export function lastPerformance(exId) {
+  for (let i = state.sessions.length - 1; i >= 0; i--) {
+    const sets = state.sessions[i].sets.filter(x => x.exId === exId);
+    if (sets.length) return sets;
+  }
+  return null;
+}
+
+export const exName = id => EXERCISES[id]?.name || id;
