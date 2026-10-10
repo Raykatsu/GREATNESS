@@ -1,7 +1,9 @@
 // Le cerveau local du coach : répond aux questions et analyse les séances,
 // sans connexion et sans IA payante, à partir des vraies données de l'utilisateur.
 import { EXERCISES, GOALS } from "./data.js";
+import { getProgram, allPrograms } from "./store.js";
 import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } from "./store.js";
+const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -103,10 +105,11 @@ export function answer(q) {
   const intent = INTENTS.find(i => i.re.test(t));
   // Une question technique sur un exercice précis l'emporte (sauf douleur).
   if (exId && (!intent || !/\bmal\b|douleur|blesse/.test(t))) {
-    return { text: exerciseAdvice(exId) };
+    return { text: exerciseAdvice(exId), matched: true };
   }
-  if (intent) return { text: intent.fn(), actions: intent.actions };
+  if (intent) return { text: intent.fn(), actions: intent.actions, matched: true };
   return {
+    matched: false,
     text: "Je n'ai pas bien compris, mais je peux t'aider sur : la technique d'un exercice (ex. « squat »), la nutrition, le sommeil, les plateaux, ton programme ou ton bilan de la semaine.",
     actions: [{ label: "Mon bilan", ask: "Fais mon bilan" }, { label: "Nutrition", ask: "Que manger ?" }, { label: "Technique squat", ask: "Comment bien faire le squat ?" }],
   };
@@ -146,4 +149,46 @@ export function idleTip(route) {
     profile: ["Change ton objectif ici, j'adapte tout."],
   };
   return pick([...(byRoute[route] || []), ...common]);
+}
+
+/* ---------- Contexte pour l'IA locale ---------- */
+const SYSTEM = `Tu es Spider-Man, le coach sportif de l'app GREATNESS : drôle, bienveillant, « ton sympathique coach de quartier ».
+Tu tutoies et tu réponds toujours en français, de façon claire, juste et utile.
+Tu peux répondre à toutes les questions : entraînement, technique, programmes, nutrition, sommeil, récupération, motivation, et aussi n'importe quel autre sujet de la vie courante.
+Pour tout ce qui touche au sport, appuie-toi sur les données réelles de l'athlète ci-dessous et cite ses chiffres quand c'est utile.
+Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée. Une petite touche Spider-Man de temps en temps, sans en abuser. Mets en **gras** les points clés.
+Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.`;
+
+export function athleteContext() {
+  const p = state.profile;
+  const w = weekStats();
+  const plan = state.weekPlan || {};
+  const lifts = Object.entries(state.lifts).filter(([id]) => EXERCISES[id])
+    .sort((a, b) => (b[1].date || 0) - (a[1].date || 0)).slice(0, 10)
+    .map(([id, l]) => EXERCISES[id].type === "load" ? `${exName(id)} : dernière ${l.weight} kg × ${l.reps}, 1RM estimé ${Math.round(l.best)} kg` : `${exName(id)} : record ${l.bestReps}${EXERCISES[id].type === "time" ? " s" : " reps"}`);
+  const recent = state.sessions.slice(-5).reverse().map(s => {
+    const by = {};
+    s.sets.forEach(x => (by[x.name] ||= []).push(x.weight ? `${x.weight}×${x.reps}@${x.rpe}` : `${x.reps}@${x.rpe}`));
+    return `- ${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${s.volume} kg. ${Object.entries(by).map(([n, a]) => `${n} ${a.join(" ")}`).join(" ; ")}`;
+  });
+  return [
+    `Aujourd'hui : ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,
+    `Athlète : ${p.name || "inconnu"}, ${p.bodyweight} kg, objectif « ${GOALS[p.goal].name} », ${p.days} séances/semaine, matériel : ${{ gym: "salle", db: "haltères", home: "sans matériel" }[p.equipment]}.`,
+    `Programme de la semaine : ${DAYS.map((d, i) => `${d} ${plan[i] ? getProgram(plan[i])?.name : "repos"}`).join(", ")}.`,
+    `Cette semaine : ${w.count} séance(s), ${w.volume} kg, ${w.minutes} min. Série en cours : ${streak()} jour(s). Rang : ${rankInfo().rank.name}.`,
+    lifts.length ? `Performances :\n- ${lifts.join("\n- ")}` : "Pas encore de performances enregistrées.",
+    recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
+    `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
+  ].join("\n");
+}
+
+// Messages pour le modèle local : consignes + données + historique récent.
+export function llmMessages(history, question) {
+  const local = answer(question);
+  const notes = local.matched ? `\n\nNotes fiables du coach sur cette question (à utiliser, reformuler et compléter) :\n${local.text}` : "";
+  return [
+    { role: "system", content: `${SYSTEM}\n\n### Données de l'athlète\n${athleteContext()}${notes}` },
+    ...history.slice(-8).map(m => ({ role: m.role, content: m.content.slice(0, 1500) })),
+    { role: "user", content: question },
+  ];
 }

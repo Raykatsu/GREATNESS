@@ -20,6 +20,17 @@ App d'entraînement avec **Spider-Man comme coach** : il se balade sur l'écran,
 | Fin | Débrief, progrès par exercice vs dernière fois, records, XP et rangs |
 | Chat | Répond sur la technique de chaque exercice, la nutrition, le sommeil, les plateaux, ton bilan… en utilisant tes vraies stats |
 
+## Comptes
+
+Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 6 chiffres**, à taper à chaque ouverture de l'app (pavé numérique). Chaque compte a ses propres séances, stats, programme et réglages.
+
+- **Par défaut** : comptes enregistrés sur l'appareil (plusieurs personnes peuvent partager un téléphone).
+- **En ligne** : avec un projet Supabase gratuit, chacun retrouve son compte sur n'importe quel téléphone. Mise en place : voir [SUPABASE.md](SUPABASE.md).
+
+## IA intelligente locale
+
+Dans l'onglet Coach (ou Profil), **« Activer l'IA »** télécharge une fois un modèle **Qwen** qui tourne directement dans le navigateur (WebGPU) : gratuit, privé, hors ligne. Il répond à n'importe quelle question en s'appuyant sur le profil, le programme, les records et les dernières séances de l'utilisateur, et écrit le débrief de fin de séance. Trois tailles : Léger (≈ 0,6 Go), Équilibré (≈ 1,4 Go), Puissant (≈ 2,6 Go). Sans WebGPU, le coach simple prend le relais.
+
 ## Fonctionnalités
 
 - **22 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité) et **69 exercices**.
@@ -50,7 +61,12 @@ js/brain.js       réponses et débriefs du coach (gratuit, hors ligne)
 js/planner.js     programme de la semaine, adaptation à l'objectif
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
+js/auth.js        écran de connexion (comptes, pavé numérique)
+js/cloud.js       comptes et synchronisation (Supabase ou appareil)
+js/config.js      adresse et clé publique Supabase
+js/llm.js         IA locale (WebLLM / Qwen) + llm-worker.js
 js/ai.js          intégration Claude (optionnelle)
 js/fx.js          voix, sons, petits effets
 sw.js             cache hors ligne
+supabase/schema.sql  tables et fonctions des comptes en ligne
 ```

@@ -1,7 +1,9 @@
-// Persistance locale (localStorage) — tout reste sur l'appareil.
+// Données de l'utilisateur connecté. Chaque compte a ses propres données ;
+// elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
 
-const KEY = "greatness.v2";
+export const LEGACY_KEY = "greatness.v2"; // ancienne version à compte unique
+const dataKey = user => `greatness.data.${user}`;
 
 const DEFAULT = {
   profile: {
@@ -13,28 +15,52 @@ const DEFAULT = {
   chat: [],
   customPrograms: [],
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
+  meta: { updatedAt: 0 },
 };
 
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return structuredClone(DEFAULT);
-    const data = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT), ...data, profile: { ...DEFAULT.profile, ...data.profile } };
-  } catch {
-    return structuredClone(DEFAULT);
-  }
+const merge = data => ({ ...structuredClone(DEFAULT), ...data, profile: { ...DEFAULT.profile, ...data?.profile }, meta: { ...DEFAULT.meta, ...data?.meta } });
+
+// L'objet est partagé par tous les modules : on le remplit, on ne le remplace jamais.
+export const state = merge({});
+export let currentUser = null;
+let onSave = null;
+
+export function readLocal(user) {
+  try { return JSON.parse(localStorage.getItem(dataKey(user)) || "null"); } catch { return null; }
 }
 
-export const state = load();
-
-export function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota / mode privé */ }
+export function setUser(user, data) {
+  currentUser = user;
+  const next = merge(data || readLocal(user) || {});
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, next);
 }
 
+export function clearUser() {
+  currentUser = null;
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, merge({}));
+}
+
+export const setSaveHook = fn => (onSave = fn);
+
+export function save({ silent = false } = {}) {
+  if (!currentUser) return;
+  if (!silent) state.meta.updatedAt = Date.now();
+  try { localStorage.setItem(dataKey(currentUser), JSON.stringify(state)); } catch { /* quota / mode privé */ }
+  if (!silent) onSave?.(state);
+}
+
+// Efface les séances et réglages du compte connecté (le compte reste).
 export function resetAll() {
-  localStorage.removeItem(KEY);
+  const keep = { name: state.profile.name };
+  setUser(currentUser, { profile: keep });
+  save();
   location.reload();
+}
+
+export function legacyData() {
+  try { const d = JSON.parse(localStorage.getItem(LEGACY_KEY) || "null"); return d?.profile?.name ? d : null; } catch { return null; }
 }
 
 export const allPrograms = () => [...PROGRAMS, ...state.customPrograms.map(p => ({ ...p, cat: "custom" }))];
