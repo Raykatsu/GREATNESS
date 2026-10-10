@@ -1,6 +1,7 @@
 // Cache hors ligne de l'app (le moteur KAREN local marche sans réseau).
-const CACHE = "greatness-v2";
-const ASSETS = ["./", "index.html", "css/style.css", "js/app.js", "js/data.js", "js/store.js", "js/engine.js", "js/ai.js", "js/fx.js", "assets/icon.svg", "manifest.webmanifest"];
+const CACHE = "greatness-v3";
+const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
+  ...["app", "ai", "brain", "coach", "data", "engine", "fx", "live", "planner", "spidey", "store", "train", "ui"].map(f => `js/${f}.js`)];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
