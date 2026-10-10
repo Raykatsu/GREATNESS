@@ -1,12 +1,15 @@
 import { EXERCISES, GOALS, QUOTES } from "./data.js";
-import { state, save, resetAll, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn } from "./store.js";
+import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
 import { thwip, webSvg, speak } from "./fx.js";
 import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
-import { startLive } from "./live.js";
+import { startLive, isLive } from "./live.js";
+import { showAuth } from "./auth.js";
+import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
+import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 
@@ -20,7 +23,8 @@ const routes = { "": home, train: () => renderTrain(view, launch), coach: () => 
 function route() {
   const key = location.hash.replace(/^#\/?/, "");
   current = key || "home";
-  if (!state.profile.name) return onboarding();
+  if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); });
+  if (!state.profile.onboarded) return onboarding();
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current));
   view.className = "view";
@@ -277,6 +281,17 @@ function profile() {
       <p class="xs muted mt-s">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une sauvegarde.</p>
     </div>
 
+    <div class="section"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
+    <div class="card" style="padding:4px 16px">
+      <div class="toggle"><div><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
+      <button class="toggle" id="acc-pin" style="width:100%;text-align:left"><div><b>Changer mon code</b></div>${I.chev}</button>
+      <button class="toggle" id="acc-lock" style="width:100%;text-align:left"><div><b>Verrouiller / changer de compte</b></div>${I.chev}</button>
+      <button class="toggle" id="acc-forget" style="width:100%;text-align:left;color:#ff7b88"><div><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
+    </div>
+
+    <div class="section"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
+    <div class="card" id="llm-box"></div>
+
     <details class="card adv mt"><summary>IA Claude (facultatif, payant)</summary>
       <p class="small muted">Sans clé, ton coach fonctionne gratuitement et hors ligne. Avec une clé API Anthropic (payante à l'usage), Claude affine chaque série, fait le briefing, le débrief et répond librement.</p>
       <label class="toggle"><div><b>Activer Claude</b></div><input type="checkbox" id="p-ai" ${p.aiEnabled ? "checked" : ""}/></label>
@@ -284,7 +299,7 @@ function profile() {
       <button class="btn btn-blue btn-sm mt" id="p-test">Tester la connexion</button>
     </details>
 
-    <button class="btn btn-ghost btn-block mt-l" id="reset" style="color:#ff7b88">Tout réinitialiser</button>
+    <button class="btn btn-ghost btn-block mt-l" id="reset" style="color:#ff7b88">Effacer mes séances et réglages</button>
     <p class="center xs dim">GREATNESS · ton sympathique coach de quartier</p>`;
   animateRings(view);
 
@@ -322,7 +337,42 @@ function profile() {
       save(); toast("Données importées"); route();
     } catch { toast("Fichier invalide"); }
   };
-  $("#reset").onclick = async () => { if (await confirmSheet("Tout réinitialiser ?", "Séances, records et réglages seront effacés. Irréversible.", "Tout effacer", true)) resetAll(); };
+
+  // Compte
+  $("#acc-lock").onclick = () => { logout(); route(); };
+  $("#acc-pin").onclick = () => pinSheet();
+  $("#acc-forget").onclick = async () => {
+    const online = isOnlineMode();
+    if (!(await confirmSheet("Retirer ce compte ?", online ? "Il disparaîtra de ce téléphone mais restera en ligne : tu pourras te reconnecter avec ton pseudo et ton code." : "Le compte, ses séances et ses stats seront supprimés de ce téléphone. Irréversible.", "Retirer", true))) return;
+    const u = currentUser;
+    if (online) await push();
+    logout(); forget(u); route();
+  };
+  // IA locale
+  const drawLlm = () => {
+    const box = $("#llm-box"), chip = $("#llm-chip");
+    if (!box) return;
+    const i = llm.info(), pr = llm.prefs();
+    chip.textContent = !llm.supported() ? "Indisponible" : i.ready ? "Active" : i.status === "loading" ? `${Math.round(i.progress * 100)} %` : pr.enabled ? "Activée" : "Désactivée";
+    chip.className = `chip ${i.ready ? "green" : ""}`;
+    if (!llm.supported()) { box.innerHTML = `<p class="small muted" style="margin:0">Ce navigateur ne gère pas WebGPU, nécessaire pour faire tourner l'IA sur le téléphone. Essaie Chrome (Android, ordinateur) ou Safari à jour (iPhone).</p>`; return; }
+    box.innerHTML = `<p class="small muted" style="margin:0 0 12px">Un modèle d'IA qui tourne sur ton téléphone : gratuit, privé, il marche même sans internet. Choisis sa taille :</p>
+      <div class="models">${llm.MODELS.map(m => `<button class="opt ${m.id === pr.model ? "on" : ""}" data-model="${m.id}"><b>${m.name}</b><span>${m.size} · ${m.note}</span></button>`).join("")}</div>
+      ${i.status === "loading" ? `<div class="bar mt"><i style="width:${i.progress * 100}%"></i></div><p class="xs muted mt-s">${esc(i.progressText)}</p>` : ""}
+      ${i.status === "error" ? `<p class="small mt-s" style="color:#ff7b88">${esc(i.error)}</p>` : ""}
+      <div class="grid2 mt">${pr.enabled || i.ready ? `<button class="btn btn-soft btn-sm" id="llm-off">Désactiver</button><button class="btn btn-danger btn-sm" id="llm-del">Supprimer les fichiers</button>` : `<button class="btn btn-primary btn-sm" id="llm-on" style="grid-column:span 2">${I.sparkle} Activer l'IA</button>`}</div>`;
+    $$("[data-model]", box).forEach(b => b.onclick = async () => {
+      const was = llm.prefs().enabled;
+      await llm.disable();
+      if (was) llm.enable(b.dataset.model); else { localStorage.setItem("greatness.llm", JSON.stringify({ ...llm.prefs(), model: b.dataset.model })); drawLlm(); }
+    });
+    $("#llm-on", box)?.addEventListener("click", () => llm.enable(llm.prefs().model));
+    $("#llm-off", box)?.addEventListener("click", () => llm.disable());
+    $("#llm-del", box)?.addEventListener("click", async () => { await llm.disable({ removeFiles: true }); toast("Fichiers de l'IA supprimés"); });
+  };
+  const off = llm.onChange(() => (document.body.contains($("#llm-box")) ? drawLlm() : off()));
+  drawLlm();
+  $("#reset").onclick = async () => { if (await confirmSheet("Effacer mes données ?", "Les séances, records et réglages de ce compte seront effacés. Irréversible.", "Tout effacer", true)) resetAll(); };
 }
 
 /* =========================================================
@@ -330,6 +380,7 @@ function profile() {
    ========================================================= */
 const draft = { name: "", goal: "muscle", bodyweight: 75, days: 3, equipment: "gym" };
 function onboarding(step = 1) {
+  if (step === 1 && !draft.name) draft.name = state.profile.name || "";
   document.body.classList.add("hide-tabs");
   const p = state.profile;
   const steps = `<div class="steps">${[1, 2, 3].map(i => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>`;
@@ -369,7 +420,7 @@ function onboarding(step = 1) {
     $$("#equip .opt").forEach(b => b.onclick = () => { draft.equipment = b.dataset.v; $$("#equip .opt").forEach(x => x.classList.toggle("on", x === b)); });
     $("#prev").onclick = () => onboarding(2);
     $("#done").onclick = () => {
-      Object.assign(p, draft);
+      Object.assign(p, draft, { onboarded: true });
       state.weekPlan = generateWeekPlan();
       save();
       thwip(0.3);
@@ -378,6 +429,31 @@ function onboarding(step = 1) {
     };
   }
 }
+
+
+const syncLabel = (st = syncStatus()) => ({ local: "Sur l'appareil", syncing: "Synchronisation…", synced: "Synchronisé ✓", offline: "Hors ligne", error: "Reconnexion nécessaire" }[st] || st);
+onSyncStatus(st => { const c = $("#sync"); if (c) c.textContent = syncLabel(st); });
+onRemoteUpdate(() => { if (!isLive() && !document.querySelector(".sheet-wrap")) route(); });
+
+function pinSheet() {
+  const sh = sheet(`<h2 class="h2">Changer mon code</h2>
+    <label class="field"><span>Code actuel</span><input class="input" id="old" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password"/></label>
+    <label class="field"><span>Nouveau code (4 à 6 chiffres)</span><input class="input" id="new" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password"/></label>
+    <label class="field"><span>Confirme le nouveau code</span><input class="input" id="new2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"/></label>
+    <p class="err" id="err"></p><button class="btn btn-primary btn-block mt" id="ok">Enregistrer</button>`);
+  $("#ok", sh.el).onclick = async () => {
+    const o = $("#old", sh.el).value, n = $("#new", sh.el).value, n2 = $("#new2", sh.el).value;
+    if (n !== n2) return ($("#err", sh.el).textContent = "Les deux nouveaux codes ne sont pas identiques.");
+    try { await changePin(o, n); sh.close(); toast("Code modifié ✓"); } catch (e) { $("#err", sh.el).textContent = e.message; }
+  };
+}
+
+// Verrouille l'app si elle est restée en arrière-plan plus de 10 minutes.
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) hiddenAt = Date.now();
+  else if (currentUser && hiddenAt && Date.now() - hiddenAt > 10 * 60 * 1000 && !isLive()) { logout(); document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()); route(); }
+});
 
 /* =========================================================
    Démarrage

@@ -411,6 +411,7 @@ h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 700; lette
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .toggle:last-child { border-bottom: 0; }
 .toggle b { font-weight: 600; display: block; }
+.toggle > svg { width: 16px; height: 16px; flex: none; color: var(--dim); }
 .toggle input { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; border-radius: 30px; background: var(--card-3); position: relative; transition: background .25s; cursor: pointer; }
 .toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .3s var(--spring); box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 .toggle input:checked { background: var(--red); }
@@ -442,6 +443,41 @@ details.adv[open] summary::after { content: "−"; }
 /* ---------- Petite toile qui éclot ---------- */
 .webpop { position: fixed; z-index: 90; width: 120px; height: 120px; margin: -60px 0 0 -60px; pointer-events: none; animation: webpop .8s var(--smooth) forwards; }
 @keyframes webpop { 0% { transform: scale(.2) rotate(-20deg); opacity: 0; } 30% { opacity: .9; } 100% { transform: scale(1.3) rotate(0); opacity: 0; } }
+
+
+/* ---------- Comptes & connexion ---------- */
+.avatar { width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; flex: none; font-family: var(--display); font-weight: 800; font-size: 19px; color: #fff;
+  background: linear-gradient(135deg, var(--red), var(--blue)); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+.avatar.big { width: 76px; height: 76px; border-radius: 26px; font-size: 32px; margin: 0 auto; box-shadow: 0 14px 34px -10px rgba(232, 40, 59, .7); }
+.accounts { display: grid; gap: 10px; }
+.account { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); text-align: left; transition: transform .15s, background .2s; }
+.account:active { transform: scale(.98); background: var(--card-2); }
+.account b { display: block; font-family: var(--display); font-size: 16px; }
+.account span { font-size: 12.5px; color: var(--muted); }
+.account svg { width: 18px; height: 18px; color: var(--dim); }
+.onb.lock { justify-content: flex-start; padding-top: 6vh; }
+.dots { display: flex; justify-content: center; gap: 14px; margin: 22px 0 18px; min-height: 16px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-2); transition: all .18s var(--spring); }
+.dots i.on { background: var(--red); border-color: var(--red); transform: scale(1.1); box-shadow: 0 0 12px rgba(232, 40, 59, .6); }
+.dots.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-9px); } 40%, 80% { transform: translateX(9px); } }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 300px; margin: 0 auto; align-self: center; }
+.keypad button { height: 64px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); font-family: var(--display); font-size: 26px; font-weight: 600;
+  display: grid; place-items: center; transition: transform .1s, background .15s; user-select: none; }
+.keypad button:active { transform: scale(.92); background: var(--card-3); }
+.keypad button svg { width: 24px; height: 24px; color: var(--muted); }
+.keypad button.ok { background: var(--red); border-color: transparent; }
+.keypad button.ok svg { color: #fff; }
+.err { min-height: 20px; color: #ff7b88; font-size: 13.5px; font-weight: 500; margin: 8px 0 0; }
+.spinner { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: currentColor; animation: spin .8s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- IA locale ---------- */
+.models { display: grid; gap: 8px; }
+.models .opt span { display: block; margin-top: 2px; }
+.status i.off { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.status i.warm { background: var(--blue); box-shadow: 0 0 8px var(--blue); animation: pulseDot 1.2s infinite; }
+@keyframes pulseDot { 50% { opacity: .3; } }
 
 /* =========================================================
    Spider-Man animé

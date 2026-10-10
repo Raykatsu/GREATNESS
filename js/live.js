@@ -3,7 +3,8 @@ import { EXERCISES } from "./data.js";
 import { state, save, rankInfo, recordLift, e1rm } from "./store.js";
 import { Session, fmtTarget } from "./engine.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
-import { debrief } from "./brain.js";
+import { debrief, athleteContext } from "./brain.js";
+import * as llm from "./llm.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop } from "./fx.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
@@ -325,6 +326,14 @@ function finish() {
   if (aiReady() && sum.sets.length) {
     $("#debrief").textContent = "Le coach analyse ta séance…";
     aiDebrief(sum).then(t => { const d = $("#debrief"); if (d) d.textContent = t || local; if (t) speak(t, { interrupt: true }); })
+      .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
+  } else if (llm.info().ready && sum.sets.length) {
+    const lines = sum.compare.map(c => `${c.name} : meilleure série ${c.best.weight ? c.best.weight + " kg × " : ""}${c.best.reps}${c.delta === null ? " (première fois)" : c.delta > 0 ? " (en progrès)" : c.delta < 0 ? " (en baisse)" : " (stable)"}`).join("\n");
+    llm.chat([
+      { role: "system", content: "Tu es Spider-Man, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste." },
+      { role: "user", content: `${athleteContext()}\n\nSéance terminée : ${sum.name}, ${Math.round(sum.durationSec / 60)} min, ${sum.volume} kg, ${sum.sets.length} séries, ${sum.prs.length} record(s), fatigue ${sum.fatigue} %.\n${lines}\n\nFais un débrief : ce qui était bien, un point à améliorer, et quoi viser à la prochaine séance.` },
+    ], { maxTokens: 220, onDelta: t => { const d = $("#debrief"); if (d && t) d.textContent = t; } })
+      .then(t => { if (t) speak(t, { interrupt: true }); })
       .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
   }
 }
