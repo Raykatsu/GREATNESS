@@ -1,12 +1,12 @@
 // Onglet Séances : liste des programmes, aperçu modifiable, check-in, création de séances.
-import { EXERCISES, CATEGORIES, GOALS } from "./data.js";
+import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
+import { defaultItem, exerciseForm } from "./create.js";
 import { state, save, allPrograms } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
-const EQUIP = { gym: "Salle", db: "Haltères", bw: "Sans matériel" };
 const fmtReps = e => (EXERCISES[e.id].type === "time" ? `${e.reps[0]}–${e.reps[1]} s` : `${e.reps[0]}–${e.reps[1]}`);
 
 export function renderTrain(view, startLive) {
@@ -30,7 +30,7 @@ export function renderTrain(view, startLive) {
     <button class="fab" aria-label="Créer une séance">${I.plus}</button>`;
   $$("[data-f]", view).forEach(b => b.onclick = () => { filter = b.dataset.f; renderTrain(view, startLive); });
   $$(".prog", view).forEach(el => el.onclick = () => openProgram(allPrograms().find(p => p.id === el.dataset.id), startLive, () => renderTrain(view, startLive)));
-  $(".fab", view).onclick = () => openBuilder(null, () => { filter = "custom"; renderTrain(view, startLive); });
+  $(".fab", view).onclick = () => (location.hash = "#/create");
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */
@@ -57,14 +57,6 @@ function exList(list, host, onChange) {
   });
 }
 
-function defaultItem(id) {
-  const g = GOALS[state.profile.goal];
-  const ex = EXERCISES[id];
-  if (ex.type === "time") return { id, sets: 3, reps: ex.muscle === "Mobilité" ? [40, 60] : [30, 45], weight: 0, rest: ex.muscle === "Mobilité" ? 10 : 45, rpe: ex.muscle === "Mobilité" ? 5 : 7 };
-  const w = ex.type === "load" ? (ex.equip === "db" ? 10 : 20) : 0;
-  return { id, sets: 3, reps: g.accReps, weight: w, rest: g.accRest + 15, rpe: g.rpe };
-}
-
 /* ---------- Aperçu d'un programme ---------- */
 export function openProgram(program, startLive, refresh) {
   const base = adaptToGoal(program);
@@ -87,9 +79,9 @@ export function openProgram(program, startLive, refresh) {
     $("#meta", sh.el).innerHTML = `<span class="chip">${I.clock} ~${estimateMinutes(p)} min</span><span class="chip">${work.length} exercices</span>
       ${program.simple || program.cat === "cardio" || custom ? "" : `<span class="chip blue">${GOALS[state.profile.goal].name}</span>`}`;
     $("#extra", sh.el).innerHTML = custom
-      ? `<button class="btn btn-soft btn-sm" id="save-c">Enregistrer</button><button class="btn btn-danger btn-sm" id="del-c">Supprimer</button>`
+      ? `<button class="btn btn-soft btn-sm" id="edit-c">${I.edit} Modifier</button><button class="btn btn-danger btn-sm" id="del-c">Supprimer</button>`
       : edited ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
-    $("#save-c", sh.el)?.addEventListener("click", () => { const p = state.customPrograms.find(x => x.id === program.id); p.exercises = structuredClone(work); save(); toast("Séance enregistrée"); refresh?.(); });
+    $("#edit-c", sh.el)?.addEventListener("click", () => { sh.close(); location.hash = `#/create?edit=${program.id}`; });
     $("#del-c", sh.el)?.addEventListener("click", async () => {
       if (!(await confirmSheet("Supprimer cette séance ?", "Ton historique est conservé.", "Supprimer", true))) return;
       state.customPrograms = state.customPrograms.filter(x => x.id !== program.id); save(); sh.close(); refresh?.(); toast("Séance supprimée");
@@ -142,57 +134,40 @@ function checkIn(sh, program, startLive) {
 }
 
 /* ---------- Choix d'exercices ---------- */
-export function pickExercises(onDone) {
+export function pickExercises(onDone, { single = false, title = "Ajouter des exercices" } = {}) {
   const sel = new Set();
-  let q = "", muscle = "Tout";
-  const muscles = ["Tout", ...new Set(Object.values(EXERCISES).map(e => e.muscle))];
+  let q = "", muscle = "Tout", equip = "Tout";
   const sh = sheet(`
-    <h2 class="h2">Ajouter des exercices</h2>
-    <div class="search mt">${I.search}<input id="q" placeholder="Rechercher…" autocomplete="off"/></div>
+    <div class="row between"><h2 class="h2">${esc(title)}</h2><button class="btn btn-soft btn-sm" id="new-ex">${I.plus} Créer</button></div>
+    <div class="search mt">${I.search}<input id="q" placeholder="Rechercher (ex. presse, poulie, curl…)" autocomplete="off"/></div>
     <div class="chips mt-s" id="mus"></div>
-    <div id="items" class="mt-s"></div>
-    <div class="sheet-foot"><button class="btn btn-primary btn-block" id="ok" disabled>Ajouter</button></div>`, { z: 60 });
+    <div class="chips mt-s" id="eqp"></div>
+    <div class="xs dim mt-s" id="count"></div>
+    <div id="items"></div>
+    ${single ? "" : `<div class="sheet-foot"><button class="btn btn-primary btn-block" id="ok" disabled>Ajouter</button></div>`}`, { z: 60 });
   const draw = () => {
+    const muscles = ["Tout", ...new Set(Object.values(EXERCISES).map(e => e.muscle))];
     $("#mus", sh.el).innerHTML = muscles.map(m => `<button class="chip ${m === muscle ? "on" : ""}" data-m="${esc(m)}">${esc(m)}</button>`).join("");
+    $("#eqp", sh.el).innerHTML = ["Tout", ...Object.keys(EQUIP)].map(k => `<button class="chip ${k === equip ? "on" : ""}" data-e="${k}">${k === "Tout" ? "Tout matériel" : EQUIP[k]}</button>`).join("");
     $$("[data-m]", sh.el).forEach(b => b.onclick = () => { muscle = b.dataset.m; draw(); });
-    const items = Object.entries(EXERCISES).filter(([, e]) => (muscle === "Tout" || e.muscle === muscle) && (!q || e.name.toLowerCase().includes(q)));
+    $$("[data-e]", sh.el).forEach(b => b.onclick = () => { equip = b.dataset.e; draw(); });
+    const nq = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const items = Object.entries(EXERCISES).filter(([, e]) => (muscle === "Tout" || e.muscle === muscle) && (equip === "Tout" || e.equip === equip)
+      && (!nq || `${e.name} ${e.muscle} ${EQUIP[e.equip]}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(nq)));
+    $("#count", sh.el).textContent = `${items.length} exercice${items.length > 1 ? "s" : ""}`;
     $("#items", sh.el).innerHTML = items.map(([id, e]) => `
-      <div class="pick-item ${sel.has(id) ? "sel" : ""}" data-id="${id}"><div class="grow"><div style="font-weight:600">${esc(e.name)}</div>
-        <div class="xs muted">${esc(e.muscle)} · ${EQUIP[e.equip]}${e.type === "time" ? " · chrono" : ""}</div></div>
-        <div class="add">${sel.has(id) ? I.check : I.plus}</div></div>`).join("") || `<div class="empty">Aucun résultat.</div>`;
-    $$(".pick-item", sh.el).forEach(el => el.onclick = () => { sel.has(el.dataset.id) ? sel.delete(el.dataset.id) : sel.add(el.dataset.id); draw(); });
+      <div class="pick-item ${sel.has(id) ? "sel" : ""}" data-id="${id}"><div class="grow"><div style="font-weight:600">${esc(e.name)}${e.custom ? ` <span class="chip" style="height:20px;font-size:10.5px;padding:0 7px">perso</span>` : ""}</div>
+        <div class="xs muted">${esc(e.muscle)} · ${EQUIP[e.equip] || ""}${e.type === "time" ? " · chrono" : ""}</div></div>
+        <div class="add">${sel.has(id) ? I.check : single ? I.swap : I.plus}</div></div>`).join("") || `<div class="empty">Aucun résultat. Tu peux le créer avec « Créer ».</div>`;
+    $$(".pick-item", sh.el).forEach(el => el.onclick = () => {
+      if (single) { onDone([el.dataset.id]); return sh.close(); }
+      sel.has(el.dataset.id) ? sel.delete(el.dataset.id) : sel.add(el.dataset.id); draw();
+    });
     const ok = $("#ok", sh.el);
-    ok.disabled = !sel.size;
-    ok.textContent = sel.size ? `Ajouter ${sel.size} exercice${sel.size > 1 ? "s" : ""}` : "Ajouter";
+    if (ok) { ok.disabled = !sel.size; ok.textContent = sel.size ? `Ajouter ${sel.size} exercice${sel.size > 1 ? "s" : ""}` : "Ajouter"; }
   };
   $("#q", sh.el).oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
-  $("#ok", sh.el).onclick = () => { onDone([...sel]); sh.close(); };
+  $("#ok", sh.el)?.addEventListener("click", () => { onDone([...sel]); sh.close(); });
+  $("#new-ex", sh.el).onclick = () => exerciseForm(id => { if (single) { onDone([id]); sh.close(); } else { sel.add(id); muscle = "Tout"; equip = "Tout"; draw(); } });
   draw();
-}
-
-/* ---------- Création d'une séance ---------- */
-export function openBuilder(existing, onSaved) {
-  const work = existing ? structuredClone(existing.exercises) : [];
-  const sh = sheet(`
-    <div class="eyebrow">Nouvelle séance</div>
-    <h2 class="h2" style="margin-top:4px">Crée ta séance</h2>
-    <label class="field"><span>Nom</span><input class="input" id="name" placeholder="Ex. Pecs-bras du jeudi" value="${esc(existing?.name || "")}" maxlength="40"/></label>
-    <div class="section" style="margin-top:18px"><h2>Exercices</h2><button id="add">+ Ajouter</button></div>
-    <div id="list"></div>
-    <div class="sheet-foot"><button class="btn btn-primary btn-block" id="save">Enregistrer la séance</button></div>`);
-  const list = $("#list", sh.el);
-  exList(work, list);
-  $("#add", sh.el).onclick = () => pickExercises(ids => { ids.forEach(id => work.push(defaultItem(id))); exList(work, list); });
-  $("#save", sh.el).onclick = () => {
-    const name = $("#name", sh.el).value.trim();
-    if (!name) return toast("Donne un nom à ta séance.");
-    if (!work.length) return toast("Ajoute au moins un exercice.");
-    const muscles = [...new Set(work.map(e => EXERCISES[e.id].muscle))].slice(0, 3).join(" · ");
-    state.customPrograms.push({ id: "c" + Date.now(), name, tag: muscles, accent: Math.random() < 0.5 ? "red" : "blue", exercises: work });
-    save();
-    sh.close();
-    toast("Séance créée");
-    onSaved?.();
-  };
-  if (!work.length) setTimeout(() => $("#add", sh.el).click(), 350);
 }

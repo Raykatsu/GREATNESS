@@ -17,7 +17,7 @@ const ALIASES = {
   pushup: ["pompe"], dips: ["dips"], lateral: ["elevation", "laterale", "epaule"], plank: ["gainage", "planche"], lunge: ["fente"], rdl: ["roumain", "ischio"],
   leg_press: ["presse"], calf: ["mollet"], burpee: ["burpee"],
 };
-function findExercise(q) {
+export function findExercise(q) {
   const t = norm(q);
   for (const [id, ex] of Object.entries(EXERCISES)) if (t.includes(norm(ex.name))) return id;
   for (const [id, keys] of Object.entries(ALIASES)) if (keys.some(k => t.includes(k))) return id;
@@ -157,7 +157,8 @@ Tu tutoies et tu réponds toujours en français, de façon claire, juste et util
 Tu peux répondre à toutes les questions : entraînement, technique, programmes, nutrition, sommeil, récupération, motivation, et aussi n'importe quel autre sujet de la vie courante.
 Pour tout ce qui touche au sport, appuie-toi sur les données réelles de l'athlète ci-dessous et cite ses chiffres quand c'est utile.
 Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée. Une petite touche Spider-Man de temps en temps, sans en abuser. Mets en **gras** les points clés.
-Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.`;
+Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.
+L'app exécute automatiquement certaines demandes : créer une séance, modifier le programme de la semaine, l'objectif, la couleur de l'app, le mode clair, la taille du texte, la voix… Si l'utilisateur veut une modification de ce genre, donne-lui la phrase exacte à envoyer, par exemple : « Crée une séance dos de 45 min », « Mets Legs le mercredi », « Passe l'app en bleu », « Mode clair », « Agrandis le texte ».`;
 
 export function athleteContext() {
   const p = state.profile;

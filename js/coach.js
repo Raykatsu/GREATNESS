@@ -5,9 +5,10 @@ import { answer, llmMessages } from "./brain.js";
 import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
 import { spidey } from "./spidey.js";
+import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
 import { $, $$, esc, md, I } from "./ui.js";
 
-const SUGGESTIONS = ["Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
+const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
 let unsub = null;
 
 export function renderCoach(view) {
@@ -73,7 +74,11 @@ export function renderCoach(view) {
     $$("[data-act]", chat).forEach(b => {
       const msg = state.chat[$$(".msg", chat).indexOf(b.closest(".msg")) - 1];
       const a = msg?.actions?.[+b.dataset.act];
-      b.onclick = () => { if (a?.route) location.hash = a.route; else if (a?.ask) send(a.ask); };
+      b.onclick = () => {
+        if (a?.start) window.dispatchEvent(new CustomEvent("greatness:start", { detail: a.start }));
+        else if (a?.route) location.hash = a.route;
+        else if (a?.ask) send(a.ask);
+      };
     });
     requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
   };
@@ -93,9 +98,18 @@ export function renderCoach(view) {
     chat.appendChild(b);
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     const stream = t => { b.innerHTML = md(t); window.scrollTo({ top: document.body.scrollHeight }); };
-    let reply;
+    let reply, auto = null;
     try {
-      if (aiReady()) {
+      const cmd = parseCommand(text);
+      const r = cmd && runCommand(cmd);
+      if (/ce que tu peux faire|que peux[- ]tu faire|tes (pouvoirs|capacites)|aide$/i.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+        reply = { role: "assistant", content: `Je réponds à toutes tes questions, et je peux aussi **modifier l'app pour toi**. Par exemple :\n${COMMAND_EXAMPLES.map(e => `• « ${e} »`).join("\n")}`, actions: COMMAND_EXAMPLES.slice(0, 3).map(e => ({ label: e, ask: e })) };
+      } else if (r) {
+        await new Promise(res => setTimeout(res, 350));
+        reply = { role: "assistant", content: r.text, actions: r.actions };
+        auto = r.auto;
+        if (r.mood) spidey.react(r.mood === "party" ? "party" : "happy");
+      } else if (aiReady()) {
         const msgs = [...history, { role: "user", content: text }].slice(-16).map(m => ({ role: m.role, content: m.content }));
         let out = "";
         reply = { role: "assistant", content: await aiChat(msgs, d => stream((out += d))) };
@@ -115,7 +129,9 @@ export function renderCoach(view) {
     state.chat.push(reply);
     save(); draw();
     sending = false;
-    spidey.react("happy");
+    if (!auto) spidey.react("happy");
+    if (auto?.route) setTimeout(() => (location.hash = auto.route), 500);
+    if (auto?.start) setTimeout(() => window.dispatchEvent(new CustomEvent("greatness:start", { detail: auto.start })), 500);
   };
 
   $("#f", view).onsubmit = e => { e.preventDefault(); const q = $("#q", view); send(q.value); q.value = ""; };

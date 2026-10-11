@@ -14,6 +14,7 @@ const DEFAULT = {
   lifts: {},
   chat: [],
   customPrograms: [],
+  customExercises: {}, // { id: { name, muscle, type, equip, step, cues, alts } }
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
@@ -34,12 +35,20 @@ export function setUser(user, data) {
   const next = merge(data || readLocal(user) || {});
   Object.keys(state).forEach(k => delete state[k]);
   Object.assign(state, next);
+  syncCustomExercises();
+}
+
+// Les exercices créés par l'utilisateur rejoignent la bibliothèque commune.
+export function syncCustomExercises() {
+  Object.keys(EXERCISES).forEach(k => { if (EXERCISES[k].custom) delete EXERCISES[k]; });
+  Object.entries(state.customExercises || {}).forEach(([id, e]) => (EXERCISES[id] = { cues: [], alts: [], ...e, custom: true }));
 }
 
 export function clearUser() {
   currentUser = null;
   Object.keys(state).forEach(k => delete state[k]);
   Object.assign(state, merge({}));
+  syncCustomExercises();
 }
 
 export const setSaveHook = fn => (onSave = fn);
