@@ -11,6 +11,8 @@ import { showAuth } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
+import { renderCreate } from "./create.js";
+import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 
 const view = $("#view");
@@ -19,10 +21,13 @@ let current = "home";
 /* =========================================================
    Router
    ========================================================= */
-const routes = { "": home, train: () => renderTrain(view, launch), coach: () => renderCoach(view), progress, profile };
+let params = {};
+const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), coach: () => renderCoach(view), progress, profile };
 function route() {
-  const key = location.hash.replace(/^#\/?/, "");
+  const [key, qs] = location.hash.replace(/^#\/?/, "").split("?");
+  params = Object.fromEntries(new URLSearchParams(qs || ""));
   current = key || "home";
+  applyAppearance(state.profile);
   if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); });
   if (!state.profile.onboarded) return onboarding();
   document.body.classList.remove("hide-tabs");
@@ -38,6 +43,13 @@ function route() {
 addEventListener("hashchange", route);
 
 const launch = (program, readiness) => startLive(program, readiness, route);
+
+// Actions déclenchées par le coach
+addEventListener("greatness:start", e => {
+  const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
+  if (p) openProgram(p, launch);
+});
+addEventListener("greatness:mascot", e => spidey.setEnabled(e.detail));
 
 /* =========================================================
    Accueil
@@ -275,6 +287,17 @@ function profile() {
       <label class="toggle"><div><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
     </div>
 
+    <div class="section"><h2>Apparence</h2></div>
+    <div class="card">
+      <div class="small muted" style="margin-bottom:10px">Couleur</div>
+      <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div>
+      <div class="small muted" style="margin:14px 0 8px">Fond</div>
+      <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="small muted" style="margin:14px 0 8px">Taille du texte</div>
+      <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div>
+      <p class="xs dim mt-s">Astuce : tu peux aussi demander au coach « passe l'app en vert » ou « mode clair ».</p>
+    </div>
+
     <div class="section"><h2>Données</h2></div>
     <div class="card">
       <div class="grid2"><button class="btn btn-soft btn-sm" id="exp">Exporter</button><label class="btn btn-soft btn-sm">Importer<input type="file" id="imp" accept="application/json" hidden/></label></div>
@@ -306,6 +329,9 @@ function profile() {
   $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); spidey.react("happy"); });
   $$("#days button").forEach(b => b.onclick = () => { p.days = +b.dataset.v; save(); $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#equip button").forEach(b => b.onclick = () => { p.equipment = b.dataset.v; save(); $$("#equip button").forEach(x => x.classList.toggle("on", x === b)); });
+  $$("[data-accent]").forEach(b => b.onclick = () => { p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b)); });
+  $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
+  $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
   $("#regen").onclick = () => { state.weekPlan = generateWeekPlan(); save(); toast("Nouveau programme prêt"); spidey.say(`Programme de ${p.days} séances créé. Regarde l'accueil !`, { mood: "happy" }); };
   const bind = (id, fn) => $(id).addEventListener("change", e => { fn(e.target); save(); });
   bind("#p-name", t => (p.name = t.value.trim().slice(0, 30) || p.name));

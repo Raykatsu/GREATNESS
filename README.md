@@ -31,9 +31,20 @@ Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 
 
 Dans l'onglet Coach (ou Profil), **« Activer l'IA »** télécharge une fois un modèle **Qwen** qui tourne directement dans le navigateur (WebGPU) : gratuit, privé, hors ligne. Il répond à n'importe quelle question en s'appuyant sur le profil, le programme, les records et les dernières séances de l'utilisateur, et écrit le débrief de fin de séance. Trois tailles : Léger (≈ 0,6 Go), Équilibré (≈ 1,4 Go), Puissant (≈ 2,6 Go). Sans WebGPU, le coach simple prend le relais.
 
+## Onglet Créer
+
+L'atelier pour ses propres séances : **144 exercices** (barres, haltères, machines, poulies, Smith, kettlebell, élastiques, cardio, mobilité), filtres par muscle et matériel, réglage de chaque exercice (séries, reps, poids, repos), générateur automatique (groupes musculaires + durée + matériel), « Mes séances » (commencer, modifier, dupliquer, supprimer) et création de ses propres exercices.
+
+## Le coach agit sur l'app
+
+En plus de répondre aux questions, le coach exécute les demandes, même sans IA :
+« Crée une séance pecs triceps de 45 min », « … pour samedi », « Mets Legs le mercredi », « Passe à 4 séances par semaine », « Change mon objectif en sèche », « Passe l'app en bleu », « Mode clair », « Agrandis le texte », « Désactive la voix », « Lance la séance du jour », « Ajoute curl marteau à ma séance … »…
+
+Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 3 tailles de texte.
+
 ## Fonctionnalités
 
-- **22 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité) et **69 exercices**.
+- **22 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité) et **144 exercices**.
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
 - **Séance en direct** : tableau des séries (précédent / kg / reps), steppers, choix libre de l'exercice, annuler, ajouter une série, remplacer, minuteur de repos compact.
@@ -52,7 +63,9 @@ npx serve .          # ou : python3 -m http.server 8080
 index.html        squelette, barre d'onglets, emblème
 css/style.css     design + animations de Spider-Man
 js/app.js         routeur, Accueil, Progrès, Profil, première ouverture
-js/train.js       Séances : liste, aperçu modifiable, check-in, création
+js/train.js       Séances : liste, aperçu modifiable, check-in, sélecteur d'exercices
+js/create.js      onglet Créer (atelier de séances, exercices perso)
+js/actions.js     actions du coach sur l'app + apparence
 js/live.js        séance en direct, repos, fin de séance
 js/coach.js       chat avec le coach
 js/spidey.js      Spider-Man animé (déplacements, toile, poses, bulles)
