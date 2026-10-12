@@ -713,6 +713,11 @@ details.adv[open] summary::after { content: "−"; }
 @keyframes kickA { 0%, 60%, 100% { transform: rotate(6deg) scaleY(.52); } 72% { transform: rotate(20deg) scaleY(.5); } 86% { transform: rotate(0deg) scaleY(.52); } }
 @keyframes kickB { 0%, 64%, 100% { transform: rotate(-6deg) scaleY(.52); } 76% { transform: rotate(4deg) scaleY(.52); } 90% { transform: rotate(-20deg) scaleY(.5); } }
 /* accroupi : prêt à bondir (ou accroché au plafond) */
+/* Repos des marcheurs : caché derrière le minuteur, tête et mains posées sur le rebord */
+.spidey.peek { z-index: 44; }
+.pose-peek .sp-armL { transform: rotate(84deg); } .pose-peek .sp-armR { transform: rotate(-84deg); }
+.pose-peek .sp-head { animation: lookSlow 6s ease-in-out infinite; }
+.pose-lurk .sp-head { animation: lookSlow 7s ease-in-out infinite; }
 .pose-crouch .sp-body { transform: translateY(8px); }
 .pose-crouch .sp-legL { transform: rotate(26deg) scaleY(.74); } .pose-crouch .sp-legR { transform: rotate(-26deg) scaleY(.74); }
 .pose-crouch .sp-armL { transform: rotate(-12deg); } .pose-crouch .sp-armR { transform: rotate(12deg); }

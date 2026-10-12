@@ -111,6 +111,7 @@ class Coach {
     const quiet = !this.enabled || why !== "set" || reduced() || this.dragging || this.hanging || document.hidden;
     if (quiet) {
       this.build(c);
+      if (!this.peeker) this.unpeek();
       if (!this.climbs && ["wallL", "wallR", "ceiling"].includes(this.surface)) Object.assign(this, this.perch("floor"));
       if (this.surface === "air" && this.travel !== "fly") Object.assign(this, this.perch("floor"));
       this.sq = 1;
@@ -124,6 +125,7 @@ class Coach {
     this.busy = true;
     try {
       this.hideBubble();
+      this.unpeek();
       this.anchor = null; this.sq = 1; this.render();
       this.puff(this.x, this.y);
       const out = this.pop.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(.2) rotate(-25deg)", opacity: 0 }], { duration: 200, easing: "ease-in", fill: "forwards" });
@@ -204,7 +206,9 @@ class Coach {
       case "wallL": return { x: H / 2 + 1, y: midY, rot: 90, surface };
       case "ceiling": return { x: rnd(60, innerWidth - 60), y: b.top + H / 2, rot: 180, surface };
       case "air": {
-        const y = this.ctx === "live" ? b.top + rnd(26, 60) : rnd(b.top + 90, Math.max(b.top + 100, b.floor - 190));
+        // en séance : plane à droite du titre (comme Spider-Man suspendu), jamais devant les réglages
+        if (this.ctx === "live") return { x: clamp(innerWidth * 0.82 + rnd(-10, 6), 50, innerWidth - 40), y: b.top + rnd(104, 128), rot: 0, surface };
+        const y = rnd(b.top + 90, Math.max(b.top + 100, b.floor - 190));
         return { x: pick([rnd(40, 100), rnd(innerWidth - 100, innerWidth - 40)]), y, rot: 0, surface };
       }
       default: return { x: this.safeX(pick([innerWidth - 42, 42, rnd(60, innerWidth - 60)])), y: b.floor - H / 2, rot: 0, surface: "floor" };
@@ -217,7 +221,45 @@ class Coach {
     return this.perch("floor");
   }
 
-  idlePose() { return this.surface === "air" ? "float" : "idle"; }
+  idlePose() { return this.peekDepth ? (this.peekDepth === "rest" ? "peek" : "lurk") : this.surface === "air" ? "float" : "idle"; }
+
+  // Ni toile, ni vol, ni murs : en séance, il se cache derrière la barre du bas et seule sa tête dépasse.
+  get peeker() { return !this.climbs && this.travel !== "fly"; }
+  async lurk(rest = false) {
+    const R = reduced(), seat = this.seat();
+    rest &&= seat.free !== false; // pas de place au-dessus : on ne montre que les yeux
+    const yP = seat.ledge + (rest ? 5 : 13); // repos : tête et mains sur le rebord · sinon : juste les yeux
+    if (!this.peekDepth) {
+      // se pose sur le rebord là où il est, puis plonge derrière la barre
+      const p = { x: clamp(this.x, 30, innerWidth - 30), y: seat.ledge - H / 2, rot: 0, surface: "floor" };
+      if (R) Object.assign(this, p);
+      else if (this.surface !== "floor") await this.leap(p);
+      else await this.goto(p, 200, ease.out);
+      this.rot = 0; this.surface = "floor";
+      this.el.classList.add("peek");
+    }
+    if (!this.peekDepth || Math.abs(this.x - seat.x) > 24) {
+      // caché derrière la barre, il file jusqu'à l'endroit le plus dégagé
+      const x0 = this.x, y0 = this.y;
+      this.facing = seat.x > x0 ? 1 : -1;
+      this.pose("lurk");
+      await this.tween(R ? 0 : 220, t => { this.y = lerp(y0, seat.ledge + 34, t * t); });
+      await this.tween(R ? 0 : clamp(Math.abs(seat.x - x0) * 2.5, 0, 800), t => { this.x = lerp(x0, seat.x, ease.inOut(t)); });
+    }
+    this.peekDepth = rest ? "rest" : "deep";
+    this.pose(this.idlePose());
+    const y0 = this.y;
+    await this.tween(R ? 0 : 320, t => { this.y = lerp(y0, yP, ease.out(t)); });
+  }
+  // Ressort de derrière la barre (fin de séance, glisser-déposer).
+  unpeek() {
+    if (!this.peekDepth) return;
+    this.peekDepth = null;
+    this.el.classList.remove("peek");
+    this.y = Math.min(this.y, this.bounds().floor - H / 2);
+    this.pose(this.idlePose());
+    this.render();
+  }
 
   // Point d'attache de la toile : main levée (au-dessus de la tête) ou pieds.
   attachPoint(from = this.lineFrom) {
@@ -569,7 +611,7 @@ class Coach {
     if (this.travel === "dash" && this.climbs) return "cling";
     return "sit";
   }
-  restPose() { return { web: "hang", float: "float", cling: "crouch", sit: "sit" }[this.restMode()]; }
+  restPose() { return { web: "hang", float: "float", cling: "crouch", sit: "peek" }[this.restMode()]; }
 
   async _hang(on) {
     const R = reduced();
@@ -590,7 +632,7 @@ class Coach {
         await this.tween(R ? 0 : 900, t => { this.y = y0 + (yT - y0) * ease.back(t); });
         if (this.hanging && !R) this.sway(true); // léger balancement, en CSS : rien ne tourne en JS
       } else if (mode === "float") {
-        const p = { x, y: b.top + 30, rot: 0, surface: "air" };
+        const p = { x, y: b.top + 116, rot: 0, surface: "air" };
         if (!R) await this.flyTo(p); else Object.assign(this, p);
         this.pose("float");
       } else if (mode === "cling") {
@@ -599,17 +641,7 @@ class Coach {
         this.pose("crouch");
       } else {
         await sleep(60); // le minuteur vient d'apparaître
-        const seat = this.seat();
-        const p = { x: seat.x, y: seat.ledge - H / 2, rot: 0, surface: "floor" };
-        if (!R) {
-          if (this.surface !== "floor") await this.leap(p);
-          else if (Math.abs(this.x - p.x) > 30) await this.alongTo(p.x);
-          await this.goto(p, 160, ease.out);
-        } else Object.assign(this, p);
-        this.rot = 0; this.surface = "floor";
-        this.pose("sit");
-        const y0 = this.y, yS = seat.ledge - 7; // hanches sur le rebord, jambes qui pendent devant
-        await this.tween(R ? 0 : 260, t => { this.y = lerp(y0, yS, ease.out(t)); });
+        await this.lurk(true);
       }
       this.render();
       this.restLine(2600, 2);
@@ -625,10 +657,15 @@ class Coach {
         this.pose("idle"); this.busy = false;
         if (!R && !this.wantHang) await this.run(() => this.zip(this.perch(this.ctx === "live" ? pick(["wallR", "wallL"]) : "floor")));
       } else {
-        if (this.restKind === "sit") {
+        if (this.restKind === "sit" && this.ctx === "live" && this.peeker) {
+          await sleep(80); // le bouton Valider remplace le minuteur
+          await this.lurk(false);
+        } else if (this.restKind === "sit") {
           const y0 = this.y, yT = this.bounds().floor - H / 2;
+          this.peekDepth = null;
           this.pose("idle");
           await this.tween(R ? 0 : 240, t => { this.y = lerp(y0, yT, ease.out(t)); });
+          this.el.classList.remove("peek");
         } else this.pose(this.idlePose());
         this.busy = false;
         if (this.ctx !== "live" && !R && !this.wantHang) await this.run(() => this.moveTo(this.perch(this.travel === "fly" ? "air" : "floor")));
@@ -654,19 +691,26 @@ class Coach {
     }
   }
 
-  // Place sur le rebord du minuteur : le plus grand espace libre entre les commandes.
+  // Place sur le rebord du minuteur : la tête dépasse juste au-dessus, on choisit l'endroit le plus dégagé
+  // (sans bouton ni texte) pour ne rien cacher.
   seat() {
-    const box = document.getElementById("rest") || document.getElementById("dock");
-    const r = box?.getBoundingClientRect();
+    // le conteneur fixe (pas le minuteur, qui glisse encore pendant son apparition)
+    const r = document.getElementById("dock")?.getBoundingClientRect();
     if (!r || !r.width) return { x: innerWidth * 0.5, ledge: this.bounds().floor };
-    const spans = [...box.querySelectorAll("button, #rest-t, input")].map(e => e.getBoundingClientRect()).filter(q => q.width)
-      .map(q => [q.left - 6, q.right + 6]).sort((a, c) => a[0] - c[0]);
-    let cur = r.left + 10, best = { gap: -1, x: r.left + 32 };
-    for (const [s, e] of [...spans, [r.right - 10, r.right]]) {
-      if (s - cur > best.gap) best = { gap: s - cur, x: (cur + s) / 2 };
-      cur = Math.max(cur, e);
+    const y = r.top - 16, mine = e => e.closest(".spidey, .spidey-bubble, .spidey-web, .spidey-fx");
+    const busy = x => {
+      const e = document.elementsFromPoint(x, y).find(n => !mine(n) && !n.closest(".dock")); // le dégradé de la barre ne compte pas
+      if (!e || e === document.body || e === document.documentElement) return false;
+      if (e.closest("button, a, input, select, textarea, label, [data-s], .stepper, .chip")) return true;
+      return [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+    };
+    let run = 0, best = { len: 0, x: r.right - 34 };
+    for (let x = r.left + 26; x <= r.right - 26; x += 6) {
+      run = busy(x) ? 0 : run + 6;
+      if (run > best.len) best = { len: run, x: x - run / 2 + 3 };
     }
-    return { x: clamp(best.gap >= 30 ? best.x : r.left + 30, 28, innerWidth - 28), ledge: r.top };
+    const free = best.len >= 40;
+    return { x: clamp(free ? best.x : r.right - 34, 30, innerWidth - 30), ledge: r.top, free };
   }
 
   // Une réplique de repos, seulement si personne d'autre ne parle déjà.
@@ -798,8 +842,9 @@ class Coach {
   setContext(ctx) {
     this.ctx = ctx;
     if (ctx === "live") this.wake();
-    else this.ghost(false);
+    else { this.ghost(false); this.unpeek(); }
     if (!this.enabled || this.hanging) return;
+    if (ctx === "live" && this.peeker) return this.run(() => this.lurk());
     const p = ctx === "live" ? this.livePerch() : this.perch(this.travel === "fly" ? pick(["air", "floor"]) : "floor");
     this.run(async () => { await (reduced() ? this.goto(p, 0) : this.moveTo(p)); this.checkCover(); });
   }
@@ -841,7 +886,9 @@ class Coach {
     const live = this.ctx === "live";
     const tip = [async () => { if (!this.quiet) this.say(this.tip?.() || ""); }, 2];
     const t = this.travel;
-    const options = live
+    const options = live && this.peeker
+      ? [[() => this.lurk(), 3], [() => this.look(), 3]]
+      : live
       ? [[() => this.stroll(), 4], [() => this.look(), 3], [() => this.moveTo(this.livePerch()), 2]]
       : t === "web"
         ? [[() => this.crawl(), 4], [() => this.zip(this.perch()), 3], [() => this.swing(), 2], [() => this.look(), 2], [() => this.wave(), 1], [() => this.flip(), 1], tip]
@@ -868,7 +915,7 @@ class Coach {
     this.el.addEventListener("pointermove", e => {
       if (!this.dragging) return;
       if (!moved && Math.hypot(e.clientX - sx, e.clientY - sy) < 8) return;
-      if (!moved) { moved = true; this.busy = true; this.anchor = null; this.sq = 1; this.pose("dangle"); this.rot = 0; this.ghost(false); }
+      if (!moved) { moved = true; this.busy = true; if (this.peekDepth) { this.peekDepth = null; this.el.classList.remove("peek"); } this.anchor = null; this.sq = 1; this.pose("dangle"); this.rot = 0; this.ghost(false); }
       this.x = e.clientX; this.y = e.clientY + H / 3; this.render();
     });
     const up = async () => {
