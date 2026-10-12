@@ -1018,7 +1018,7 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 :root[data-mode="light"] .badge-card.on::after { background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .75) 50%, transparent 60%); }
 @keyframes shine { 0% { opacity: 1; transform: translateX(-70%); } 100% { opacity: 1; transform: translateX(70%); } }
 .badge-card.pop { animation: pop .6s var(--spring) both; }
-@media (prefers-reduced-motion: reduce) { .badge-card.on::after, .chart .plot, .chart .last, .cal .c.on span, .vbars .f { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .badge-card.on::after, .chart .plot, .chart .last, .cal .c.on span, .vbars .f, .pod, .sess.open .det, .badge-card.pop { animation: none; } }
 
 /* ---------- Séance : notes, disques, supersets ---------- */
 .note-line { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; margin-top: 8px; padding: 9px 12px; border-radius: 12px; background: var(--amber-soft); color: var(--text); font-size: 13px; }
