@@ -98,7 +98,7 @@ export function resumeLive(data, exit) {
 function begin(exit) {
   onExit = exit;
   showCues = false;
-  mounted = false; prevProg = 0; lastMsgKey = "";
+  mounted = false; prevProg = 0; lastMsgKey = ""; lastIdx = -1;
   document.body.classList.add("hide-tabs");
   navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
   if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
@@ -124,7 +124,7 @@ const TICK = `<svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path pat
 const RPE = [[6, "Facile", "4 reps ou plus en réserve"], [7, "Modéré", "Encore 3 reps en réserve"], [8, "Dur", "Encore 2 reps en réserve"], [9, "Très dur", "Une seule rep en réserve"], [10, "Échec", "Plus aucune rep possible"]];
 const rpeHint = v => RPE.find(r => r[0] === v)?.[2] || "6 facile → 10 échec";
 
-let mounted = false, prevProg = 0, lastMsgKey = "";
+let mounted = false, prevProg = 0, lastMsgKey = "", lastIdx = -1;
 
 function render() {
   if (!S) return;
@@ -153,7 +153,9 @@ function render() {
   const freshMsg = msgKey !== lastMsgKey;
   lastMsgKey = msgKey;
   const scroller = $(".live", overlay());
-  const keepScroll = scroller && !scroller.classList.contains("fin") ? scroller.scrollTop : 0;
+  // même exercice : on garde la position de défilement ; nouvel exercice : retour en haut
+  const keepScroll = scroller && !scroller.classList.contains("fin") && lastIdx === S.idx ? scroller.scrollTop : 0;
+  lastIdx = S.idx;
   const tools = [
     `<button class="tool" id="add-set">${I.plus}<span>Série</span></button>`,
     `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
