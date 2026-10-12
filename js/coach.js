@@ -1,4 +1,4 @@
-// Onglet Coach : discussion avec Spider-Man.
+// Onglet Coach : discussion avec le coach choisi (Spider-Man par défaut).
 // Priorité : Claude (si une clé est configurée) → IA locale (si chargée) → cerveau local.
 import { state, save } from "./store.js";
 import { answer, llmMessages } from "./brain.js";
@@ -7,6 +7,7 @@ import * as llm from "./llm.js";
 import { spidey } from "./spidey.js";
 import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
 import { $, $$, esc, md, I } from "./ui.js";
+import { coachName } from "./chars/index.js";
 
 const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
 let unsub = null;
@@ -15,7 +16,7 @@ export function renderCoach(view) {
   view.innerHTML = `
     <div class="coach-head">
       <div class="coach-av" id="av"></div>
-      <div class="grow"><h1 class="h2">Spider-Man</h1><div class="status" id="status"></div></div>
+      <div class="grow"><h1 class="h2" data-coach-name>${esc(coachName())}</h1><div class="status" id="status"></div></div>
       ${state.chat.length ? `<button class="icon-btn" id="clear" aria-label="Effacer la discussion">${I.trash}</button>` : ""}
     </div>
     <div id="llm-card"></div>

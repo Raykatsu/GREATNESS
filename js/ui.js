@@ -44,7 +44,8 @@ export const I = {
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
 };
 // Visage du coach choisi (avatar utilisé partout dans l'app).
-export const spider = (cls = "") => coachFace(cls);
+// Visage du coach actuel (« cur-face » : remplacé en place quand on change de coach).
+export const spider = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");
 
 let toastT;
 export function toast(msg, ms = 2400) {

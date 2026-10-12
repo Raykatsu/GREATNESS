@@ -96,6 +96,15 @@ class Coach {
 
   // L'onglet Coach de la barre du bas montre le visage du coach.
   setTab(c = this.char) {
+    // les visages déjà affichés (logo, bulles du coach, nom de l'onglet Coach) suivent le changement
+    document.querySelectorAll("svg.coach-face.cur-face").forEach(f => {
+      const t = document.createElement("div");
+      t.innerHTML = coachFace(f.getAttribute("class").replace(/\bcoach-face\b\s*/, ""), c);
+      f.replaceWith(t.firstElementChild);
+    });
+    document.querySelectorAll("[data-coach-name]").forEach(n => { n.textContent = c.name; });
+    const av = document.querySelector(".coach-av#av");
+    if (av?.querySelector("svg.sp")) av.innerHTML = figure(c, { pose: "wave" });
     const old = document.querySelector('.tabbar a[data-tab="coach"] svg');
     if (!old || !c || old.dataset.coach === c.id) return;
     const t = document.createElement("div");
