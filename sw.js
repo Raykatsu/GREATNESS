@@ -1,5 +1,5 @@
 // Cache hors ligne de l'app (le coach local marche sans réseau).
-const CACHE = "greatness-v8";
+const CACHE = "greatness-v9";
 const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
   ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice"].map(f => `js/${f}.js`)];
 

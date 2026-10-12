@@ -51,7 +51,7 @@ function exerciseAdvice(id) {
 
 const INTENTS = [
   { re: /(\bmal\b|douleur|blesse|tendin|genou|epaule qui|dos qui)/, fn: () =>
-    "Si ça fait mal, on arrête l'exercice qui déclenche la douleur : même Spider-Man ne s'entraîne pas blessé.\n• Douleur vive, gonflement ou qui dure plus de quelques jours → kiné ou médecin.\n• Sinon : 48 h de repos sur la zone, puis reprise légère sans douleur.\n• En séance, coche « Douleur » : j'arrête l'exercice et je te propose une alternative." },
+    "Si ça fait mal, on arrête l'exercice qui déclenche la douleur : même Spider-Man ne s'entraîne pas blessé.\n• Douleur vive, gonflement ou qui dure plus de quelques jours → kiné ou médecin.\n• Sinon : 48 h de repos sur la zone, puis reprise légère sans douleur.\n• En séance, coche « Douleur » : j'arrête l'exercice et je te propose une alternative.\n• Pour les raideurs : Séances → **Soulager** (dos, nuque, épaules, genoux, hanches, poignets), des séances douces à faire sans douleur. Dis-moi par exemple « lance mal de dos »." },
   { re: /(proteine|manger|nutrition|repas|aliment|regime|calorie)/, fn: () => {
     const bw = state.profile.bodyweight, g = state.profile.goal;
     const p = Math.round(bw * (g === "seche" ? 2 : 1.8));
@@ -189,7 +189,7 @@ export function llmMessages(history, question) {
   const notes = local.matched ? `\n\nNotes fiables du coach sur cette question (à utiliser, reformuler et compléter) :\n${local.text}` : "";
   return [
     { role: "system", content: `${SYSTEM}\n\n### Données de l'athlète\n${athleteContext()}${notes}` },
-    ...history.slice(-8).map(m => ({ role: m.role, content: m.content.slice(0, 1500) })),
+    ...history.slice(-6).map(m => ({ role: m.role, content: m.content.slice(0, 900) })), // tient dans la mémoire courte des petits modèles
     { role: "user", content: question },
   ];
 }

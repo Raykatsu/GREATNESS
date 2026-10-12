@@ -1,5 +1,5 @@
 // Planification : programme de la semaine et adaptation à l'objectif.
-import { GOALS } from "./data.js";
+import { GOALS, EXERCISES } from "./data.js";
 import { state, save, getProgram, todayIndex, sessionsOn, weekStart } from "./store.js";
 
 // Jours (0 = lundi) et séances selon le nombre de jours et le matériel.
@@ -99,7 +99,6 @@ export function estimateMinutes(program) {
 }
 
 /* ---------- Génération automatique d'une séance ---------- */
-import { EXERCISES } from "./data.js";
 
 // Groupes proposés à l'utilisateur → muscles de la bibliothèque.
 export const GROUPS = {
@@ -170,4 +169,19 @@ export function cycleInfo(now = Date.now()) {
   const week = Math.floor((now - state.cycleStart) / (7 * 864e5)) + 1;
   const pos = ((week - 1) % 7) + 1; // 1..7, la 7e est allégée
   return { week, pos, deload: pos === 7, next: pos === 7 ? 0 : 7 - pos };
+}
+
+// Séances de musculation / cardio (pas les étirements) : on propose l'échauffement et le retour au calme.
+const LIGHT = new Set(["mobility", "stretch", "care"]);
+export const isWorkout = p => !!p && !p.free && !LIGHT.has(p.cat) && !p.simple;
+
+// Échauffement adapté aux muscles de la séance.
+const UPPER = new Set(["Pectoraux", "Dos", "Épaules", "Trapèzes", "Biceps", "Triceps", "Avant-bras"]);
+const LOWER = new Set(["Quadriceps", "Ischios", "Fessiers", "Mollets", "Lombaires", "Chaîne post."]);
+export function warmupFor(p) {
+  const ms = (p?.exercises || []).map(e => EXERCISES[e.id]?.muscle).filter(Boolean);
+  const up = ms.filter(m => UPPER.has(m)).length, low = ms.filter(m => LOWER.has(m)).length;
+  if (ms.length && up / ms.length >= 0.7) return "warmup_upper";
+  if (ms.length && low / ms.length >= 0.7) return "warmup_lower";
+  return "warmup_full";
 }

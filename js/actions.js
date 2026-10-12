@@ -35,6 +35,10 @@ const COLOR_WORDS = { rouge: "rouge", bleu: "bleu", violet: "violet", mauve: "vi
 const PROGRAM_KEYS = [
   [/\bpush\b/, "push"], [/\bpull\b/, "pull"], [/\blegs?\b|jambes/, "legs"], [/full ?body|corps complet/, "full_a"], [/haut du corps|\bupper\b/, "upper"],
   [/bas du corps|\blower\b/, "lower"], [/\bbras\b/, "arms"], [/fessiers?/, "glutes"], [/abdos|gainage/, "core"], [/hiit|cardio/, "hiit"],
+  [/mal (au|du|de) dos|lombaires?/, "care_back"], [/nuque|\bcou\b|torticolis/, "care_neck"], [/mal (aux|au) genou|genoux sensibles/, "care_knee"],
+  [/mal (aux|a l) epaule|epaules sensibles/, "care_shoulder"], [/poignets?|coudes?/, "care_wrist"], [/hanches? raides?/, "care_hips"],
+  [/echauffement|echauffer/, "warmup_full"], [/retour au calme|apres (la )?seance/, "cooldown"], [/grand ecart/, "flex_split"], [/souplesse/, "flex_full"],
+  [/reveil|ce matin|au lever/, "wake_up"],
   [/mobilite|etirement|stretch/, "mobility"], [/maison/, "home_full"], [/halteres/, "home_db"],
 ];
 

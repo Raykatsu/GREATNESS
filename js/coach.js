@@ -48,7 +48,7 @@ export function renderCoach(view) {
     }
     if (i.status === "loading") {
       card.innerHTML = `<div class="card llm mt"><div class="row between"><b>${esc(i.progressText)}</b><span class="num">${Math.round(i.progress * 100)} %</span></div>
-        <div class="bar mt-s"><i style="width:${i.progress * 100}%"></i></div><p class="xs muted mt-s">Une seule fois : ensuite l'IA démarre en quelques secondes, même sans internet. Garde l'app ouverte.</p></div>`;
+        <div class="bar mt-s"><i style="width:${i.progress * 100}%"></i></div><p class="xs muted mt-s">Une seule fois : ensuite l'IA démarre en quelques secondes, même sans internet. Garde l'app ouverte et l'écran allumé.</p></div>`;
       return;
     }
     const sel = llm.prefs().model;
@@ -57,7 +57,7 @@ export function renderCoach(view) {
       <h2 class="h3 mt-s">Débloque l'IA intelligente</h2>
       <p class="small muted">Un vrai modèle d'IA tourne dans ton téléphone : il répond à toutes tes questions en s'appuyant sur tes séances et tes stats. Téléchargement unique, Wi-Fi conseillé.</p>
       ${i.status === "error" ? `<p class="small" style="color:#ff7b88">${esc(i.error)}</p>` : ""}
-      <div class="models mt-s">${llm.MODELS.map(m => `<button class="opt ${m.id === sel ? "on" : ""}" data-m="${m.id}"><b>${m.name}</b><span>${m.size} · ${m.note}</span></button>`).join("")}</div>
+      <div class="models mt-s">${llm.MODELS.filter(llm.modelAllowed).map(m => `<button class="opt ${m.id === sel ? "on" : ""}" data-m="${m.id}"><b>${m.name}</b><span>${m.size} · ${m.note}</span></button>`).join("")}</div>
       <button class="btn btn-primary btn-block mt" id="llm-on">${I.sparkle} Activer l'IA</button></div>`;
     $$("[data-m]", card).forEach(b => b.onclick = () => { $$("[data-m]", card).forEach(x => x.classList.toggle("on", x === b)); card.dataset.m = b.dataset.m; });
     $("#llm-on", card).onclick = () => llm.enable(card.dataset.m || sel);
