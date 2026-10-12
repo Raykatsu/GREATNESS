@@ -18,7 +18,7 @@ const mouth = (y, c = "#3a2018") =>
 // reflet doux sur le haut de la tête
 const shine = (cx = 23, cy = 5.5) => `<ellipse cx="${cx}" cy="${cy}" rx="4.2" ry="1.9" fill="#fff" opacity=".16" transform="rotate(-18 ${cx} ${cy})"/>`;
 // ombre portée de la tête sur le torse
-const neckShade = `<ellipse cx="30" cy="28.6" rx="9" ry="2.4" fill="#000" opacity=".16"/>`;
+const neckShade = `<ellipse cx="30" cy="28.6" rx="8.6" ry="2.2" fill="#5a2a10" opacity=".14"/>`;
 // les groupes d'yeux se déforment autour de leur propre centre (le style global vise des formes simples)
 const eyeBox = (id) => `.ch-${id} g.sp-eyeL, .ch-${id} g.sp-eyeR { transform-box: fill-box; transform-origin: center; }`;
 const grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
@@ -51,7 +51,7 @@ const shiba = {
   fx: { color: "#e8893a", trail: "none" },
   defs: grad("shiba-fur", "#f4a052", "#d9772c") + grad("shiba-cream", "#fffaf0", "#f6e3c6"),
   back: `<g class="shiba-tail"><path d="M37 44 Q46.5 44.5 48.5 37 Q50 30.5 45 30 Q41.2 30.2 42.2 34.6" stroke="url(#shiba-fur)" stroke-width="6.4" fill="none" stroke-linecap="round"/>
-      <path d="M45.2 31.4 Q47.6 31.8 47.4 35" stroke="#fff3df" stroke-width="2.2" fill="none" stroke-linecap="round"/></g>`,
+      <path d="M44.6 33.4 Q46.6 32.6 46.6 35.4 Q46.4 38.6 42.6 39.6" stroke="#fff3df" stroke-width="2" fill="none" stroke-linecap="round"/></g>`,
   legL: leg("L", "#e2853a", "#fff3df"),
   legR: leg("R", "#e2853a", "#fff3df"),
   armL: arm("L", "#e8893a", "#fff3df"),
@@ -137,19 +137,20 @@ const blackcat = {
   travel: "hop",
   climb: true,
   fx: { color: "#ffd23a", trail: "none" },
-  defs: grad("blackcat-fur", "#4a4a63", "#1b1b26") + grad("blackcat-eye", "#ffe36a", "#f5b21e"),
-  back: `<g class="blackcat-tail"><path d="M35 47 Q49 50 50.4 39.6 Q51.4 31.6 55.4 29.4" stroke="#2a2a3a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  defs: grad("blackcat-fur", "#52526e", "#22222f") + grad("blackcat-eye", "#ffe36a", "#f5b21e"),
+  back: `<g class="blackcat-tail"><path d="M35 47 Q49 50 50.4 39.6 Q51.4 31.6 55.4 29.4" stroke="#34344a" stroke-width="4" fill="none" stroke-linecap="round"/>
       <path d="M50.6 36.4 Q51.6 31.4 55.4 29.4" stroke="#4c4c66" stroke-width="1" fill="none" stroke-linecap="round" opacity=".7"/></g>`,
-  legL: leg("L", "#2b2b3b", "#353548", 7.4),
-  legR: leg("R", "#2b2b3b", "#353548", 7.4),
-  armL: arm("L", "#33334a", "#3c3c52", 5.8),
-  armR: arm("R", "#33334a", "#3c3c52", 5.8),
-  torso: `<path d="${BODY}" fill="url(#blackcat-fur)"/>
+  legL: leg("L", "#33334a", "#43435c", 7.4),
+  legR: leg("R", "#33334a", "#43435c", 7.4),
+  armL: arm("L", "#3a3a54", "#4a4a64", 5.8),
+  armR: arm("R", "#3a3a54", "#4a4a64", 5.8),
+  torso: `<path d="${BODY}" fill="url(#blackcat-fur)" stroke="#6a6a8c" stroke-width=".5" stroke-opacity=".5"/>
+      <path d="M26 31 Q30 34 34 31 Q32.6 36.4 30 37.4 Q27.4 36.4 26 31 Z" fill="#6a6a8a" opacity=".35"/>
       <path d="M21 31 Q30 27.6 39 31" stroke="#fff" stroke-width=".8" opacity=".12" fill="none"/>
       ${neckShade}`,
   head: `<path d="M12.4 12.6 L12.8 -2.4 Q13.4 -4.4 15.2 -3.4 L26 4 Z" fill="#30304a"/><path d="${mx("M12.4 12.6 L12.8 -2.4 Q13.4 -4.4 15.2 -3.4 L26 4 Z")}" fill="#30304a"/>
       <path d="M15.2 7.6 L15.4 0.6 L21.6 4.6 Z" fill="#ff9fb6" opacity=".85"/><path d="${mx("M15.2 7.6 L15.4 0.6 L21.6 4.6 Z")}" fill="#ff9fb6" opacity=".85"/>
-      <ellipse cx="30" cy="14.8" rx="18" ry="12.6" fill="url(#blackcat-fur)"/>
+      <ellipse cx="30" cy="14.8" rx="18" ry="12.6" fill="url(#blackcat-fur)" stroke="#6a6a8c" stroke-width=".5" stroke-opacity=".5"/>
       ${shine(21.6, 5)}
       <g class="sp-eyes">
         <g class="sp-eyeL"><ellipse cx="22.6" cy="14" rx="3.7" ry="4" fill="url(#blackcat-eye)"/><ellipse cx="22.8" cy="14.2" rx="1.1" ry="3" fill="#15121a"/><circle cx="24" cy="12.4" r="1.15" fill="#fff"/><circle cx="21.6" cy="15.9" r=".5" fill="#fff" opacity=".8"/></g>
@@ -201,7 +202,7 @@ const frog = {
   head: `<circle cx="21.4" cy="6" r="7" fill="#6cd04e"/><circle cx="38.6" cy="6" r="7" fill="#6cd04e"/>
       <ellipse cx="30" cy="16.6" rx="19" ry="11.4" fill="url(#frog-skin)"/>
       <ellipse cx="30" cy="20.6" rx="11" ry="6" fill="#bfe68e" opacity=".55"/>
-      ${shine(17.8, 2.4)}
+      <ellipse cx="30" cy="9.8" rx="4" ry="1.3" fill="#fff" opacity=".18"/>
       <g class="sp-eyes">
         <g class="sp-eyeL"><circle cx="21.4" cy="6" r="5" fill="#fff"/><ellipse cx="22" cy="6.6" rx="2.7" ry="3.1" fill="#1c2a14"/><circle cx="23" cy="5.2" r="1.15" fill="#fff"/><circle cx="21.1" cy="8" r=".5" fill="#fff" opacity=".8"/></g>
         <g class="sp-eyeR"><circle cx="38.6" cy="6" r="5" fill="#fff"/><ellipse cx="38" cy="6.6" rx="2.7" ry="3.1" fill="#1c2a14"/><circle cx="39" cy="5.2" r="1.15" fill="#fff"/><circle cx="37.1" cy="8" r=".5" fill="#fff" opacity=".8"/></g>
