@@ -64,6 +64,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ## Fonctionnalités
 
+- **21 coachs animés au choix** (Héros, Manga, Mignons, Animaux), chacun avec sa façon de se déplacer (toile, vol, sauts, ninja, marche) : Moi → Réglages → Ton coach.
 - **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
