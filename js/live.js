@@ -9,12 +9,46 @@ import { checkBadges } from "./badges.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
 import { debrief, athleteContext } from "./brain.js";
 import * as llm from "./llm.js";
-import { speak, stopSpeaking, beep, success, vibrate, webPop } from "./fx.js";
+import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
+import { Listener, voiceSupported } from "./voice.js";
+import { openCam, camSupported, camTrackable } from "./cam.js";
+import { animSvg, mountAnims } from "./anim.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 
 let S = null, ui = null, tick = null, wakeLock = null, rest = null, showCues = false, onExit = null, justDone = -1;
 const overlay = () => $("#overlay");
+
+/* ---------- Mains libres ---------- */
+let listener = null;
+function toggleVoice() {
+  if (listener?.active) { listener.stop(); listener = null; return render(); }
+  if (!voiceSupported()) return toast("La reconnaissance vocale n'est pas disponible sur ce navigateur.", 3500);
+  listener = new Listener({
+    onHeard: text => toast(`🎙️ « ${text} »`, 2200),
+    onState: st => { if (st === "denied") toast("Autorise le micro pour le mode mains libres.", 3500); $("#mic")?.classList.toggle("on", st === "on"); },
+    onCommand: cmd => {
+      if (!S) return;
+      if (cmd.action === "stop") { listener?.stop(); listener = null; render(); return; }
+      if (cmd.action === "go") return endRest(true);
+      if (cmd.action === "undo") return $("#undo")?.click();
+      if (cmd.action === "skip") return $("#skip")?.click();
+      if (cmd.action === "log" && S.current) {
+        if (rest) endRest(false);
+        if (cmd.reps != null) ui.reps = cmd.reps;
+        if (cmd.weight != null && S.current.type === "load") ui.weight = cmd.weight;
+        if (cmd.rpe != null) ui.rpe = cmd.rpe;
+        logSet(null);
+      }
+    },
+  });
+  speechHooks.start = () => listener?.pause();
+  speechHooks.end = () => listener?.resume();
+  listener.start();
+  render();
+  speak("Mode mains libres activé. Dis par exemple : huit reps, difficile.");
+}
+const stopVoice = () => { listener?.stop(); listener = null; speechHooks.start = speechHooks.end = null; };
 
 const LIVE_KEY = () => `greatness.live.${currentUser}`;
 // Sauvegarde continue : si le téléphone ferme l'app, la séance reprend où elle en était.
@@ -100,7 +134,8 @@ function render() {
       <div class="row between">
         <button class="icon-btn" id="quit" aria-label="Terminer">${I.x}</button>
         <div class="center grow"><div class="title ellipsis">${esc(S.program.name)}</div><div class="timer" id="elapsed">${fmtTime(S.elapsed)}</div></div>
-        <button class="icon-btn" id="menu" aria-label="Options">${I.more}</button>
+        <div class="row" style="gap:6px"><button class="icon-btn ${listener?.active ? "on" : ""}" id="mic" aria-label="Mains libres">${I.mic}</button>
+        <button class="icon-btn" id="menu" aria-label="Options">${I.more}</button></div>
       </div>
       <div class="thread"><i style="width:${S.progress * 100}%"></i></div>
     </header>
@@ -114,7 +149,7 @@ function render() {
         <div class="row mt-s" style="gap:6px;flex-wrap:wrap"><span class="chip">${esc(ex.muscle)}</span><span class="chip red">Objectif ${fmtTarget(ex)}</span>${ex.ss ? `<span class="chip blue">Superset ${esc(ex.ss)}</span>` : ""}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}</div></div>
       <button class="icon-btn" id="cues-btn" aria-label="Technique" style="${showCues ? "background:var(--text);color:var(--bg)" : ""}">${I.info}</button>
     </div>
-    ${showCues ? `<div class="cues">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>` : ""}
+    ${showCues ? `<div class="cues">${animSvg(ex.id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>` : ""}
     <div class="xs muted mt-s">${last ? `Dernière fois : ${last.map(s => fmtSet(s, ex)).join(" · ")}` : "Première fois sur cet exercice : je calibre dès la première série."}</div>
     ${note ? `<button class="note-line" id="note-show">${I.edit}<span>${esc(note)}</span></button>` : ""}
 
@@ -128,6 +163,7 @@ function render() {
       <button class="btn btn-soft btn-sm" id="swap">${I.swap} Remplacer</button>
       <button class="btn btn-soft btn-sm" id="skip">${I.skip} Passer</button>
       <button class="btn btn-soft btn-sm" id="note">${I.edit} Note</button>
+      ${camSupported() && ex.type !== "time" && camTrackable(ex.id) ? `<button class="btn btn-soft btn-sm" id="cam">${I.camera} Compter</button>` : ""}
       ${S.history.length ? `<button class="btn btn-soft btn-sm" id="undo">${I.undo} Annuler</button>` : ""}
     </div>
 
@@ -214,7 +250,13 @@ function renderDock() {
 function bind(ex) {
   $("#quit").onclick = quit;
   $("#menu").onclick = menu;
+  $("#mic").onclick = toggleVoice;
   $("#cues-btn").onclick = () => { showCues = !showCues; render(); };
+  mountAnims(overlay());
+  $("#cam")?.addEventListener("click", () => openCam(ex, { onDone: n => {
+    ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n;
+    toast(`${n} reps comptées : ajuste le ressenti puis valide.`);
+  } }));
   $$(".ex-tab").forEach(b => b.onclick = () => {
     const i = +b.dataset.i;
     if (i === S.idx) return;
@@ -259,7 +301,7 @@ function announce(events) {
 function logSet(e) {
   if (!S || S.finished || !S.current) return;
   const ex = S.current;
-  const btn = e.currentTarget.getBoundingClientRect();
+  const btn = (e?.currentTarget || $("#log"))?.getBoundingClientRect() || { left: innerWidth / 2, top: innerHeight - 80, width: 0, height: 0 };
   const doneIdx = ex.done.length;
   const lastSet = { exercice: ex.name, charge_kg: ex.type === "load" ? ui.weight : 0, reps: ui.reps, rpe: ui.rpe, douleur: ui.pain };
   const prevW = ex.weight;
@@ -360,6 +402,7 @@ async function quit() {
 /* ---------- Fin ---------- */
 function finish() {
   if (!S) return;
+  stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   spidey.hang(false);
   const before = rankInfo();
@@ -425,6 +468,7 @@ function finish() {
 }
 
 function close() {
+  stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   clearSaved();
   wakeLock?.release?.(); wakeLock = null;

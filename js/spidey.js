@@ -381,7 +381,7 @@ class Spidey {
     const options = live
       ? [[() => this.crawl(), 4], [() => this.look(), 3], [() => this.zip(this.perch(pick(["wallR", "wallL", "ceiling"]))), 2]]
       : [[() => this.crawl(), 4], [() => this.zip(this.perch()), 3], [() => this.swing(), 2], [() => this.look(), 2], [() => this.wave(), 1], [() => this.flip(), 1],
-         [async () => { this.say(this.tip?.() || ""); }, 2]];
+         [async () => { if (!this.quiet) this.say(this.tip?.() || ""); }, 2]];
     const total = options.reduce((a, o) => a + o[1], 0);
     let r = Math.random() * total;
     const fn = options.find(o => (r -= o[1]) < 0)[0];

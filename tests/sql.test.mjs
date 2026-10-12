@@ -59,3 +59,28 @@ test("demande croisée = amitié directe", async () => {
   await call("gt_friend_request", g, "miles");
   assert.equal((await call("gt_friend_request", m, "gwen")).status, "accepted");
 });
+
+test("rappels push : abonnement, envoi une fois par jour de séance", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/003_push.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  const sub = { endpoint: "https://push.example/abc", keys: { p256dh: "x", auth: "y" } };
+  assert.equal((await call("gt_push_subscribe", m, { endpoint: "http://bad" }, "Europe/Paris")).error, "BAD_SUB");
+  assert.ok((await call("gt_push_subscribe", m, sub, "Europe/Paris")).ok);
+  await assert.rejects(call("gt_push_due", "2026-10-12T16:00:00Z")); // réservé au serveur
+  // lundi 12 octobre 2026 : séance prévue (jour 0) à 18:00, rappel 15 min avant
+  await call("gt_push", m, JSON.stringify({ sessions: [], reminders: { at: "18:00", before: 15, days: { 0: "Haut du corps" } } }));
+  const due = async iso => (await db.query("select * from gt_push_due($1)", [iso])).rows;
+  assert.equal((await due("2026-10-12T15:30:00Z")).length, 0); // 17:30 à Paris : trop tôt
+  const r = await due("2026-10-12T15:50:00Z");                  // 17:50
+  assert.equal(r.length, 1);
+  assert.equal(r[0].title, "Séance du jour : Haut du corps");
+  assert.equal(r[0].sub.keys.auth, "y");
+  assert.equal((await due("2026-10-12T16:05:00Z")).length, 0);  // déjà envoyé aujourd'hui
+  assert.equal((await due("2026-10-13T15:50:00Z")).length, 0);  // mardi : pas de séance
+  // lundi suivant, séance déjà faite : pas de rappel
+  await call("gt_push", m, JSON.stringify({ sessions: [{ date: Date.parse("2026-10-19T07:00:00Z") }], reminders: { at: "18:00", before: 15, days: { 0: "Haut du corps" } } }));
+  assert.equal((await due("2026-10-19T15:50:00Z")).length, 0);
+  await db.query("select gt_push_gone($1)", [["https://push.example/abc"]]);
+  assert.equal((await db.query("select count(*)::int n from gt_push_subs")).rows[0].n, 0);
+});

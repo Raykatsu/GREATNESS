@@ -13,6 +13,9 @@ if ("speechSynthesis" in window) {
   speechSynthesis.onvoiceschanged = pickVoice;
 }
 
+// Le mode mains libres coupe l'écoute pendant que le coach parle.
+export const speechHooks = { start: null, end: null };
+
 export function speak(text, { interrupt = false } = {}) {
   if (!state.profile.voice || !("speechSynthesis" in window) || !text) return;
   if (interrupt) speechSynthesis.cancel();
@@ -20,6 +23,8 @@ export function speak(text, { interrupt = false } = {}) {
   u.lang = "fr-FR";
   if (voice) u.voice = voice;
   u.rate = 1.05;
+  u.onstart = () => speechHooks.start?.();
+  u.onend = u.onerror = () => { if (!speechSynthesis.speaking) speechHooks.end?.(); };
   speechSynthesis.speak(u);
 }
 export const stopSpeaking = () => window.speechSynthesis?.cancel();

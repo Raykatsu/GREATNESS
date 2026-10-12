@@ -1,5 +1,5 @@
 import { EXERCISES, GOALS, QUOTES } from "./data.js";
-import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn } from "./store.js";
+import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
@@ -15,6 +15,8 @@ import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
 import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
+import { animSvg, mountAnims } from "./anim.js";
+import { pushBlocker, pushEnabled, enablePush, disablePush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 
 const view = $("#view");
@@ -33,7 +35,7 @@ function route() {
   if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); offerResume(); });
   if (!state.profile.onboarded) return onboarding();
   document.body.classList.remove("hide-tabs");
-  $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current));
+  $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
   view.className = "view";
   view.innerHTML = "";
   (routes[key] || home)();
@@ -47,6 +49,27 @@ function route() {
 addEventListener("hashchange", route);
 
 const launch = (program, readiness) => startLive(program, readiness, route);
+// Visite guidée : Spider-Man présente chaque onglet.
+const TOUR = [
+  ["home", "Ici, l'Accueil : ta mission du jour, ta semaine et tes stats. Touche un jour pour changer sa séance."],
+  ["train", "Séances : 22 programmes prêts, plus la séance libre où tu choisis tes exercices au fur et à mesure."],
+  ["create", "Créer : compose tes propres séances, génère-en une en 2 touches, fais des superséries."],
+  ["coach", "Coach, c'est moi ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi."],
+  ["me", "Moi : tes progrès, tes amis et tes réglages. Allez, à toi de jouer !"],
+];
+export function startTour(i = 0) {
+  $$(".tabbar a").forEach(a => a.classList.remove("tour-focus"));
+  spidey.quiet = i < TOUR.length;
+  if (i >= TOUR.length || !state.profile.mascot) {
+    spidey.quiet = false;
+    state.profile.toured = true; save();
+    return;
+  }
+  const [tab, text] = TOUR[i];
+  $(`.tabbar a[data-tab="${tab}"]`)?.classList.add("tour-focus");
+  spidey.say(`${text}`, { ms: 60000, action: { label: i < TOUR.length - 1 ? `Suivant (${i + 1}/${TOUR.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
+}
+
 // Séance interrompue (app fermée) : on propose de la reprendre dès le déverrouillage.
 function offerResume() {
   const saved = savedSession();
@@ -186,7 +209,7 @@ function progress() {
   const lifts = Object.entries(state.lifts).filter(([id]) => EXERCISES[id]).sort((a, b) => (b[1].date || 0) - (a[1].date || 0));
 
   view.innerHTML = `
-    <div class="eyebrow">Statistiques</div><h1 class="h1">Progrès</h1>
+    <div class="eyebrow">Moi</div><h1 class="h1">${esc(state.profile.name)}</h1>
     ${progressSeg()}
     <div class="grid3 mt">
       <div class="card stat"><div class="v">${all.length}</div><div class="l">Séances</div></div>
@@ -230,12 +253,20 @@ function progress() {
   $$(".sess").forEach(el => el.onclick = e => { if (!e.target.closest("[data-del]")) el.classList.toggle("open"); });
   $$("[data-del]").forEach(b => b.onclick = async () => {
     if (!(await confirmSheet("Supprimer cette séance ?", "Elle sera retirée de ton historique.", "Supprimer", true))) return;
-    state.sessions = state.sessions.filter(s => s.id !== b.dataset.del); save(); route();
+    state.sessions = state.sessions.filter(s => s.id !== b.dataset.del); tombstone("sessions", b.dataset.del); save(); route();
   });
 }
 
-const progressSeg = () => `<div class="seg mt" id="ptabs"><button data-t="me" class="${progressTab === "me" ? "on" : ""}">Moi</button><button data-t="friends" class="${progressTab === "friends" ? "on" : ""}">Amis & défis</button></div>`;
-function bindProgressSeg() { $$("#ptabs button").forEach(b => b.onclick = () => { progressTab = b.dataset.t; route(); }); }
+// Onglet « Moi » : Stats, Amis & défis, Réglages
+const progressSeg = (on = current === "profile" ? "settings" : progressTab) => `<div class="seg mt" id="ptabs">
+  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis & défis</button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
+function bindProgressSeg() {
+  $$("#ptabs button").forEach(b => b.onclick = () => {
+    if (b.dataset.t === "settings") return void (location.hash = "#/profile");
+    progressTab = b.dataset.t;
+    if (current === "progress") route(); else location.hash = "#/progress";
+  });
+}
 
 const BODY = [["weight", "Poids", "kg"], ["waist", "Tour de taille", "cm"], ["chest", "Poitrine", "cm"], ["arm", "Bras", "cm"], ["thigh", "Cuisse", "cm"]];
 function bodyCard() {
@@ -319,17 +350,18 @@ function exerciseSheet(id) {
   const hist = exerciseHistory(id);
   const load = ex.type === "load";
   const pts = hist.map(h => ({ x: h.date, y: load ? h.e1rm : h.top.reps }));
-  sheet(`<div class="eyebrow">${esc(ex.muscle)}</div><h2 class="h2" style="margin-top:4px">${esc(ex.name)}</h2>
+  const sh = sheet(`<div class="eyebrow">${esc(ex.muscle)}</div><h2 class="h2" style="margin-top:4px">${esc(ex.name)}</h2>
     <div class="grid2 mt">
       <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${ex.type === "time" ? "s" : "reps"}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
       <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séances</div></div>
     </div>
     <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé (kg)" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts)}</div>
     <div class="section"><h2>Technique</h2></div>
-    <div class="cues" style="margin-top:0">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>
+    <div class="cues" style="margin-top:0">${animSvg(id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>
     <div class="section"><h2>Dernières séances</h2></div>
     <div class="card" style="padding:4px 16px">${hist.slice().reverse().slice(0, 8).map(h => `<div class="cmp"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
       <span class="small muted">${h.sets.map(s => (s.weight ? s.weight + "×" : "") + s.reps).join(" · ")}</span><span></span></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
+  mountAnims(sh.el);
 }
 
 function chart(pts) {
@@ -358,7 +390,9 @@ function profile() {
   const p = state.profile;
   const r = rankInfo();
   view.innerHTML = `
-    <div class="row" style="gap:14px">${ring(r.pct, r.level, 58)}<div><div class="eyebrow">${r.rank.name}</div><h1 class="h1" style="font-size:28px">${esc(p.name)}</h1></div></div>
+    <div class="eyebrow">Moi</div><h1 class="h1">${esc(p.name)}</h1>
+    ${progressSeg("settings")}
+    <div class="card rank mt">${ring(r.pct, r.level, 58)}<div><div class="eyebrow">Rang</div><div class="h3">${r.rank.name}</div><div class="xs muted">${r.xp} XP</div></div></div>
 
     <div class="section"><h2>Objectif</h2></div>
     <div class="opts">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
@@ -400,10 +434,11 @@ function profile() {
 
     <div class="section"><h2>Rappels</h2></div>
     <div class="card">
-      <p class="small muted" style="margin:0 0 12px">Ajoute tes séances prévues dans le calendrier de ton téléphone, avec une alerte avant chaque séance.</p>
+      <p class="small muted" style="margin:0 0 12px">Reçois une notification avant chaque séance prévue (même app fermée), ou ajoute-les à ton calendrier.</p>
       <div class="row" style="gap:10px"><label class="field grow" style="margin:0"><span>Heure de la séance</span><input class="input" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
         <label class="field" style="margin:0;width:120px"><span>Alerte</span><select class="input" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
-      <button class="btn btn-soft btn-block mt" id="rem-ics">${I.clock} Ajouter à mon calendrier</button>
+      <label class="toggle"><div><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
+      <button class="btn btn-soft btn-block mt-s" id="rem-ics">${I.clock} Ajouter à mon calendrier</button>
       <label class="toggle" style="padding-bottom:0"><div><b>Semaine allégée automatique</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
     </div>
 
@@ -431,9 +466,12 @@ function profile() {
       <button class="btn btn-blue btn-sm mt" id="p-test">Tester la connexion</button>
     </details>
 
-    <button class="btn btn-ghost btn-block mt-l" id="reset" style="color:#ff7b88">Effacer mes séances et réglages</button>
+    <button class="btn btn-soft btn-block mt-l" id="tour-again">${spider()} Revoir la visite guidée</button>
+    <button class="btn btn-ghost btn-block mt-s" id="reset" style="color:#ff7b88">Effacer mes séances et réglages</button>
     <p class="center xs dim">GREATNESS · ton sympathique coach de quartier</p>`;
   animateRings(view);
+  bindProgressSeg();
+  $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
 
   $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); spidey.react("happy"); });
   $$("#days button").forEach(b => b.onclick = () => { p.days = +b.dataset.v; save(); $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
@@ -442,6 +480,17 @@ function profile() {
   $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
   $("#p-deload").onchange = e => { p.deload = e.target.checked; save(); };
+  const saveRem = () => { p.remindAt = $("#rem-time").value || "18:00"; p.remindBefore = +$("#rem-before").value; save(); };
+  $("#rem-time").onchange = $("#rem-before").onchange = saveRem;
+  pushEnabled().then(on => { const c = $("#p-push"); if (c) c.checked = on; });
+  $("#p-push").onchange = async e => {
+    const c = e.target; c.disabled = true;
+    try {
+      if (c.checked) { saveRem(); await enablePush(); toast(`Rappels activés : ${p.remindBefore ? p.remindBefore + " min avant" : "à"} ${p.remindAt}, les jours de séance.`, 4000); }
+      else { await disablePush(); toast("Rappels désactivés."); }
+    } catch (err) { c.checked = false; toast(err.message || "Impossible d'activer les notifications.", 5000); }
+    c.disabled = false;
+  };
   $("#rem-ics").onclick = () => {
     p.remindAt = $("#rem-time").value || "18:00"; p.remindBefore = +$("#rem-before").value; save();
     const n = downloadIcs();
@@ -566,7 +615,7 @@ function onboarding(step = 1) {
       save();
       thwip(0.3);
       if (location.hash && location.hash !== "#/") location.hash = "#/"; else route();
-      setTimeout(() => { spidey.react("party"); spidey.say(`Programme prêt, ${p.name} ! Ta mission du jour t'attend.`, { mood: "party" }); }, 700);
+      setTimeout(() => { spidey.react("party"); if (!p.toured) startTour(); else spidey.say(`Programme prêt, ${p.name} ! Ta mission du jour t'attend.`, { mood: "party" }); }, 900);
     };
   }
 }

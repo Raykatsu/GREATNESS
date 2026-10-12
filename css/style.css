@@ -126,6 +126,8 @@ h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 700; lette
 .icon-btn:active { transform: scale(.92); }
 .icon-btn svg { width: 19px; height: 19px; }
 .icon-btn.plain { background: none; border: 0; }
+.icon-btn.on { background: var(--red); color: #fff; border-color: transparent; animation: micPulse 1.6s ease-in-out infinite; }
+@keyframes micPulse { 50% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), .25); } }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--line);
   font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: all .2s; }
@@ -145,7 +147,7 @@ h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 700; lette
 
 /* ---------- Tab bar ---------- */
 .tabbar { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
-  display: grid; grid-template-columns: repeat(6, 1fr); background: var(--glass); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(5, 1fr); background: var(--glass); border-top: 1px solid var(--line);
   backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); transition: transform .35s var(--smooth); }
 .tabbar a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--dim); transition: color .2s; }
 .tabbar a svg { width: 23px; height: 23px; transition: transform .3s var(--spring); }
@@ -497,7 +499,11 @@ details.adv[open] summary::after { content: "−"; }
 #view, .live-wrap { zoom: var(--zoom); }
 
 /* ---------- Onglet Créer ---------- */
-.tabbar a { font-size: 10.5px; }
+.tabbar a { font-size: 11px; }
+.tabbar a.tour-focus { color: var(--text); }
+.tabbar a.tour-focus::after { transform: scale(1); }
+.tabbar a.tour-focus svg, .tabbar a.tour-focus .plus { animation: tourPulse 1.2s ease-in-out infinite; }
+@keyframes tourPulse { 50% { transform: scale(1.25); filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), .9)); } }
 .tab-create .plus { width: 30px; height: 30px; border-radius: 11px; display: grid; place-items: center; background: var(--red); color: #fff; margin-top: -2px;
   box-shadow: 0 6px 16px -6px rgba(var(--accent-rgb), .9); transition: transform .3s var(--spring); }
 .tab-create .plus svg { width: 18px; height: 18px; }
@@ -671,3 +677,31 @@ details.adv[open] summary::after { content: "−"; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- Animation des exercices ---------- */
+.ex-anim { width: 84px; height: 84px; flex: none; border-radius: 14px; background: rgba(var(--accent-rgb), .07); }
+.ex-anim line { stroke-linecap: round; }
+.ex-anim .body line { stroke: var(--text); stroke-width: 5; }
+.ex-anim .head { fill: var(--text); }
+.ex-anim .floor { stroke: var(--line); stroke-width: 1.5; }
+.ex-anim .prop { stroke: var(--muted); stroke-width: 4; }
+.ex-anim .bar { stroke: var(--red); stroke-width: 2.5; }
+.ex-anim .plate { fill: var(--red); }
+.ex-anim .cable { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; }
+.cues:has(.ex-anim) { display: flex; gap: 12px; align-items: center; }
+.cues .grow { display: grid; gap: 6px; }
+.cues > .grow::before { content: none; }
+.bex-anim { width: 64px; height: 64px; }
+
+/* ---------- Compteur caméra ---------- */
+.cam { position: fixed; inset: 0; z-index: 90; background: #000; color: #fff; animation: pop .2s both; }
+.cam video, .cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cam.mirror video, .cam.mirror canvas { transform: scaleX(-1); }
+.cam-top { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 10px; align-items: center; padding: calc(env(safe-area-inset-top) + 12px) 16px 24px; background: linear-gradient(#000c, #0000); }
+.cam-top .icon-btn { background: #fff2; color: #fff; }
+.cam-title { flex: 1; min-width: 0; display: grid; }
+.cam-title small { opacity: .75; font-size: 12px; }
+.cam-count { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 92px); text-align: center; text-shadow: 0 2px 18px #000; }
+.cam-count span { display: block; font-size: 96px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.cam-count small { font-size: 15px; opacity: .9; }
+.cam-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px); background: linear-gradient(#0000, #000c); }

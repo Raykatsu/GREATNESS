@@ -52,11 +52,15 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
 - **Corps** : poids et mensurations avec courbe (onglet Progrès).
 - **Cycles** : semaine allégée automatique toutes les 7 semaines ; plateau détecté après 3 séances sans progrès → recul de 10 % pour relancer.
 - **Succès** : 18 badges à débloquer.
-- **Rappels** : Profil → Rappels ajoute tes séances prévues dans le calendrier du téléphone (fichier .ics, alerte avant la séance).
+- **Rappels** : vraies notifications les jours de séance (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
+- **Mains libres** : touche le micro en séance et dis « 8 reps, difficile », « 10 à 60 kilos », « annule », « passe », « go ».
+- **Compteur caméra** : bouton « Compter » en séance ; le téléphone posé de profil compte tes reps et signale les amplitudes trop courtes (détection de pose MediaPipe, tout reste sur le téléphone).
+- **Animations** : chaque exercice est montré par un petit bonhomme animé (technique en séance, fiche exercice, onglet Créer).
+- **Synchro sans perte** : un compte utilisé sur deux téléphones fusionne les séances des deux côtés.
 
 ## Social (comptes en ligne)
 
-Progrès → **Amis & défis** : ajouter un ami par son pseudo, classement de la semaine (volume, séances, série, XP), défi de la semaine commun, fiche de chaque ami (records, dernières séances). Un ami ne voit que ton résumé public, et seulement une fois l'amitié acceptée des deux côtés. **Partager** une séance perso crée un lien : la personne qui l'ouvre l'ajoute à ses séances en un clic. Nécessite `supabase/002_social.sql` (voir SUPABASE.md).
+Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (volume, séances, série, XP), défi de la semaine commun, fiche de chaque ami (records, dernières séances). Un ami ne voit que ton résumé public, et seulement une fois l'amitié acceptée des deux côtés. **Partager** une séance perso crée un lien : la personne qui l'ouvre l'ajoute à ses séances en un clic. Nécessite `supabase/002_social.sql` (voir SUPABASE.md).
 
 ## Fonctionnalités
 
@@ -65,13 +69,13 @@ Progrès → **Amis & défis** : ajouter un ami par son pseudo, classement de la
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
 - **Séance en direct** : tableau des séries (précédent / kg / reps), steppers, choix libre de l'exercice, annuler, ajouter une série, remplacer, minuteur de repos compact.
 - **Progrès** : calendrier, volume par semaine, courbe de progression par exercice, historique.
-- **Claude (optionnel, payant)** : dans Profil → « IA Claude », une clé API Anthropic ajoute des ajustements IA, briefing, débrief et chat libre.
+- **Claude (optionnel, payant)** : dans Moi → Réglages → « IA Claude », une clé API Anthropic ajoute des ajustements IA, briefing, débrief et chat libre.
 
 ## Tests
 
 ```bash
 npm install
-npm test   # moteur, compréhension des demandes, planning, SQL des comptes et des amis (PGlite)
+npm test   # moteur, demandes au coach, voix, fusion, compteur de reps, planning, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -107,8 +111,16 @@ js/ai.js          intégration Claude (optionnelle)
 js/fx.js          voix, sons, petits effets
 js/badges.js      succès
 js/social.js      amis, classement, défis, partage de séance
-sw.js             cache hors ligne
+js/merge.js       fusion des données entre appareils
+js/voice.js       mains libres (reconnaissance vocale)
+js/motion.js      mouvements des exercices + compteur de reps par angles
+js/anim.js        bonhomme animé des exercices
+js/cam.js         compteur de reps à la caméra (MediaPipe)
+js/push.js        abonnement aux notifications de rappel
+sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
+supabase/003_push.sql    notifications de rappel
+supabase/functions/reminders/  fonction qui envoie les rappels
 tests/                   tests automatiques
 ```

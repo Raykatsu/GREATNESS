@@ -1,7 +1,7 @@
-// Cache hors ligne de l'app (le moteur KAREN local marche sans réseau).
-const CACHE = "greatness-v7";
+// Cache hors ligne de l'app (le coach local marche sans réseau).
+const CACHE = "greatness-v8";
 const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
-  ...["actions", "app", "ai", "auth", "badges", "brain", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "planner", "social", "spidey", "store", "train", "ui"].map(f => `js/${f}.js`)];
+  ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice"].map(f => `js/${f}.js`)];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -19,4 +19,23 @@ self.addEventListener("fetch", e => {
       return res;
     }).catch(() => caches.match(e.request))
   );
+});
+
+/* ---------- Rappels (Web Push) ---------- */
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data?.json() || {}; } catch { d = { body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || "GREATNESS", {
+    body: d.body || "C'est l'heure de ta séance !",
+    icon: "assets/icon.svg", badge: "assets/icon.svg", tag: "greatness-rappel", renotify: true,
+    data: { url: d.url || "./" },
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || "./", self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    const w = list.find(c => c.url.startsWith(self.registration.scope));
+    return w ? w.focus().then(c => c.navigate?.(url)) : clients.openWindow(url);
+  }));
 });

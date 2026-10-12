@@ -4,7 +4,8 @@
 // - Sinon : les comptes existent seulement sur cet appareil.
 // Dans les deux cas, chaque appareil garde une copie locale pour marcher hors ligne.
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { state, setUser, clearUser, save, readLocal, setSaveHook, currentUser, publicSummary } from "./store.js";
+import { mergeData, differs } from "./merge.js";
+import { state, setUser, clearUser, save, readLocal, setSaveHook, currentUser, publicSummary, reminderPlan } from "./store.js";
 
 export const isOnlineMode = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const USERNAME_RE = /^[a-z0-9_.-]{3,20}$/;
@@ -147,21 +148,21 @@ function setStatus(s) { status = s; listeners.forEach(fn => fn(s)); }
 
 const token = () => registry()[currentUser]?.token;
 
-// Applique les données du serveur si elles sont plus récentes que la copie locale.
+// Fusionne les données du serveur avec la copie locale : rien ne se perd,
+// même si on s'est entraîné sur deux appareils sans réseau.
 async function applyRemote(remote) {
   if (!currentUser) return;
-  const remoteAt = remote?.meta?.updatedAt || 0;
-  if (remote && remoteAt > (state.meta?.updatedAt || 0)) {
-    const aiKey = state.profile.aiKey; // la clé API reste sur l'appareil
-    setUser(currentUser, { ...remote, profile: { ...remote.profile, aiKey } });
+  if (!remote || !Object.keys(remote).length) return push();
+  const local = structuredClone(state);
+  const merged = mergeData(local, remote);
+  merged.profile = { ...merged.profile, aiKey: local.profile.aiKey }; // la clé API reste sur l'appareil
+  if (differs(merged, local)) {
+    setUser(currentUser, merged);
     save({ silent: true });
-    setStatus("synced");
     onRemote?.();
-  } else if ((state.meta?.updatedAt || 0) > remoteAt) {
-    await push();
-  } else {
-    setStatus("synced");
   }
+  if (differs(merged, remote)) await push();
+  else setStatus("synced");
 }
 
 export async function pull() {
@@ -186,6 +187,7 @@ export async function push() {
   const data = structuredClone(state);
   data.profile.aiKey = "";
   data.public = publicSummary();
+  data.reminders = reminderPlan();
   setStatus("syncing");
   try {
     const r = await rpc("gt_push", { p_token: t, p_data: data });
