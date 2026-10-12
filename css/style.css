@@ -323,8 +323,8 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .hh-chips .chip svg { width: 15px; height: 15px; flex: none; }
 .hh-chips .chip b { font-family: var(--display); font-weight: 700; }
 .hh-lvl svg { color: var(--amber-ink); }
-.hh-streak { color: var(--amber-ink); border-color: rgba(245, 184, 61, .28) !important; background: var(--amber-soft) !important; }
-.hh-streak svg { transform-origin: 50% 90%; animation: flick 2.4s var(--ease-in-out) infinite; }
+.hh-chips .hh-streak { color: var(--amber-ink); border-color: rgba(245, 184, 61, .28); background: var(--amber-soft); }
+.hh-streak svg { transform-origin: 50% 90%; will-change: transform; animation: flick 2.4s var(--ease-in-out) infinite; }
 @keyframes flick { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.08, .96) rotate(-3deg); } 60% { transform: scale(.96, 1.06) rotate(2deg); } }
 
 /* Salutation */
@@ -354,7 +354,7 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .m-done .m-tag { color: var(--green-ink); background: var(--green-soft); }
 .m-rest .m-tag { color: var(--blue-ink); background: var(--blue-soft); }
 .m-pulse { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex: none; }
-.m-pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--red); animation: mPulse 2s var(--ease-out) infinite; }
+.m-pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--red); will-change: transform, opacity; animation: mPulse 2s var(--ease-out) infinite; }
 @keyframes mPulse { from { transform: scale(1); opacity: .7; } 70%, to { transform: scale(3); opacity: 0; } }
 .m-title { margin-top: var(--s-3); font-size: clamp(30px, 9.4vw, 38px); line-height: 1; font-weight: 800; letter-spacing: -.03em; }
 .m-sub { margin: 6px 0 0; color: var(--muted); font-size: var(--fs-sm); }
@@ -364,7 +364,7 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .m-meta svg { width: 15px; height: 15px; color: var(--muted); }
 .m-goal { font-size: var(--fs-xs); font-weight: 650; color: var(--blue-ink); white-space: nowrap; }
 .m-list { list-style: none; margin: var(--s-4) 0 0; padding: 4px 0; border-top: 1px solid var(--line); }
-.m-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--s-3); padding: 9px 0; font-size: var(--fs-sm); }
+.m-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--s-3); padding: 7px 0; font-size: var(--fs-sm); }
 .m-list li + li { border-top: 1px solid var(--line); }
 .m-n { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-family: var(--display); font-size: var(--fs-2xs); font-weight: 700;
   color: var(--muted); background: var(--glass-hi); border: 1px solid var(--line); }

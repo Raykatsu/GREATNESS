@@ -202,7 +202,7 @@ function home() {
 
     ${saved ? `<section class="card banner resume mt"><div class="bi">${I.play}</div><div class="grow"><b>Séance en cours</b><div class="small muted ellipsis">${esc(saved.program.name)} · ${saved.plan.reduce((a, e) => a + e.done.length, 0)} série(s) faite(s)</div></div>
       <div class="banner-actions"><button class="btn btn-ghost btn-sm" id="drop">Abandonner</button><button class="btn btn-primary btn-sm" id="resume">${I.play} Reprendre</button></div></section>` : ""}
-    ${cyc.deload ? `<section class="card banner b-blue mt"><div class="bi">${I.moon}</div><div class="grow"><b>Semaine allégée</b><div class="small muted">Charges et volume réduits : après 6 semaines d'efforts, ton corps récupère pour repartir plus fort.</div></div></section>`
+    ${cyc.deload ? `<section class="card banner b-blue mt"><div class="bi">${I.moon}</div><div class="grow"><b>Semaine allégée</b><div class="small muted">Charges allégées après 6 semaines d'efforts : récupère pour repartir plus fort.</div></div></section>`
       : cyc.next === 1 ? `<section class="card banner b-amber mt"><div class="bi">${I.bolt}</div><div class="grow"><b>Dernière semaine du cycle</b><div class="small muted">Semaine allégée la semaine prochaine : donne tout !</div></div></section>` : ""}
 
     <section class="card mission m-${kind} mt">
