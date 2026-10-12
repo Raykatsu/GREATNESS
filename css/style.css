@@ -568,7 +568,7 @@ html:has(> body > .sheet-wrap:not(.closing)) { overflow: hidden; }
 .msg-row.bot + .msg-row.bot .msg { border-top-left-radius: 6px; }
 .msg b { font-weight: 650; }
 .msg .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; white-space: normal; }
-.msg .acts .chip { height: auto; min-height: 32px; padding: 6px 12px; white-space: normal; text-align: left; line-height: 1.25; }
+.msg .acts .chip { height: auto; min-height: 32px; max-width: 100%; padding: 6px 12px; white-space: normal; text-align: left; line-height: 1.25; }
 /* nouveau message : il éclot depuis le coin de son auteur (transform + opacité seulement) */
 .msg-row.new .msg { animation: msgIn var(--dur-4) var(--spring-soft) both; transform-origin: 0 100%; }
 .msg-row.me.new .msg { transform-origin: 100% 100%; }
@@ -584,6 +584,11 @@ html:has(> body > .sheet-wrap:not(.closing)) { overflow: hidden; }
 /* Suggestions sous le dernier message ; masquées pendant que le coach répond */
 .sugg { margin-top: var(--s-5); transition: opacity var(--dur-2) var(--ease-out); }
 .sugg .chip { height: 36px; padding: 0 14px; font-size: var(--fs-sm); font-weight: 600; color: var(--text); flex: none; }
+.sugg-title { margin: var(--s-6) 0 var(--s-2); }
+.sugg-title[hidden] { display: none; }
+/* discussion vide : les idées s'affichent toutes, en nuage, plutôt qu'en ruban */
+.sugg.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; -webkit-mask-image: none; mask-image: none; }
+.sugg.wrap .chip { height: auto; min-height: 36px; padding: 8px 14px; white-space: normal; text-align: left; line-height: 1.25; }
 .is-sending .sugg { opacity: .35; pointer-events: none; }
 .coach-pad { height: var(--composer-h, 72px); }
 
@@ -762,13 +767,14 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 .ai-offer { background: radial-gradient(140% 120% at 0% 0%, var(--red-soft), transparent 60%), var(--card); border-color: rgba(var(--accent-rgb), .28); }
 .ai-go { flex: none; color: var(--dim); display: grid; }
 .ai-go svg { width: 20px; height: 20px; }
+.ai-offer:has(.ai-err) { align-items: flex-start; }
 .ai-err { display: block; margin-top: 6px; font-size: var(--fs-xs); color: var(--danger-ink); line-height: 1.35; }
 .ai-quiet { align-items: flex-start; padding-right: 6px; }
 .ai-quiet .ai-x { width: 34px; height: 34px; margin-top: -4px; color: var(--dim); }
 .ai-quiet .ai-x svg { width: 18px; height: 18px; }
 .ai-loading { align-items: flex-start; }
 .ai-load-top { display: flex; align-items: baseline; gap: 10px; }
-.ai-load-top b { flex: 1; min-width: 0; font-size: var(--fs-sm); }
+.ai-load-top b { flex: 1; min-width: 0; font-size: var(--fs-sm); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .ai-load-pct { font-family: var(--display); font-weight: 700; color: var(--accent-ink); }
 .ai-bar { height: 6px; margin: 8px 0 6px; border-radius: 6px; background: var(--card-3); overflow: hidden; }
 .ai-bar > i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--red)); transform-origin: left center; transition: transform .5s var(--ease-out); }

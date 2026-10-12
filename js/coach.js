@@ -30,7 +30,8 @@ export function renderCoach(view) {
     </header>
     <div id="llm-card"></div>
     <div class="chat" id="chat" role="log" aria-label="Discussion avec ${COACH}"></div>
-    <div class="chips sugg" id="sugg" aria-label="Suggestions">${SUGGESTIONS.map(s => `<button class="chip">${esc(s)}</button>`).join("")}</div>
+    <div class="eyebrow sugg-title" id="sugg-t" ${state.chat.length ? "hidden" : ""}>Pour commencer</div>
+    <div class="chips sugg ${state.chat.length ? "" : "wrap"}" id="sugg" aria-label="Suggestions">${SUGGESTIONS.map(s => `<button class="chip">${esc(s)}</button>`).join("")}</div>
     <div class="coach-pad" aria-hidden="true"></div>
     <div class="composer" id="composer">
       <button class="chat-down" id="down" aria-label="Revenir aux derniers messages" tabindex="-1">${I.down}</button>
@@ -136,7 +137,7 @@ export function renderCoach(view) {
     if (kind === "loading") {
       card.innerHTML = `<div class="ai-card ai-loading anim-rise" role="status">
         <span class="ai-ico">${I.sparkle}</span>
-        <div class="grow"><div class="ai-load-top"><b class="ai-load-txt ellipsis">${esc(i.progressText || "Préparation…")}</b><span class="ai-load-pct tnum">${pct(i.progress)} %</span></div>
+        <div class="grow"><div class="ai-load-top"><b class="ai-load-txt">${esc(i.progressText || "Préparation…")}</b><span class="ai-load-pct tnum">${pct(i.progress)} %</span></div>
           <div class="ai-bar"><i style="transform:scaleX(${Math.max(0.02, i.progress || 0)})"></i></div>
           <p>Une seule fois : ensuite l'IA démarre en quelques secondes, même sans internet. Garde l'app ouverte et l'écran allumé.</p></div></div>`;
       return;
@@ -216,6 +217,8 @@ export function renderCoach(view) {
     state.chat = state.chat.slice(-40);
     save();
     $("#clear", view).hidden = false;
+    $("#sugg-t", view).hidden = true;
+    sugg.classList.remove("wrap");
     chat.appendChild(row(user, true));
     drawStatus();
     // bulle « écrit… » : elle devient la réponse elle-même (pas de saut quand le texte arrive)
