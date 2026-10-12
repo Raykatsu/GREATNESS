@@ -18,7 +18,8 @@ const MESSAGES = {
   DOWN: "L'IA en ligne ne répond pas pour le moment.",
 };
 export class OnlineError extends Error {
-  constructor(code) { super(MESSAGES[code] || MESSAGES.DOWN); this.code = code; }
+  // detail : cause technique (statut HTTP, texte du serveur…) pour comprendre une panne
+  constructor(code, detail = "") { super(MESSAGES[code] || MESSAGES.DOWN); this.code = code; this.detail = String(detail || "").slice(0, 220); }
 }
 
 // Envoie la conversation et renvoie { text, sources, remaining } ; onDelta(texte complet) pendant le flux.
@@ -38,13 +39,14 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
       body: JSON.stringify({ token: authToken(), system, messages, search }),
       signal: ctrl.signal,
     });
-  } catch {
+  } catch (e) {
     clearTimeout(timer);
     downUntil = Date.now() + 60e3;
-    throw new OnlineError("DOWN");
+    // « Failed to fetch » : réseau coupé, ou le serveur a refusé la vérification préalable (CORS)
+    throw new OnlineError("DOWN", ctrl.signal.aborted ? `pas de réponse après ${Math.round(timeoutMs / 1000)} s` : `réseau ou CORS : ${e?.message || e}`);
   }
-  if (res.status === 404) { clearTimeout(timer); downUntil = Date.now() + 30 * 60e3; throw new OnlineError("NOT_DEPLOYED"); }
-  if (!res.ok || !res.body) { clearTimeout(timer); downUntil = Date.now() + 2 * 60e3; throw new OnlineError("DOWN"); }
+  if (res.status === 404) { clearTimeout(timer); downUntil = Date.now() + 30 * 60e3; throw new OnlineError("NOT_DEPLOYED", `HTTP 404 ${(await res.text().catch(() => "")).slice(0, 120)}`); }
+  if (!res.ok || !res.body) { clearTimeout(timer); downUntil = Date.now() + 2 * 60e3; throw new OnlineError("DOWN", `HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 160)}`); }
 
   const reader = res.body.getReader(), dec = new TextDecoder();
   let buf = "", text = "", end = null;
@@ -61,7 +63,7 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
         try { ev = JSON.parse(line.slice(5)); } catch { continue; }
         if (ev.error) {
           if (ev.error === "NO_KEY" || ev.error === "DOWN") downUntil = Date.now() + (ev.error === "NO_KEY" ? 30 : 2) * 60e3;
-          throw new OnlineError(ev.error);
+          throw new OnlineError(ev.error, ev.detail || `erreur du serveur : ${ev.error}`);
         }
         if (ev.t) { text += ev.t; onDelta?.(text); }
         if (ev.done) end = ev;
@@ -69,11 +71,11 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
     }
   } catch (e) {
     if (e instanceof OnlineError) throw e;
-    throw new OnlineError("DOWN");
+    throw new OnlineError("DOWN", `flux interrompu : ${e?.message || e}`);
   } finally {
     clearTimeout(timer);
   }
-  if (!text.trim()) throw new OnlineError("DOWN");
+  if (!text.trim()) throw new OnlineError("DOWN", "réponse vide" + (end?.blocked ? " (bloquée par le filtre de sécurité de Google)" : ""));
   if (end?.remaining != null) lastRemaining = end.remaining;
   return { text: text.trim(), sources: end?.sources || [], remaining: end?.remaining ?? null, blocked: !!end?.blocked };
 }

@@ -268,7 +268,8 @@ export function renderCoach(view) {
           reply = { role: "assistant", content: res.text + src };
         } catch (err) {
           // l'IA en ligne ne répond pas : l'IA du téléphone ou le mode simple prend le relais
-          const note = err.code === "LIMIT" || err.code === "BAD_TOKEN" ? `\n\n${err.message}` : "";
+          const why = err.detail ? ` (${err.detail})` : "";
+          const note = `\n\n${err.message}${why}`;
           if (llm.info().ready) reply = { role: "assistant", content: (await llm.chat(llmMessages(history, text), { onDelta: stream })) + note };
           else { const a = answer(text); reply = { role: "assistant", content: a.text + note, actions: a.actions }; }
         }
