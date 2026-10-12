@@ -163,14 +163,14 @@ Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si 
 Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.
 L'app exécute automatiquement certaines demandes : créer une séance, modifier le programme de la semaine, l'objectif, la couleur de l'app, le mode clair, la taille du texte, la voix… Si l'utilisateur veut une modification de ce genre, donne-lui la phrase exacte à envoyer, par exemple : « Crée une séance dos de 45 min », « Mets Legs le mercredi », « Passe l'app en bleu », « Mode clair », « Agrandis le texte ».`;
 
-export function athleteContext() {
+export function athleteContext({ full = false } = {}) {
   const p = state.profile;
   const w = weekStats();
   const plan = state.weekPlan || {};
   const lifts = Object.entries(state.lifts).filter(([id]) => EXERCISES[id])
-    .sort((a, b) => (b[1].date || 0) - (a[1].date || 0)).slice(0, 10)
+    .sort((a, b) => (b[1].date || 0) - (a[1].date || 0)).slice(0, full ? 40 : 10)
     .map(([id, l]) => EXERCISES[id].type === "load" ? `${exName(id)} : dernière ${l.weight} kg × ${l.reps}, 1RM estimé ${Math.round(l.best)} kg` : `${exName(id)} : record ${l.bestReps}${EXERCISES[id].type === "time" ? " s" : " reps"}`);
-  const recent = state.sessions.slice(-5).reverse().map(s => {
+  const recent = state.sessions.slice(full ? -15 : -5).reverse().map(s => {
     const by = {};
     s.sets.forEach(x => (by[x.name] ||= []).push(x.weight ? `${x.weight}×${x.reps}@${x.rpe}` : `${x.reps}@${x.rpe}`));
     return `- ${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${s.volume} kg. ${Object.entries(by).map(([n, a]) => `${n} ${a.join(" ")}`).join(" ; ")}`;
@@ -183,7 +183,38 @@ export function athleteContext() {
     lifts.length ? `Performances :\n- ${lifts.join("\n- ")}` : "Pas encore de performances enregistrées.",
     recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
     `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
+    ...(full ? fullExtras() : []),
   ].join("\n");
+}
+
+// Compléments pour l'IA en ligne (plus de mémoire disponible que le modèle local).
+function fullExtras() {
+  const out = [];
+  const total = state.sessions.length;
+  if (total) {
+    const first = state.sessions[0].date;
+    const weeks = Math.max(1, (Date.now() - first) / (7 * 864e5));
+    out.push(`Historique : ${total} séances depuis le ${new Date(first).toLocaleDateString("fr-FR")}, soit ${(total / weeks).toFixed(1)} par semaine en moyenne.`);
+  }
+  const body = (state.body || []).slice(-6);
+  if (body.length) out.push(`Mensurations (les plus récentes en dernier) : ${body.map(b => `${new Date(b.date).toLocaleDateString("fr-FR")} ${[b.weight && b.weight + " kg", b.waist && "taille " + b.waist + " cm", b.chest && "poitrine " + b.chest + " cm", b.arm && "bras " + b.arm + " cm", b.thigh && "cuisse " + b.thigh + " cm"].filter(Boolean).join(", ")}`).join(" ; ")}.`);
+  const notes = Object.entries(state.exNotes || {}).filter(([id]) => EXERCISES[id]).slice(0, 12);
+  if (notes.length) out.push(`Notes de l'athlète sur ses exercices : ${notes.map(([id, n]) => `${exName(id)} : ${n}`).join(" ; ")}.`);
+  const custom = state.customPrograms || [];
+  if (custom.length) out.push(`Ses séances perso : ${custom.map(c => `${c.name} (${c.exercises.map(e => exName(e.id)).join(", ")})`).join(" ; ")}.`);
+  const sessNotes = state.sessions.slice(-10).filter(x => x.note).map(x => `${new Date(x.date).toLocaleDateString("fr-FR")} : ${x.note}`);
+  if (sessNotes.length) out.push(`Ses notes de séance : ${sessNotes.join(" ; ")}.`);
+  return out;
+}
+
+// Messages pour l'IA en ligne : consignes + toutes les données utiles + conversation récente.
+export function onlineMessages(history, question) {
+  const local = answer(question);
+  const notes = local.matched ? `\n\nNotes fiables du coach sur cette question (à utiliser, reformuler et compléter) :\n${local.text}` : "";
+  return {
+    system: `${system()}\n\n### Données de l'athlète (à jour)\n${athleteContext({ full: true })}${notes}`,
+    messages: [...history.slice(-16).map(m => ({ role: m.role, content: m.content.slice(0, 2500) })), { role: "user", content: question }],
+  };
 }
 
 // Messages pour le modèle local : consignes + données + historique récent.

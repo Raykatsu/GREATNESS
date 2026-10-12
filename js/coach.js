@@ -1,7 +1,8 @@
 // Onglet Coach : discussion avec le coach choisi (Spider-Man par défaut).
 // Priorité : Claude (si une clé est configurée) → IA locale (si chargée) → cerveau local.
 import { state, save } from "./store.js";
-import { answer, llmMessages } from "./brain.js";
+import { answer, llmMessages, onlineMessages } from "./brain.js";
+import { onlineReady, onlineChat, onlineRemaining } from "./online.js";
 import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
 import { spidey } from "./spidey.js";
@@ -103,6 +104,7 @@ export function renderCoach(view) {
     let tone = "on", text;
     if (sending) text = `<span class="typing-txt">écrit<b>.</b><b>.</b><b>.</b></span>`;
     else if (aiReady()) text = "Claude connecté";
+    else if (onlineReady()) text = `IA en ligne${onlineRemaining() != null ? ` · <span class="tnum">${onlineRemaining()}</span> messages restants aujourd'hui` : ""}`;
     else if (i.ready) text = `IA locale · ${esc(llm.MODELS.find(m => m.id === i.model)?.name || "")}`;
     else if (i.status === "loading") { tone = "warm"; text = `Chargement de l'IA · <span class="tnum">${pct(i.progress)} %</span>`; }
     else { tone = "off"; text = "Mode simple"; }
@@ -116,7 +118,7 @@ export function renderCoach(view) {
   let cardKind = "", cardErr = "";
   const drawCard = () => {
     const i = llm.info();
-    const kind = aiReady() || i.ready ? "none" : !llm.supported() ? (store.get(HINT_KEY) ? "none" : "nogpu") : i.status === "loading" ? "loading" : "offer";
+    const kind = aiReady() || i.ready || onlineReady() ? "none" : !llm.supported() ? (store.get(HINT_KEY) ? "none" : "nogpu") : i.status === "loading" ? "loading" : "offer";
     if (kind === "loading" && cardKind === "loading") {
       // mise à jour légère : pas de reconstruction, la jauge avance par transform
       $(".ai-load-txt", card).textContent = i.progressText || "Préparation…";
@@ -258,6 +260,18 @@ export function renderCoach(view) {
         const msgs = [...history, { role: "user", content: text }].slice(-16).map(m => ({ role: m.role, content: m.content }));
         let out = "";
         reply = { role: "assistant", content: await aiChat(msgs, d => stream((out += d))) };
+      } else if (onlineReady()) {
+        try {
+          const { system, messages } = onlineMessages(history, text);
+          const res = await onlineChat({ system, messages, onDelta: stream });
+          const src = res.sources.length ? `\n\nSources : ${res.sources.map(x => `[${x.title.replace(/[[\]]/g, "")}](${x.url})`).join(" · ")}` : "";
+          reply = { role: "assistant", content: res.text + src };
+        } catch (err) {
+          // l'IA en ligne ne répond pas : l'IA du téléphone ou le mode simple prend le relais
+          const note = err.code === "LIMIT" || err.code === "BAD_TOKEN" ? `\n\n${err.message}` : "";
+          if (llm.info().ready) reply = { role: "assistant", content: (await llm.chat(llmMessages(history, text), { onDelta: stream })) + note };
+          else { const a = answer(text); reply = { role: "assistant", content: a.text + note, actions: a.actions }; }
+        }
       } else if (llm.info().ready) {
         reply = { role: "assistant", content: await llm.chat(llmMessages(history, text), { onDelta: stream }) };
         if (!reply.content) throw new Error("vide");

@@ -10,7 +10,7 @@ import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSa
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
-import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
+import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS } from "./cloud.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
@@ -37,7 +37,8 @@ function route() {
   params = Object.fromEntries(new URLSearchParams(qs || ""));
   current = key || "home";
   applyAppearance(state.profile);
-  if (!currentUser) { shown = null; return showAuth(view, () => { llm.autoload(); route(); offerResume(); }); }
+  if (!currentUser && resumeSession()) { setTimeout(offerResume, 600); }
+  if (!currentUser) { shown = null; return showAuth(view, () => { if (!isOnlineMode()) llm.autoload(); route(); offerResume(); }); }
   if (!state.profile.onboarded) { shown = null; return onboarding(); }
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
@@ -52,7 +53,12 @@ function route() {
   const segFrom = oldSeg ? [...oldSeg.children].findIndex(b => b.classList.contains("on")) : -1;
   view.className = "view";
   view.innerHTML = "";
-  (routes[key] || home)();
+  try { (routes[key] || home)(); }
+  catch (err) {
+    // un écran qui plante ne doit jamais laisser une page vide : on propose de recharger
+    console.error(err);
+    view.innerHTML = `<div class="empty" style="margin-top:30vh"><b>Oups, cet écran a eu un souci.</b><p class="small muted">Tes données sont en sécurité.</p><button class="btn btn-primary mt" onclick="location.reload()">Recharger</button></div>`;
+  }
   if (same) {
     window.scrollTo(0, y); // pas d'animation ni de saut en haut : le contenu se met à jour sur place
   } else {
@@ -653,6 +659,7 @@ function profile() {
     <div class="set-title row between"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
     <div class="card card-list set-list">
       <div class="set-row">${sic("at", "#64748b")}<div class="grow"><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
+      <label class="toggle set-row">${sic("lock", "#64748b")}<div class="grow"><b>Code à chaque ouverture</b><span class="xs muted">Sinon l'app reste ouverte 12 h après ta dernière utilisation</span></div><input type="checkbox" id="p-pinlock" ${p.pinLock ? "checked" : ""}/></label>
       <button class="set-row set-act" id="acc-pin">${sic("key", "#f59e0b")}<b class="grow">Changer mon code</b>${I.chev}</button>
       <button class="set-row set-act" id="acc-lock">${sic("lock", "#3b82f6")}<b class="grow">Verrouiller / changer de compte</b>${I.chev}</button>
       <button class="set-row set-act danger" id="acc-forget">${sic("out", "var(--danger)")}<div class="grow"><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
@@ -715,6 +722,7 @@ function profile() {
   bind("#p-mascot", t => { p.mascot = t.checked; spidey.setEnabled(t.checked); });
   bind("#p-voice", t => { p.voice = t.checked; if (t.checked) speak("Consignes vocales activées."); });
   bind("#p-sound", t => (p.sound = t.checked));
+  bind("#p-pinlock", t => (p.pinLock = t.checked));
   bind("#p-ai", t => { p.aiEnabled = t.checked; });
   bind("#p-key", t => { p.aiKey = t.value.trim(); resetClient(); });
   $("#p-test").onclick = async () => {
@@ -864,8 +872,12 @@ function pinSheet() {
 // Verrouille l'app si elle est restée en arrière-plan plus de 10 minutes.
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) hiddenAt = Date.now();
-  else if (currentUser && hiddenAt && Date.now() - hiddenAt > 10 * 60 * 1000 && !isLive()) { logout(); document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()); route(); }
+  if (document.hidden) { hiddenAt = Date.now(); touchSession(); return; }
+  if (!currentUser || !hiddenAt || isLive()) return;
+  // « Code à chaque ouverture » : verrou après 1 min ; sinon seulement après 12 h sans utiliser l'app
+  const limit = state.profile.pinLock ? 60e3 : SESSION_MS;
+  if (Date.now() - hiddenAt > limit) { logout(); document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()); route(); }
+  else touchSession();
 });
 
 /* =========================================================
