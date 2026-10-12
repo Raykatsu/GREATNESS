@@ -4,7 +4,12 @@ export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Texte riche minimal : **gras** et retours à la ligne.
-export const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+export const md = s => esc(s)
+  .replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>")                       // titres
+  .replace(/^\s*[*-]\s+/gm, "• ")                                   // listes
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")                            // gras
+  .replace(/(^|[\s(«])\*(?!\s)([^*\n]+?)\*(?=[\s).,!?:;»]|$)/gm, "$1<i>$2</i>") // italique
+  .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); // liens
 export const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
 export const fmtNum = n => Math.round(n).toLocaleString("fr-FR");
 

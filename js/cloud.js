@@ -130,11 +130,33 @@ function open(u) {
   localStorage.setItem(LAST, u);
   setUser(u);
   setStatus(isOnlineMode() ? "syncing" : "local");
+  touchSession();
 }
 
 export function logout() {
   flush();
   clearUser();
+  try { localStorage.removeItem(SESSION); } catch { /* rien */ }
+}
+
+/* ---------- Session ouverte ----------
+   Le téléphone peut recharger l'app à tout moment (mémoire, appli en arrière-plan) :
+   on garde la session ouverte 12 h après la dernière utilisation, pour ne pas
+   redemander le code à chaque fois. « Code à chaque ouverture » dans les réglages la désactive. */
+const SESSION = "greatness.session";
+export const SESSION_MS = 12 * 3600e3;
+export function touchSession() {
+  if (!currentUser) return;
+  try { localStorage.setItem(SESSION, JSON.stringify({ u: currentUser, at: Date.now() })); } catch { /* stockage plein */ }
+}
+export function resumeSession() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SESSION) || "null"); } catch { /* abîmé */ }
+  if (!s?.u || Date.now() - s.at > SESSION_MS || !registry()[s.u] || !readLocal(s.u)) return false;
+  open(s.u);
+  if (state.profile.pinLock) { logout(); return false; } // code demandé à chaque ouverture
+  if (isOnlineMode()) pull().catch(() => {});
+  return true;
 }
 
 const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -147,6 +169,7 @@ export const onRemoteUpdate = fn => (onRemote = fn);
 function setStatus(s) { status = s; listeners.forEach(fn => fn(s)); }
 
 const token = () => registry()[currentUser]?.token;
+export const authToken = () => (currentUser ? token() : null);
 
 // Fusionne les données du serveur avec la copie locale : rien ne se perd,
 // même si on s'est entraîné sur deux appareils sans réseau.

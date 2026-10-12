@@ -84,3 +84,16 @@ test("rappels push : abonnement, envoi une fois par jour de séance", async () =
   await db.query("select gt_push_gone($1)", [["https://push.example/abc"]]);
   assert.equal((await db.query("select count(*)::int n from gt_push_subs")).rows[0].n, 0);
 });
+
+test("IA en ligne : jeton vérifié et limite de messages par jour", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/004_ai.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  await assert.rejects(call("gt_ai_take", m, 3)); // réservé au serveur
+  const take = async (t, lim) => (await db.query("select gt_ai_take($1, $2) as r", [t, lim])).rows[0].r;
+  assert.equal((await take("faux", 3)).error, "BAD_TOKEN");
+  assert.equal((await take(m, 3)).remaining, 2);
+  assert.equal((await take(m, 3)).user, "miles");
+  assert.equal((await take(m, 3)).remaining, 0);
+  assert.equal((await take(m, 3)).error, "LIMIT");
+});

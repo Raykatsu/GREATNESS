@@ -27,6 +27,10 @@ Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 
 - **Par défaut** : comptes enregistrés sur l'appareil (plusieurs personnes peuvent partager un téléphone).
 - **En ligne** : avec un projet Supabase gratuit, chacun retrouve son compte sur n'importe quel téléphone. Mise en place : voir [SUPABASE.md](SUPABASE.md).
 
+## IA en ligne
+
+Avec les comptes en ligne, le coach répond grâce à **Gemini** (Google, gratuit) via une fonction Supabase : réponses en flux, recherche Google, et il connaît tout ton compte (séances, records, programme, mensurations, notes). Il fait aussi le débrief de fin de séance. Mise en place : SUPABASE.md, section « IA en ligne ».
+
 ## IA intelligente locale
 
 Dans l'onglet Coach (ou Profil), **« Activer l'IA »** télécharge une fois un modèle **Qwen** qui tourne directement dans le navigateur (WebGPU) : gratuit, privé, hors ligne. Il répond à n'importe quelle question en s'appuyant sur le profil, le programme, les records et les dernières séances de l'utilisateur, et écrit le débrief de fin de séance. Trois tailles : Léger (≈ 0,6 Go, conseillé sur téléphone), Équilibré (≈ 1,4 Go, téléphone très récent), Puissant (≈ 2,6 Go, ordinateur). Si un chargement plante (mémoire du téléphone), l'app ne relance pas en boucle et propose le modèle plus petit. Sans WebGPU, le coach simple prend le relais.
@@ -126,5 +130,8 @@ supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
 supabase/003_push.sql    notifications de rappel
 supabase/functions/reminders/  fonction qui envoie les rappels
+supabase/004_ai.sql      limite de messages de l'IA en ligne
+supabase/functions/coach/      IA en ligne (Gemini + recherche Google)
+js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

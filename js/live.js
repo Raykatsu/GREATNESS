@@ -11,6 +11,7 @@ import { checkBadges } from "./badges.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
 import { debrief, athleteContext } from "./brain.js";
 import * as llm from "./llm.js";
+import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
 import { openCam, camSupported, camTrackable } from "./cam.js";
@@ -565,6 +566,16 @@ function finish() {
   if (aiReady() && sum.sets.length) {
     $("#debrief").textContent = "Le coach analyse ta séance…";
     aiDebrief(sum).then(t => { const d = $("#debrief"); if (d) d.textContent = t || local; if (t) speak(t, { interrupt: true }); })
+      .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
+  } else if (onlineReady() && sum.sets.length) {
+    // débrief par l'IA en ligne, avec tout l'historique du compte
+    const lines = sum.compare.map(c => `${c.name} : meilleure série ${c.best.weight ? c.best.weight + " kg × " : ""}${c.best.reps}${c.delta === null ? " (première fois)" : c.delta > 0 ? " (en progrès)" : c.delta < 0 ? " (en baisse)" : " (stable)"}`).join("\n");
+    onlineChat({
+      search: false,
+      system: `Tu es ${coachName()}, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste ni titre.\n\n### Données de l'athlète\n${athleteContext({ full: true })}`,
+      messages: [{ role: "user", content: `Séance terminée : ${sum.name}, ${Math.round(sum.durationSec / 60)} min, ${sum.volume} kg, ${sum.sets.length} séries, ${sum.prs.length} record(s), fatigue ${sum.fatigue} %.\n${lines}\n\nFais un débrief : ce qui était bien, un point à améliorer, et quoi viser à la prochaine séance.` }],
+      onDelta: t => { const d = $("#debrief"); if (d && t) d.textContent = t; },
+    }).then(r => speak(r.text, { interrupt: true }))
       .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
   } else if (llm.info().ready && sum.sets.length) {
     const lines = sum.compare.map(c => `${c.name} : meilleure série ${c.best.weight ? c.best.weight + " kg × " : ""}${c.best.reps}${c.delta === null ? " (première fois)" : c.delta > 0 ? " (en progrès)" : c.delta < 0 ? " (en baisse)" : " (stable)"}`).join("\n");
