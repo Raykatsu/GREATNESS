@@ -4,7 +4,7 @@
 // Secrets (Edge Functions → Secrets) : GEMINI_API_KEY (obligatoire, gratuite sur aistudio.google.com),
 // GEMINI_MODELS (facultatif, liste séparée par des virgules), AI_DAILY_LIMIT (facultatif, 80 par défaut).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-3";
+const VERSION = "coach-4";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -45,7 +45,6 @@ const enc = new TextEncoder();
 const sse = (o: unknown) => enc.encode(`data: ${JSON.stringify(o)}\n\n`);
 const clip = (t: unknown, n = 220) => String(t ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 const SSE_HEADERS = { ...CORS, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" };
-const json = (o: unknown, status = 200) => new Response(JSON.stringify(o, null, 1), { status, headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" } });
 function reply(events: unknown[]) {
   return new Response(new ReadableStream({ start(c) { events.forEach(e => c.enqueue(sse(e))); c.close(); } }), { headers: SSE_HEADERS });
 }
@@ -119,9 +118,9 @@ function plan(search: boolean): Attempt[] {
   return out;
 }
 
-async function gemini(model: string, body: unknown, stream: boolean) {
+async function gemini(model: string, body: unknown, stream: boolean, signal?: AbortSignal) {
   const url = `${GEMINI}/models/${model}:${stream ? "streamGenerateContent?alt=sse" : "generateContent"}`;
-  return await fetch(url, { method: "POST", headers: { "x-goog-api-key": KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return await fetch(url, { method: "POST", headers: { "x-goog-api-key": KEY, "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
 }
 
 // Lit le flux SSE de Gemini : un objet JSON par ligne « data: ».
@@ -164,44 +163,71 @@ function chunkInfo(chunk: any) {
 }
 
 // Le cœur : essaie les modèles dans l'ordre et relaie le texte au fil de l'eau.
-// Quota épuisé, modèle absent, panne ou réponse vide : on passe à l'essai suivant.
-type Run = { model: string; version: string; err: string; cut: boolean; blocked: boolean; sources: Map<string, string> };
-async function* converse(system: string, messages: Msg[], search: boolean, run: Run) {
+// Quota épuisé, modèle absent, panne, lenteur ou réponse vide : on passe à l'essai suivant.
+// Délais : 45 s pour que Gemini commence, 30 s sans nouvelles en cours de réponse, et une limite
+// totale (la plateforme coupe une requête au bout de 150 s).
+const FIRST_MS = Number(env("GEMINI_FIRST_MS") || 45_000), STALL_MS = Number(env("GEMINI_STALL_MS") || 30_000);
+type Run = { model: string; version: string; err: string; cut: boolean; blocked: boolean; ttft: number; tries: string[]; sources: Map<string, string> };
+async function* converse(system: string, messages: Msg[], search: boolean, run: Run, budgetMs = 120_000) {
   const skip = new Set<string>();
+  const t0 = Date.now(), deadline = t0 + budgetMs;
+  const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
   for (const a of plan(search)) {
     if (skip.has(a.model)) continue;
+    if (deadline - Date.now() < 8_000) { run.err ||= "temps maximal dépassé"; return; }
     const label = `Gemini ${a.model}${a.search ? " + recherche" : ""}`;
-    let res: Response;
-    try { res = await gemini(a.model, requestBody(a.model, a.search, system, messages), true); }
-    catch (e) { run.err = `${label} : ${clip((e as Error).message)}`; continue; }
-    if (!res.ok || !res.body) {
-      const t = await res.text().catch(() => "");
-      run.err = `${label} : HTTP ${res.status} ${clip(t, 240)}`;
-      console.error(run.err);
-      // 429 avec la recherche : c'est peut-être le quota de la recherche, on réessaie sans
-      if ([401, 403, 404].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t)) || (res.status === 429 && !a.search)) skip.add(a.model);
-      continue;
-    }
+    const ctrl = new AbortController(), s = Date.now();
+    let timer = setTimeout(() => ctrl.abort(), Math.min(FIRST_MS, deadline - Date.now()));
     let got = 0;
     try {
-      for await (const chunk of readGemini(res)) {
-        const info = chunkInfo(chunk);
-        if (info.version) run.version = info.version;
-        for (const [url, title] of info.sources) run.sources.set(url, title);
-        if (info.blocked) run.blocked = true;
-        if (info.text) { got += info.text.length; yield info.text; }
+      let res: Response;
+      try { res = await gemini(a.model, requestBody(a.model, a.search, system, messages), true, ctrl.signal); }
+      catch (e) {
+        run.err = `${label} : ${ctrl.signal.aborted ? `pas de réponse en ${secs(Date.now() - s)}` : clip((e as Error).message)}`;
+        run.tries.push(`${label} → ${ctrl.signal.aborted ? "délai dépassé" : "erreur réseau"} (${secs(Date.now() - s)})`);
+        console.error(run.err);
+        if (ctrl.signal.aborted) skip.add(a.model); // trop lent : on passe au modèle suivant
+        continue;
       }
-    } catch (e) {
-      run.err = `${label} : flux interrompu (${clip((e as Error).message)})`;
-      console.error(run.err);
-      if (got) run.cut = true;
+      if (!res.ok || !res.body) {
+        const t = await res.text().catch(() => "");
+        run.err = `${label} : HTTP ${res.status} ${clip(t, 240)}`;
+        run.tries.push(`${label} → HTTP ${res.status} (${secs(Date.now() - s)})`);
+        console.error(run.err);
+        // 429 avec la recherche : c'est peut-être le quota de la recherche, on réessaie sans
+        if ([401, 403, 404].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t)) || (res.status === 429 && !a.search)) skip.add(a.model);
+        continue;
+      }
+      try {
+        for await (const chunk of readGemini(res)) {
+          clearTimeout(timer);
+          timer = setTimeout(() => ctrl.abort(), STALL_MS);
+          const info = chunkInfo(chunk);
+          if (info.version) run.version = info.version;
+          for (const [url, title] of info.sources) run.sources.set(url, title);
+          if (info.blocked) run.blocked = true;
+          if (info.text) {
+            if (!got) run.ttft = Date.now() - t0;
+            got += info.text.length;
+            yield info.text;
+          }
+        }
+      } catch (e) {
+        run.err = `${label} : flux interrompu (${ctrl.signal.aborted ? `plus rien pendant ${secs(STALL_MS)}` : clip((e as Error).message)})`;
+        console.error(run.err);
+        if (got) run.cut = true;
+      }
+      run.tries.push(`${label} → ${got ? `${got} caractères` : "réponse vide"}${run.cut ? " (coupée)" : ""} (${secs(Date.now() - s)})`);
+      if (got) { run.model = a.model; return; }
+      if (!run.err.startsWith(label)) run.err = `${label} : réponse vide${run.blocked ? " (bloquée par le filtre de sécurité)" : ""}`;
+    } finally {
+      clearTimeout(timer);
+      ctrl.abort(); // libère la connexion si la réponse n'a pas été lue jusqu'au bout
     }
-    if (got) { run.model = a.model; return; }
-    if (!run.cut && !run.err.startsWith(label)) run.err = `${label} : réponse vide${run.blocked ? " (bloquée par le filtre de sécurité)" : ""}`;
   }
 }
 
-const newRun = (): Run => ({ model: "", version: "", err: "", cut: false, blocked: false, sources: new Map() });
+const newRun = (): Run => ({ model: "", version: "", err: "", cut: false, blocked: false, ttft: 0, tries: [], sources: new Map() });
 const topSources = (run: Run) => [...run.sources].slice(0, 5).map(([url, title]) => ({ url, title }));
 
 // Réponse en flux pour l'app. Un « ping » toutes les 8 s garde la connexion ouverte pendant que Gemini réfléchit.
@@ -232,57 +258,70 @@ function chat(system: string, messages: Msg[], search: boolean, quota: { remaini
 }
 
 // Diagnostic complet, appelé par GitHub Actions après chaque déploiement (en-tête x-diag-token).
-// Ne renvoie aucun secret : seulement leur présence, leur format et les réponses des services.
-async function diagnose() {
-  const t0 = Date.now();
-  const keys = serverKeys();
-  const k = keys[0]?.key || "";
-  const out: Record<string, unknown> = {
-    version: VERSION,
-    gemini_key: { present: !!KEY, length: KEY.length, prefix: KEY.slice(0, 3) },
-    server_key: { sources: keys.map(x => x.source), format: k.startsWith("sb_secret_") ? "sb_secret" : k.startsWith("eyJ") ? "jwt" : k ? "autre" : "absente" },
-    supabase_url: SB ? "présente" : "ABSENTE",
-    models_config: MODELS,
-    daily_limit: LIMIT,
-  };
-  try {
-    const r = await rpc("gt_ai_take", { p_token: "diagnostic", p_limit: LIMIT });
-    out.quota_rpc = `HTTP ${r.status} ${clip(await r.text(), 160)}`;
-  } catch (e) { out.quota_rpc = `erreur : ${clip((e as Error).message)}`; }
-  try {
-    const r = await fetch(`${GEMINI}/models?pageSize=1000`, { headers: { "x-goog-api-key": KEY } });
-    const t = await r.text();
-    if (r.ok) {
-      // deno-lint-ignore no-explicit-any
-      const all: any[] = JSON.parse(t).models || [];
-      out.models_available = all.filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
-        .map(m => String(m.name).replace("models/", "")).filter(n => /flash|pro|gemma/i.test(n));
-    } else out.models_available = `HTTP ${r.status} ${clip(t, 300)}`;
-  } catch (e) { out.models_available = `erreur : ${clip((e as Error).message)}`; }
-  // Un essai court par modèle, sans recherche
-  const tests = [];
-  for (const model of MODELS) {
-    const s = Date.now();
-    try {
-      const r = await gemini(model, requestBody(model, false, "Test technique.", [{ role: "user", content: "Réponds seulement : OK" }]), false);
-      const t = await r.text();
-      let text = "", version = "";
-      try { const j = JSON.parse(t); text = chunkInfo(j).text; version = j.modelVersion || ""; } catch { /* corps non JSON */ }
-      tests.push({ model, status: r.status, ms: Date.now() - s, ...(r.ok ? { version, text: clip(text, 60) } : { error: clip(t, 300) }) });
-    } catch (e) { tests.push({ model, error: clip((e as Error).message) }); }
-  }
-  out.tests = tests;
-  // Le vrai chemin du chat : flux + recherche Google, avec une question type
-  const s = Date.now(), run = newRun();
-  let text = "", chunks = 0;
-  try {
-    for await (const t of converse("Athlète : Alex, 80 kg, objectif force. Développé couché : record 100 kg × 3.",
-      [{ role: "user", content: "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?" }], true, run)) { text += t; chunks++; }
-  } catch (e) { run.err = `erreur interne : ${clip((e as Error).message)}`; }
-  out.stream = { ok: !!text.trim(), model: run.model, version: run.version, chunks, chars: text.length, sources: run.sources.size, ms: Date.now() - s, ...(text ? { sample: clip(text, 160) } : { error: run.err }) };
-  out.ok = !!text.trim();
-  out.ms = Date.now() - t0;
-  return out;
+// Rapport ligne par ligne (une ligne JSON par étape, envoyée dès qu'elle est prête), avec des délais
+// maximaux : il arrive toujours au bout. Ne contient aucun secret, seulement leur présence et leur format.
+function diagnose() {
+  let closed = false;
+  return new Response(new ReadableStream({
+    async start(c) {
+      const write = (s: string) => { if (!closed) try { c.enqueue(enc.encode(s)); } catch { closed = true; } };
+      const line = (o: unknown) => write(JSON.stringify(o) + "\n");
+      const ping = setInterval(() => write("\n"), 5000);
+      const t0 = Date.now();
+      let ok = false;
+      try {
+        const keys = serverKeys(), k = keys[0]?.key || "";
+        line({
+          step: "configuration", version: VERSION,
+          gemini_key: { present: !!KEY, length: KEY.length, prefix: KEY.slice(0, 3) },
+          server_key: { sources: keys.map(x => x.source), format: k.startsWith("sb_secret_") ? "sb_secret" : k.startsWith("eyJ") ? "jwt" : k ? "autre" : "absente" },
+          supabase_url: SB ? "présente" : "ABSENTE", models: MODELS, daily_limit: LIMIT,
+        });
+        try {
+          const r = await rpc("gt_ai_take", { p_token: "diagnostic", p_limit: LIMIT });
+          line({ step: "compteur", result: `HTTP ${r.status} ${clip(await r.text(), 160)}` });
+        } catch (e) { line({ step: "compteur", error: clip((e as Error).message) }); }
+        try {
+          const s = Date.now();
+          const r = await fetch(`${GEMINI}/models?pageSize=1000`, { headers: { "x-goog-api-key": KEY }, signal: AbortSignal.timeout(20_000) });
+          const t = await r.text();
+          if (r.ok) {
+            // deno-lint-ignore no-explicit-any
+            const all: any[] = JSON.parse(t).models || [];
+            line({ step: "modèles disponibles", ms: Date.now() - s, models: all.filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+              .map(m => String(m.name).replace("models/", "")).filter(n => /flash|pro|gemma/i.test(n)) });
+          } else line({ step: "modèles disponibles", error: `HTTP ${r.status} ${clip(t, 300)}` });
+        } catch (e) { line({ step: "modèles disponibles", error: clip((e as Error).message) }); }
+        // Le vrai chemin du chat : flux + recherche Google, avec une question type
+        const s = Date.now(), run = newRun();
+        let text = "", chunks = 0;
+        try {
+          for await (const t of converse("Athlète : Alex, 80 kg, objectif force. Développé couché : record 100 kg × 3.",
+            [{ role: "user", content: "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?" }], true, run, 70_000)) { text += t; chunks++; }
+        } catch (e) { run.err = `erreur interne : ${clip((e as Error).message)}`; }
+        ok = !!text.trim();
+        line({ step: "chat (flux + recherche)", answered: ok, model: run.model, version: run.version, first_text_ms: run.ttft, ms: Date.now() - s, chunks, chars: text.length, sources: run.sources.size, tries: run.tries, ...(ok ? { sample: clip(text, 200) } : { error: run.err }) });
+        // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun
+        const tests = await Promise.all(MODELS.map(async model => {
+          const s = Date.now();
+          try {
+            const r = await gemini(model, requestBody(model, false, "Test technique.", [{ role: "user", content: "Réponds seulement : OK" }]), false, AbortSignal.timeout(35_000));
+            const t = await r.text();
+            let reply = "", version = "";
+            try { const j = JSON.parse(t); reply = chunkInfo(j).text; version = j.modelVersion || ""; } catch { /* corps non JSON */ }
+            return { step: `essai ${model}`, status: r.status, ms: Date.now() - s, ...(r.ok ? { version, reply: clip(reply, 60) } : { error: clip(t, 300) }) };
+          } catch (e) {
+            return { step: `essai ${model}`, ms: Date.now() - s, error: (e as Error).name === "TimeoutError" ? "pas de réponse en 35 s" : clip((e as Error).message) };
+          }
+        }));
+        tests.forEach(line);
+      } catch (e) { line({ step: "erreur interne", error: clip((e as Error).message) }); }
+      clearInterval(ping);
+      line({ ok, ms: Date.now() - t0 });
+      if (!closed) { closed = true; c.close(); }
+    },
+    cancel() { closed = true; },
+  }), { headers: { ...CORS, "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" } });
 }
 
 Deno.serve(async req => {
@@ -292,7 +331,7 @@ Deno.serve(async req => {
   }
   if (req.method !== "POST") return new Response("POST seulement", { status: 405, headers: CORS });
   const diag = env("DIAG_TOKEN");
-  if (diag.length >= 16 && req.headers.get("x-diag-token") === diag) return json(await diagnose());
+  if (diag.length >= 16 && req.headers.get("x-diag-token") === diag) return diagnose();
 
   let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean };
   try { input = await req.json(); } catch { return reply([{ error: "BAD_REQUEST", detail: "JSON invalide" }]); }
