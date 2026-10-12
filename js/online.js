@@ -22,11 +22,16 @@ export class OnlineError extends Error {
   constructor(code, detail = "") { super(MESSAGES[code] || MESSAGES.DOWN); this.code = code; this.detail = String(detail || "").slice(0, 220); }
 }
 
-// Envoie la conversation et renvoie { text, sources, remaining } ; onDelta(texte complet) pendant le flux.
-export async function onlineChat({ system, messages, search = true, onDelta, signal, timeoutMs = 45000 }) {
+// Envoie la conversation et renvoie { text, sources, remaining, cut } ; onDelta(texte complet) pendant le flux.
+// waitMs : silence maximal du serveur (il envoie un signe de vie toutes les 8 s pendant que Gemini réfléchit),
+// si bien qu'une longue réponse n'est jamais coupée tant qu'elle arrive.
+export async function onlineChat({ system, messages, search = true, onDelta, signal, waitMs = 40000 }) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let timer = 0;
+  const arm = () => { clearTimeout(timer); timer = setTimeout(() => ctrl.abort(), waitMs); };
+  arm();
   signal?.addEventListener("abort", () => ctrl.abort());
+  const silent = () => `pas de réponse du serveur pendant ${Math.round(waitMs / 1000)} s`;
   let res;
   try {
     res = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/${AI_FUNCTION}`, {
@@ -43,25 +48,39 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
     clearTimeout(timer);
     downUntil = Date.now() + 60e3;
     // « Failed to fetch » : réseau coupé, ou le serveur a refusé la vérification préalable (CORS)
-    throw new OnlineError("DOWN", ctrl.signal.aborted ? `pas de réponse après ${Math.round(timeoutMs / 1000)} s` : `réseau ou CORS : ${e?.message || e}`);
+    throw new OnlineError("DOWN", ctrl.signal.aborted ? silent() : `réseau ou CORS : ${e?.message || e}`);
   }
-  if (res.status === 404) { clearTimeout(timer); downUntil = Date.now() + 30 * 60e3; throw new OnlineError("NOT_DEPLOYED", `HTTP 404 ${(await res.text().catch(() => "")).slice(0, 120)}`); }
-  if (!res.ok || !res.body) { clearTimeout(timer); downUntil = Date.now() + 2 * 60e3; throw new OnlineError("DOWN", `HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 160)}`); }
+  const fail = async (code, minutes, detail) => {
+    clearTimeout(timer);
+    downUntil = Date.now() + minutes * 60e3;
+    throw new OnlineError(code, detail);
+  };
+  if (res.status === 404) await fail("NOT_DEPLOYED", 30, `HTTP 404 ${(await res.text().catch(() => "")).slice(0, 120)}`);
+  if (!res.ok || !res.body) await fail("DOWN", 2, `HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 160)}`);
+  // Une réponse qui n'est pas un flux : ce n'est pas la fonction de GREATNESS (ex. le code d'exemple de Supabase)
+  if (!/event-stream/i.test(res.headers.get("content-type") || "")) {
+    const body = (await res.text().catch(() => "")).slice(0, 300);
+    await fail("DOWN", 30, /@supabase\/server|MISSING_CREDENTIALS|Hello/i.test(body)
+      ? "la fonction installée sur Supabase est le code d'exemple, pas celle de GREATNESS"
+      : `réponse inattendue du serveur : ${body.slice(0, 140)}`);
+  }
 
   const reader = res.body.getReader(), dec = new TextDecoder();
-  let buf = "", text = "", end = null;
+  let buf = "", text = "", end = null, cut = false;
   try {
-    for (;;) {
+    read: for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
+      arm();
       buf += dec.decode(value, { stream: true });
       let i;
       while ((i = buf.indexOf("\n\n")) >= 0) {
         const line = buf.slice(0, i).trim(); buf = buf.slice(i + 2);
-        if (!line.startsWith("data:")) continue;
+        if (!line.startsWith("data:")) continue; // signe de vie (« : ping »)
         let ev;
         try { ev = JSON.parse(line.slice(5)); } catch { continue; }
         if (ev.error) {
+          if (text.trim()) { cut = true; break read; } // on garde le début de la réponse
           if (ev.error === "NO_KEY" || ev.error === "DOWN") downUntil = Date.now() + (ev.error === "NO_KEY" ? 30 : 2) * 60e3;
           throw new OnlineError(ev.error, ev.detail || `erreur du serveur : ${ev.error}`);
         }
@@ -71,11 +90,13 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
     }
   } catch (e) {
     if (e instanceof OnlineError) throw e;
-    throw new OnlineError("DOWN", `flux interrompu : ${e?.message || e}`);
+    if (!text.trim()) throw new OnlineError("DOWN", ctrl.signal.aborted ? silent() : `flux interrompu : ${e?.message || e}`);
+    cut = true;
   } finally {
     clearTimeout(timer);
+    reader.cancel().catch(() => {});
   }
   if (!text.trim()) throw new OnlineError("DOWN", "réponse vide" + (end?.blocked ? " (bloquée par le filtre de sécurité de Google)" : ""));
   if (end?.remaining != null) lastRemaining = end.remaining;
-  return { text: text.trim(), sources: end?.sources || [], remaining: end?.remaining ?? null, blocked: !!end?.blocked };
+  return { text: text.trim(), sources: end?.sources || [], remaining: end?.remaining ?? null, blocked: !!end?.blocked, cut: cut || !end || !!end.cut };
 }

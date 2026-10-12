@@ -44,13 +44,19 @@ Pour tester sans attendre : *Edge Functions → reminders → Test* doit répond
 
 ## 2 quater. Brancher l'IA en ligne du coach (Gemini, gratuit)
 
-Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recherche Google), en s'appuyant sur tout le compte : profil, objectif, séances, records, mensurations, notes. La clé reste cachée sur le serveur ; chaque compte a une limite de messages par jour (80 par défaut) pour rester dans le quota gratuit. Si l'IA en ligne ne répond pas, le coach repasse tout seul en mode simple.
+Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recherche Google), en s'appuyant sur tout le compte : profil, objectif, séances, records, mensurations, notes. La clé reste cachée sur le serveur ; chaque compte a une limite de messages par jour (80 par défaut) pour rester dans le quota gratuit. Si l'IA en ligne ne répond pas, le coach repasse tout seul en mode simple et affiche la cause en bas de sa réponse.
 
-1. **Clé gratuite** : va sur [aistudio.google.com](https://aistudio.google.com), connecte-toi avec un compte Google → **Get API key** → **Create API key**. Copie la clé (elle commence souvent par `AIza`).
-2. **SQL Editor** → New query → colle tout le contenu de [`supabase/004_ai.sql`](supabase/004_ai.sql) → **Run**.
-3. **Edge Functions** → *Deploy a new function* → *Via Editor*. Nom : `coach` (attention : l'adresse de la fonction peut garder une majuscule, par exemple `…/functions/v1/Coach` ; si c'est le cas, change `AI_FUNCTION` dans `js/config.js` pour que ça corresponde exactement). Remplace le code par celui de [`supabase/functions/coach/index.ts`](supabase/functions/coach/index.ts) → **Deploy**. Puis dans les *Details* de la fonction, **désactive « Verify JWT »** et enregistre (la fonction vérifie elle-même le compte avec le jeton de connexion).
-4. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Facultatif : `AI_DAILY_LIMIT` (messages par jour et par compte, 80 par défaut) et `GEMINI_MODELS` (par défaut `gemini-flash-latest,gemini-flash-lite-latest` : le dernier Flash de Google, et Flash-Lite en secours quand le quota est épuisé).
-5. Dans l'app, onglet **Coach** : l'en-tête indique « IA en ligne » et le nombre de messages restants.
+1. **Clé gratuite** : va sur [aistudio.google.com](https://aistudio.google.com), connecte-toi avec un compte Google → **Get API key** → **Create API key**. Copie la clé.
+2. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Facultatif : `AI_DAILY_LIMIT` (messages par jour et par compte, 80 par défaut) et `GEMINI_MODELS` (par défaut `gemini-flash-latest,gemini-flash-lite-latest,gemma-3-27b-it` : le dernier Flash de Google, puis Flash-Lite et Gemma en secours quand le quota gratuit du précédent est épuisé).
+3. **Déploiement automatique** (une seule fois, ensuite tout est fait par GitHub) :
+   1. Sur [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) → **Generate new token** → nom `github` → copie le jeton (il commence par `sbp_`).
+   2. Sur GitHub, dans le dépôt : **Settings → Secrets and variables → Actions → New repository secret**. Nom : `SUPABASE_ACCESS_TOKEN`, valeur : le jeton → **Add secret**.
+   3. Onglet **Actions → Supabase (IA en ligne) → Run workflow**. GitHub installe les tables (scripts SQL, relançables sans risque), déploie la fonction `coach` (sans « Verify JWT » : elle vérifie elle-même le compte avec le jeton de connexion), puis teste de bout en bout que Gemini répond. Le rapport s'affiche dans l'étape « Vérifications de bout en bout ».
+   
+   Ensuite, chaque modification du dossier `supabase/` sur `main` est redéployée et retestée automatiquement.
+4. Dans l'app, onglet **Coach** : l'en-tête indique « IA en ligne » et le nombre de messages restants.
+
+> Sans GitHub : SQL Editor → colle [`supabase/004_ai.sql`](supabase/004_ai.sql) → Run ; puis Edge Functions → *Deploy a new function* → *Via Editor*, nom `coach`, remplace **tout** le code d'exemple par celui de [`supabase/functions/coach/index.ts`](supabase/functions/coach/index.ts) → Deploy, et désactive « Verify JWT ». L'adresse doit finir par `/functions/v1/coach` (sensible aux majuscules, voir `AI_FUNCTION` dans `js/config.js`). Ouvre cette adresse dans le navigateur : elle doit afficher « GREATNESS : fonction coach en ligne ».
 
 > Version gratuite : Google limite le nombre de requêtes par minute et par jour, et peut utiliser les échanges pour améliorer ses modèles. Pour plus de quota, active la facturation sur le projet Google (payant à l'usage) — rien à changer dans l'app.
 

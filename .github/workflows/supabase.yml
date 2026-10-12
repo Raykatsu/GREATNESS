@@ -1,0 +1,121 @@
+name: Supabase (IA en ligne)
+
+# Installe la base de données et la fonction « coach » sur Supabase, puis vérifie de bout en bout
+# que Gemini répond. Se lance tout seul quand le dossier supabase/ change sur main, ou à la main
+# (onglet Actions → « Supabase (IA en ligne) » → Run workflow).
+# Prérequis : le secret GitHub SUPABASE_ACCESS_TOKEN (voir SUPABASE.md, « Déploiement automatique »).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_REF: kahzhwslhstsnkcdciyt
+  FUNCTION_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/coach
+  # Clé publique du projet (déjà dans js/config.js), envoyée comme le fait l'app
+  PUBLISHABLE_KEY: sb_publishable_QXGwpXit7dx-N2xEkcx2Zw_3V30TXwU
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Jeton Supabase présent ?
+        id: token
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::warning title=IA en ligne non déployée::Ajoute le secret SUPABASE_ACCESS_TOKEN (voir SUPABASE.md, « Déploiement automatique »)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+
+      - uses: supabase/setup-cli@v1
+        if: steps.token.outputs.ok == 'true'
+        with:
+          version: 2.120.0
+
+      - name: Base de données (scripts SQL relançables)
+        id: sql
+        if: steps.token.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql; do
+            code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+            echo "$f : HTTP $code"
+            if [ "$code" -ge 300 ]; then head -c 600 out.json; echo; echo "::error::$f n'a pas pu être appliqué"; exit 1; fi
+          done
+
+      - name: Secret de diagnostic (temporaire)
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          DIAG=$(openssl rand -hex 24)
+          echo "::add-mask::$DIAG"
+          echo "DIAG=$DIAG" >> "$GITHUB_ENV"
+          supabase secrets set "DIAG_TOKEN=$DIAG" --project-ref "$PROJECT_REF"
+
+      - name: Déploiement de la fonction coach
+        if: steps.token.outputs.ok == 'true'
+        run: supabase functions deploy coach --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Vérifications de bout en bout
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          fail=0
+          # La nouvelle version peut mettre quelques secondes à répondre
+          for i in $(seq 1 20); do
+            body=$(curl -sS --max-time 20 "$FUNCTION_URL" || true)
+            case "$body" in *"fonction coach en ligne"*) break ;; esac
+            sleep 3
+          done
+          echo "GET : $body"
+          case "$body" in *"fonction coach en ligne"*) ;; *) echo "::error::la fonction ne répond pas"; fail=1 ;; esac
+
+          # Vérification préalable du navigateur (CORS)
+          cors=$(curl -sS --max-time 20 -o /dev/null -D - -X OPTIONS "$FUNCTION_URL" \
+            -H "Origin: https://raykatsu.github.io" -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: apikey,content-type" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
+          echo "CORS : $cors"
+          [ -n "$cors" ] || { echo "::error::en-têtes CORS absents"; fail=1; }
+
+          # Un faux jeton doit être refusé proprement (flux SSE de GREATNESS, pas une erreur de la plateforme)
+          bad=$(curl -sS --max-time 30 -X POST "$FUNCTION_URL" -H "apikey: $PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+            -d '{"token":"x","messages":[{"role":"user","content":"test"}]}' || true)
+          echo "Faux jeton : $bad"
+          case "$bad" in *BAD_TOKEN*) ;; *) echo "::error::réponse inattendue au faux jeton"; fail=1 ;; esac
+
+          # Diagnostic complet : clé Gemini, modèles disponibles, compteur, recherche Google, flux
+          curl -sS --max-time 170 -X POST "$FUNCTION_URL" -H "apikey: $PUBLISHABLE_KEY" -H "x-diag-token: $DIAG" \
+            -H "Content-Type: application/json" -d '{}' -o diag.json || true
+          echo "Diagnostic :"
+          jq . diag.json || cat diag.json
+          [ "$(jq -r .ok diag.json 2>/dev/null)" = "true" ] || { echo "::error::Gemini ne répond pas : voir le diagnostic ci-dessus"; fail=1; }
+          exit $fail
+
+      - name: Retrait du secret de diagnostic
+        if: always() && steps.token.outputs.ok == 'true'
+        run: supabase secrets unset DIAG_TOKEN --project-ref "$PROJECT_REF" --yes || true
+
+      - name: Bilan de la base de données
+        if: steps.token.outputs.ok == 'true' && steps.sql.outcome == 'failure'
+        run: |
+          echo "::error::Les scripts SQL n'ont pas pu être appliqués (voir l'étape « Base de données »)."
+          exit 1
