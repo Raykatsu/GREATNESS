@@ -2,7 +2,7 @@
 // (« crée une séance pecs de 45 min », « mets Legs le mercredi », « passe l'app en bleu »…)
 // et les exécute. Fonctionne sans IA ; l'IA locale ou Claude répondent au reste.
 import { EXERCISES, GOALS } from "./data.js";
-import { state, save, allPrograms, getProgram } from "./store.js";
+import { state, save, allPrograms, getProgram, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, generateSession, GROUPS } from "./planner.js";
 import { findExercise } from "./brain.js";
 
@@ -207,6 +207,7 @@ export function runCommand(cmd) {
     case "delete": {
       const prog = state.customPrograms.find(x => x.id === cmd.program);
       state.customPrograms = state.customPrograms.filter(x => x.id !== cmd.program);
+      tombstone("programs", cmd.program);
       Object.keys(state.weekPlan || {}).forEach(k => { if (state.weekPlan[k] === cmd.program) delete state.weekPlan[k]; });
       save();
       return { text: `Séance « ${prog.name} » supprimée.` };

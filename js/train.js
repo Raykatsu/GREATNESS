@@ -2,7 +2,7 @@
 import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
 import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
-import { state, save, allPrograms } from "./store.js";
+import { state, save, allPrograms, tombstone } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
@@ -88,7 +88,7 @@ export function openProgram(program, startLive, refresh) {
     $("#edit-c", sh.el)?.addEventListener("click", () => { sh.close(); location.hash = `#/create?edit=${program.id}`; });
     $("#del-c", sh.el)?.addEventListener("click", async () => {
       if (!(await confirmSheet("Supprimer cette séance ?", "Ton historique est conservé.", "Supprimer", true))) return;
-      state.customPrograms = state.customPrograms.filter(x => x.id !== program.id); save(); sh.close(); refresh?.(); toast("Séance supprimée");
+      state.customPrograms = state.customPrograms.filter(x => x.id !== program.id); tombstone("programs", program.id); save(); sh.close(); refresh?.(); toast("Séance supprimée");
     });
     $("#save-new", sh.el)?.addEventListener("click", () => {
       state.customPrograms.push({ id: "c" + Date.now(), name: program.name + " (perso)", tag: "Version modifiée", accent: program.accent, exercises: structuredClone(work) });

@@ -1,11 +1,12 @@
 // Onglet Créer : l'atelier pour composer, générer, modifier et enregistrer ses séances,
 // et créer ses propres exercices.
 import { EXERCISES, EQUIP, MUSCLES, GOALS } from "./data.js";
-import { state, save, syncCustomExercises } from "./store.js";
+import { state, save, syncCustomExercises, tombstone } from "./store.js";
 import { generateSession, GROUPS, estimateMinutes } from "./planner.js";
 import { pickExercises, openProgram } from "./train.js";
 import { spidey } from "./spidey.js";
 import { shareProgram } from "./social.js";
+import { animSvg, mountAnims } from "./anim.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let tab = "new", draft = null, open = -1;
@@ -63,6 +64,7 @@ function paneNew(pane, view, launch) {
     </div>`;
 
   const redraw = () => paneNew(pane, view, launch);
+  mountAnims(pane);
   // générateur
   $$("[data-g]", pane).forEach(b => b.onclick = () => {
     const k = b.dataset.g;
@@ -147,7 +149,7 @@ function row(e, i) {
     <button class="bex-head" data-i="${i}"><span class="k ${e.ss ? "ss" : ""}">${e.ss || i + 1}</span>
       <div class="grow"><b class="ellipsis">${esc(ex.name)}</b><span class="bex-sum">${summary(e)}</span></div>${open === i ? I.up : I.down}</button>
     ${open === i ? `<div class="bex-body">
-      <div class="xs muted">${esc(ex.muscle)} · ${EQUIP[ex.equip] || ""}${ex.custom ? " · perso" : ""}</div>
+      <div class="row" style="gap:10px">${ex.custom ? "" : animSvg(e.id, "bex-anim")}<div class="xs muted">${esc(ex.muscle)} · ${EQUIP[ex.equip] || ""}${ex.custom ? " · perso" : ""}</div></div>
       <div class="msteps">
         ${st("sets", "Séries", e.sets)}
         ${stR("min", ex.type === "time" ? "Sec. min" : "Reps min", e.reps[0])}
@@ -219,6 +221,7 @@ function paneMine(pane, view, launch) {
     const p = state.customPrograms.find(x => x.id === b.dataset.del);
     if (!(await confirmSheet(`Supprimer « ${p.name} » ?`, "Ton historique de séances est conservé.", "Supprimer", true))) return;
     state.customPrograms = state.customPrograms.filter(x => x.id !== p.id);
+    tombstone("programs", p.id);
     Object.keys(state.weekPlan || {}).forEach(k => { if (state.weekPlan[k] === p.id) delete state.weekPlan[k]; });
     if (draft?.id === p.id) draft = blank();
     save(); renderCreate(view, launch);
@@ -243,6 +246,7 @@ function paneEx(pane, view, launch) {
     const e = state.customExercises[b.dataset.delex];
     if (!(await confirmSheet(`Supprimer « ${e.name} » ?`, "Il sera aussi retiré de tes séances perso.", "Supprimer", true))) return;
     delete state.customExercises[b.dataset.delex];
+    tombstone("exercises", b.dataset.delex);
     state.customPrograms.forEach(p => (p.exercises = p.exercises.filter(x => x.id !== b.dataset.delex)));
     syncCustomExercises(); save(); renderCreate(view, launch);
   });

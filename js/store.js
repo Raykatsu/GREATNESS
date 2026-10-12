@@ -19,6 +19,7 @@ const DEFAULT = {
   body: [],           // [{ date, weight, waist, chest, arm, thigh }]
   badges: {},         // { badgeId: date }
   cycleStart: null,   // début du cycle d'entraînement (pour les semaines allégées)
+  deleted: { sessions: [], programs: [], exercises: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
@@ -56,6 +57,13 @@ export function clearUser() {
 }
 
 export const setSaveHook = fn => (onSave = fn);
+
+// Mémorise une suppression (séance, séance perso, exercice perso) pour la synchronisation.
+export function tombstone(kind, id) {
+  state.deleted ||= { sessions: [], programs: [], exercises: [] };
+  (state.deleted[kind] ||= []).push(id);
+  if (state.deleted[kind].length > 500) state.deleted[kind].splice(0, state.deleted[kind].length - 500);
+}
 
 export function save({ silent = false } = {}) {
   if (!currentUser) return;
@@ -163,6 +171,16 @@ export function lastPerformance(exId) {
 export const exName = id => EXERCISES[id]?.name || id;
 
 // Résumé public visible par les amis (rien d'autre n'est partagé).
+// Ce que le serveur de rappels doit savoir : heure, avance et séances prévues (jour 0 = lundi).
+export function reminderPlan() {
+  const days = {};
+  for (const [d, id] of Object.entries(state.weekPlan || {})) {
+    const p = id && id !== "mobility" ? getProgram(id) : null;
+    if (p) days[d] = p.name;
+  }
+  return { at: state.profile.remindAt || "18:00", before: state.profile.remindBefore ?? 15, days };
+}
+
 export function publicSummary() {
   const w = weekStats(), r = rankInfo();
   const ws = weekStart().getTime();
