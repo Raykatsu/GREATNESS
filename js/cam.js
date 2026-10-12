@@ -31,7 +31,7 @@ export function openCam(ex, { onDone, voice = true } = {}) {
     <div class="cam-top"><button class="icon-btn" data-x aria-label="Fermer">${I.x}</button>
       <div class="cam-title"><b>${esc(ex.name)}</b><small>${esc(pat.name)} · place-toi de profil, tout le corps visible</small></div>
       <button class="icon-btn" data-flip aria-label="Changer de caméra">${I.refresh}</button></div>
-    <div class="cam-count"><span id="cam-n">0</span><small id="cam-msg">Chargement de la détection…</small></div>
+    <div class="cam-count" aria-live="polite"><span id="cam-n">0</span><small id="cam-msg">Chargement de la détection…</small></div>
     <div class="cam-bottom"><button class="btn btn-soft" data-reset>${I.undo} Remettre à 0</button>
       <button class="btn btn-primary" data-use>${I.check} Garder ce compte</button></div>`;
   document.body.appendChild(wrap);
@@ -41,7 +41,10 @@ export function openCam(ex, { onDone, voice = true } = {}) {
 
   const stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); stream = null; };
   const close = () => { if (closed) return; closed = true; stop(); wrap.remove(); };
-  const setN = () => { $("#cam-n", wrap).textContent = counter.count; };
+  const setN = () => {
+    const n = $("#cam-n", wrap); n.textContent = counter.count;
+    if (counter.count) n.animate?.([{ transform: "scale(1.25)" }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(.2,.9,.3,1.2)" });
+  };
 
   async function startCam() {
     stop();
@@ -62,7 +65,7 @@ export function openCam(ex, { onDone, voice = true } = {}) {
   function loop() {
     if (closed || !stream) return;
     if (video.readyState >= 2) {
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
       const res = landmarker.detectForVideo(video, performance.now());
       g.clearRect(0, 0, canvas.width, canvas.height);
       const lm = res.landmarks?.[0];
