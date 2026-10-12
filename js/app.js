@@ -18,6 +18,8 @@ import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
 import { animSvg, mountAnims } from "./anim.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
+import { coachName } from "./chars/index.js";
+import { coachCard, coachGallery } from "./coach-picker.js";
 
 const view = $("#view");
 let current = "home";
@@ -50,25 +52,26 @@ addEventListener("hashchange", route);
 
 const launch = (program, readiness) => startLive(program, readiness, route);
 launch.warmup = (id, program, readiness) => startWithWarmup(id, program, readiness, route);
-// Visite guidée : Spider-Man présente chaque onglet.
-const TOUR = [
-  ["home", "Ici, l'Accueil : ta mission du jour, ta semaine et tes stats. Touche un jour pour changer sa séance."],
+// Visite guidée : le coach choisi présente chaque onglet.
+const TOUR = () => [
+  ["home", `Salut, c'est ${coachName()} ! Ici, l'Accueil : ta mission du jour, ta semaine et tes stats. Touche un jour pour changer sa séance.`],
   ["train", "Séances : 40 programmes prêts, de la mobilité, des étirements et des séances anti-douleur, plus la séance libre où tu choisis tes exercices au fur et à mesure."],
   ["create", "Créer : compose tes propres séances, génère-en une en 2 touches, fais des superséries."],
-  ["coach", "Coach, c'est moi ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi."],
-  ["me", "Moi : tes progrès, tes amis et tes réglages. Allez, à toi de jouer !"],
+  ["coach", `Coach, c'est moi, ${coachName()} ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi.`],
+  ["me", "Moi : tes progrès, tes amis et tes réglages. C'est aussi là que tu peux changer de coach. Allez, à toi de jouer !"],
 ];
 export function startTour(i = 0) {
+  const T = TOUR();
   $$(".tabbar a").forEach(a => a.classList.remove("tour-focus"));
-  spidey.quiet = i < TOUR.length;
-  if (i >= TOUR.length || !state.profile.mascot) {
+  spidey.quiet = i < T.length;
+  if (i >= T.length || !state.profile.mascot) {
     spidey.quiet = false;
     state.profile.toured = true; save();
     return;
   }
-  const [tab, text] = TOUR[i];
+  const [tab, text] = T[i];
   $(`.tabbar a[data-tab="${tab}"]`)?.classList.add("tour-focus");
-  spidey.say(`${text}`, { ms: 60000, action: { label: i < TOUR.length - 1 ? `Suivant (${i + 1}/${TOUR.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
+  spidey.say(`${text}`, { ms: 60000, action: { label: i < T.length - 1 ? `Suivant (${i + 1}/${T.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
 }
 
 // Séance interrompue (app fermée) : on propose de la reprendre dès le déverrouillage.
@@ -393,6 +396,7 @@ function profile() {
   view.innerHTML = `
     <div class="eyebrow">Moi</div><h1 class="h1">${esc(p.name)}</h1>
     ${progressSeg("settings")}
+    <div id="coach-card" class="mt"></div>
     <div class="card rank mt">${ring(r.pct, r.level, 58)}<div><div class="eyebrow">Rang</div><div class="h3">${r.rank.name}</div><div class="xs muted">${r.xp} XP</div></div></div>
 
     <div class="section"><h2>Objectif</h2></div>
@@ -472,6 +476,7 @@ function profile() {
     <p class="center xs dim">GREATNESS · ton sympathique coach de quartier</p>`;
   animateRings(view);
   bindProgressSeg();
+  coachCard($("#coach-card"), { open: params.coach === "1" });
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
 
   $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); spidey.react("happy"); });
@@ -574,7 +579,7 @@ function onboarding(step = 1) {
   if (step === 1 && !draft.name) draft.name = state.profile.name || "";
   document.body.classList.add("hide-tabs");
   const p = state.profile;
-  const steps = `<div class="steps">${[1, 2, 3].map(i => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>`;
+  const steps = `<div class="steps">${[1, 2, 3, 4].map(i => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>`;
   view.className = "view";
   void view.offsetWidth;
   view.className = "view enter";
@@ -582,7 +587,7 @@ function onboarding(step = 1) {
     view.innerHTML = `<div class="onb">${steps}
       <div class="logo" style="justify-content:center">${spider()}GREATNESS</div>
       <h1 class="h1 center mt">Ton coach t'attend.</h1>
-      <p class="muted center">Spider-Man pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p>
+      <p class="muted center">Ton coach pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p>
       <label class="field mt-l"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
       <button class="btn btn-primary btn-lg btn-block mt" id="next">Continuer</button></div>`;
     setTimeout(() => spidey.say("Salut ! Je suis ton nouveau coach. On fait connaissance ?", { mood: "happy" }), 1200);
@@ -590,14 +595,23 @@ function onboarding(step = 1) {
     $("#name").onkeydown = e => { if (e.key === "Enter") $("#next").click(); };
   } else if (step === 2) {
     view.innerHTML = `<div class="onb">${steps}
+      <h1 class="h1">Choisis ton coach</h1>
+      <p class="muted">Il t'accompagne à chaque séance et se déplace à sa façon. Tu pourras en changer quand tu veux dans Réglages.</p>
+      <div id="onb-coach" class="mt"></div>
+      <div class="grid2 mt"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
+    coachGallery($("#onb-coach"), { compact: true });
+    $("#prev").onclick = () => onboarding(1);
+    $("#next").onclick = () => onboarding(3);
+  } else if (step === 3) {
+    view.innerHTML = `<div class="onb">${steps}
       <h1 class="h1">Ton objectif, ${esc(draft.name)} ?</h1>
       <p class="muted">J'adapte les répétitions, les repos et le programme.</p>
       <div class="opts mt">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${draft.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${{ force: "Soulever plus lourd", muscle: "Prendre du volume", seche: "Perdre du gras", forme: "Être en forme" }[k]}</span></button>`).join("")}</div>
       <label class="field"><span>Poids de corps (kg)</span><input class="input" id="bw" type="number" inputmode="decimal" value="${draft.bodyweight}"/></label>
       <div class="grid2 mt"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
     $$("[data-goal]").forEach(b => b.onclick = () => { draft.goal = b.dataset.goal; $$("[data-goal]").forEach(x => x.classList.toggle("on", x === b)); });
-    $("#prev").onclick = () => onboarding(1);
-    $("#next").onclick = () => { draft.bodyweight = +$("#bw").value || 75; onboarding(3); };
+    $("#prev").onclick = () => onboarding(2);
+    $("#next").onclick = () => { draft.bodyweight = +$("#bw").value || 75; onboarding(4); };
   } else {
     view.innerHTML = `<div class="onb">${steps}
       <h1 class="h1">Ton rythme</h1>
@@ -609,7 +623,7 @@ function onboarding(step = 1) {
       <div class="grid2 mt-l"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="done">C'est parti</button></div></div>`;
     $$("#days button").forEach(b => b.onclick = () => { draft.days = +b.dataset.v; $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
     $$("#equip .opt").forEach(b => b.onclick = () => { draft.equipment = b.dataset.v; $$("#equip .opt").forEach(x => x.classList.toggle("on", x === b)); });
-    $("#prev").onclick = () => onboarding(2);
+    $("#prev").onclick = () => onboarding(3);
     $("#done").onclick = () => {
       Object.assign(p, draft, { onboarded: true });
       state.weekPlan = generateWeekPlan();

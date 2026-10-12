@@ -5,6 +5,7 @@ import { getProgram, allPrograms } from "./store.js";
 import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } from "./store.js";
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
+import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -51,7 +52,7 @@ function exerciseAdvice(id) {
 
 const INTENTS = [
   { re: /(\bmal\b|douleur|blesse|tendin|genou|epaule qui|dos qui)/, fn: () =>
-    "Si ça fait mal, on arrête l'exercice qui déclenche la douleur : même Spider-Man ne s'entraîne pas blessé.\n• Douleur vive, gonflement ou qui dure plus de quelques jours → kiné ou médecin.\n• Sinon : 48 h de repos sur la zone, puis reprise légère sans douleur.\n• En séance, coche « Douleur » : j'arrête l'exercice et je te propose une alternative.\n• Pour les raideurs : Séances → **Soulager** (dos, nuque, épaules, genoux, hanches, poignets), des séances douces à faire sans douleur. Dis-moi par exemple « lance mal de dos »." },
+    `Si ça fait mal, on arrête l'exercice qui déclenche la douleur : même ${coachName()} ne s'entraîne pas blessé.\n• Douleur vive, gonflement ou qui dure plus de quelques jours → kiné ou médecin.\n• Sinon : 48 h de repos sur la zone, puis reprise légère sans douleur.\n• En séance, coche « Douleur » : j'arrête l'exercice et je te propose une alternative.\n• Pour les raideurs : Séances → **Soulager** (dos, nuque, épaules, genoux, hanches, poignets), des séances douces à faire sans douleur. Dis-moi par exemple « lance mal de dos ».` },
   { re: /(proteine|manger|nutrition|repas|aliment|regime|calorie)/, fn: () => {
     const bw = state.profile.bodyweight, g = state.profile.goal;
     const p = Math.round(bw * (g === "seche" ? 2 : 1.8));
@@ -90,13 +91,13 @@ const INTENTS = [
     return `Aujourd'hui : ${m.rest ? "récupération active (Mobilité)" : m.program.name}${m.doneToday ? " (déjà faite, bravo)" : ""}.\nTon programme de la semaine est sur l'Accueil : touche un jour pour changer sa séance, ou régénère-le dans Profil selon ton objectif et tes jours dispo.`; },
     actions: [{ label: "Voir mon programme", route: "#/" }] },
   { re: /(motiv|flemme|envie|pas le courage|demotiv)/, fn: () => pick([
-    "Un grand pouvoir implique de grandes responsabilités, et ta seule responsabilité aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit.",
+    coach().id === "spider" ? "Un grand pouvoir implique de grandes responsabilités, et ta seule responsabilité aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit." : "Ta seule mission aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit.",
     "Même les jours sans, une séance courte vaut mieux que zéro. Prends « Abdos & gainage » (20 min) et je m'occupe du reste.",
     `Tu as déjà ${state.sessions.length} séance(s) au compteur. Le toi de dans 3 mois te remerciera pour celle-là.`]) },
   { re: /(debut|commence|novice|premiere fois)/, fn: () =>
     "Bienvenue ! Pour bien démarrer :\n• 3 séances par semaine (Full body A/B ou Push/Pull/Legs).\n• Charges légères les 2 premières semaines : la technique d'abord.\n• Note honnêtement ton ressenti après chaque série, je m'occupe d'ajuster.\n• La régularité compte plus que l'intensité." },
-  { re: /(bonjour|salut|hello|coucou|\byo\b)/, fn: () => `Salut ${state.profile.name || "héros"} ! Prêt à grimper aux murs ? Demande-moi ce que tu veux : technique, nutrition, programme, bilan…` },
-  { re: /(merci|top|genial|cool)/, fn: () => pick(["Avec plaisir. Ton sympathique coach de quartier.", "Toujours là pour toi. Allez, au boulot !"]) },
+  { re: /(bonjour|salut|hello|coucou|\byo\b)/, fn: () => `Salut ${state.profile.name || "héros"} ! ${coach().id === "spider" ? "Prêt à grimper aux murs ?" : `Ici ${coachName()}, ton coach.`} Demande-moi ce que tu veux : technique, nutrition, programme, bilan…` },
+  { re: /(merci|top|genial|cool)/, fn: () => pick([coach().id === "spider" ? "Avec plaisir. Ton sympathique coach de quartier." : `Avec plaisir. ${coachName()}, toujours dans ton coin.`, "Toujours là pour toi. Allez, au boulot !"]) },
 ];
 
 export function answer(q) {
@@ -152,11 +153,13 @@ export function idleTip(route) {
 }
 
 /* ---------- Contexte pour l'IA locale ---------- */
-const SYSTEM = `Tu es Spider-Man, le coach sportif de l'app GREATNESS : drôle, bienveillant, « ton sympathique coach de quartier ».
+// La personnalité suit le coach choisi (Spider-Man par défaut).
+const system = () => `Tu es ${coachName()}, le coach sportif de l'app GREATNESS. Ta personnalité : ${coachPersona() || "drôle, bienveillant et motivant"}
+Garde ta voix de personnage, mais reste toujours un coach sérieux, juste et bienveillant.
 Tu tutoies et tu réponds toujours en français, de façon claire, juste et utile.
 Tu peux répondre à toutes les questions : entraînement, technique, programmes, nutrition, sommeil, récupération, motivation, et aussi n'importe quel autre sujet de la vie courante.
 Pour tout ce qui touche au sport, appuie-toi sur les données réelles de l'athlète ci-dessous et cite ses chiffres quand c'est utile.
-Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée. Une petite touche Spider-Man de temps en temps, sans en abuser. Mets en **gras** les points clés.
+Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée. Une petite touche de ton personnage (${coachName()}) de temps en temps, sans en abuser. Mets en **gras** les points clés.
 Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.
 L'app exécute automatiquement certaines demandes : créer une séance, modifier le programme de la semaine, l'objectif, la couleur de l'app, le mode clair, la taille du texte, la voix… Si l'utilisateur veut une modification de ce genre, donne-lui la phrase exacte à envoyer, par exemple : « Crée une séance dos de 45 min », « Mets Legs le mercredi », « Passe l'app en bleu », « Mode clair », « Agrandis le texte ».`;
 
@@ -188,7 +191,7 @@ export function llmMessages(history, question) {
   const local = answer(question);
   const notes = local.matched ? `\n\nNotes fiables du coach sur cette question (à utiliser, reformuler et compléter) :\n${local.text}` : "";
   return [
-    { role: "system", content: `${SYSTEM}\n\n### Données de l'athlète\n${athleteContext()}${notes}` },
+    { role: "system", content: `${system()}\n\n### Données de l'athlète\n${athleteContext()}${notes}` },
     ...history.slice(-6).map(m => ({ role: m.role, content: m.content.slice(0, 900) })), // tient dans la mémoire courte des petits modèles
     { role: "user", content: question },
   ];
