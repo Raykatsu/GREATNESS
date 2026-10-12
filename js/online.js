@@ -1,7 +1,7 @@
 // IA en ligne (Gemini, via la fonction Supabase « coach ») : bien plus intelligente que l'IA
 // du téléphone, avec la recherche Google. La clé reste sur le serveur ; l'app envoie seulement
 // la question, la conversation récente et les données du compte (profil, séances, records…).
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, AI_FUNCTION } from "./config.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 
 let downUntil = 0, lastRemaining = null;
@@ -28,7 +28,7 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
   signal?.addEventListener("abort", () => ctrl.abort());
   let res;
   try {
-    res = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/coach`, {
+    res = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/${AI_FUNCTION}`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_ANON_KEY,
