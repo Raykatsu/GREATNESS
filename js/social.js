@@ -27,11 +27,27 @@ const BOARDS = [
 ];
 let board = "volume", cache = null;
 
-const avatar = n => `<div class="avatar">${esc((n || "?").charAt(0).toUpperCase())}</div>`;
+const avatar = (n, cls = "") => `<div class="avatar ${cls}">${esc((n || "?").charAt(0).toUpperCase())}</div>`;
+const daysLeft = () => Math.max(1, Math.ceil((weekStart().getTime() + 7 * 864e5 - Date.now()) / 864e5));
+
+// Carte du défi de la semaine (avec ou sans amis)
+function challengeCard(people) {
+  const ch = weeklyChallenge(), left = daysLeft();
+  return `<div class="card card-hero ch-card">
+    <div class="ch-head"><span class="ch-ic">${I.trophy}</span><div class="grow"><b class="h3">${esc(ch.name)}</b></div>
+      <span class="chip">${left === 1 ? "Dernier jour" : `${left} jours`}</span></div>
+    ${people.map(f => { const v = ch.val(f.p), pct = Math.min(1, v / ch.goal); return `<div class="ch-row ${f.status === "me" ? "me" : ""} ${pct >= 1 ? "done" : ""}"><span class="ellipsis">${esc(f.status === "me" ? "Toi" : f.p.name || f.username)}</span>
+      <div class="bar"><i style="width:${Math.max(pct ? 4 : 0, pct * 100)}%"></i></div><span class="tnum">${pct >= 1 ? I.check : `${fmtNum(v)}<small>/${fmtNum(ch.goal)}</small>`}</span></div>`; }).join("")}
+  </div>`;
+}
 
 export async function renderFriends(box) {
   if (!isOnlineMode()) {
-    box.innerHTML = `<div class="card empty mt">Les amis et le classement nécessitent les comptes en ligne (Supabase).</div>`;
+    const me = { username: currentUser, status: "me", p: fresh(publicSummary()) };
+    box.innerHTML = `<div class="section"><h2>Défi de la semaine</h2></div>${challengeCard([me])}
+      <div class="card empty mt">${I.heart}<b>Entraîne-toi entre amis</b>Le classement et les défis entre amis demandent les comptes en ligne. En attendant, invite tes amis à installer l'app.</div>
+      <button class="btn btn-soft btn-block mt-s" id="invite">${I.send} Inviter un ami</button>`;
+    $("#invite", box).onclick = () => invite();
     return;
   }
   const me = { username: currentUser, status: "me", public: publicSummary() };
@@ -40,34 +56,35 @@ export async function renderFriends(box) {
     const incoming = list.filter(f => f.status === "incoming");
     const outgoing = list.filter(f => f.status === "outgoing");
     state.friendsCount = friends.length;
-    const ch = weeklyChallenge();
     const people = [me, ...friends].map(f => ({ ...f, p: fresh(f.public || {}) })).filter(f => f.p.week);
     const B = BOARDS.find(b => b.id === board);
     const ranked = people.slice().sort((a, b) => B.val(b.p) - B.val(a.p));
+    const who = f => (f.status === "me" ? "Toi" : f.p.name || f.username);
+    const podium = ranked.length >= 3 ? ranked.slice(0, 3) : [];
+    const rest = podium.length ? ranked.slice(3) : ranked;
     box.innerHTML = `
-      ${error ? `<div class="card mt" style="border-color:rgba(245,184,61,.4)"><b>Connexion impossible</b><p class="small muted" style="margin:4px 0 0">${esc(error)}</p></div>` : ""}
-      <form class="row mt" id="add" style="gap:8px"><input class="input grow" id="add-u" placeholder="Pseudo d'un ami" autocapitalize="none" spellcheck="false"/><button class="btn btn-primary" style="min-height:50px">${I.plus}</button></form>
-      <button class="btn btn-ghost btn-sm btn-block mt-s" id="invite">${I.send} Inviter un ami (mon pseudo : @${esc(currentUser)})</button>
+      ${error ? `<div class="card fr-warn mt">${I.alert}<div><b>Connexion impossible</b><p class="small muted">${esc(error)}</p></div></div>` : ""}
+      <form class="fr-add mt" id="add"><span aria-hidden="true">@</span><input class="input" id="add-u" placeholder="pseudo d'un ami" autocapitalize="none" autocomplete="off" spellcheck="false" aria-label="Pseudo d'un ami"/><button class="btn btn-primary" aria-label="Ajouter">${I.plus}</button></form>
+      <button class="fr-invite" id="invite">${I.send}<span>Inviter un ami · ton pseudo <b>@${esc(currentUser)}</b></span></button>
 
-      ${incoming.length ? `<div class="section"><h2>Demandes reçues</h2></div><div class="card" style="padding:4px 16px">${incoming.map(f => `
-        <div class="friend-row">${avatar(f.public?.name || f.username)}<div class="grow"><b>${esc(f.public?.name || f.username)}</b><span>@${esc(f.username)}</span></div>
+      ${incoming.length ? `<div class="section"><h2>Demandes reçues</h2><span class="chip red">${incoming.length}</span></div><div class="card card-list">${incoming.map(f => `
+        <div class="friend-row">${avatar(f.public?.name || f.username)}<div class="grow"><b class="ellipsis">${esc(f.public?.name || f.username)}</b><span class="ellipsis">@${esc(f.username)}</span></div>
           <button class="btn btn-primary btn-sm" data-acc="${esc(f.username)}">Accepter</button><button class="icon-btn" data-ref="${esc(f.username)}" aria-label="Refuser">${I.x}</button></div>`).join("")}</div>` : ""}
 
       <div class="section"><h2>Défi de la semaine</h2></div>
-      <div class="card card-hero"><b class="h3">${esc(ch.name)}</b>
-        ${people.map(f => { const v = ch.val(f.p), pct = Math.min(1, v / ch.goal); return `<div class="ch-row ${f.status === "me" ? "me" : ""}"><span class="ellipsis">${esc(f.status === "me" ? "Toi" : f.p.name || f.username)}</span>
-          <div class="bar"><i style="width:${pct * 100}%"></i></div><span class="xs ${pct >= 1 ? "" : "muted"}">${pct >= 1 ? "✓" : `${fmtNum(v)}/${fmtNum(ch.goal)}`}</span></div>`; }).join("")}
-        ${friends.length ? "" : `<p class="xs muted mt-s" style="margin-bottom:0">Ajoute des amis pour vous défier.</p>`}
-      </div>
+      ${challengeCard(people)}
+      ${friends.length ? "" : `<p class="xs muted mt-s" style="margin-left:4px">Ajoute des amis pour vous défier.</p>`}
 
       <div class="section"><h2>Classement</h2><span class="xs muted">cette semaine</span></div>
       <div class="seg" id="boards">${BOARDS.map(b => `<button data-b="${b.id}" class="${b.id === board ? "on" : ""}">${b.name}</button>`).join("")}</div>
-      <div class="card mt-s" style="padding:4px 16px">${ranked.map((f, i) => `
-        <button class="friend-row ${f.status === "me" ? "me" : ""}" data-u="${esc(f.username)}"><span class="pos">${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>${avatar(f.p.name || f.username)}
-          <div class="grow"><b>${esc(f.status === "me" ? `${f.p.name} (toi)` : f.p.name || f.username)}</b><span>${esc(f.p.rank || "")}</span></div><b class="num">${B.fmt(B.val(f.p))}</b></button>`).join("")}</div>
+      ${podium.length ? `<div class="podium">${[1, 0, 2].map(i => { const f = podium[i]; return `<button class="pod p${i + 1} ${f.status === "me" ? "me" : ""}" data-u="${esc(f.username)}">
+          ${i === 0 ? `<span class="crown" aria-hidden="true">👑</span>` : ""}${avatar(f.p.name || f.username)}<b class="ellipsis">${esc(who(f))}</b><span class="num">${B.fmt(B.val(f.p))}</span><i>${i + 1}</i></button>`; }).join("")}</div>` : ""}
+      ${rest.length ? `<div class="card card-list ${podium.length ? "mt-s" : "mt"}">${rest.map((f, k) => `
+        <button class="friend-row ${f.status === "me" ? "me" : ""}" data-u="${esc(f.username)}"><span class="pos">${k + 1 + podium.length}</span>${avatar(f.p.name || f.username)}
+          <div class="grow"><b class="ellipsis">${esc(f.status === "me" ? `${f.p.name} (toi)` : f.p.name || f.username)}</b><span class="ellipsis">${esc(f.p.rank || "")}</span></div><b class="num">${B.fmt(B.val(f.p))}</b></button>`).join("")}</div>` : ""}
 
-      ${outgoing.length ? `<div class="section"><h2>En attente</h2></div><div class="card" style="padding:4px 16px">${outgoing.map(f => `<div class="friend-row">${avatar(f.username)}<div class="grow"><b>@${esc(f.username)}</b><span>Demande envoyée</span></div><button class="btn btn-ghost btn-sm" data-rm="${esc(f.username)}">Annuler</button></div>`).join("")}</div>` : ""}
-      ${!friends.length && !incoming.length ? `<div class="empty">Aucun ami pour l'instant. Partage ton pseudo <b>@${esc(currentUser)}</b> !</div>` : ""}`;
+      ${outgoing.length ? `<div class="section"><h2>En attente</h2></div><div class="card card-list">${outgoing.map(f => `<div class="friend-row">${avatar(f.username)}<div class="grow"><b class="ellipsis">@${esc(f.username)}</b><span>Demande envoyée</span></div><button class="btn btn-ghost btn-sm" data-rm="${esc(f.username)}">Annuler</button></div>`).join("")}</div>` : ""}
+      ${!friends.length && !incoming.length ? `<div class="card empty mt">${I.heart}<b>Aucun ami pour l'instant</b>Partage ton pseudo <span class="fr-tag">@${esc(currentUser)}</span> pour lancer les défis.</div>` : ""}`;
 
     $("#add", box).onsubmit = async e => {
       e.preventDefault();
@@ -85,7 +102,7 @@ export async function renderFriends(box) {
     $$("[data-acc]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.acc, p_accept: true }).catch(e => toast(e.message)); spidey.react("party"); load(); });
     $$("[data-ref]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.ref, p_accept: false }).catch(e => toast(e.message)); load(); });
     $$("[data-rm]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_remove", { p_username: b.dataset.rm }).catch(e => toast(e.message)); load(); });
-    $$(".friend-row[data-u]", box).forEach(b => b.onclick = () => {
+    $$("[data-u]", box).forEach(b => b.onclick = () => {
       const f = people.find(x => x.username === b.dataset.u);
       if (f && f.status !== "me") friendSheet(f, load);
     });
@@ -106,15 +123,16 @@ export async function renderFriends(box) {
 
 function friendSheet(f, reload) {
   const p = f.p;
-  const sh = sheet(`<div class="row" style="gap:14px">${avatar(p.name || f.username).replace("avatar", "avatar big")}<div><h2 class="h2">${esc(p.name || f.username)}</h2><div class="xs muted">@${esc(f.username)} · ${esc(p.rank || "")} · niv. ${p.level || 1}</div></div></div>
+  const sh = sheet(`<div class="fr-hero">${avatar(p.name || f.username, "big")}<h2 class="h2">${esc(p.name || f.username)}</h2>
+      <div class="small muted">@${esc(f.username)}</div><div class="chips-c">${p.rank ? `<span class="chip red">${esc(p.rank)}</span>` : ""}<span class="chip">Niveau ${p.level || 1}</span></div></div>
     <div class="grid3 mt">
-      <div class="card stat"><div class="v">${p.week.count}</div><div class="l">Séances / sem.</div></div>
-      <div class="card stat"><div class="v">${p.streak || 0}</div><div class="l">Jours d'affilée</div></div>
-      <div class="card stat"><div class="v">${p.total?.sessions || 0}</div><div class="l">Séances au total</div></div>
+      <div class="card stat"><div class="v">${p.week.count}</div><div class="l">Semaine</div></div>
+      <div class="card stat"><div class="v">${p.streak || 0}<small>j</small></div><div class="l">D'affilée</div></div>
+      <div class="card stat"><div class="v">${p.total?.sessions || 0}</div><div class="l">Au total</div></div>
     </div>
-    ${p.records?.length ? `<div class="section"><h2>Records</h2></div><div class="card" style="padding:4px 16px">${p.records.map(r => `<div class="cmp"><span>${esc(r.n)}</span><span></span><b class="num">${r.kg} kg</b></div>`).join("")}</div>` : ""}
-    ${p.recent?.length ? `<div class="section"><h2>Dernières séances</h2></div><div class="card" style="padding:4px 16px">${p.recent.map(s => `<div class="cmp"><span>${esc(s.n)}<br><span class="xs muted">${new Date(s.d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })}</span></span><span class="small muted">${fmtNum(s.v)} kg · ${s.s} séries</span>${s.pr ? `<span class="delta p">${s.pr} PR</span>` : "<span></span>"}</div>`).join("")}</div>` : ""}
-    <button class="btn btn-ghost btn-block mt" id="rm" style="color:#ff7b88">Retirer de mes amis</button>`);
+    ${p.records?.length ? `<div class="section"><h2>Records</h2><span class="xs muted">1RM estimé</span></div><div class="card card-list">${p.records.map(r => `<div class="fr-line"><span class="ellipsis">${esc(r.n)}</span><b class="num">${r.kg}<small> kg</small></b></div>`).join("")}</div>` : ""}
+    ${p.recent?.length ? `<div class="section"><h2>Dernières séances</h2></div><div class="card card-list">${p.recent.map(s => `<div class="fr-line"><div class="grow"><b class="ellipsis">${esc(s.n)}</b><span>${new Date(s.d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })} · ${fmtNum(s.v)} kg · ${s.s} séries</span></div>${s.pr ? `<span class="chip amber">${s.pr} PR</span>` : ""}</div>`).join("")}</div>` : ""}
+    <button class="btn btn-ghost btn-block mt fr-rm" id="rm">Retirer de mes amis</button>`);
   $("#rm", sh.el).onclick = async () => {
     if (!(await confirmSheet("Retirer cet ami ?", "Vous ne verrez plus vos stats respectives.", "Retirer", true))) return;
     await friendCall("gt_friend_remove", { p_username: f.username }).catch(e => toast(e.message));

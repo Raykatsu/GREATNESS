@@ -938,17 +938,78 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 .bex-head .k.ss { background: var(--blue); color: #fff; }
 
 /* ---------- Amis ---------- */
-.friend-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); text-align: left; }
+.fr-add { position: relative; display: flex; gap: var(--s-2); }
+.fr-add > span { position: absolute; left: 15px; top: 0; height: 50px; display: grid; place-items: center; color: var(--dim); font-weight: 600; pointer-events: none; }
+.fr-add .input { flex: 1; min-width: 0; padding-left: 32px; }
+.fr-add .btn { width: 50px; min-height: 50px; padding: 0; flex: none; }
+.fr-invite { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; margin-top: 6px; font-size: var(--fs-sm); color: var(--muted); font-weight: 550; transition: opacity var(--dur-2); }
+.fr-invite:active { opacity: .55; transition-duration: 0s; }
+.fr-invite svg { width: 16px; height: 16px; flex: none; color: var(--accent-ink); }
+.fr-invite span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-invite b { color: var(--text); font-weight: 650; }
+.fr-warn { display: flex; gap: var(--s-3); align-items: flex-start; border-color: rgba(245, 184, 61, .35); background: linear-gradient(var(--amber-soft), var(--amber-soft)), var(--card); }
+.fr-warn > svg { width: 20px; height: 20px; flex: none; color: var(--amber-ink); margin-top: 1px; }
+.fr-warn p { margin: 4px 0 0; }
+.fr-tag { display: inline-block; padding: 1px 8px; border-radius: 8px; background: var(--red-soft); color: var(--accent-ink); font-weight: 700; }
+
+.friend-row { width: 100%; display: flex; align-items: center; gap: var(--s-3); min-height: 62px; padding: 10px 0; border-bottom: 1px solid var(--line); text-align: left; }
 .friend-row:last-child { border-bottom: 0; }
+button.friend-row { transition: opacity var(--dur-2); }
+button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .friend-row b { display: block; font-weight: 600; }
-.friend-row .grow > span { font-size: 12px; color: var(--muted); }
-.friend-row .avatar { width: 38px; height: 38px; border-radius: 13px; font-size: 16px; }
-.friend-row.me b { color: var(--red); }
-.friend-row .pos { width: 24px; text-align: center; font-weight: 700; color: var(--muted); }
-.friend-row .icon-btn { width: 36px; height: 36px; }
-.ch-row { display: grid; grid-template-columns: 80px 1fr 64px; gap: 10px; align-items: center; margin-top: 12px; font-size: 13px; }
-.ch-row.me span:first-child { color: var(--red); font-weight: 700; }
-.ch-row > span:last-child { text-align: right; }
+.friend-row .grow > span { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 1px; }
+.friend-row .avatar { width: 40px; height: 40px; border-radius: 14px; font-size: 16px; }
+.friend-row.me b { color: var(--accent-ink); }
+.friend-row .pos { width: 22px; flex: none; text-align: center; font-family: var(--display); font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
+.friend-row > .num { flex: none; }
+.friend-row .icon-btn { width: 38px; height: 38px; }
+
+/* Défi de la semaine */
+.ch-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: 6px; }
+.ch-head .h3 { display: block; font-family: var(--display); font-weight: 700; line-height: 1.2; margin-top: 2px; }
+.ch-head .chip { flex: none; height: 26px; padding: 0 10px; font-size: var(--fs-xs); }
+.ch-ic { width: 42px; height: 42px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--amber-soft); color: var(--amber-ink); }
+.ch-ic svg { width: 21px; height: 21px; }
+.ch-row { display: grid; grid-template-columns: minmax(0, 76px) 1fr auto; gap: var(--s-3); align-items: center; margin-top: 12px; font-size: var(--fs-sm); }
+.ch-row > span:last-child { min-width: 44px; text-align: right; font-weight: 650; }
+.ch-row small { color: var(--dim); font-weight: 500; }
+.ch-row .bar { height: 8px; }
+.ch-row.me > span:first-child { color: var(--accent-ink); font-weight: 700; }
+.ch-row.me .bar > i { background: linear-gradient(90deg, var(--red-2), var(--red)); }
+.ch-row.done .bar > i { background: var(--green); }
+.ch-row.done > span:last-child { color: var(--green-ink); }
+.ch-row > span:last-child svg { width: 17px; height: 17px; margin-left: auto; stroke-width: 2.6; }
+
+/* Podium */
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: var(--s-2); margin-top: var(--s-5); }
+.pod { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; text-align: center; animation: rise var(--dur-4) var(--ease-out) backwards; transition: transform var(--dur-4) var(--spring); }
+.pod:active { transform: scale(.96); transition-duration: var(--dur-1); }
+.pod.p1 { animation-delay: .12s; } .pod.p2 { animation-delay: .04s; } .pod.p3 { animation-delay: .2s; }
+.pod .avatar { width: 50px; height: 50px; border-radius: 50%; font-size: 20px; margin-bottom: 6px; }
+.pod.p1 .avatar { width: 62px; height: 62px; font-size: 25px; box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px #f5b83d; }
+.pod.p2 .avatar { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px #b8bfcc; }
+.pod.p3 .avatar { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px #d08a4f; }
+.pod .crown { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+.pod b { max-width: 100%; font-size: var(--fs-sm); font-weight: 650; }
+.pod.me b { color: var(--accent-ink); }
+.pod .num { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.pod i { display: grid; place-items: center; align-self: stretch; margin-top: 8px; border-radius: var(--r-sm) var(--r-sm) 6px 6px; font-style: normal; font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--dim);
+  background: linear-gradient(var(--card-2), var(--card)); border: 1px solid var(--line); border-bottom: 0; }
+.pod.p1 i { height: 76px; color: var(--amber-ink); background: linear-gradient(rgba(245, 184, 61, .2), var(--card)); }
+.pod.p2 i { height: 56px; }
+.pod.p3 i { height: 42px; }
+
+/* Fiche d'un ami */
+.fr-hero { text-align: center; }
+.fr-hero .h2 { margin-top: 12px; }
+.chips-c { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chips-c .chip { height: 26px; font-size: var(--fs-xs); }
+.fr-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 50px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-base); }
+.fr-line:last-child { border-bottom: 0; }
+.fr-line b.ellipsis { display: block; font-weight: 600; }
+.fr-line .grow > span { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 1px; }
+.fr-line .num small { font-size: 12px; color: var(--muted); }
+.fr-rm { color: var(--danger-ink); }
 
 /* =========================================================
    Spider-Man animé
