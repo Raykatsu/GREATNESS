@@ -314,7 +314,7 @@ function recRow(id, l) {
   const ex = EXERCISES[id], load = ex.type === "load";
   const h = load ? exerciseHistory(id) : [];
   const gain = h.length >= 2 ? Math.round(Math.max(...h.map(x => x.e1rm)) - h[0].e1rm) : 0;
-  return `<button class="rec" data-ex="${id}"><div class="grow"><b class="ellipsis">${esc(ex.name)}</b><span class="ellipsis">${esc(ex.muscle || "")}</span></div>
+  return `<button class="rec" data-ex="${id}"><div class="grow"><b class="rec-n">${esc(ex.name)}</b><span class="ellipsis">${esc(ex.muscle || "")}</span></div>
     <div class="rec-v"><b class="num">${load ? `${Math.round(l.best)}<small> kg</small>` : `${l.bestReps}<small>${ex.type === "time" ? " s" : " reps"}</small>`}</b>${gain > 0 ? `<span class="up">+${gain} kg</span>` : ""}</div>${I.chev}</button>`;
 }
 
@@ -331,7 +331,7 @@ function sessRow(s) {
 
 // Onglet « Moi » : Stats, Amis & défis, Réglages
 const progressSeg = (on = current === "profile" ? "settings" : progressTab) => `<div class="seg mt" id="ptabs">
-  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis & défis</button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
+  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis<span class="seg-x"> & défis</span></button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
 function bindProgressSeg() {
   $$("#ptabs button").forEach(b => b.onclick = () => {
     if (b.dataset.t === "settings") return void (location.hash = "#/profile");

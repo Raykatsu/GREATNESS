@@ -69,7 +69,7 @@ export async function renderFriends(box) {
 
       ${incoming.length ? `<div class="section"><h2>Demandes reçues</h2><span class="chip red">${incoming.length}</span></div><div class="card card-list">${incoming.map(f => `
         <div class="friend-row">${avatar(f.public?.name || f.username)}<div class="grow"><b class="ellipsis">${esc(f.public?.name || f.username)}</b><span class="ellipsis">@${esc(f.username)}</span></div>
-          <button class="btn btn-primary btn-sm" data-acc="${esc(f.username)}">Accepter</button><button class="icon-btn" data-ref="${esc(f.username)}" aria-label="Refuser">${I.x}</button></div>`).join("")}</div>` : ""}
+          <button class="icon-btn fr-ok" data-acc="${esc(f.username)}" aria-label="Accepter">${I.check}</button><button class="icon-btn" data-ref="${esc(f.username)}" aria-label="Refuser">${I.x}</button></div>`).join("")}</div>` : ""}
 
       <div class="section"><h2>Défi de la semaine</h2></div>
       ${challengeCard(people)}
