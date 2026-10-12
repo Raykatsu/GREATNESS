@@ -27,21 +27,49 @@ let current = "home";
    ========================================================= */
 let params = {};
 const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), import: () => renderImport(view, params.s), coach: () => renderCoach(view), progress, profile };
+// Position de chaque écran : sert au sens du glissement entre onglets (et entre Stats / Amis / Réglages).
+const TAB_POS = { home: 0, train: 1, create: 2, coach: 3, progress: 4, profile: 4, import: 4 };
+let shown = null; // écran affiché : { key, tab, sub }
 function route() {
   const [key, qs] = location.hash.replace(/^#\/?/, "").split("?");
   params = Object.fromEntries(new URLSearchParams(qs || ""));
   current = key || "home";
   applyAppearance(state.profile);
-  if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); offerResume(); });
-  if (!state.profile.onboarded) return onboarding();
+  if (!currentUser) { shown = null; return showAuth(view, () => { llm.autoload(); route(); offerResume(); }); }
+  if (!state.profile.onboarded) { shown = null; return onboarding(); }
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
+  const next = { key: current, tab: TAB_POS[current] ?? 0, sub: current === "profile" ? 2 : current === "progress" && progressTab === "friends" ? 1 : 0 };
+  const prev = shown;
+  shown = next;
+  const same = prev && prev.key === next.key && prev.sub === next.sub; // simple rafraîchissement du même écran
+  const subSwitch = prev && !same && prev.tab === next.tab;            // Stats ↔ Amis ↔ Réglages
+  const y = window.scrollY;
+  // pastille du contrôle segmenté : on retient sa position pour la faire glisser après le rendu
+  const oldSeg = subSwitch ? view.querySelector(".seg[id]") : null;
+  const segFrom = oldSeg ? [...oldSeg.children].findIndex(b => b.classList.contains("on")) : -1;
   view.className = "view";
   view.innerHTML = "";
   (routes[key] || home)();
-  void view.offsetWidth;
-  view.classList.add("enter");
-  window.scrollTo({ top: 0 });
+  if (same) {
+    window.scrollTo(0, y); // pas d'animation ni de saut en haut : le contenu se met à jour sur place
+  } else {
+    const dir = prev ? Math.sign(subSwitch ? next.sub - prev.sub : next.tab - prev.tab) : 0;
+    view.style.setProperty("--pg-x", `${dir * 20}px`);
+    view.style.setProperty("--pg-y", dir ? "0px" : "10px");
+    const seg = oldSeg && view.querySelector(`#${oldSeg.id}`);
+    if (seg) {
+      // l'en-tête reste en place, seule la suite glisse ; la pastille part de l'ancien onglet
+      for (const c of view.children) { c.classList.add("pg-keep"); if (c === seg || c.contains(seg)) break; }
+      if (segFrom >= 0) {
+        seg.style.setProperty("--i", segFrom);
+        getComputedStyle(seg, "::before").transform; // fige le point de départ
+        seg.style.removeProperty("--i");
+      }
+    }
+    view.classList.add(prev ? "pg-in" : "stagger");
+    window.scrollTo(0, 0);
+  }
   setTimeout(() => spidey.settle(), 400);
   const fresh = checkBadges();
   if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); spidey.react("party"); }, 600);
