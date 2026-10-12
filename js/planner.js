@@ -38,6 +38,8 @@ export function generateWeekPlan({ days = state.profile.days, equipment = state.
   }
   // Mobilité le dimanche si libre.
   if (!plan[6]) plan[6] = "mobility";
+  // On garde les séances perso déjà placées par l'utilisateur.
+  Object.entries(state.weekPlan || {}).forEach(([d, id]) => { if (String(id).startsWith("c") && getProgram(id)) plan[d] = id; });
   return plan;
 }
 
@@ -160,4 +162,12 @@ export function generateSession({ groups = ["full"], minutes = 45, equipment = s
   const isFull = groups.includes("full") || keys.length > 3;
   const label = name || `${isFull ? "Full body" : keys.map(k => GROUPS[k].name).join(" & ")} · ${minutes} min`;
   return { name: label.slice(0, 40), tag: `${keys.map(k => GROUPS[k].name).join(" · ")} · générée`, exercises };
+}
+
+/* ---------- Cycles : semaine allégée toutes les 7 semaines ---------- */
+export function cycleInfo(now = Date.now()) {
+  if (!state.cycleStart || state.profile.deload === false) return { week: 0, deload: false, next: null };
+  const week = Math.floor((now - state.cycleStart) / (7 * 864e5)) + 1;
+  const pos = ((week - 1) % 7) + 1; // 1..7, la 7e est allégée
+  return { week, pos, deload: pos === 7, next: pos === 7 ? 0 : 7 - pos };
 }

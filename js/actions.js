@@ -142,6 +142,7 @@ export function parseCommand(text) {
   // Lancer une séance
   if (/\b(lance|lancer|commence|commencer|demarre|demarrer|go)\b/.test(t)) {
     if (/(du jour|mission|aujourd)/.test(t)) return { type: "start", program: "today" };
+    if (/libre/.test(t)) return { type: "start", program: "free" };
     const p = findProgram(t);
     if (p) return { type: "start", program: p.id };
   }

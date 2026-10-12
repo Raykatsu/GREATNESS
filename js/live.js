@@ -1,7 +1,11 @@
 // Séance en direct : tableau des séries, ajustements temps réel, repos, fin de séance.
 import { EXERCISES } from "./data.js";
-import { state, save, rankInfo, recordLift, e1rm } from "./store.js";
-import { Session, fmtTarget } from "./engine.js";
+import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
+import { Session, fmtTarget, plates } from "./engine.js";
+import { cycleInfo } from "./planner.js";
+import { pickExercises } from "./train.js";
+import { defaultItem } from "./create.js";
+import { checkBadges } from "./badges.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
 import { debrief, athleteContext } from "./brain.js";
 import * as llm from "./llm.js";
@@ -12,28 +16,53 @@ import { $, $$, esc, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } fr
 let S = null, ui = null, tick = null, wakeLock = null, rest = null, showCues = false, onExit = null, justDone = -1;
 const overlay = () => $("#overlay");
 
+const LIVE_KEY = () => `greatness.live.${currentUser}`;
+// Sauvegarde continue : si le téléphone ferme l'app, la séance reprend où elle en était.
+function persist() { try { if (S && currentUser) localStorage.setItem(LIVE_KEY(), JSON.stringify(S)); } catch { /* plein */ } }
+function clearSaved() { try { localStorage.removeItem(LIVE_KEY()); } catch { /* rien */ } }
+export function savedSession() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LIVE_KEY()) || "null");
+    return d && Date.now() - d.savedAt < 12 * 3600 * 1000 ? d : null;
+  } catch { return null; }
+}
+export const discardSaved = clearSaved;
+
 export function startLive(program, readiness, exit) {
-  S = new Session(program, readiness);
-  onExit = exit;
-  showCues = false;
-  document.body.classList.add("hide-tabs");
-  navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
-  S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
+  S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload });
+  begin(exit);
   const intro = S.intro();
-  resetInputs();
-  render();
-  spidey.setContext("live");
-  setTimeout(() => spidey.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
-  speak(`${S.verdict.text} ${intro.say}`, { interrupt: true });
-  clearInterval(tick);
-  tick = setInterval(() => { const t = $("#elapsed"); if (t && S) t.textContent = fmtTime(S.elapsed); }, 1000);
-  if (aiReady()) {
+  if (S.current) setTimeout(() => spidey.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
+  else setTimeout(() => spidey.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
+  speak(`${S.verdict.text} ${intro?.say || ""}`, { interrupt: true });
+  if (aiReady() && S.current) {
     aiBrief(S).then(txt => {
       if (!txt || !S) return;
       S.push({ kind: "ai", title: "Briefing du coach", text: txt });
       render(); spidey.say(txt); speak(txt);
     }).catch(err => console.warn("brief", err));
   }
+}
+
+export function resumeLive(data, exit) {
+  S = Session.restore(data);
+  begin(exit);
+  S.push({ kind: "info", title: "Séance reprise", text: "On reprend exactement où tu t'étais arrêté." });
+  render();
+  setTimeout(() => spidey.say("Te revoilà ! On reprend la séance.", { mood: "happy" }), 700);
+}
+
+function begin(exit) {
+  onExit = exit;
+  showCues = false;
+  document.body.classList.add("hide-tabs");
+  navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
+  if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
+  resetInputs();
+  render();
+  spidey.setContext("live");
+  clearInterval(tick);
+  tick = setInterval(() => { const t = $("#elapsed"); if (t && S) t.textContent = fmtTime(S.elapsed); }, 1000);
 }
 
 function resetInputs() {
@@ -48,8 +77,10 @@ const fmtSet = (s, ex) => (ex.type === "load" ? `${s.weight}×${s.reps}` : `${s.
 function render() {
   if (!S) return;
   const ex = S.current;
-  if (!ex) return finish();
+  persist();
+  if (!ex) return S.program.free ? renderFreeEmpty() : finish();
   const simple = S.program.simple;
+  const note = state.exNotes?.[ex.id];
   const last = ex.last;
   const rows = Array.from({ length: Math.max(ex.sets, ex.done.length) }, (_, i) => {
     const d = ex.done[i];
@@ -75,15 +106,17 @@ function render() {
     </header>
 
     <nav class="ex-tabs" id="tabs">${S.plan.map((e, i) => `<button class="ex-tab ${i === S.idx ? "cur" : e.status}" data-i="${i}">
-      <span class="k">${e.status === "done" ? "✓" : i + 1}</span>${esc(e.name)}</button>`).join("")}</nav>
+      <span class="k">${e.status === "done" ? "✓" : i + 1}</span>${esc(e.name)}${e.ss ? `<span class="ss">${esc(e.ss)}</span>` : ""}</button>`).join("")}
+      <button class="ex-tab" id="add-ex">${I.plus} Exercice</button></nav>
 
     <div class="ex-head">
       <div class="grow"><h2>${esc(ex.name)}</h2>
-        <div class="row mt-s" style="gap:6px;flex-wrap:wrap"><span class="chip">${esc(ex.muscle)}</span><span class="chip red">Objectif ${fmtTarget(ex)}</span>${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}</div></div>
+        <div class="row mt-s" style="gap:6px;flex-wrap:wrap"><span class="chip">${esc(ex.muscle)}</span><span class="chip red">Objectif ${fmtTarget(ex)}</span>${ex.ss ? `<span class="chip blue">Superset ${esc(ex.ss)}</span>` : ""}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}</div></div>
       <button class="icon-btn" id="cues-btn" aria-label="Technique" style="${showCues ? "background:var(--text);color:var(--bg)" : ""}">${I.info}</button>
     </div>
     ${showCues ? `<div class="cues">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>` : ""}
     <div class="xs muted mt-s">${last ? `Dernière fois : ${last.map(s => fmtSet(s, ex)).join(" · ")}` : "Première fois sur cet exercice : je calibre dès la première série."}</div>
+    ${note ? `<button class="note-line" id="note-show">${I.edit}<span>${esc(note)}</span></button>` : ""}
 
     <div class="sets">
       <div class="sets-h"><span>#</span><span>Avant</span><span>${ex.type === "load" ? "Kg" : ""}</span><span>${ex.type === "time" ? "Sec" : "Reps"}</span><span></span></div>
@@ -94,6 +127,7 @@ function render() {
       <button class="btn btn-soft btn-sm" id="add-set">${I.plus} Série</button>
       <button class="btn btn-soft btn-sm" id="swap">${I.swap} Remplacer</button>
       <button class="btn btn-soft btn-sm" id="skip">${I.skip} Passer</button>
+      <button class="btn btn-soft btn-sm" id="note">${I.edit} Note</button>
       ${S.history.length ? `<button class="btn btn-soft btn-sm" id="undo">${I.undo} Annuler</button>` : ""}
     </div>
 
@@ -118,15 +152,49 @@ function editor(ex, simple) {
       ${ex.type === "load" ? stepper("weight", ui.weight, "KG", ex.step) : ""}
       ${stepper("reps", ui.reps, ex.type === "time" ? "SECONDES" : "RÉPÉTITIONS", repStep)}
     </div>
+    ${EXERCISES[ex.id]?.equip === "bar" && ex.type === "load" ? `<button class="plates" id="plates">${platesText(ui.weight)}</button>` : ""}
     ${simple ? "" : `<div class="rpe-lab"><span>Ressenti</span><span class="dim">6 facile → 10 échec</span></div>
     <div class="rpe">${[[6, "Facile"], [7, "Modéré"], [8, "Dur"], [9, "Très dur"], [10, "Échec"]].map(([v, l]) => `<button data-rpe="${v}" class="${ui.rpe === v ? "on" : ""}">${v}<small>${l}</small></button>`).join("")}</div>
     <label class="pain"><input type="checkbox" id="pain" ${ui.pain ? "checked" : ""}/> Douleur articulaire ou inhabituelle</label>`}
   </div>`;
 }
 
+function platesText(w) {
+  const p = plates(w);
+  if (w < 20) return "Moins lourd qu'une barre olympique (20 kg)";
+  return `<b>Par côté</b> ${p.side.length ? p.side.map(x => String(x).replace(".", ",")).join(" + ") : "rien"}${p.rest > 0 ? ` <span class="dim">(+${String(p.rest).replace(".", ",")} kg à arrondir)</span>` : ""} <span class="dim">· barre 20 kg</span>`;
+}
+
+function renderFreeEmpty() {
+  overlay().innerHTML = `
+  <div class="live"><div class="live-wrap">
+    <header class="live-head"><div class="row between">
+      <button class="icon-btn" id="quit" aria-label="Terminer">${I.x}</button>
+      <div class="center grow"><div class="title">${esc(S.program.name)}</div><div class="timer" id="elapsed">${fmtTime(S.elapsed)}</div></div>
+      <button class="icon-btn" id="menu" aria-label="Options">${I.more}</button></div></header>
+    ${S.plan.length ? `<div class="card mt"><div class="eyebrow">Déjà fait</div>${S.plan.map(e => `<div class="cmp"><span>${esc(e.name)}</span><span class="small muted">${e.done.length} série${e.done.length > 1 ? "s" : ""}</span><span></span></div>`).join("")}</div>` : ""}
+    <div class="empty mt-l">${spider()}<b style="color:var(--text)">${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><br>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</div>
+    <button class="add-big" id="free-add">${I.plus} Ajouter un exercice</button>
+  </div></div>
+  <div class="dock"><div class="dock-in">${S.totalDone ? `<button class="btn btn-primary btn-lg btn-block" id="free-end">${I.check} Terminer la séance</button>` : ""}</div></div>`;
+  $("#quit").onclick = quit; $("#menu").onclick = menu;
+  $("#free-add").onclick = addExercise;
+  $("#free-end")?.addEventListener("click", finish);
+}
+
+function addExercise() {
+  pickExercises(ids => {
+    if (!ids.length) return;
+    ids.forEach(id => S.addExercise(defaultItem(id)));
+    S.idx = S.plan.length - ids.length;
+    resetInputs(); render();
+    const intro = S.intro(); speak(intro.say, { interrupt: true });
+  });
+}
+
 function renderDock() {
   const dock = $("#dock");
-  if (!dock || !S) return;
+  if (!dock || !S || !S.current) return;
   const ex = S.current;
   if (rest) {
     const nx = S.current;
@@ -158,12 +226,23 @@ function bind(ex) {
     const k = b.dataset.s, d = +b.dataset.d;
     ui[k] = Math.max(0, +(ui[k] + d).toFixed(2));
     const inp = $(`#in-${k}`); if (inp) inp.value = ui[k];
+    if (k === "weight" && $("#plates")) $("#plates").innerHTML = platesText(ui.weight);
     vibrate(6);
   });
   $$(".stepper input").forEach(inp => inp.onchange = () => { const k = inp.id.slice(3); ui[k] = Math.max(0, +inp.value || 0); });
   $$("[data-rpe]").forEach(b => b.onclick = () => { ui.rpe = +b.dataset.rpe; $$("[data-rpe]").forEach(x => x.classList.toggle("on", x === b)); vibrate(8); });
   $("#pain")?.addEventListener("change", e => (ui.pain = e.target.checked));
   $("#add-set").onclick = () => { S.addSet(); render(); toast("Série ajoutée"); };
+  $("#add-ex").onclick = addExercise;
+  const noteSheet = () => {
+    const sh = sheet(`<h2 class="h2">Note · ${esc(ex.name)}</h2><p class="small muted">Réglage de la machine, prise, sensations… Elle s'affichera à chaque fois.</p>
+      <textarea class="input" id="note-txt" rows="4" maxlength="300" style="height:auto;padding:12px">${esc(state.exNotes?.[ex.id] || "")}</textarea>
+      <button class="btn btn-primary btn-block mt" id="note-save">Enregistrer</button>`, { z: 60 });
+    $("#note-save", sh.el).onclick = () => { state.exNotes ||= {}; const v = $("#note-txt", sh.el).value.trim(); if (v) state.exNotes[ex.id] = v; else delete state.exNotes[ex.id]; save(); sh.close(); render(); };
+  };
+  $("#note").onclick = noteSheet;
+  $("#note-show")?.addEventListener("click", noteSheet);
+  $("#plates")?.addEventListener("click", () => toast("Disques calculés pour une barre de 20 kg."));
   $("#skip").onclick = () => { endRest(false); const ev = S.skip(); if (S.finished) return finish(); resetInputs(); render(); announce(ev); };
   $("#swap").onclick = openSwap;
   $("#undo")?.addEventListener("click", () => { endRest(false); if (S.undo()) { resetInputs(); const ex2 = S.current; const d = ex2.done.length; render(); toast(`Série ${d + 1} annulée`); } });
@@ -195,7 +274,7 @@ function logSet(e) {
   if (S.finished) { rest = null; return setTimeout(finish, 600); }
   justDone = S.current === ex ? doneIdx : -1;
   resetInputs();
-  startRest(restSec);
+  if (restSec > 0 && S.current) startRest(restSec);
   render();
   // anime la charge qui change
   if (S.current === ex && ex.type === "load" && ex.weight !== prevW) $("#m-weight")?.classList.add(ex.weight > prevW ? "up" : "down");
@@ -241,6 +320,7 @@ function endRest(announceNext) {
   renderDock();
   if (announceNext && S?.current) {
     beep(1320, 0.22, "square", 0.08); vibrate([60, 40, 60]);
+    setTimeout(() => spidey.lift(), 900);
     const n = S.current;
     if (!n.introduced) { const intro = S.intro(); render(); speak(intro.say, { interrupt: true }); return; }
     speak(`C'est reparti. Série ${n.done.length + 1}. ${n.type === "load" ? n.weight + " kilos, " : ""}${n.goal} ${n.type === "time" ? "secondes" : "répétitions"}.`, { interrupt: true });
@@ -288,8 +368,11 @@ function finish() {
   sum.sets.forEach(s => { const sc = s.weight > 0 ? e1rm(s.weight, s.reps) : s.reps; if (!best[s.exId] || sc > best[s.exId].sc) best[s.exId] = { ...s, sc }; });
   Object.values(best).forEach(s => recordLift(s.exId, s.weight, s.reps));
   if (sum.sets.length) state.sessions.push(sum);
+  if (sum.sets.length && !state.cycleStart) state.cycleStart = sum.date;
   save();
+  clearSaved();
   const after = rankInfo();
+  const newBadges = checkBadges();
   S = null;
   wakeLock?.release?.(); wakeLock = null;
 
@@ -315,8 +398,11 @@ function finish() {
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card" style="padding:4px 16px">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="chip amber" style="height:20px;font-size:10.5px;padding:0 7px">PR</span>` : ""}</span>
       <span class="small muted">${c.type === "load" ? `${c.best.weight}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
-    <button class="btn btn-primary btn-lg btn-block mt-l" id="home">Retour à l'accueil</button>
+    ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
+    ${sum.sets.length ? `<label class="field mt-l"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…" style="height:auto;padding:12px"></textarea></label>` : ""}
+    <button class="btn btn-primary btn-lg btn-block mt" id="home">Retour à l'accueil</button>
   </div></div>`;
+  $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   spidey.setContext("app");
   setTimeout(() => { spidey.react("party"); spidey.say(`Mission accomplie ! +${sum.xp} XP.`, { mood: "party" }); }, 500);
@@ -340,6 +426,7 @@ function finish() {
 
 function close() {
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
+  clearSaved();
   wakeLock?.release?.(); wakeLock = null;
   S = null;
   overlay().innerHTML = "";

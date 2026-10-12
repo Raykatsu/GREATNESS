@@ -4,7 +4,7 @@
 // - Sinon : les comptes existent seulement sur cet appareil.
 // Dans les deux cas, chaque appareil garde une copie locale pour marcher hors ligne.
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { state, setUser, clearUser, save, readLocal, setSaveHook, currentUser } from "./store.js";
+import { state, setUser, clearUser, save, readLocal, setSaveHook, currentUser, publicSummary } from "./store.js";
 
 export const isOnlineMode = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const USERNAME_RE = /^[a-z0-9_.-]{3,20}$/;
@@ -185,6 +185,7 @@ export async function push() {
   clearTimeout(pushTimer);
   const data = structuredClone(state);
   data.profile.aiKey = "";
+  data.public = publicSummary();
   setStatus("syncing");
   try {
     const r = await rpc("gt_push", { p_token: t, p_data: data });
@@ -223,3 +224,20 @@ export function knownAccounts() {
   const r = registry();
   return Object.keys(r).map(u => ({ username: u, display: r[u].display || u, len: r[u].len || 4, name: readLocal(u)?.profile?.name || r[u].display || u }));
 }
+
+// Appels "amis" (comptes en ligne uniquement).
+export async function friendCall(fn, args = {}) {
+  if (!isOnlineMode()) throw fail("OFFLINE_MODE");
+  const t = token();
+  if (!t) throw fail("BAD_TOKEN");
+  const r = await rpc(fn, { p_token: t, ...args });
+  if (r?.error) throw fail(r.error === "NOT_FOUND" ? "FRIEND_NOT_FOUND" : r.error);
+  return r;
+}
+Object.assign(MESSAGES, {
+  SELF: "C'est ton propre pseudo !",
+  FRIEND_NOT_FOUND: "Aucun compte avec ce pseudo.",
+  TOO_MANY: "Trop de demandes en attente.",
+  BAD_TOKEN: "Reconnecte-toi (verrouille puis retape ton code).",
+  OFFLINE_MODE: "Les amis nécessitent les comptes en ligne.",
+});

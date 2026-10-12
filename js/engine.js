@@ -2,7 +2,7 @@
 // répétitions et temps de repos après chaque série. L'IA Claude (ai.js), si
 // elle est activée, peut ensuite affiner ces décisions.
 import { EXERCISES } from "./data.js";
-import { state, e1rm, lastPerformance } from "./store.js";
+import { state, e1rm, lastPerformance, exerciseHistory } from "./store.js";
 
 const round = (v, step) => Math.max(0, Math.round(v / step) * step);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -48,21 +48,41 @@ function startingTarget(item) {
 function makeItem(item, verdict, isMain) {
   const meta = EXERCISES[item.id];
   const t = startingTarget(item);
-  const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0));
+  const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0) - (verdict.deload ? 1 : 0));
+  // Plateau : 3 séances sans progrès → on recule de 10 % pour mieux repartir.
+  const plateau = meta.type === "load" && stalled(item.id);
   return {
     id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
-    sets, reps: item.reps, rpe: item.rpe, rest: item.rest,
-    weight: meta.type === "load" ? round(t.weight * verdict.factor, meta.step) : 0,
+    sets, reps: item.reps, rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau,
+    weight: meta.type === "load" ? round(t.weight * verdict.factor * (plateau ? 0.9 : 1), meta.step) : 0,
     goal: meta.type === "load" ? t.goal : Math.max(item.reps[0], round(t.goal * (verdict.factor < 1 ? 0.9 : 1), meta.step)),
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
   };
 }
 
+export function stalled(id) {
+  const h = exerciseHistory(id).slice(-4);
+  if (h.length < 4) return false;
+  const best = Math.max(...h.slice(0, -3).map(x => x.e1rm));
+  return h.slice(-3).every(x => x.e1rm <= best + 0.01);
+}
+
+// Calculateur de disques : ce qu'il faut mettre de chaque côté de la barre.
+export const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+export function plates(total, bar = 20) {
+  let side = Math.max(0, (total - bar) / 2);
+  const out = [];
+  for (const p of PLATES) while (side >= p - 1e-9) { out.push(p); side = +(side - p).toFixed(3); }
+  return { side: out, rest: side, bar };
+}
+
 export class Session {
-  constructor(program, readiness) {
+  constructor(program, readiness, { deload = false } = {}) {
     this.program = program;
     this.readiness = readiness;
     this.verdict = readinessVerdict(readinessScore(readiness));
+    if (deload) Object.assign(this.verdict, { deload: true, factor: Math.min(this.verdict.factor, 0.88), label: "Semaine allégée",
+      text: "Semaine de récupération : charges et volume réduits pour revenir plus fort. C'est voulu !" });
     this.startedAt = Date.now();
     this.fatigue = clamp(Math.round((1 - readinessScore(readiness)) * 30), 0, 30);
     this.flags = { cut: false, stop: false, warmup: false };
@@ -74,7 +94,7 @@ export class Session {
   }
 
   get current() { return this.plan[this.idx]; }
-  get finished() { return !this.plan.some(e => e.status === "todo"); }
+  get finished() { return !this.program.free && !this.plan.some(e => e.status === "todo"); }
   get elapsed() { return Math.floor((Date.now() - this.startedAt) / 1000); }
   get totalDone() { return this.plan.reduce((a, e) => a + e.done.length, 0); }
   get progress() {
@@ -101,6 +121,9 @@ export class Session {
       this.flags.warmup = true;
       warm = ` Échauffement : 8 reps à ${round(ex.weight * 0.5, ex.step)} kg puis 4 reps à ${round(ex.weight * 0.75, ex.step)} kg.`;
     }
+    const ssMates = ex.ss ? this.plan.filter(e => e.ss === ex.ss && e !== ex).map(e => e.name) : [];
+    if (ssMates.length) warm += ` Superset avec ${ssMates.join(" et ")} : enchaîne sans repos.`;
+    if (ex.plateau) warm += " Ça stagne depuis 3 séances : on recule de 10 % pour mieux repartir.";
     return this.push({ kind: "info", title: ex.name, text: `${ex.sets} série${ex.sets > 1 ? "s" : ""} · objectif ${fmtTarget(ex)}. ${cue}${warm}`,
       say: `${ex.name}. ${ex.sets} série${ex.sets > 1 ? "s" : ""}. Objectif : ${target}. ${cue}${warm}` });
   }
@@ -193,8 +216,24 @@ export class Session {
     }
 
     rest = clamp(rest, 20, 300);
-    if (ex.done.length >= ex.sets) {
-      ex.status = "done";
+    if (ex.done.length >= ex.sets) ex.status = "done";
+    // Superset / circuit : on enchaîne avec l'exercice suivant du groupe, repos à la fin du tour.
+    if (ex.ss && !this.flags.stop) {
+      const mates = this.plan.map((e, i) => [e, i]).filter(([e]) => e.ss === ex.ss && e.status === "todo");
+      if (mates.length) {
+        const after = mates.find(([, i]) => i > this.idx) || mates[0];
+        const endOfRound = after[1] <= this.idx;
+        this.idx = after[1];
+        const n = this.current;
+        if (!endOfRound) {
+          events.push(this.push({ kind: "info", title: "Enchaîne !", text: `Superset : ${n.name} tout de suite · ${fmtTarget(n)}`, say: `Enchaîne : ${n.name}.` }));
+          return { events, rest: 0 };
+        }
+        events.push(this.push({ kind: "info", title: "Fin du tour", text: `Récupère, puis on repart sur ${n.name}.`, say: "Fin du tour. Récupère." }));
+        return { events, rest: Math.max(rest, ex.rest) };
+      }
+    }
+    if (ex.status === "done") {
       this.advance(events);
       rest = Math.max(rest, Math.min(90, ex.rest));
     }
@@ -209,6 +248,9 @@ export class Session {
       this.idx = any;
       const n = this.current;
       events.push(this.push({ kind: "info", title: "Exercice suivant", text: `${n.name} · ${n.sets} série${n.sets > 1 ? "s" : ""} · ${fmtTarget(n)}`, say: `Ensuite : ${n.name}.` }));
+    } else if (this.program.free) {
+      this.idx = this.plan.length;
+      events.push(this.push({ kind: "info", title: "Et maintenant ?", text: "Ajoute un exercice, ou termine ta séance libre.", say: "Ajoute un exercice ou termine la séance." }));
     } else {
       this.idx = this.plan.length;
       events.push(this.push({ kind: "pr", mood: "party", title: "Séance terminée", text: "Mission accomplie. Le quartier est en sécurité.", say: "Séance terminée. Mission accomplie !" }));
@@ -224,6 +266,25 @@ export class Session {
   }
 
   addSet() { const ex = this.current; if (ex) ex.sets++; }
+
+  // Séance libre (ou ajout en cours de séance) : nouvel exercice à la fin.
+  addExercise(item) {
+    this.plan.push(makeItem(item, { factor: 1, setDelta: 0 }, this.plan.length < 2));
+    this.idx = this.plan.length - 1;
+  }
+
+  // Sauvegarde / reprise (si l'app est fermée en pleine séance).
+  toJSON() {
+    const { program, readiness, verdict, startedAt, fatigue, flags, prs, log, plan, idx } = this;
+    return { program, readiness, verdict, startedAt, fatigue, flags, prs, log: log.slice(0, 8), plan, idx, savedAt: Date.now() };
+  }
+  static restore(data) {
+    const s = Object.create(Session.prototype);
+    Object.assign(s, data, { history: [] });
+    // le temps passé fermé ne compte pas
+    if (data.savedAt) s.startedAt += Math.max(0, Date.now() - data.savedAt - 60000);
+    return s;
+  }
 
   skip() {
     const ex = this.current;
