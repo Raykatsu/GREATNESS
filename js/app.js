@@ -124,77 +124,159 @@ addEventListener("greatness:mascot", e => spidey.setEnabled(e.detail));
 /* =========================================================
    Accueil
    ========================================================= */
+const DAYS_FULL = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+// Salutation selon l'heure, petite phrase selon l'état de la journée
+function greeting(hour) {
+  return hour < 5 ? "Patrouille de nuit" : hour < 12 ? "Bonjour" : hour < 18 ? "Salut" : hour < 22 ? "Bonsoir" : "Patrouille de nuit";
+}
+function homeSubline(m, hasSessions) {
+  if (m.doneToday) return "Mission accomplie. Ton corps te dit merci.";
+  if (m.rest) return "Jour de récup : c'est là que tes muscles grandissent.";
+  if (!hasSessions) return "Ta toute première mission t'attend. On y va ?";
+  return "Ta mission du jour est prête. On s'y met ?";
+}
+const fmtSetReps = e => {
+  const [lo, hi] = e.reps || [];
+  const r = lo == null ? "" : lo === hi ? `${lo}` : `${lo}–${hi}`;
+  return `${e.sets} × ${r}${EXERCISES[e.id]?.type === "time" ? " s" : ""}`;
+};
+const fmtDec = (v, d) => v.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// Chiffres qui défilent jusqu'à leur valeur, une seule fois, seulement quand ils sont visibles.
+function countUp(root) {
+  const els = $$("[data-count]", root);
+  if (!els.length) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const run = el => {
+    const to = +el.dataset.count, dec = +(el.dataset.dec || 0);
+    if (reduce || !to) { el.textContent = fmtDec(to, dec); return; }
+    const t0 = performance.now(), dur = 900;
+    const step = t => {
+      if (!el.isConnected) return;
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtDec(to * e, dec);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  if (!("IntersectionObserver" in window)) return els.forEach(run);
+  const io = new IntersectionObserver(entries => entries.forEach(en => { if (en.isIntersecting) { io.unobserve(en.target); run(en.target); } }), { threshold: .4 });
+  els.forEach(el => io.observe(el));
+}
+
 function home() {
   const p = state.profile;
   const r = rankInfo();
   const m = todaysMission();
   const week = weekStrip();
-  const ws = weekStats();
+  const ws = weekStats(), prev = weekStats(1);
   const doneName = m.doneToday ? sessionsOn(new Date()).pop().name : null;
   const prog = adaptToGoal(m.doneToday ? getProgram("mobility") : m.program);
-  const hour = new Date().getHours();
-  const hello = hour < 5 ? "Patrouille de nuit" : hour < 12 ? "Bonjour" : hour < 18 ? "Salut" : "Bonsoir";
-  const planned = Object.values(ensureWeekPlan()).filter(id => id !== "mobility").length;
+  const now = new Date();
+  const planned = Math.max(1, Object.values(ensureWeekPlan()).filter(id => id !== "mobility").length);
   const saved = savedSession();
   const cyc = cycleInfo();
+  const st = streak();
+  const has = state.sessions.length > 0;
   const recentPRs = state.sessions.slice().reverse().flatMap(s => s.prs.map(id => ({ id, set: s.sets.filter(x => x.exId === id).sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps) || b.reps - a.reps)[0] }))).slice(0, 3);
+  const dateLabel = `${DAYS_FULL[now.getDay()]} ${now.getDate()} ${now.toLocaleDateString("fr-FR", { month: "long" })}`;
+  const kind = m.doneToday ? "done" : m.rest ? "rest" : "go";
+  const shown = prog.exercises.length > 5 ? 4 : prog.exercises.length;
+  const left = Math.max(0, planned - ws.count);
+  const tons = ws.volume >= 10000;
+  const volPct = prev.volume ? Math.min(1, ws.volume / prev.volume) : ws.volume ? 1 : 0;
 
   view.innerHTML = `
-    <div class="home-head"><div class="logo">${spider()}GREATNESS</div><a href="#/progress" class="chip">${I.trophy} Niv. ${r.level}</a></div>
-    <div class="hello"><div class="muted">${hello},</div><h1 class="h1"><span>${esc(p.name)}</span></h1></div>
-    ${saved ? `<section class="card banner resume mt"><div class="bi">${I.play}</div><div class="grow"><b>Séance en cours</b><div class="small muted">${esc(saved.program.name)} · ${saved.plan.reduce((a, e) => a + e.done.length, 0)} série(s) faite(s)</div></div>
-      <div class="row" style="gap:6px"><button class="btn btn-ghost btn-sm" id="drop">Abandonner</button><button class="btn btn-primary btn-sm" id="resume">Reprendre</button></div></section>` : ""}
-    ${cyc.deload ? `<section class="card banner mt"><div class="bi">${I.moon}</div><div><b>Semaine allégée</b><div class="small muted">Après 6 semaines d'efforts : charges et volume réduits cette semaine pour que ton corps récupère et reparte plus fort.</div></div></section>`
-      : cyc.next === 1 ? `<section class="card banner mt"><div class="bi">${I.info}</div><div><b>Semaine allégée la semaine prochaine</b><div class="small muted">Donne tout cette semaine !</div></div></section>` : ""}
-
-    <section class="card card-hero mission mt">
-      ${webSvg("orn")}
-      <div class="eyebrow">${m.doneToday ? "Séance du jour terminée ✓" : m.rest ? "Jour de récupération" : "Mission du jour"}</div>
-      <h2>${esc(doneName || m.program.name)}</h2>
-      <div class="muted small">${m.doneToday ? "Bravo ! Pour bien récupérer : Mobilité, 15 min." : esc(m.program.tag || "")}</div>
-      <div class="meta"><span class="chip">${I.clock} ~${estimateMinutes(prog)} min</span><span class="chip">${prog.exercises.length} exercices</span>
-        ${m.rest || m.program.cat === "cardio" ? "" : `<span class="chip blue">${GOALS[p.goal].name}</span>`}</div>
-      <div class="ex-preview">${prog.exercises.slice(0, 5).map(e => `<span>${esc(EXERCISES[e.id].name)}</span>`).join("")}${prog.exercises.length > 5 ? `<span>+${prog.exercises.length - 5}</span>` : ""}</div>
-      <div class="row mt" style="gap:8px">
-        <button class="btn ${m.doneToday ? "btn-soft" : "btn-primary"} btn-lg grow" id="go">${I.play} ${m.doneToday ? "Mobilité" : "Commencer"}</button>
-        <a href="#/train" class="btn btn-soft btn-lg" aria-label="Changer de séance">${I.swap}</a>
+    <header class="home-head">
+      <div class="logo">${spider()}GREATNESS</div>
+      <div class="hh-chips">
+        ${st ? `<a href="#/progress" class="chip hh-streak" aria-label="${st} jour${st > 1 ? "s" : ""} d'affilée">${I.flame}<b class="tnum">${st}</b></a>` : ""}
+        <a href="#/progress" class="chip hh-lvl">${I.trophy}<span>Niv. <b class="tnum">${r.level}</b></span></a>
       </div>
-    </section>
-    <div class="grid2 mt-s"><button class="btn btn-soft" id="free">${I.bolt} Séance libre</button><a class="btn btn-soft" href="#/create">${I.plus} Créer une séance</a></div>
-
-    <div class="section"><h2>${spider("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
-    <div class="week">${week.map(d => `
-      <div class="day ${d.today ? "today" : ""} ${d.done ? "done" : d.program && d.program.id !== "mobility" ? "planned" : ""}" data-d="${d.i}" title="${esc(d.program?.name || "Repos")}">
-        <span class="d">${d.label}</span><span class="n">${d.num}</span>
-        <span class="dot">${d.done ? I.check : d.program ? esc(shortName(d.program)) : "–"}</span></div>`).join("")}</div>
-
-    <div class="grid3 mt">
-      <div class="card stat"><div class="v">${streak()}</div><div class="l">Jours d'affilée</div></div>
-      <div class="card stat"><div class="v">${ws.count}<small>/${planned}</small></div><div class="l">Séances</div></div>
-      <div class="card stat"><div class="v">${ws.volume >= 10000 ? (ws.volume / 1000).toFixed(1) + "<small>t</small>" : fmtNum(ws.volume) + "<small>kg</small>"}</div><div class="l">Volume</div></div>
+    </header>
+    <div class="hello">
+      <div class="eyebrow hello-date">${dateLabel}</div>
+      <h1 class="h1">${greeting(now.getHours())}, <span class="hello-name">${esc(p.name)}</span></h1>
+      <p class="hello-sub">${homeSubline(m, has)}</p>
     </div>
 
+    ${saved ? `<section class="card banner resume mt"><div class="bi">${I.play}</div><div class="grow"><b>Séance en cours</b><div class="small muted ellipsis">${esc(saved.program.name)} · ${saved.plan.reduce((a, e) => a + e.done.length, 0)} série(s) faite(s)</div></div>
+      <div class="banner-actions"><button class="btn btn-ghost btn-sm" id="drop">Abandonner</button><button class="btn btn-primary btn-sm" id="resume">${I.play} Reprendre</button></div></section>` : ""}
+    ${cyc.deload ? `<section class="card banner b-blue mt"><div class="bi">${I.moon}</div><div class="grow"><b>Semaine allégée</b><div class="small muted">Charges et volume réduits : après 6 semaines d'efforts, ton corps récupère pour repartir plus fort.</div></div></section>`
+      : cyc.next === 1 ? `<section class="card banner b-amber mt"><div class="bi">${I.bolt}</div><div class="grow"><b>Dernière semaine du cycle</b><div class="small muted">Semaine allégée la semaine prochaine : donne tout !</div></div></section>` : ""}
+
+    <section class="card mission m-${kind} mt">
+      ${webSvg("orn")}
+      <div class="m-top">
+        <span class="m-tag">${kind === "done" ? `${I.check} Séance du jour terminée` : kind === "rest" ? `${I.moon} Jour de récupération` : `<i class="m-pulse" aria-hidden="true"></i> Mission du jour`}</span>
+        ${m.rest || m.doneToday || m.program.cat === "cardio" ? "" : `<span class="m-goal">${GOALS[p.goal].name}</span>`}
+      </div>
+      <h2 class="m-title">${esc(doneName || m.program.name)}</h2>
+      <p class="m-sub">${m.doneToday ? "Bravo ! Un peu de mobilité t'aidera à bien récupérer." : esc(m.program.tag || "")}</p>
+      ${m.doneToday ? "" : `
+      <div class="m-meta">
+        <span>${I.clock}~${estimateMinutes(prog)} min</span>
+        <span>${prog.exercises.length} exercice${prog.exercises.length > 1 ? "s" : ""}</span>
+      </div>
+      <ol class="m-list">${prog.exercises.slice(0, shown).map((e, k) => `<li><span class="m-n">${k + 1}</span><span class="m-ex">${esc(EXERCISES[e.id].name)}</span><span class="m-sets tnum">${fmtSetReps(e)}</span></li>`).join("")}
+        ${prog.exercises.length > shown ? `<li class="m-more"><span class="m-n">+${prog.exercises.length - shown}</span><span class="m-ex">autre${prog.exercises.length - shown > 1 ? "s" : ""} exercice${prog.exercises.length - shown > 1 ? "s" : ""}</span></li>` : ""}</ol>
+      `}
+      <div class="m-cta">
+        <button class="btn ${m.doneToday ? "btn-soft" : "btn-primary"} btn-lg grow" id="go">${I.play} ${m.doneToday ? "Mobilité · 15 min" : m.rest ? "Lancer la récup" : "Commencer"}</button>
+        <a href="#/train" class="btn btn-soft btn-lg m-swap" aria-label="Changer de séance" title="Changer de séance">${I.swap}</a>
+      </div>
+    </section>
+
+    <div class="quick mt-s">
+      <button class="card quick-tile" id="free"><span class="qi">${I.bolt}</span><span class="qt"><b>Séance libre</b><small>Au feeling</small></span></button>
+      <a class="card quick-tile" href="#/create"><span class="qi qi-blue">${I.plus}</span><span class="qt"><b>Créer</b><small>Sur mesure</small></span></a>
+    </div>
+
+    <div class="section"><h2>${spider("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
+    <div class="card week-card">
+      <div class="week">${week.map(d => {
+        const real = d.program && d.program.id !== "mobility";
+        const cls = d.done ? "done" : real ? (d.past ? "missed" : "planned") : d.program ? "mob" : "off";
+        return `<button class="day ${cls} ${d.today ? "today" : ""}" data-d="${d.i}" aria-label="${d.label} ${d.num} : ${esc(d.done ? "fait" : d.program?.name || "repos")}" title="${esc(d.program?.name || "Repos")}">
+          <span class="d">${d.today ? "Auj." : d.label}</span><span class="n tnum">${d.num}</span>
+          <span class="dot">${d.done ? I.check : real ? esc(shortName(d.program)) : d.program ? "M" : I.moon}</span></button>`;
+      }).join("")}</div>
+      <div class="week-foot"><span class="small muted">${ws.count >= planned ? `<b class="ok">Semaine bouclée !</b> ${ws.count} séance${ws.count > 1 ? "s" : ""} au compteur.` : `<b>${ws.count}/${planned}</b> séance${planned > 1 ? "s" : ""} · plus que ${left} !`}</span>
+        <span class="week-bar" aria-hidden="true"><i style="transform:scaleX(${Math.min(1, ws.count / planned)})"></i></span></div>
+    </div>
+
+    ${has ? `<div class="section"><h2>Cette semaine</h2><a href="#/progress">Stats</a></div>
+    <div class="hstats">
+      <div class="card hs hs-red">${ring(Math.min(1, ws.count / planned), I.play, 52)}<div class="hs-v"><span data-count="${ws.count}">0</span><small>/${planned}</small></div><div class="hs-l">Séances</div></div>
+      <div class="card hs hs-amber">${ring(Math.min(1, st / 7), I.flame, 52)}<div class="hs-v"><span data-count="${st}">0</span><small>j</small></div><div class="hs-l">D'affilée</div></div>
+      <div class="card hs hs-green">${ring(volPct, I.bolt, 52)}<div class="hs-v"><span data-count="${tons ? ws.volume / 1000 : ws.volume}" ${tons ? 'data-dec="1"' : ""}>0</span><small>${tons ? "t" : "kg"}</small></div><div class="hs-l">Volume</div></div>
+    </div>` : `<div class="card home-empty mt">
+      <span class="he-ic">${I.flame}</span>
+      <div class="grow"><b>Allume ta première flamme</b><p>Termine ta première mission : ta série démarre et tes stats prennent vie ici.</p></div>
+    </div>`}
+
     <a href="#/progress" class="card tap rank mt">
-      ${ring(r.pct, r.level)}
-      <div class="grow"><div class="eyebrow">Rang</div><div class="h3" style="margin-top:2px">${r.rank.name}</div>
-        <div class="bar mt-s"><i style="width:${r.pct * 100}%"></i></div>
-        <div class="xs muted mt-s">${r.xp} XP${r.next ? ` · ${r.next.xp - r.xp} XP avant « ${r.next.name} »` : " · rang maximum"}</div></div>
+      ${ring(r.pct, r.level, 60)}
+      <div class="grow"><div class="eyebrow">Rang · Niveau ${r.level}</div><div class="h3 rank-name">${r.rank.name}</div>
+        <div class="bar mt-s"><i style="width:${Math.max(2, r.pct * 100)}%"></i></div>
+        <div class="xs muted mt-s tnum">${fmtNum(r.xp)} XP${r.next ? ` · ${fmtNum(r.next.xp - r.xp)} avant « ${r.next.name} »` : " · rang maximum"}</div></div>
     </a>
 
     ${recentPRs.length ? `<div class="section"><h2>Derniers records</h2><a href="#/progress">Tout voir</a></div>
-    <div class="card" style="padding:4px 16px">${recentPRs.map(x => `<div class="cmp"><span>${esc(exName(x.id))}</span><span class="small muted">${x.set ? (x.set.weight ? x.set.weight + " kg × " : "") + x.set.reps : ""}</span><span class="delta p">PR</span></div>`).join("")}</div>` : ""}
+    <div class="card card-list prs">${recentPRs.map(x => `<div class="pr-row"><span class="pr-ic">${I.trophy}</span><span class="pr-name ellipsis">${esc(exName(x.id))}</span><span class="pr-val tnum">${x.set ? (x.set.weight ? x.set.weight + " kg × " : "") + x.set.reps : ""}</span><span class="delta p">PR</span></div>`).join("")}</div>` : ""}
 
-    <p class="quote mt-l">${QUOTES[new Date().getDate() % QUOTES.length]}</p>`;
+    <figure class="quote"><span class="q-mark" aria-hidden="true">“</span><blockquote>${QUOTES[now.getDate() % QUOTES.length]}</blockquote></figure>`;
 
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
   $("#resume")?.addEventListener("click", () => resumeLive(saved, route));
   $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
-  const daysOff = state.sessions.length ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
+  const daysOff = has ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
   if (daysOff >= 3) setTimeout(() => spidey.sleep?.(`Zzz… ${Math.floor(daysOff)} jours sans séance. Réveille-moi avec une mission !`), 1500);
   $$(".day").forEach(d => d.onclick = () => editDay(+d.dataset.d));
-  $("#edit-week").onclick = () => editDay((new Date().getDay() + 6) % 7);
+  $("#edit-week").onclick = () => editDay((now.getDay() + 6) % 7);
   animateRings(view);
+  countUp(view);
 }
 
 function shortName(p) {
