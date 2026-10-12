@@ -2,6 +2,7 @@
 import { knownAccounts, lastUser, login, createAccount, isOnlineMode, normalize, USERNAME_RE, PIN_RE, forget } from "./cloud.js";
 import { legacyData, LEGACY_KEY } from "./store.js";
 import { spidey } from "./spidey.js";
+import { webSvg } from "./fx.js";
 import { $, $$, esc, I, spider, toast, confirmSheet } from "./ui.js";
 
 let view, done, mode, ctx, sayTimer;
@@ -30,14 +31,22 @@ function go(m, c = {}) {
 }
 
 const avatar = (name, big) => `<div class="avatar ${big ? "big" : ""}">${esc((name || "?").charAt(0).toUpperCase())}</div>`;
-const header = (title, sub) => `<div class="logo" style="justify-content:center">${spider()}GREATNESS</div>
-  <h1 class="h1 center mt">${title}</h1>${sub ? `<p class="muted center small">${sub}</p>` : ""}`;
+// Emblème : la toile et l'araignée, en grand (accueil) ou en petit (autres écrans)
+export const emblem = (big = false) => `<div class="auth-emblem ${big ? "big" : ""}" aria-hidden="true">${webSvg("auth-web", 12, [13, 25, 37, 49])}<span class="auth-mark">${spider()}</span></div>`;
+const header = (title, sub) => `${emblem()}<h1 class="h1 center auth-title">${title}</h1>${sub ? `<p class="muted center small auth-sub">${sub}</p>` : ""}`;
 
 function welcome() {
-  view.innerHTML = `<div class="onb">${header("Bienvenue", "Chaque personne a son compte, ses séances et ses stats, protégés par un code secret.")}
-    <button class="btn btn-primary btn-lg btn-block mt-l" id="new">Créer mon compte</button>
-    <button class="btn btn-soft btn-lg btn-block mt-s" id="have">J'ai déjà un compte</button>
-    ${isOnlineMode() ? `<p class="xs dim center mt">Ton compte est synchronisé : retrouve-le sur n'importe quel téléphone.</p>` : `<p class="xs dim center mt">Les comptes sont enregistrés sur cet appareil.</p>`}</div>`;
+  view.innerHTML = `<div class="onb auth-welcome">
+    <div class="auth-hero">${emblem(true)}
+      <div class="auth-word">GREATNESS</div>
+      <h1 class="h1 center">Ton coach de poche.<br/><span class="accent">Prêt quand tu l'es.</span></h1>
+      <p class="muted center auth-sub">Séances guidées, charges ajustées à chaque série, records et défis entre amis.</p>
+    </div>
+    <div class="auth-cta">
+      <button class="btn btn-primary btn-lg btn-block" id="new">Créer mon compte</button>
+      <button class="btn btn-soft btn-lg btn-block mt-s" id="have">J'ai déjà un compte</button>
+      <p class="xs dim center auth-note">${isOnlineMode() ? "Ton compte est synchronisé : retrouve-le sur n'importe quel téléphone." : "Les comptes sont enregistrés sur cet appareil, protégés par un code secret."}</p>
+    </div></div>`;
   $("#new").onclick = () => go("signup");
   $("#have").onclick = () => go("login");
   sayLater("Salut ! Crée ton compte, je m'occupe du reste.", 900, { mood: "happy" });
@@ -55,9 +64,15 @@ function pick() {
 
 /* ---------- Pavé numérique ---------- */
 function keypad({ max = 6, len, onDone, onChange }) {
-  const dots = n => Array.from({ length: n }, (_, i) => `<i class="${i < ctx.pin.length ? "on" : ""}"></i>`).join("");
-  const draw = () => { $("#dots").innerHTML = dots(len || Math.max(4, Math.min(max, ctx.pin.length + (ctx.pin.length < max ? 1 : 0)))); onChange?.(); };
-  const html = `<div class="dots" id="dots"></div>
+  // Les points existants sont mis à jour (pas recréés) : le remplissage s'anime en douceur.
+  const draw = () => {
+    const box = $("#dots"), n = len || Math.max(4, Math.min(max, ctx.pin.length + (ctx.pin.length < max ? 1 : 0)));
+    while (box.children.length < n) box.append(document.createElement("i"));
+    while (box.children.length > n) box.lastElementChild.remove();
+    [...box.children].forEach((d, i) => d.classList.toggle("on", i < ctx.pin.length));
+    onChange?.();
+  };
+  const html = `<div class="dots" id="dots" aria-live="polite"></div>
     <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button data-k="${n}">${n}</button>`).join("")}
       <button data-k="del" aria-label="Effacer">${I.back}</button><button data-k="0">0</button>
       <button data-k="ok" class="ok" aria-label="Valider">${I.check}</button></div>`;
@@ -89,8 +104,9 @@ function shake(msg) {
   d?.classList.remove("shake"); void d?.offsetWidth; d?.classList.add("shake");
   navigator.vibrate?.([40, 30, 40]);
   ctx.pin = "";
-  setTimeout(() => $$("#dots i").forEach(i => i.classList.remove("on")), 350);
-  if (msg) { const e = $("#err"); if (e) e.textContent = msg; }
+  setTimeout(() => { $$("#dots i").forEach(i => i.classList.remove("on")); d?.classList.remove("shake"); }, 420);
+  const e = $("#err");
+  if (msg && e) { e.textContent = msg; e.classList.remove("show"); void e.offsetWidth; e.classList.add("show"); }
 }
 
 async function attempt(fn) {
@@ -102,10 +118,10 @@ async function attempt(fn) {
 function pinScreen() {
   const u = ctx.user;
   const kp = keypad({ len: u.len, onDone: pin => attempt(async () => { await login(u.username, pin); finish(); }) });
-  view.innerHTML = `<div class="onb lock">${avatar(u.name, true)}<h1 class="h2 center mt">Salut ${esc(u.name)} !</h1>
-    <p class="muted center small">Tape ton code secret</p>${kp.html}
-    <p class="err center" id="err"></p><div class="center"><span class="spinner hidden" id="busy"></span></div>
-    <div class="row between mt"><button class="btn btn-ghost btn-sm" id="switch">Changer de compte</button><button class="btn btn-ghost btn-sm" id="forgot">Code oublié ?</button></div></div>`;
+  view.innerHTML = `<div class="onb lock">${avatar(u.name, true)}<h1 class="h2 center auth-title">Salut ${esc(u.name)} !</h1>
+    <p class="muted center small auth-sub">Tape ton code secret</p>${kp.html}
+    <p class="err center" id="err"></p><div class="center auth-busy"><span class="spinner hidden" id="busy"></span></div>
+    <div class="auth-links"><button class="btn btn-ghost btn-sm" id="switch">Changer de compte</button><button class="btn btn-ghost btn-sm" id="forgot">Code oublié ?</button></div></div>`;
   kp.bind();
   $("#switch").onclick = () => go(knownAccounts().length > 1 ? "pick" : "welcome");
   $("#forgot").onclick = async () => {
@@ -123,7 +139,7 @@ function loginScreen() {
     if (!u.trim()) throw new Error("Entre ton pseudo.");
     await login(u, pin); finish();
   });
-  view.innerHTML = `<div class="onb lock">${header("Connexion", isOnlineMode() ? "Ton pseudo et ton code, depuis n'importe quel téléphone." : "Compte enregistré sur cet appareil.")}
+  view.innerHTML = `<div class="onb lock compact">${header("Connexion", isOnlineMode() ? "Ton pseudo et ton code, depuis n'importe quel téléphone." : "Compte enregistré sur cet appareil.")}
     <label class="field mt"><span>Pseudo</span><input class="input" id="user" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(ctx.prefill || "")}"/></label>
     <p class="muted small center mt">Code secret</p>${kp.html}<p class="err center" id="err"></p>
     <button class="btn btn-primary btn-block mt-s" id="go" disabled>Se connecter <span class="spinner hidden" id="busy"></span></button>

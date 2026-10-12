@@ -9,7 +9,7 @@ import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport } from "./social.js";
-import { showAuth } from "./auth.js";
+import { showAuth, emblem } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
@@ -698,39 +698,40 @@ function onboarding(step = 1) {
   if (step === 1 && !draft.name) draft.name = state.profile.name || "";
   document.body.classList.add("hide-tabs");
   const p = state.profile;
-  const steps = `<div class="steps">${[1, 2, 3].map(i => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>`;
+  const total = 3;
+  const steps = `<div class="onb-top"><div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${step}">${Array.from({ length: total }, (_, k) => `<i class="${k + 1 < step ? "on" : k + 1 === step ? "on cur" : ""}"></i>`).join("")}</div><span class="onb-count">Étape ${step} sur ${total}</span></div>`;
   view.className = "view";
   void view.offsetWidth;
   view.className = "view enter";
   if (step === 1) {
-    view.innerHTML = `<div class="onb">${steps}
-      <div class="logo" style="justify-content:center">${spider()}GREATNESS</div>
-      <h1 class="h1 center mt">Ton coach t'attend.</h1>
-      <p class="muted center">Spider-Man pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p>
-      <label class="field mt-l"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
-      <button class="btn btn-primary btn-lg btn-block mt" id="next">Continuer</button></div>`;
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <div class="onb-hero">${emblem(true)}
+        <h1 class="h1 center">Ton coach t'attend.</h1>
+        <p class="muted center onb-lead">Spider-Man pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p></div>
+      <label class="field onb-name"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
+      <div class="onb-foot"><button class="btn btn-primary btn-lg btn-block" id="next">Continuer</button></div></div>`;
     setTimeout(() => spidey.say("Salut ! Je suis ton nouveau coach. On fait connaissance ?", { mood: "happy" }), 1200);
     $("#next").onclick = () => { const n = $("#name").value.trim(); if (!n) return toast("Il me faut ton prénom !"); draft.name = n; onboarding(2); };
     $("#name").onkeydown = e => { if (e.key === "Enter") $("#next").click(); };
   } else if (step === 2) {
-    view.innerHTML = `<div class="onb">${steps}
-      <h1 class="h1">Ton objectif, ${esc(draft.name)} ?</h1>
-      <p class="muted">J'adapte les répétitions, les repos et le programme.</p>
-      <div class="opts mt">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${draft.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${{ force: "Soulever plus lourd", muscle: "Prendre du volume", seche: "Perdre du gras", forme: "Être en forme" }[k]}</span></button>`).join("")}</div>
-      <label class="field"><span>Poids de corps (kg)</span><input class="input" id="bw" type="number" inputmode="decimal" value="${draft.bodyweight}"/></label>
-      <div class="grid2 mt"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <h1 class="h1 onb-h">Ton objectif, ${esc(draft.name)} ?</h1>
+      <p class="muted onb-lead">J'adapte les répétitions, les repos et le programme.</p>
+      <div class="opts onb-goals">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${draft.goal === k ? "on" : ""}" data-goal="${k}"><i>${GOAL_ICON[k] || "🎯"}</i><b>${g.name}</b><span>${{ force: "Soulever plus lourd", muscle: "Prendre du volume", seche: "Perdre du gras", forme: "Être en forme" }[k]}</span></button>`).join("")}</div>
+      <label class="field onb-bw"><span>Poids de corps</span><span class="onb-unit"><input class="input" id="bw" type="number" inputmode="decimal" value="${draft.bodyweight}"/><i>kg</i></span></label>
+      <div class="onb-foot grid2"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
     $$("[data-goal]").forEach(b => b.onclick = () => { draft.goal = b.dataset.goal; $$("[data-goal]").forEach(x => x.classList.toggle("on", x === b)); });
     $("#prev").onclick = () => onboarding(1);
     $("#next").onclick = () => { draft.bodyweight = +$("#bw").value || 75; onboarding(3); };
   } else {
-    view.innerHTML = `<div class="onb">${steps}
-      <h1 class="h1">Ton rythme</h1>
-      <p class="muted">Je construis ton programme de la semaine. Tu pourras tout modifier.</p>
-      <div class="small muted mt" style="margin-bottom:8px">Séances par semaine</div>
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <h1 class="h1 onb-h">Ton rythme</h1>
+      <p class="muted onb-lead">Je construis ton programme de la semaine. Tu pourras tout modifier.</p>
+      <div class="onb-lbl">Séances par semaine</div>
       <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${draft.days === d ? "on" : ""}">${d}</button>`).join("")}</div>
-      <div class="small muted" style="margin:16px 0 8px">Où t'entraînes-tu ?</div>
-      <div class="opts" id="equip">${[["gym", "En salle", "Barres, machines"], ["db", "Haltères", "À la maison"], ["home", "Sans matériel", "Poids du corps"]].map(([v, l, s]) => `<button class="opt ${draft.equipment === v ? "on" : ""}" data-v="${v}"><b>${l}</b><span>${s}</span></button>`).join("")}</div>
-      <div class="grid2 mt-l"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="done">C'est parti</button></div></div>`;
+      <div class="onb-lbl">Où t'entraînes-tu ?</div>
+      <div class="opts onb-list" id="equip">${[["gym", "En salle", "Barres, machines, poulies", "🏋️"], ["db", "Haltères", "À la maison, avec des haltères", "🏠"], ["home", "Sans matériel", "Au poids du corps, partout", "🤸"]].map(([v, l, s, e]) => `<button class="opt ${draft.equipment === v ? "on" : ""}" data-v="${v}"><i>${e}</i><div><b>${l}</b><span>${s}</span></div></button>`).join("")}</div>
+      <div class="onb-foot grid2"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="done">C'est parti</button></div></div>`;
     $$("#days button").forEach(b => b.onclick = () => { draft.days = +b.dataset.v; $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
     $$("#equip .opt").forEach(b => b.onclick = () => { draft.equipment = b.dataset.v; $$("#equip .opt").forEach(x => x.classList.toggle("on", x === b)); });
     $("#prev").onclick = () => onboarding(2);
