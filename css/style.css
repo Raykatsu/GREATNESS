@@ -392,6 +392,15 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .tr-group h2 { font-size: var(--fs-lg); letter-spacing: -.01em; }
 .tr-group span { margin-left: auto; font-size: var(--fs-xs); font-weight: 700; color: var(--dim); }
 .tr-list > .prog-list:first-child { margin-top: var(--s-4); }
+.tr-list { container-type: inline-size; }
+.free-card { container-type: inline-size; }
+@container (max-width: 280px) { .free-card .chev { display: none; } }
+@container (max-width: 330px) {
+  .prog.pc { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+  .prog.pc .chev { display: none; }
+  .pc-ic { width: 40px; height: 40px; border-radius: 13px; }
+  .pc-ic svg { width: 20px; height: 20px; }
+}
 
 /* Cartes programme (aussi utilisées par Créer › Mes séances) */
 .prog { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 16px 16px 16px 18px; }
