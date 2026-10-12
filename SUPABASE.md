@@ -48,7 +48,7 @@ Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recher
 
 1. **Clé gratuite** : va sur [aistudio.google.com](https://aistudio.google.com), connecte-toi avec un compte Google → **Get API key** → **Create API key**. Copie la clé (elle commence souvent par `AIza`).
 2. **SQL Editor** → New query → colle tout le contenu de [`supabase/004_ai.sql`](supabase/004_ai.sql) → **Run**.
-3. **Edge Functions** → *Deploy a new function* → *Via Editor*. Nom : `coach`. Remplace le code par celui de [`supabase/functions/coach/index.ts`](supabase/functions/coach/index.ts) → **Deploy**. Puis dans les *Details* de la fonction, **désactive « Verify JWT »** et enregistre (la fonction vérifie elle-même le compte avec le jeton de connexion).
+3. **Edge Functions** → *Deploy a new function* → *Via Editor*. Nom : `coach` (attention : l'adresse de la fonction peut garder une majuscule, par exemple `…/functions/v1/Coach` ; si c'est le cas, change `AI_FUNCTION` dans `js/config.js` pour que ça corresponde exactement). Remplace le code par celui de [`supabase/functions/coach/index.ts`](supabase/functions/coach/index.ts) → **Deploy**. Puis dans les *Details* de la fonction, **désactive « Verify JWT »** et enregistre (la fonction vérifie elle-même le compte avec le jeton de connexion).
 4. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Facultatif : `AI_DAILY_LIMIT` (messages par jour et par compte, 80 par défaut) et `GEMINI_MODELS` (par défaut `gemini-flash-latest,gemini-flash-lite-latest` : le dernier Flash de Google, et Flash-Lite en secours quand le quota est épuisé).
 5. Dans l'app, onglet **Coach** : l'en-tête indique « IA en ligne » et le nombre de messages restants.
 
