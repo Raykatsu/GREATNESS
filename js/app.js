@@ -1,12 +1,14 @@
 import { EXERCISES, GOALS, QUOTES } from "./data.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn } from "./store.js";
-import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal } from "./planner.js";
+import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
 import { thwip, webSvg, speak } from "./fx.js";
 import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
-import { startLive, isLive } from "./live.js";
+import { startLive, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
+import { BADGES, checkBadges } from "./badges.js";
+import { renderFriends, renderImport } from "./social.js";
 import { showAuth } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
 import * as llm from "./llm.js";
@@ -22,13 +24,13 @@ let current = "home";
    Router
    ========================================================= */
 let params = {};
-const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), coach: () => renderCoach(view), progress, profile };
+const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), import: () => renderImport(view, params.s), coach: () => renderCoach(view), progress, profile };
 function route() {
   const [key, qs] = location.hash.replace(/^#\/?/, "").split("?");
   params = Object.fromEntries(new URLSearchParams(qs || ""));
   current = key || "home";
   applyAppearance(state.profile);
-  if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); });
+  if (!currentUser) return showAuth(view, () => { llm.autoload(); route(); offerResume(); });
   if (!state.profile.onboarded) return onboarding();
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current));
@@ -39,13 +41,29 @@ function route() {
   view.classList.add("enter");
   window.scrollTo({ top: 0 });
   setTimeout(() => spidey.settle(), 400);
+  const fresh = checkBadges();
+  if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); spidey.react("party"); }, 600);
 }
 addEventListener("hashchange", route);
 
 const launch = (program, readiness) => startLive(program, readiness, route);
+// Séance interrompue (app fermée) : on propose de la reprendre dès le déverrouillage.
+function offerResume() {
+  const saved = savedSession();
+  if (!saved || isLive()) return;
+  const done = saved.plan.reduce((a, e) => a + e.done.length, 0);
+  const sh = sheet(`<div class="banner" style="padding:0"><div class="bi">${I.play}</div><div><h2 class="h2">Reprendre ta séance ?</h2>
+    <p class="small muted" style="margin:2px 0 0">${esc(saved.program.name)} · ${done} série${done > 1 ? "s" : ""} déjà faite${done > 1 ? "s" : ""}. Tout a été sauvegardé.</p></div></div>
+    <div class="grid2 mt"><button class="btn btn-soft" id="rs-drop">Abandonner</button><button class="btn btn-primary" id="rs-go">${I.play} Reprendre</button></div>`, { z: 80 });
+  $("#rs-go", sh.el).onclick = () => { sh.close(); resumeLive(saved, route); };
+  $("#rs-drop", sh.el).onclick = () => { sh.close(); discardSaved(); route(); };
+}
+
+export const startFree = () => launch({ id: "free", name: "Séance libre", tag: "Exercices au choix", free: true, exercises: [] }, { sleep: 4, energy: 3, soreness: 2 });
 
 // Actions déclenchées par le coach
 addEventListener("greatness:start", e => {
+  if (e.detail === "free") return startFree();
   const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
   if (p) openProgram(p, launch);
 });
@@ -65,11 +83,17 @@ function home() {
   const hour = new Date().getHours();
   const hello = hour < 5 ? "Patrouille de nuit" : hour < 12 ? "Bonjour" : hour < 18 ? "Salut" : "Bonsoir";
   const planned = Object.values(ensureWeekPlan()).filter(id => id !== "mobility").length;
+  const saved = savedSession();
+  const cyc = cycleInfo();
   const recentPRs = state.sessions.slice().reverse().flatMap(s => s.prs.map(id => ({ id, set: s.sets.filter(x => x.exId === id).sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps) || b.reps - a.reps)[0] }))).slice(0, 3);
 
   view.innerHTML = `
     <div class="home-head"><div class="logo">${spider()}GREATNESS</div><a href="#/progress" class="chip">${I.trophy} Niv. ${r.level}</a></div>
     <div class="hello"><div class="muted">${hello},</div><h1 class="h1"><span>${esc(p.name)}</span></h1></div>
+    ${saved ? `<section class="card banner resume mt"><div class="bi">${I.play}</div><div class="grow"><b>Séance en cours</b><div class="small muted">${esc(saved.program.name)} · ${saved.plan.reduce((a, e) => a + e.done.length, 0)} série(s) faite(s)</div></div>
+      <div class="row" style="gap:6px"><button class="btn btn-ghost btn-sm" id="drop">Abandonner</button><button class="btn btn-primary btn-sm" id="resume">Reprendre</button></div></section>` : ""}
+    ${cyc.deload ? `<section class="card banner mt"><div class="bi">${I.moon}</div><div><b>Semaine allégée</b><div class="small muted">Après 6 semaines d'efforts : charges et volume réduits cette semaine pour que ton corps récupère et reparte plus fort.</div></div></section>`
+      : cyc.next === 1 ? `<section class="card banner mt"><div class="bi">${I.info}</div><div><b>Semaine allégée la semaine prochaine</b><div class="small muted">Donne tout cette semaine !</div></div></section>` : ""}
 
     <section class="card card-hero mission mt">
       ${webSvg("orn")}
@@ -84,6 +108,7 @@ function home() {
         <a href="#/train" class="btn btn-soft btn-lg" aria-label="Changer de séance">${I.swap}</a>
       </div>
     </section>
+    <div class="grid2 mt-s"><button class="btn btn-soft" id="free">${I.bolt} Séance libre</button><a class="btn btn-soft" href="#/create">${I.plus} Créer une séance</a></div>
 
     <div class="section"><h2>${spider("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
     <div class="week">${week.map(d => `
@@ -110,6 +135,11 @@ function home() {
     <p class="quote mt-l">${QUOTES[new Date().getDate() % QUOTES.length]}</p>`;
 
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
+  $("#free").onclick = () => startFree();
+  $("#resume")?.addEventListener("click", () => resumeLive(saved, route));
+  $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
+  const daysOff = state.sessions.length ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
+  if (daysOff >= 3) setTimeout(() => spidey.sleep?.(`Zzz… ${Math.floor(daysOff)} jours sans séance. Réveille-moi avec une mission !`), 1500);
   $$(".day").forEach(d => d.onclick = () => editDay(+d.dataset.d));
   $("#edit-week").onclick = () => editDay((new Date().getDay() + 6) % 7);
   animateRings(view);
@@ -141,8 +171,13 @@ function editDay(i) {
 /* =========================================================
    Progrès
    ========================================================= */
-let monthOffset = 0;
+let monthOffset = 0, progressTab = "me";
 function progress() {
+  if (progressTab === "friends") {
+    view.innerHTML = `<div class="eyebrow">Statistiques</div><h1 class="h1">Progrès</h1>${progressSeg()}<div id="friends"></div>`;
+    bindProgressSeg();
+    return renderFriends($("#friends"));
+  }
   const all = state.sessions;
   const totalVol = all.reduce((a, s) => a + s.volume, 0);
   const totalMin = Math.round(all.reduce((a, s) => a + s.durationSec, 0) / 60);
@@ -152,11 +187,18 @@ function progress() {
 
   view.innerHTML = `
     <div class="eyebrow">Statistiques</div><h1 class="h1">Progrès</h1>
+    ${progressSeg()}
     <div class="grid3 mt">
       <div class="card stat"><div class="v">${all.length}</div><div class="l">Séances</div></div>
       <div class="card stat"><div class="v">${totalVol >= 10000 ? (totalVol / 1000).toFixed(1) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</div><div class="l">Volume total</div></div>
       <div class="card stat"><div class="v">${totalMin >= 120 ? (totalMin / 60).toFixed(1) + "<small>h</small>" : totalMin + "<small>min</small>"}</div><div class="l">Temps</div></div>
     </div>
+
+    <div class="section"><h2>Corps</h2><button id="body-add">+ Mesurer</button></div>
+    ${bodyCard()}
+
+    <div class="section"><h2>Succès</h2><span class="xs muted">${Object.keys(state.badges || {}).length}/${BADGES.length}</span></div>
+    <div class="badges">${BADGES.map(b => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
 
     <div class="section"><h2>${spider("emb")}Calendrier</h2>
       <div class="row" style="gap:4px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled style='opacity:.3'" : ""}>${I.chev}</button></div></div>
@@ -177,9 +219,11 @@ function progress() {
         <div class="row between"><div><b class="h3">${esc(s.name)}</b><div class="xs muted" style="text-transform:capitalize">${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</div></div>
           <span class="chip green">+${s.xp} XP</span></div>
         <div class="row xs muted mt-s" style="gap:14px"><span>${fmtTime(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span style="color:var(--amber)">${s.prs.length} PR</span>` : ""}</div>
-        <div class="det">${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
+        <div class="det">${s.note ? `<div class="note-line" style="margin:0 0 8px">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
       </article>`).join("") : `<div class="card empty">${I.clock}Aucune séance pour l'instant.</div>`}`;
 
+  bindProgressSeg();
+  $("#body-add").onclick = bodySheet;
   $("#mp").onclick = () => { monthOffset--; route(); };
   $("#mn").onclick = () => { if (monthOffset < 0) { monthOffset++; route(); } };
   $$("[data-ex]").forEach(el => el.onclick = () => exerciseSheet(el.dataset.ex));
@@ -188,6 +232,62 @@ function progress() {
     if (!(await confirmSheet("Supprimer cette séance ?", "Elle sera retirée de ton historique.", "Supprimer", true))) return;
     state.sessions = state.sessions.filter(s => s.id !== b.dataset.del); save(); route();
   });
+}
+
+const progressSeg = () => `<div class="seg mt" id="ptabs"><button data-t="me" class="${progressTab === "me" ? "on" : ""}">Moi</button><button data-t="friends" class="${progressTab === "friends" ? "on" : ""}">Amis & défis</button></div>`;
+function bindProgressSeg() { $$("#ptabs button").forEach(b => b.onclick = () => { progressTab = b.dataset.t; route(); }); }
+
+const BODY = [["weight", "Poids", "kg"], ["waist", "Tour de taille", "cm"], ["chest", "Poitrine", "cm"], ["arm", "Bras", "cm"], ["thigh", "Cuisse", "cm"]];
+function bodyCard() {
+  const b = state.body || [];
+  if (!b.length) return `<div class="card empty">Note ton poids et tes mensurations pour suivre ta transformation, pas seulement tes charges.</div>`;
+  const last = b[b.length - 1], first = b[0];
+  const diff = (k, u) => (last[k] != null && first[k] != null && b.length > 1 ? `<span class="delta ${last[k] - first[k] <= 0 ? "n" : "p"}">${last[k] - first[k] > 0 ? "+" : ""}${(last[k] - first[k]).toFixed(1).replace(".0", "")} ${u}</span>` : "");
+  const pts = b.filter(x => x.weight).map(x => ({ x: x.date, y: x.weight }));
+  return `<div class="card">
+    <div class="grid3">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num" style="font-size:22px">${last[k]}<small class="muted" style="font-size:12px"> ${u}</small></div><div class="xs muted">${l}</div>${diff(k, u)}</div>`).join("")}</div>
+    ${pts.length >= 2 ? `<div class="mt">${chart(pts)}</div>` : ""}
+    <div class="xs dim mt-s">Dernière mesure : ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure(s)</div></div>`;
+}
+function bodySheet() {
+  const last = (state.body || []).slice(-1)[0] || { weight: state.profile.bodyweight };
+  const sh = sheet(`<h2 class="h2">Mes mesures du jour</h2><p class="small muted">Remplis seulement ce que tu veux suivre.</p>
+    <div class="grid2">${BODY.map(([k, l, u]) => `<label class="field"><span>${l} (${u})</span><input class="input" id="b-${k}" type="number" inputmode="decimal" step="0.1" placeholder="${last[k] ?? ""}"/></label>`).join("")}</div>
+    <button class="btn btn-primary btn-block mt" id="b-save">Enregistrer</button>`);
+  $("#b-save", sh.el).onclick = () => {
+    const e = { date: Date.now() };
+    BODY.forEach(([k]) => { const v = parseFloat($(`#b-${k}`, sh.el).value.replace(",", ".")); if (v > 0) e[k] = v; });
+    if (Object.keys(e).length < 2) return toast("Entre au moins une mesure.");
+    state.body ||= []; state.body.push(e);
+    if (e.weight) state.profile.bodyweight = e.weight;
+    save(); sh.close(); route(); toast("Mesures enregistrées ✓");
+  };
+}
+
+// Fichier calendrier (.ics) : un événement répété chaque semaine pour chaque jour prévu.
+function downloadIcs() {
+  const plan = ensureWeekPlan(), p = state.profile;
+  const [hh, mm] = (p.remindAt || "18:00").split(":").map(Number);
+  const BYDAY = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+  const pad = n => String(n).padStart(2, "0");
+  const fmt = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const today = new Date();
+  const events = Object.entries(plan).filter(([, id]) => id !== "mobility").map(([d, id]) => {
+    const prog = getProgram(id);
+    const start = new Date(today); start.setHours(hh, mm, 0, 0);
+    start.setDate(start.getDate() + ((+d - ((today.getDay() + 6) % 7) + 7) % 7));
+    const end = new Date(start.getTime() + estimateMinutes(prog) * 60000);
+    return ["BEGIN:VEVENT", `UID:greatness-${d}-${id}@raykatsu.github.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[d]}`, `SUMMARY:🕷️ GREATNESS · ${prog?.name || "Séance"}`, "DESCRIPTION:Ta mission t'attend : https://raykatsu.github.io/GREATNESS/",
+      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Ta séance commence bientôt !", `TRIGGER:-PT${p.remindBefore ?? 15}M`, "END:VALARM", "END:VEVENT"].join("\r\n");
+  });
+  if (!events.length) return 0;
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//GREATNESS//FR", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  a.download = "greatness-seances.ics";
+  a.click();
+  return events.length;
 }
 
 function calendar() {
@@ -298,6 +398,15 @@ function profile() {
       <p class="xs dim mt-s">Astuce : tu peux aussi demander au coach « passe l'app en vert » ou « mode clair ».</p>
     </div>
 
+    <div class="section"><h2>Rappels</h2></div>
+    <div class="card">
+      <p class="small muted" style="margin:0 0 12px">Ajoute tes séances prévues dans le calendrier de ton téléphone, avec une alerte avant chaque séance.</p>
+      <div class="row" style="gap:10px"><label class="field grow" style="margin:0"><span>Heure de la séance</span><input class="input" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
+        <label class="field" style="margin:0;width:120px"><span>Alerte</span><select class="input" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
+      <button class="btn btn-soft btn-block mt" id="rem-ics">${I.clock} Ajouter à mon calendrier</button>
+      <label class="toggle" style="padding-bottom:0"><div><b>Semaine allégée automatique</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+    </div>
+
     <div class="section"><h2>Données</h2></div>
     <div class="card">
       <div class="grid2"><button class="btn btn-soft btn-sm" id="exp">Exporter</button><label class="btn btn-soft btn-sm">Importer<input type="file" id="imp" accept="application/json" hidden/></label></div>
@@ -332,6 +441,12 @@ function profile() {
   $$("[data-accent]").forEach(b => b.onclick = () => { p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
+  $("#p-deload").onchange = e => { p.deload = e.target.checked; save(); };
+  $("#rem-ics").onclick = () => {
+    p.remindAt = $("#rem-time").value || "18:00"; p.remindBefore = +$("#rem-before").value; save();
+    const n = downloadIcs();
+    toast(n ? `${n} séance(s) par semaine ajoutée(s) : ouvre le fichier pour les mettre dans ton calendrier.` : "Aucune séance prévue dans ton programme.", 4500);
+  };
   $("#regen").onclick = () => { state.weekPlan = generateWeekPlan(); save(); toast("Nouveau programme prêt"); spidey.say(`Programme de ${p.days} séances créé. Regarde l'accueil !`, { mood: "happy" }); };
   const bind = (id, fn) => $(id).addEventListener("change", e => { fn(e.target); save(); });
   bind("#p-name", t => (p.name = t.value.trim().slice(0, 30) || p.name));

@@ -170,7 +170,7 @@ export const EXERCISES = {
 };
 
 // sets, reps [min,max] (secondes si type "time"), poids de départ, repos (s), RPE cible
-const x = (id, sets, reps, weight = 0, rest = 90, rpe = 8) => ({ id, sets, reps, weight, rest, rpe });
+const x = (id, sets, reps, weight = 0, rest = 90, rpe = 8, ss = null) => ({ id, sets, reps, weight, rest, rpe, ...(ss ? { ss } : {}) });
 
 export const CATEGORIES = [
   { id: "all", name: "Tout" },
@@ -221,9 +221,9 @@ export const PROGRAMS = [
   { id: "home_db", name: "Maison · Haltères", tag: "Une paire d'haltères", cat: "home", accent: "blue",
     exercises: [x("goblet", 4, [8, 12], 20, 90), x("db_bench", 3, [8, 12], 20), x("db_row", 3, [10, 12], 20), x("db_press", 3, [8, 12], 14), x("db_rdl", 3, [10, 12], 20), x("curl", 2, [10, 12], 10, 60)] },
   { id: "hiit", name: "HIIT express", tag: "Cardio · 20 min", cat: "cardio", accent: "red",
-    exercises: [x("jumping_jack", 3, [30, 45], 0, 20, 7), x("burpee", 3, [8, 12], 0, 30, 8), x("mountain", 3, [30, 40], 0, 20, 8), x("jump_squat", 3, [10, 15], 0, 30, 8), x("high_knees", 3, [30, 40], 0, 20, 8)] },
+    exercises: [x("jumping_jack", 3, [30, 45], 0, 20, 7, "C"), x("burpee", 3, [8, 12], 0, 30, 8, "C"), x("mountain", 3, [30, 40], 0, 20, 8, "C"), x("jump_squat", 3, [10, 15], 0, 30, 8, "C"), x("high_knees", 3, [30, 40], 0, 20, 8, "C")] },
   { id: "cardio_rope", name: "Corde & gainage", tag: "Cardio · 25 min", cat: "cardio", accent: "blue",
-    exercises: [x("jump_rope", 5, [60, 90], 0, 45, 7), x("mountain", 3, [30, 45], 0, 30, 8), x("plank", 3, [40, 60], 0, 30, 7), x("burpee", 2, [10, 15], 0, 45, 8)] },
+    exercises: [x("jump_rope", 5, [60, 90], 0, 45, 7, "C"), x("mountain", 3, [30, 45], 0, 30, 8, "C"), x("plank", 3, [40, 60], 0, 30, 7, "C"), x("burpee", 2, [10, 15], 0, 45, 8, "C")] },
   { id: "mobility", name: "Mobilité", tag: "Récupération active · 15 min", cat: "mobility", accent: "blue", simple: true,
     exercises: [x("cat_cow", 1, [45, 60], 0, 10, 5), x("worlds_greatest", 2, [40, 60], 0, 10, 5), x("hip_flexor", 2, [40, 60], 0, 10, 5), x("pigeon", 2, [45, 60], 0, 10, 5), x("thoracic", 2, [30, 45], 0, 10, 5), x("hamstring", 2, [40, 60], 0, 10, 5), x("child_pose", 1, [60, 90], 0, 10, 5)] },
 ];

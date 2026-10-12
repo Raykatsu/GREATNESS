@@ -15,6 +15,10 @@ const DEFAULT = {
   chat: [],
   customPrograms: [],
   customExercises: {}, // { id: { name, muscle, type, equip, step, cues, alts } }
+  exNotes: {},        // { exerciseId: "note" }
+  body: [],           // [{ date, weight, waist, chest, arm, thigh }]
+  badges: {},         // { badgeId: date }
+  cycleStart: null,   // début du cycle d'entraînement (pour les semaines allégées)
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
@@ -157,3 +161,20 @@ export function lastPerformance(exId) {
 }
 
 export const exName = id => EXERCISES[id]?.name || id;
+
+// Résumé public visible par les amis (rien d'autre n'est partagé).
+export function publicSummary() {
+  const w = weekStats(), r = rankInfo();
+  const ws = weekStart().getTime();
+  const weekPrs = state.sessions.filter(s => s.date >= ws).reduce((a, s) => a + (s.prs?.length || 0), 0);
+  return {
+    name: state.profile.name, goal: state.profile.goal, level: r.level, rank: r.rank.name, xp: r.xp, streak: streak(),
+    week: { start: ws, count: w.count, volume: Math.round(w.volume), minutes: w.minutes, prs: weekPrs },
+    total: { sessions: state.sessions.length, volume: Math.round(state.sessions.reduce((a, s) => a + (s.volume || 0), 0)) },
+    records: Object.entries(state.lifts).filter(([id]) => EXERCISES[id]?.type === "load").sort((a, b) => b[1].best - a[1].best).slice(0, 5)
+      .map(([id, l]) => ({ n: exName(id), kg: Math.round(l.best) })),
+    recent: state.sessions.slice(-5).reverse().map(s => ({ d: s.date, n: s.name, v: s.volume, s: s.sets.length, pr: s.prs?.length || 0 })),
+    badges: Object.keys(state.badges || {}).length,
+    updatedAt: Date.now(),
+  };
+}

@@ -34,7 +34,7 @@ const SVG = `
       <g class="sp-emblem" fill="#0b0b12"><ellipse cx="30" cy="34.5" rx="1.6" ry="2.4"/><circle cx="30" cy="31.4" r="1.1"/>
         <path d="M29 33 L24.5 29.5 M31 33 L35.5 29.5 M29 34.5 L24 34 M31 34.5 L36 34 M29 36 L25 39.5 M31 36 L35 39.5" stroke="#0b0b12" stroke-width=".6"/></g>
     </g>
-    <g class="sp-armR"><path d="M40 30 L44 39.5" stroke="#2549d6" stroke-width="5.6" stroke-linecap="round"/><path d="M44 39.5 L45.5 48" stroke="#dc1428" stroke-width="5" stroke-linecap="round"/><circle cx="45.7" cy="49.5" r="3" fill="#d10a22"/></g>
+    <g class="sp-armR"><path d="M40 30 L44 39.5" stroke="#2549d6" stroke-width="5.6" stroke-linecap="round"/><path d="M44 39.5 L45.5 48" stroke="#dc1428" stroke-width="5" stroke-linecap="round"/><circle cx="45.7" cy="49.5" r="3" fill="#d10a22"/><g class="sp-db"><rect x="39.5" y="48.6" width="12.4" height="1.9" rx=".9" fill="#9aa0ad"/><rect x="38" y="45.6" width="3" height="7.8" rx="1" fill="#2b2f3a"/><rect x="50.4" y="45.6" width="3" height="7.8" rx="1" fill="#2b2f3a"/></g></g>
     <g class="sp-head">
       <ellipse cx="30" cy="14.5" rx="11.2" ry="12.6" fill="url(#spRed)"/>
       <g stroke="#6b0012" stroke-width=".45" fill="none" opacity=".75">
@@ -46,6 +46,7 @@ const SVG = `
         <path class="sp-eyeR" d="M39.7 12.6 Q35.5 7.6 31.4 13.6 Q33.8 18.6 38.6 17.2 Z" fill="#fff" stroke="#0b0b12" stroke-width="1.5" stroke-linejoin="round"/>
       </g>
     </g>
+    <g class="sp-zzz" fill="#cfd6ff" font-family="Outfit, sans-serif" font-weight="800"><text x="40" y="6" font-size="6">z</text><text x="45" y="0" font-size="8">z</text><text x="51" y="-7" font-size="10">Z</text></g>
   </g>
 </svg>`;
 
@@ -129,6 +130,7 @@ class Spidey {
   }
 
   pose(name, mood) {
+    if (this.sleeping && name !== "sleep") return; // il dort : rien ne change sa pose
     this.svg.setAttribute("class", `sp pose-${name}${mood ? " mood-" + mood : ""}`);
   }
   mood(m) {
@@ -231,6 +233,28 @@ class Spidey {
     await sleep(220); this.pose("idle");
   }
 
+  // Soulève un haltère (pendant les séries).
+  async lift(ms = 3600) {
+    if (!this.enabled || this.busy || this.hanging) return;
+    return this.run(async () => { this.pose("lift", "happy"); await sleep(ms); this.pose("idle"); });
+  }
+
+  // S'endort (pas de séance depuis plusieurs jours) jusqu'à ce qu'on le touche.
+  sleep(text) {
+    if (!this.enabled || this.hanging || this.sleeping) return;
+    this.sleeping = true;
+    this.pose("sleep");
+    if (text) this.say(text, { ms: 6000 });
+  }
+  wake() {
+    if (!this.sleeping) return false;
+    this.sleeping = false;
+    this.hideBubble();
+    this.pose("idle");
+    this.react("party");
+    return true;
+  }
+
   async wave() { this.pose("wave", "happy"); await sleep(1300); this.pose("idle"); }
   async look() { this.pose("look"); await sleep(1800); this.pose("idle"); }
 
@@ -308,7 +332,7 @@ class Spidey {
 
   /* ---------- Réactions publiques ---------- */
   async react(kind) {
-    if (!this.enabled || this.hanging) return;
+    if (!this.enabled || this.hanging || this.sleeping) return;
     if (kind === "pr" || kind === "party") return this.run(() => this.flip());
     if (kind === "happy") { this.mood("happy"); return this.run(() => this.wave()); }
     if (kind === "alert") { this.mood("alert"); return this.run(() => this.look()); }
@@ -316,6 +340,7 @@ class Spidey {
 
   setContext(ctx) {
     this.ctx = ctx;
+    if (ctx === "live") this.wake();
     if (!this.enabled || this.hanging) return;
     const p = this.perch(ctx === "live" ? pick(["wallR", "wallL", "ceiling"]) : "floor");
     this.run(() => (reduced() ? this.goto(p, 0) : this.zip(p)));
@@ -350,7 +375,7 @@ class Spidey {
   }
 
   async wander() {
-    if (!this.enabled || this.busy || this.hanging || this.dragging || document.hidden) return this.schedule();
+    if (!this.enabled || this.busy || this.hanging || this.dragging || this.sleeping || document.hidden) return this.schedule();
     if (reduced()) { if (Math.random() < 0.3) this.look(); return this.schedule(); }
     const live = this.ctx === "live";
     const options = live
@@ -382,7 +407,7 @@ class Spidey {
     const up = async () => {
       if (!this.dragging) return;
       this.dragging = false;
-      if (!moved) { this.busy = false; return this.onTap?.(); }
+      if (!moved) { this.busy = false; if (this.wake()) return this.say("Ah ! Je suis réveillé. On s'entraîne ?", { mood: "happy" }); return this.onTap?.(); }
       // relâché : il lance une toile vers le bord le plus proche
       const b = this.bounds();
       const d = { floor: b.floor - this.y, ceiling: this.y - b.top, wallL: this.x, wallR: innerWidth - this.x };

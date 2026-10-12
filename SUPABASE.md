@@ -20,6 +20,10 @@ Compte environ 10 minutes.
 2. Ouvre le fichier [`supabase/schema.sql`](supabase/schema.sql) de ce dépôt, copie **tout** son contenu et colle-le.
 3. Clique sur **Run**. Tu dois voir « Success. No rows returned ».
 
+## 2 bis. Activer les amis et le classement
+
+Même chose avec le fichier [`supabase/002_social.sql`](supabase/002_social.sql) : SQL Editor → New query → coller → **Run**. À faire une seule fois (le relancer ne casse rien).
+
 ## 3. Récupérer les deux valeurs
 
 Dans **Project Settings** (roue dentée) → **API** (ou *Data API*) :

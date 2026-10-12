@@ -5,6 +5,7 @@ import { state, save, syncCustomExercises } from "./store.js";
 import { generateSession, GROUPS, estimateMinutes } from "./planner.js";
 import { pickExercises, openProgram } from "./train.js";
 import { spidey } from "./spidey.js";
+import { shareProgram } from "./social.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let tab = "new", draft = null, open = -1;
@@ -13,6 +14,7 @@ const blank = () => ({ id: null, name: "", exercises: [] });
 const unit = e => (EXERCISES[e.id]?.type === "time" ? "s" : "");
 
 export function renderCreate(view, launch, params = {}) {
+  if (params.tab) { tab = params.tab; history.replaceState(null, "", "#/create"); }
   if (params.edit) {
     const p = state.customPrograms.find(x => x.id === params.edit);
     if (p) { draft = structuredClone({ id: p.id, name: p.name, accent: p.accent, exercises: p.exercises }); tab = "new"; open = -1; }
@@ -48,7 +50,7 @@ function paneNew(pane, view, launch) {
       <button class="btn btn-primary btn-block mt" id="g-go">${I.sparkle} Générer la séance</button>
     </section>`}
 
-    <div class="section"><h2>${draft.id ? "Modifier la séance" : "Ta séance"}</h2>${draft.exercises.length || draft.id ? `<button id="reset">${draft.id ? "Annuler" : "Vider"}</button>` : ""}</div>
+    <div class="section"><h2>${draft.id ? "Modifier la séance" : "Ta séance"}</h2><span class="row" style="gap:14px">${draft.exercises.length > 1 ? `<button id="circuit">${draft.exercises.every(e => e.ss === "C") ? "Mode normal" : "Tout en circuit"}</button>` : ""}${draft.exercises.length || draft.id ? `<button id="reset">${draft.id ? "Annuler" : "Vider"}</button>` : ""}</span></div>
     ${draft.exercises.length ? `<div class="xs muted" style="margin:-6px 2px 10px">${draft.exercises.length} exercices · ~${estimateMinutes(draft)} min</div>` : ""}
     <label class="field" style="margin-top:0"><input class="input" id="name" placeholder="Nom de la séance (ex. Pecs du jeudi)" value="${esc(draft.name)}" maxlength="40"/></label>
     <div class="builder mt">${draft.exercises.map(row).join("")}</div>
@@ -101,13 +103,35 @@ function paneNew(pane, view, launch) {
     if (a === "up" && i > 0) { [list[i - 1], list[i]] = [list[i], list[i - 1]]; open = i - 1; }
     if (a === "down" && i < list.length - 1) { [list[i + 1], list[i]] = [list[i], list[i + 1]]; open = i + 1; }
     if (a === "del") { list.splice(i, 1); open = -1; }
+    if (a === "link") toggleLink(i);
     if (a === "swap") return pickExercises(ids => { if (ids[0]) { list[i] = { ...defaultItem(ids[0]), sets: list[i].sets }; redraw(); } }, { single: true, title: "Remplacer par…" });
     redraw();
   });
   $("#add", pane).onclick = () => pickExercises(ids => { ids.forEach(id => draft.exercises.push(defaultItem(id))); open = -1; redraw(); });
   $("#save", pane)?.addEventListener("click", () => { const p = persist(); if (p) { toast(`« ${p.name} » enregistrée ✓`); draft = blank(); tab = "mine"; renderCreate(view, launch); } });
   $("#save-go", pane)?.addEventListener("click", () => { const p = persist(); if (p) { draft = blank(); tab = "mine"; renderCreate(view, launch); openProgram({ ...p, cat: "custom" }, launch); } });
+  $("#circuit", pane)?.addEventListener("click", () => {
+    const all = draft.exercises.every(e => e.ss === "C");
+    draft.exercises.forEach(e => (e.ss = all ? null : "C"));
+    if (!all) toast("Circuit : tous les exercices s'enchaînent, repos à la fin de chaque tour.");
+    redraw();
+  });
   $("#reset", pane)?.addEventListener("click", () => { draft = blank(); open = -1; renderCreate(view, launch); });
+}
+
+const linked = i => draft.exercises[i]?.ss && draft.exercises[i + 1]?.ss === draft.exercises[i].ss;
+// Superset : deux exercices (ou plus) enchaînés sans repos, repos à la fin du tour.
+function toggleLink(i) {
+  const list = draft.exercises;
+  if (linked(i)) {
+    const letter = list[i].ss;
+    list[i + 1].ss = list[i + 2]?.ss === letter ? list[i + 1].ss : null;
+    if (!list[i - 1] || list[i - 1].ss !== letter) list[i].ss = list[i + 1].ss === letter ? letter : null;
+  } else {
+    const used = new Set(list.map(e => e.ss).filter(Boolean));
+    const letter = list[i].ss || list[i + 1].ss || "ABCDEFGH".split("").find(l => !used.has(l));
+    list[i].ss = list[i + 1].ss = letter;
+  }
 }
 
 function summary(e) {
@@ -120,7 +144,7 @@ function row(e, i) {
   const st = (k, label, val) => `<div class="mstep"><span>${label}</span><div><button data-st="${k}" data-i="${i}" data-d="-1">−</button><b data-v="${k}">${val}</b><button data-st="${k}" data-i="${i}" data-d="1">+</button></div></div>`;
   const stR = (k, label, val) => `<div class="mstep"><span>${label}</span><div><button data-st="${k}" data-i="${i}" data-d="${ex.type === "time" ? -5 : -1}">−</button><b data-v="${k}">${val}</b><button data-st="${k}" data-i="${i}" data-d="${ex.type === "time" ? 5 : 1}">+</button></div></div>`;
   return `<div class="bex ${open === i ? "open" : ""}">
-    <button class="bex-head" data-i="${i}"><span class="k">${i + 1}</span>
+    <button class="bex-head" data-i="${i}"><span class="k ${e.ss ? "ss" : ""}">${e.ss || i + 1}</span>
       <div class="grow"><b class="ellipsis">${esc(ex.name)}</b><span class="bex-sum">${summary(e)}</span></div>${open === i ? I.up : I.down}</button>
     ${open === i ? `<div class="bex-body">
       <div class="xs muted">${esc(ex.muscle)} · ${EQUIP[ex.equip] || ""}${ex.custom ? " · perso" : ""}</div>
@@ -135,6 +159,7 @@ function row(e, i) {
         <button class="btn btn-soft btn-sm" data-act="up" data-i="${i}">${I.up}</button>
         <button class="btn btn-soft btn-sm" data-act="down" data-i="${i}">${I.down}</button>
         <button class="btn btn-soft btn-sm" data-act="swap" data-i="${i}">${I.swap} Remplacer</button>
+        ${i < draft.exercises.length - 1 ? `<button class="btn btn-soft btn-sm" data-act="link" data-i="${i}">${linked(i) ? "Délier" : "Superset avec le suivant"}</button>` : ""}
         <button class="btn btn-danger btn-sm" data-act="del" data-i="${i}">${I.trash} Retirer</button>
       </div></div>` : ""}
   </div>`;
@@ -176,6 +201,7 @@ function paneMine(pane, view, launch) {
         <button class="btn btn-primary btn-sm" data-go="${p.id}">${I.play} Commencer</button>
         <button class="btn btn-soft btn-sm" data-edit="${p.id}">${I.edit} Modifier</button>
         <button class="btn btn-soft btn-sm" data-dup="${p.id}">Dupliquer</button>
+        <button class="btn btn-soft btn-sm" data-share="${p.id}">${I.send} Partager</button>
         <button class="icon-btn" data-del="${p.id}" aria-label="Supprimer" style="width:38px;height:38px">${I.trash}</button>
       </div>
     </article>`).join("")}</div>`
@@ -183,6 +209,7 @@ function paneMine(pane, view, launch) {
   $("#first", pane)?.addEventListener("click", () => { tab = "new"; renderCreate(view, launch); });
   $$("[data-go]", pane).forEach(b => b.onclick = () => openProgram({ ...state.customPrograms.find(x => x.id === b.dataset.go), cat: "custom" }, launch));
   $$("[data-edit]", pane).forEach(b => b.onclick = () => renderCreate(view, launch, { edit: b.dataset.edit }));
+  $$("[data-share]", pane).forEach(b => b.onclick = () => shareProgram(state.customPrograms.find(x => x.id === b.dataset.share)));
   $$("[data-dup]", pane).forEach(b => b.onclick = () => {
     const p = state.customPrograms.find(x => x.id === b.dataset.dup);
     state.customPrograms.push({ ...structuredClone(p), id: "c" + Date.now(), name: `${p.name} (copie)`.slice(0, 40) });

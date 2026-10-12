@@ -1,6 +1,7 @@
 // Onglet Séances : liste des programmes, aperçu modifiable, check-in, création de séances.
 import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
 import { defaultItem, exerciseForm } from "./create.js";
+import { shareProgram } from "./social.js";
 import { state, save, allPrograms } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
@@ -16,6 +17,7 @@ export function renderTrain(view, startLive) {
     <div class="row between"><div><div class="eyebrow">Bibliothèque</div><h1 class="h1">Séances</h1></div>
       <span class="chip">${allPrograms().length} programmes</span></div>
     <div class="chips mt">${CATEGORIES.map(c => `<button class="chip ${filter === c.id ? "on" : ""}" data-f="${c.id}">${c.name}</button>`).join("")}</div>
+    <button class="card tap free-card mt" id="free-start"><span class="bi">${I.bolt}</span><div class="grow" style="text-align:left"><b>Séance libre</b><div class="xs muted">Choisis tes exercices au fur et à mesure</div></div><span class="chev">${I.chev}</span></button>
     <div class="prog-list mt">
       ${progs.length ? progs.map(p => `
         <article class="card tap prog ${p.accent === "blue" ? "blue" : ""}" data-id="${p.id}">
@@ -31,6 +33,7 @@ export function renderTrain(view, startLive) {
   $$("[data-f]", view).forEach(b => b.onclick = () => { filter = b.dataset.f; renderTrain(view, startLive); });
   $$(".prog", view).forEach(el => el.onclick = () => openProgram(allPrograms().find(p => p.id === el.dataset.id), startLive, () => renderTrain(view, startLive)));
   $(".fab", view).onclick = () => (location.hash = "#/create");
+  $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */
@@ -79,8 +82,9 @@ export function openProgram(program, startLive, refresh) {
     $("#meta", sh.el).innerHTML = `<span class="chip">${I.clock} ~${estimateMinutes(p)} min</span><span class="chip">${work.length} exercices</span>
       ${program.simple || program.cat === "cardio" || custom ? "" : `<span class="chip blue">${GOALS[state.profile.goal].name}</span>`}`;
     $("#extra", sh.el).innerHTML = custom
-      ? `<button class="btn btn-soft btn-sm" id="edit-c">${I.edit} Modifier</button><button class="btn btn-danger btn-sm" id="del-c">Supprimer</button>`
+      ? `<button class="btn btn-soft btn-sm" id="edit-c">${I.edit} Modifier</button><button class="btn btn-soft btn-sm" id="share-c">${I.send} Partager</button>`
       : edited ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
+    $("#share-c", sh.el)?.addEventListener("click", () => shareProgram(program));
     $("#edit-c", sh.el)?.addEventListener("click", () => { sh.close(); location.hash = `#/create?edit=${program.id}`; });
     $("#del-c", sh.el)?.addEventListener("click", async () => {
       if (!(await confirmSheet("Supprimer cette séance ?", "Ton historique est conservé.", "Supprimer", true))) return;
