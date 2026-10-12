@@ -70,16 +70,16 @@ export const PATTERNS = {
 };
 
 const BY_ID = {
-  squat: "squat front_squat smith_squat hack_squat leg_press goblet kb_goblet air_squat jump_squat wall_sit box_jump",
+  squat: "deep_squat squat front_squat smith_squat hack_squat leg_press goblet kb_goblet air_squat jump_squat wall_sit box_jump",
   lunge: "lunge db_lunge walking_lunge bulgarian step_up",
-  legext: "leg_ext adductor", legcurl: "leg_curl seated_leg_curl nordic",
-  hinge: "deadlift rdl db_rdl good_morning sumo_deadlift kb_swing back_ext superman",
-  bridge: "hip_thrust glute_machine glute_bridge cable_kickback abductor band_walk",
+  legext: "leg_ext adductor tke", legcurl: "leg_curl seated_leg_curl nordic",
+  hinge: "inchworm down_dog seated_fold deadlift rdl db_rdl good_morning sumo_deadlift kb_swing back_ext superman",
+  bridge: "pelvic_tilt clamshell hip_thrust glute_machine glute_bridge cable_kickback abductor band_walk",
   press_h: "bench incline decline db_bench incline_db chest_press incline_machine smith_bench smith_incline close_grip band_press",
   pushup: "pushup incline_pushup decline_pushup diamond pike",
   dips: "dips bench_dips dip_machine",
   press_v: "ohp db_press arnold shoulder_machine smith_ohp kb_press",
-  raise: "lateral cable_lateral lateral_machine front_raise upright_row",
+  raise: "arm_circles wall_slide band_ext_rot lateral cable_lateral lateral_machine front_raise upright_row",
   fly: "pec_deck fly low_fly db_fly reverse_pec_deck rear_delt band_pull_apart face_pull pullover",
   pull_v: "pullup chinup assisted_pullup lat_pull close_pulldown straight_pulldown",
   row: "row tbar_row cable_row machine_row db_row chest_row inverted_row band_row",
@@ -87,7 +87,7 @@ const BY_ID = {
   tri_ext: "pushdown rope_pushdown cable_overhead overhead_ext skull kickback",
   shrug: "shrug bar_shrug farmer", calf: "calf seated_calf press_calf calf_bw",
   crunch: "crunch bicycle cable_crunch leg_raise hanging_raise ab_wheel russian_twist dead_bug",
-  plank: "plank side_plank hollow pallof",
+  plank: "bird_dog plank side_plank hollow pallof",
   cardio: "burpee jumping_jack high_knees mountain jump_rope battle_rope treadmill bike rower elliptical stairs",
   stretch: "cat_cow worlds_greatest hip_flexor pigeon hamstring thoracic child_pose dislocates foam_roll",
 };

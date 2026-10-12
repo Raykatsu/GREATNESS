@@ -2,8 +2,8 @@
 import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
 import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
-import { state, save, allPrograms, tombstone } from "./store.js";
-import { adaptToGoal, estimateMinutes, todaysMission } from "./planner.js";
+import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
+import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
@@ -71,6 +71,7 @@ export function openProgram(program, startLive, refresh) {
     <h2 class="h1" style="font-size:28px;margin-top:4px">${esc(program.name)}</h2>
     <div class="muted small">${esc(program.tag || "")}</div>
     <div class="row mt" style="gap:6px;flex-wrap:wrap" id="meta"></div>
+    ${program.cat === "care" ? `<p class="small muted mt-s" style="display:flex;gap:8px">${I.info}<span>Tout en douceur : arrête un mouvement s'il fait mal. Douleur vive, qui dure ou après un choc → kiné ou médecin.</span></p>` : ""}
     <div class="section" style="margin-top:20px"><h2>Exercices</h2><button id="add">+ Ajouter</button></div>
     <div id="list"></div>
     <div class="sheet-foot">
@@ -120,7 +121,8 @@ function checkIn(sh, program, startLive) {
     ${rows.map(([k, lab]) => `<div class="check-row"><div class="lab">${lab}<span id="l-${k}"></span></div>
       <div class="seg" data-k="${k}">${[1, 2, 3, 4, 5].map(v => `<button data-v="${v}">${v}</button>`).join("")}</div></div>`).join("")}
     <div class="verdict" id="verdict"></div>
-    <div class="sheet-foot"><button class="btn btn-primary btn-lg btn-block" id="ci-go">${I.play} C'est parti</button></div>`;
+    <div class="sheet-foot"><button class="btn btn-primary btn-lg btn-block" id="ci-go">${I.play} C'est parti</button>
+      ${isWorkout(program) && startLive.warmup ? `<button class="btn btn-soft btn-block mt-s" id="ci-warm">${I.flame} Échauffement d'abord · ${esc(getProgram(warmupFor(program)).name.replace("Échauffement ", ""))}</button>` : ""}</div>`;
   const upd = () => {
     rows.forEach(([k, , words]) => {
       $(`#l-${k}`, sh.el).textContent = words[vals[k] - 1];
@@ -135,6 +137,8 @@ function checkIn(sh, program, startLive) {
   upd();
   $("#back", sh.el).onclick = () => { sh.close(); openProgram(program, startLive); };
   $("#ci-go", sh.el).onclick = () => { sh.close(); startLive(program, { ...vals }); };
+  // l'échauffement enchaîne ensuite sur la séance (on garde la sortie habituelle de startLive)
+  $("#ci-warm", sh.el)?.addEventListener("click", () => { sh.close(); startLive.warmup(warmupFor(program), program, { ...vals }); });
 }
 
 /* ---------- Choix d'exercices ---------- */

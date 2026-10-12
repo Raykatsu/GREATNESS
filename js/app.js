@@ -6,7 +6,7 @@ import { testKey, resetClient } from "./ai.js";
 import { thwip, webSvg, speak } from "./fx.js";
 import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
-import { startLive, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
+import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport } from "./social.js";
 import { showAuth } from "./auth.js";
@@ -49,10 +49,11 @@ function route() {
 addEventListener("hashchange", route);
 
 const launch = (program, readiness) => startLive(program, readiness, route);
+launch.warmup = (id, program, readiness) => startWithWarmup(id, program, readiness, route);
 // Visite guidée : Spider-Man présente chaque onglet.
 const TOUR = [
   ["home", "Ici, l'Accueil : ta mission du jour, ta semaine et tes stats. Touche un jour pour changer sa séance."],
-  ["train", "Séances : 22 programmes prêts, plus la séance libre où tu choisis tes exercices au fur et à mesure."],
+  ["train", "Séances : 40 programmes prêts, de la mobilité, des étirements et des séances anti-douleur, plus la séance libre où tu choisis tes exercices au fur et à mesure."],
   ["create", "Créer : compose tes propres séances, génère-en une en 2 touches, fais des superséries."],
   ["coach", "Coach, c'est moi ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi."],
   ["me", "Moi : tes progrès, tes amis et tes réglages. Allez, à toi de jouer !"],
@@ -547,7 +548,7 @@ function profile() {
     chip.className = `chip ${i.ready ? "green" : ""}`;
     if (!llm.supported()) { box.innerHTML = `<p class="small muted" style="margin:0">Ce navigateur ne gère pas WebGPU, nécessaire pour faire tourner l'IA sur le téléphone. Essaie Chrome (Android, ordinateur) ou Safari à jour (iPhone).</p>`; return; }
     box.innerHTML = `<p class="small muted" style="margin:0 0 12px">Un modèle d'IA qui tourne sur ton téléphone : gratuit, privé, il marche même sans internet. Choisis sa taille :</p>
-      <div class="models">${llm.MODELS.map(m => `<button class="opt ${m.id === pr.model ? "on" : ""}" data-model="${m.id}"><b>${m.name}</b><span>${m.size} · ${m.note}</span></button>`).join("")}</div>
+      <div class="models">${llm.MODELS.filter(llm.modelAllowed).map(m => `<button class="opt ${m.id === pr.model ? "on" : ""}" data-model="${m.id}"><b>${m.name}</b><span>${m.size} · ${m.note}</span></button>`).join("")}</div>
       ${i.status === "loading" ? `<div class="bar mt"><i style="width:${i.progress * 100}%"></i></div><p class="xs muted mt-s">${esc(i.progressText)}</p>` : ""}
       ${i.status === "error" ? `<p class="small mt-s" style="color:#ff7b88">${esc(i.error)}</p>` : ""}
       <div class="grid2 mt">${pr.enabled || i.ready ? `<button class="btn btn-soft btn-sm" id="llm-off">Désactiver</button><button class="btn btn-danger btn-sm" id="llm-del">Supprimer les fichiers</button>` : `<button class="btn btn-primary btn-sm" id="llm-on" style="grid-column:span 2">${I.sparkle} Activer l'IA</button>`}</div>`;

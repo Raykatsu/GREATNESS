@@ -20,6 +20,10 @@ const cases = [
   ["Désactive la voix", c => c.type === "toggle" && c.target === "voice" && c.value === false],
   ["Lance la séance du jour", c => c.type === "start" && c.program === "today"],
   ["lance une séance libre", c => c.type === "start" && c.program === "free"],
+  ["lance mal de dos", c => c.type === "start" && c.program === "care_back"],
+  ["lance la séance nuque", c => c.type === "start" && c.program === "care_neck"],
+  ["commence un échauffement", c => c.type === "start" && c.program === "warmup_full"],
+  ["lance le grand écart", c => c.type === "start" && c.program === "flex_split"],
   ["ajoute curl marteau à ma séance Pecs du jeudi", c => c.type === "addex" && c.exercise === "hammer"],
 ];
 for (const [text, ok] of cases) test(`commande : ${text}`, () => { const c = parseCommand(text); assert.ok(c && ok(c), JSON.stringify(c)); });

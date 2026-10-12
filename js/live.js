@@ -1,8 +1,9 @@
 // Séance en direct : tableau des séries, ajustements temps réel, repos, fin de séance.
 import { EXERCISES } from "./data.js";
+import { getProgram } from "./store.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
 import { Session, fmtTarget, plates } from "./engine.js";
-import { cycleInfo } from "./planner.js";
+import { cycleInfo, isWorkout } from "./planner.js";
 import { pickExercises } from "./train.js";
 import { defaultItem } from "./create.js";
 import { checkBadges } from "./badges.js";
@@ -62,7 +63,15 @@ export function savedSession() {
 }
 export const discardSaved = clearSaved;
 
+// Échauffement puis séance : la séance à enchaîner une fois l'échauffement fini.
+let chain = null;
+export function startWithWarmup(warmupId, program, readiness, exit) {
+  startLive(getProgram(warmupId), readiness, exit);
+  chain = { program, readiness };
+}
+
 export function startLive(program, readiness, exit) {
+  chain = null;
   S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload });
   begin(exit);
   const intro = S.intro();
@@ -407,6 +416,8 @@ function finish() {
   spidey.hang(false);
   const before = rankInfo();
   const sum = S.summary();
+  const done = { program: S.program, readiness: S.readiness }, next = chain;
+  chain = null;
   const best = {};
   sum.sets.forEach(s => { const sc = s.weight > 0 ? e1rm(s.weight, s.reps) : s.reps; if (!best[s.exId] || sc > best[s.exId].sc) best[s.exId] = { ...s, sc }; });
   Object.values(best).forEach(s => recordLift(s.exId, s.weight, s.reps));
@@ -443,8 +454,13 @@ function finish() {
       <span class="small muted">${c.type === "load" ? `${c.best.weight}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
     ${sum.sets.length ? `<label class="field mt-l"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…" style="height:auto;padding:12px"></textarea></label>` : ""}
-    <button class="btn btn-primary btn-lg btn-block mt" id="home">Retour à l'accueil</button>
+    ${next ? `<button class="btn btn-primary btn-lg btn-block mt" id="next">${I.play} Échauffé ! Enchaîner : ${esc(next.program.name)}</button>`
+      : isWorkout(done.program) ? `<button class="btn btn-blue btn-block mt" id="cool">${I.heart} Étirements de retour au calme · 8 min</button>` : ""}
+    <button class="btn ${next ? "btn-soft" : "btn-primary btn-lg"} btn-block mt" id="home">Retour à l'accueil</button>
   </div></div>`;
+  const relaunch = (program, readiness) => { const exit = onExit; onExit = null; close(); startLive(program, readiness, exit); };
+  $("#next")?.addEventListener("click", () => relaunch(next.program, next.readiness));
+  $("#cool")?.addEventListener("click", () => relaunch(getProgram("cooldown"), done.readiness));
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   spidey.setContext("app");

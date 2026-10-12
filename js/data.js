@@ -167,10 +167,54 @@ export const EXERCISES = {
   child_pose:  E("Posture de l'enfant", "Mobilité", "time", "bw", 10, ["Fesses vers les talons, bras devant.", "Relâche les épaules, respire."], []),
   dislocates:  E("Passages d'épaules élastique", "Mobilité", "time", "band", 10, ["Bras tendus, passe l'élastique derrière toi.", "Mains larges au début."], []),
   foam_roll:   E("Rouleau de massage", "Mobilité", "time", "bw", 10, ["Roule lentement, insiste sur les zones tendues.", "Respire, ne serre pas les dents."], []),
+  // nuque, épaules, poignets
+  neck_tilt:   E("Inclinaisons de la nuque", "Mobilité", "time", "bw", 10, ["Oreille vers l'épaule, l'autre épaule reste basse.", "Tiens 20 s de chaque côté, sans forcer."], ["neck_rot"]),
+  neck_rot:    E("Rotations de la tête", "Mobilité", "time", "bw", 10, ["Regarde lentement à droite puis à gauche.", "Amplitude sans douleur, épaules relâchées."], ["neck_tilt"]),
+  chin_tuck:   E("Rentrer le menton", "Mobilité", "time", "bw", 10, ["Recule la tête comme pour faire un double menton.", "Tiens 3 s, relâche. Idéal après les écrans."], ["neck_tilt"]),
+  arm_circles: E("Cercles de bras", "Mobilité", "time", "bw", 10, ["Petits cercles puis de plus en plus grands.", "Dans les deux sens."], ["dislocates"]),
+  wall_slide:  E("Glissements au mur", "Mobilité", "time", "bw", 10, ["Dos, coudes et poignets contre le mur.", "Monte les bras sans décoller, lentement."], ["dislocates"]),
+  doorway_pec: E("Étirement pecs (encadrement de porte)", "Mobilité", "time", "bw", 10, ["Avant-bras sur le cadre, coude à hauteur d'épaule.", "Avance doucement le buste, 30 s par côté."], ["cross_arm"]),
+  cross_arm:   E("Étirement épaule bras croisé", "Mobilité", "time", "bw", 10, ["Ramène le bras tendu contre la poitrine.", "Épaule basse, 30 s par côté."], ["sleeper"]),
+  sleeper:     E("Sleeper stretch", "Mobilité", "time", "bw", 10, ["Couché sur le côté, bras à 90°.", "Pousse doucement l'avant-bras vers le sol, sans douleur."], ["cross_arm"]),
+  band_ext_rot: E("Rotation externe à l'élastique", "Mobilité", "time", "band", 10, ["Coude collé au corps, à 90°.", "Ouvre l'avant-bras vers l'extérieur, lentement."], ["wall_slide"]),
+  tri_stretch: E("Étirement triceps", "Mobilité", "time", "bw", 10, ["Main dans le dos derrière la tête.", "L'autre main pousse doucement le coude."], ["cross_arm"]),
+  lat_stretch: E("Étirement grand dorsal", "Mobilité", "time", "bw", 10, ["Mains sur un support, recule les hanches.", "Laisse la poitrine descendre vers le sol."], ["child_pose"]),
+  wrist_circles: E("Cercles de poignets", "Mobilité", "time", "bw", 10, ["Doigts croisés, tourne dans les deux sens.", "Puis ouvre et ferme les mains."], ["forearm_stretch"]),
+  forearm_stretch: E("Étirement avant-bras", "Mobilité", "time", "bw", 10, ["Bras tendu, tire doucement les doigts vers toi.", "Paume vers le haut puis vers le bas."], ["wrist_circles"]),
+  // dos et colonne
+  thread_needle: E("Passage de l'aiguille", "Mobilité", "time", "bw", 10, ["À quatre pattes, glisse un bras sous l'autre.", "Épaule et tempe au sol, respire."], ["thoracic"]),
+  open_book:   E("Livre ouvert", "Mobilité", "time", "bw", 10, ["Couché sur le côté, genoux pliés.", "Ouvre le bras du dessus de l'autre côté, regard qui suit."], ["thoracic"]),
+  cobra:       E("Cobra", "Mobilité", "time", "bw", 10, ["À plat ventre, pousse sur les mains.", "Bassin au sol, épaules loin des oreilles."], ["child_pose"]),
+  knee_hug:    E("Genoux poitrine", "Mobilité", "time", "bw", 10, ["Sur le dos, ramène les genoux contre toi.", "Berce-toi doucement de gauche à droite."], ["child_pose"]),
+  supine_twist: E("Torsion allongée", "Mobilité", "time", "bw", 10, ["Sur le dos, genoux d'un côté, regard de l'autre.", "Épaules au sol, 30 s par côté."], ["open_book"]),
+  seated_fold: E("Pince assise", "Mobilité", "time", "bw", 10, ["Jambes tendues, penche-toi depuis les hanches.", "Dos long plutôt que tête aux genoux."], ["hamstring"]),
+  side_bend:   E("Inclinaison latérale", "Mobilité", "time", "bw", 10, ["Bras au-dessus de la tête, penche-toi sur le côté.", "Ne bascule pas vers l'avant."], ["lat_stretch"]),
+  dead_hang:   E("Suspension passive", "Mobilité", "time", "bw", 10, ["Suspendu à une barre, épaules relâchées.", "Respire, laisse la colonne s'étirer."], ["lat_stretch"]),
+  bird_dog:    E("Bird dog", "Mobilité", "time", "bw", 10, ["À quatre pattes, bras et jambe opposés tendus.", "Dos immobile, lentement, alterne."], ["pelvic_tilt"]),
+  pelvic_tilt: E("Bascule du bassin", "Mobilité", "time", "bw", 10, ["Sur le dos, genoux pliés.", "Plaque puis creuse doucement le bas du dos."], ["cat_cow"]),
+  // hanches et jambes
+  hip_circles: E("Cercles de hanches", "Mobilité", "time", "bw", 10, ["Mains sur les hanches, grands cercles.", "Dans les deux sens."], ["leg_swings"]),
+  leg_swings:  E("Balancements de jambes", "Mobilité", "time", "bw", 10, ["Tiens-toi à un mur, balance d'avant en arrière.", "Puis de côté. Amplitude progressive."], ["hip_circles"]),
+  hip_9090:    E("Hanches 90/90", "Mobilité", "time", "bw", 10, ["Assis, les deux genoux à 90°.", "Passe d'un côté à l'autre, buste droit."], ["pigeon"]),
+  frog:        E("Grenouille", "Mobilité", "time", "bw", 10, ["À quatre pattes, genoux écartés.", "Recule doucement les hanches vers les talons."], ["butterfly"]),
+  butterfly:   E("Papillon", "Mobilité", "time", "bw", 10, ["Assis, plantes de pieds collées.", "Dos droit, genoux qui descendent tout seuls."], ["frog"]),
+  adductor_rock: E("Balancier adducteurs", "Mobilité", "time", "bw", 10, ["À quatre pattes, une jambe tendue sur le côté.", "Recule et avance les hanches, 10 fois par côté."], ["frog"]),
+  fig4:        E("Étirement fessier en 4", "Mobilité", "time", "bw", 10, ["Sur le dos, cheville sur le genou opposé.", "Ramène les jambes vers toi, 30 s par côté."], ["pigeon"]),
+  deep_squat:  E("Accroupi profond", "Mobilité", "time", "bw", 10, ["Talons au sol, coudes qui poussent les genoux.", "Tiens-toi à un support si besoin."], ["frog"]),
+  quad_stretch: E("Étirement quadriceps", "Mobilité", "time", "bw", 10, ["Debout, attrape ta cheville derrière toi.", "Genoux serrés, bassin rentré."], ["hip_flexor"]),
+  calf_stretch: E("Étirement mollets au mur", "Mobilité", "time", "bw", 10, ["Mains au mur, jambe arrière tendue.", "Talon au sol, 30 s par côté."], ["ankle_rock"]),
+  ankle_rock:  E("Genou au mur (chevilles)", "Mobilité", "time", "bw", 10, ["Pied à une main du mur, genou qui va toucher le mur.", "Talon collé au sol, alterne."], ["calf_stretch"]),
+  inchworm:    E("Chenille", "Mobilité", "time", "bw", 10, ["Penche-toi, marche avec les mains jusqu'à la planche.", "Puis reviens en marchant avec les pieds."], ["down_dog"]),
+  down_dog:    E("Chien tête en bas", "Mobilité", "time", "bw", 10, ["En V inversé, pousse le sol loin de toi.", "Talons vers le sol, genoux un peu fléchis si besoin."], ["inchworm"]),
+  clamshell:   E("Coquillage", "Mobilité", "time", "bw", 10, ["Couché sur le côté, genoux pliés.", "Ouvre le genou du dessus sans rouler le bassin."], ["glute_bridge"]),
+  tke:         E("Extension de genou à l'élastique", "Mobilité", "time", "band", 10, ["Élastique derrière le genou, attaché devant.", "Tends complètement le genou, serre la cuisse 2 s."], ["quad_stretch"]),
+  breathing:   E("Respiration ventrale", "Mobilité", "time", "bw", 15, ["Sur le dos, une main sur le ventre.", "Inspire 4 s par le nez, souffle 6 s. Le corps se relâche."], ["child_pose"]),
 };
 
 // sets, reps [min,max] (secondes si type "time"), poids de départ, repos (s), RPE cible
 const x = (id, sets, reps, weight = 0, rest = 90, rpe = 8, ss = null) => ({ id, sets, reps, weight, rest, rpe, ...(ss ? { ss } : {}) });
+// étirement / mobilité : tenue de `sec` secondes, repos court
+const m = (id, sets, sec) => x(id, sets, [sec, sec + 15], 0, 10, 5);
 
 export const CATEGORIES = [
   { id: "all", name: "Tout" },
@@ -178,6 +222,8 @@ export const CATEGORIES = [
   { id: "home", name: "Maison" },
   { id: "cardio", name: "Cardio" },
   { id: "mobility", name: "Mobilité" },
+  { id: "stretch", name: "Échauffement & souplesse" },
+  { id: "care", name: "Soulager" },
   { id: "custom", name: "Mes séances" },
 ];
 
@@ -226,6 +272,47 @@ export const PROGRAMS = [
     exercises: [x("jump_rope", 5, [60, 90], 0, 45, 7, "C"), x("mountain", 3, [30, 45], 0, 30, 8, "C"), x("plank", 3, [40, 60], 0, 30, 7, "C"), x("burpee", 2, [10, 15], 0, 45, 8, "C")] },
   { id: "mobility", name: "Mobilité", tag: "Récupération active · 15 min", cat: "mobility", accent: "blue", simple: true,
     exercises: [x("cat_cow", 1, [45, 60], 0, 10, 5), x("worlds_greatest", 2, [40, 60], 0, 10, 5), x("hip_flexor", 2, [40, 60], 0, 10, 5), x("pigeon", 2, [45, 60], 0, 10, 5), x("thoracic", 2, [30, 45], 0, 10, 5), x("hamstring", 2, [40, 60], 0, 10, 5), x("child_pose", 1, [60, 90], 0, 10, 5)] },
+  // ---------- Mobilité par zone ----------
+  { id: "mob_neck", name: "Nuque & haut du dos", tag: "Cou, trapèzes, posture", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("chin_tuck", 2, 30), m("neck_tilt", 2, 40), m("neck_rot", 1, 40), m("thread_needle", 2, 40), m("wall_slide", 2, 40)] },
+  { id: "mob_shoulders", name: "Épaules", tag: "Amplitude des bras, posture", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("arm_circles", 1, 40), m("wall_slide", 2, 40), m("doorway_pec", 2, 40), m("cross_arm", 2, 40), m("sleeper", 2, 40), m("lat_stretch", 2, 40)] },
+  { id: "mob_back", name: "Dos & colonne", tag: "Colonne souple, dos détendu", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("cat_cow", 2, 45), m("thoracic", 2, 40), m("open_book", 2, 40), m("cobra", 2, 30), m("supine_twist", 2, 40), m("child_pose", 1, 60)] },
+  { id: "mob_hips", name: "Hanches", tag: "Ouverture et rotation des hanches", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("hip_circles", 1, 40), m("hip_9090", 2, 45), m("hip_flexor", 2, 45), m("fig4", 2, 45), m("frog", 2, 45), m("deep_squat", 2, 40)] },
+  { id: "mob_legs", name: "Jambes & chevilles", tag: "Chevilles, mollets, cuisses", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("ankle_rock", 2, 40), m("calf_stretch", 2, 40), m("quad_stretch", 2, 40), m("hamstring", 2, 45), m("adductor_rock", 2, 40)] },
+  { id: "mob_wrists", name: "Poignets & avant-bras", tag: "Pour pompes, développés, clavier", cat: "mobility", accent: "blue", simple: true,
+    exercises: [m("wrist_circles", 2, 30), m("forearm_stretch", 2, 40), m("tri_stretch", 2, 30)] },
+  { id: "wake_up", name: "Réveil du corps", tag: "Mobilité · le matin", cat: "mobility", accent: "red", simple: true,
+    exercises: [m("cat_cow", 1, 40), m("arm_circles", 1, 30), m("hip_circles", 1, 30), m("worlds_greatest", 2, 40), m("down_dog", 1, 40), m("breathing", 1, 60)] },
+  // ---------- Avant / après la séance, souplesse ----------
+  { id: "warmup_upper", name: "Échauffement haut du corps", tag: "Avant la séance", cat: "stretch", accent: "red", simple: true,
+    exercises: [m("arm_circles", 1, 40), m("wall_slide", 2, 30), m("thoracic", 1, 40), m("cat_cow", 1, 30), m("inchworm", 2, 30)] },
+  { id: "warmup_lower", name: "Échauffement bas du corps", tag: "Avant la séance", cat: "stretch", accent: "red", simple: true,
+    exercises: [m("leg_swings", 2, 30), m("hip_circles", 1, 30), m("worlds_greatest", 2, 40), m("ankle_rock", 1, 40), m("deep_squat", 1, 40), x("glute_bridge", 1, [15, 20], 0, 15, 5)] },
+  { id: "warmup_full", name: "Échauffement complet", tag: "Avant la séance", cat: "stretch", accent: "red", simple: true,
+    exercises: [x("jumping_jack", 1, [45, 60], 0, 15, 5), m("arm_circles", 1, 30), m("leg_swings", 2, 30), m("worlds_greatest", 2, 40), m("inchworm", 2, 30), m("cat_cow", 1, 30)] },
+  { id: "cooldown", name: "Retour au calme", tag: "Après la séance", cat: "stretch", accent: "blue", simple: true,
+    exercises: [m("child_pose", 1, 45), m("quad_stretch", 2, 30), m("hamstring", 2, 30), m("fig4", 2, 30), m("doorway_pec", 2, 30), m("cross_arm", 2, 30), m("breathing", 1, 60)] },
+  { id: "flex_full", name: "Souplesse complète", tag: "Étirements longs", cat: "stretch", accent: "blue", simple: true,
+    exercises: [m("cat_cow", 1, 45), m("down_dog", 2, 45), m("hip_flexor", 2, 60), m("pigeon", 2, 60), m("hamstring", 2, 60), m("butterfly", 2, 60), m("seated_fold", 2, 60), m("side_bend", 2, 45), m("doorway_pec", 2, 45), m("lat_stretch", 2, 45), m("breathing", 1, 90)] },
+  { id: "flex_split", name: "Objectif grand écart", tag: "Souplesse · 3×/semaine", cat: "stretch", accent: "red", simple: true,
+    exercises: [m("leg_swings", 2, 30), m("hip_flexor", 3, 60), m("hamstring", 3, 60), m("frog", 2, 60), m("adductor_rock", 2, 45), m("butterfly", 2, 60), m("seated_fold", 2, 60)] },
+  // ---------- Soulager les douleurs (pas un avis médical) ----------
+  { id: "care_back", name: "Mal de dos (lombaires)", tag: "Soulager · doux", cat: "care", accent: "blue", simple: true,
+    exercises: [m("breathing", 1, 60), m("pelvic_tilt", 2, 40), m("knee_hug", 2, 40), m("cat_cow", 2, 40), m("bird_dog", 2, 40), x("glute_bridge", 2, [10, 15], 0, 20, 5), m("supine_twist", 2, 40), m("child_pose", 1, 60)] },
+  { id: "care_neck", name: "Nuque raide & écrans", tag: "Soulager · au bureau", cat: "care", accent: "blue", simple: true,
+    exercises: [m("chin_tuck", 2, 30), m("neck_tilt", 2, 40), m("neck_rot", 1, 30), m("doorway_pec", 2, 40), m("wall_slide", 2, 30), m("thoracic", 2, 30)] },
+  { id: "care_shoulder", name: "Épaules sensibles", tag: "Soulager · coiffe des rotateurs", cat: "care", accent: "blue", simple: true,
+    exercises: [m("arm_circles", 1, 30), m("wall_slide", 2, 30), m("band_ext_rot", 2, 40), m("cross_arm", 2, 40), m("sleeper", 2, 40), m("doorway_pec", 2, 40)] },
+  { id: "care_knee", name: "Genoux sensibles", tag: "Soulager · genoux stables", cat: "care", accent: "blue", simple: true,
+    exercises: [m("quad_stretch", 2, 40), m("calf_stretch", 2, 40), m("ankle_rock", 2, 40), m("clamshell", 2, 40), x("glute_bridge", 2, [12, 15], 0, 20, 5), m("tke", 2, 40), x("wall_sit", 2, [20, 30], 0, 30, 5)] },
+  { id: "care_hips", name: "Hanches raides (assis toute la journée)", tag: "Soulager · fléchisseurs et fessiers", cat: "care", accent: "blue", simple: true,
+    exercises: [m("hip_flexor", 2, 45), m("hip_9090", 2, 45), m("fig4", 2, 40), m("cobra", 2, 30), x("glute_bridge", 2, [12, 15], 0, 20, 5), m("deep_squat", 1, 40)] },
+  { id: "care_wrist", name: "Poignets & coudes", tag: "Soulager · avant-bras", cat: "care", accent: "blue", simple: true,
+    exercises: [m("wrist_circles", 2, 30), m("forearm_stretch", 2, 40), m("tri_stretch", 2, 30), m("dead_hang", 2, 20)] },
 ];
 
 // Rangs : petit clin d'œil au parcours d'un certain héros de Queens.
