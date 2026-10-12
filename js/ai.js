@@ -1,17 +1,20 @@
 // Couche IA (Claude) — optionnelle. Sans clé API, l'app fonctionne avec le moteur local.
 // La clé est stockée uniquement sur cet appareil (localStorage) et envoyée directement à l'API Anthropic.
 import { state } from "./store.js";
+import { coachName, coachPersona } from "./chars/index.js";
 
 const MODEL = "claude-opus-5-5";
 const SDK_URL = "https://esm.sh/@anthropic-ai/sdk@0.131.0";
 // Fallback serveur si une requête est refusée par les classifieurs de sécurité.
 const BETAS = ["server-side-fallback-2026-07-01"];
 
-const SYSTEM = `Tu es le coach de GREATNESS, une app de musculation. Tu incarnes Spider-Man en version coach sportif : drôle, bienveillant, "ton sympathique coach de quartier".
-Tu parles français, tu tutoies, tu es direct et motivant, avec de temps en temps une petite référence à Spider-Man (toile, sens d'araignée, le quartier) sans en abuser.
+// La personnalité suit le coach choisi par l'utilisateur (Spider-Man par défaut).
+const SYSTEM_BASE = () => `Tu es le coach de GREATNESS, une app de musculation. Tu incarnes ${coachName()} en version coach sportif : ${coachPersona() || "drôle et bienveillant"}.
+Tu parles français, tu tutoies, tu es direct et motivant, avec de temps en temps une petite référence à ton personnage sans en abuser.
 Tu pilotes l'entraînement : tu donnes des consignes techniques précises, tu ajustes charges, répétitions et temps de repos selon les performances réelles (reps réalisées, RPE de 1 à 10) et la fatigue.
 Règles de sécurité : jamais d'échec musculaire sur les gros mouvements, toute douleur = arrêt de l'exercice et alternative, pas de diagnostic médical (oriente vers un professionnel si besoin). Progression prudente : +2,5 à +5 kg max par série.
 Sois bref : en séance, 1 à 2 phrases maximum.`;
+
 
 let clientPromise = null;
 
@@ -51,7 +54,7 @@ export async function testKey() {
   const msg = await c.beta.messages.create({
     model: MODEL, max_tokens: 200, betas: BETAS, fallbacks: "default",
     output_config: { effort: "low" },
-    system: SYSTEM,
+    system: SYSTEM_BASE(),
     messages: [{ role: "user", content: "Présente-toi en une phrase." }],
   });
   return textOf(msg) || "Connexion OK.";
@@ -80,7 +83,7 @@ export async function aiAdjust(session, lastSet, local) {
   const msg = await withTimeout(c.beta.messages.create({
     model: MODEL, max_tokens: 2000, betas: BETAS, fallbacks: "default",
     output_config: { effort: "low", format: { type: "json_schema", schema: ADJUST_SCHEMA } },
-    system: SYSTEM,
+    system: SYSTEM_BASE(),
     messages: [{ role: "user", content:
       "Série terminée. Voici l'état de la séance en JSON. Valide ou corrige la décision du moteur local pour la PROCHAINE série " +
       "de l'exercice en cours (ou du suivant s'il vient de changer) et donne une consigne.\n\n" + JSON.stringify(payload) }],
@@ -96,7 +99,7 @@ export async function aiBrief(session) {
   const msg = await withTimeout(c.beta.messages.create({
     model: MODEL, max_tokens: 1500, betas: BETAS, fallbacks: "default",
     output_config: { effort: "low" },
-    system: SYSTEM,
+    system: SYSTEM_BASE(),
     messages: [{ role: "user", content:
       `Briefing d'avant-séance en 3 phrases max : état de forme, objectif du jour, une consigne clé.\n` +
       `Check-in (1-5) : ${JSON.stringify(session.readiness)}\nPlan : ${JSON.stringify(session.snapshot())}\nHistorique récent : ${JSON.stringify(historyDigest())}` }],
@@ -110,7 +113,7 @@ export async function aiDebrief(summary) {
   const msg = await withTimeout(c.beta.messages.create({
     model: MODEL, max_tokens: 2500, betas: BETAS, fallbacks: "default",
     output_config: { effort: "medium" },
-    system: SYSTEM,
+    system: SYSTEM_BASE(),
     messages: [{ role: "user", content:
       `Débrief de séance en 4 phrases max : ce qui était bien, ce qu'il faut corriger, et quoi faire à la prochaine séance.\n` +
       `Séance : ${JSON.stringify(summary)}\nHistorique : ${JSON.stringify(historyDigest())}` }],
@@ -126,7 +129,7 @@ export async function aiChat(messages, onDelta) {
   const stream = c.beta.messages.stream({
     model: MODEL, max_tokens: 16000, betas: BETAS, fallbacks: "default",
     output_config: { effort: "medium" },
-    system: SYSTEM + "\nHors séance, tu peux développer un peu plus (programmation, nutrition générale, récupération), en restant concis.\n" + context,
+    system: SYSTEM_BASE() + "\nHors séance, tu peux développer un peu plus (programmation, nutrition générale, récupération), en restant concis.\n" + context,
     messages,
   });
   stream.on("text", delta => onDelta(delta));

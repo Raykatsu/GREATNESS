@@ -8,7 +8,7 @@ const dataKey = user => `greatness.data.${user}`;
 const DEFAULT = {
   profile: {
     name: "", bodyweight: 75, goal: "muscle", days: 3, equipment: "gym",
-    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false,
+    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "spider",
   },
   sessions: [],
   lifts: {},

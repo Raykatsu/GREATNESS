@@ -1,4 +1,5 @@
 // Petits outils d'interface partagés.
+import { coachFace } from "./chars/index.js";
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -42,7 +43,9 @@ export const I = {
   eye: ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
 };
-export const spider = (cls = "") => `<svg class="${cls}" viewBox="0 0 64 64"><use href="#spider"/></svg>`;
+// Visage du coach choisi (avatar utilisé partout dans l'app).
+// Visage du coach actuel (« cur-face » : remplacé en place quand on change de coach).
+export const spider = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");
 
 const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 

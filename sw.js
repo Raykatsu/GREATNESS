@@ -1,11 +1,13 @@
 // Cache hors ligne de l'app (le coach local marche sans réseau).
-const CACHE = "greatness-v10";
+const CACHE = "greatness-v11";
 const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
   "assets/fonts/inter-latin-wght.woff2", "assets/fonts/outfit-latin-wght.woff2",
-  ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice"].map(f => `js/${f}.js`)];
+  ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice", "coach-picker", "chars/index", "chars/spider"].map(f => `js/${f}.js`)];
+// Univers de coachs chargés à la demande : mis en cache s'ils existent, sans bloquer l'installation.
+const OPTIONAL = ["heroes", "manga", "cute", "animals"].map(f => `js/chars/${f}.js`);
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all([c.addAll(ASSETS), ...OPTIONAL.map(u => c.add(u).catch(() => {}))])).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

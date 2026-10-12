@@ -5,6 +5,7 @@ import { EXERCISES, GOALS } from "./data.js";
 import { state, save, allPrograms, getProgram, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, generateSession, GROUPS } from "./planner.js";
 import { findExercise } from "./brain.js";
+import { all as coaches, findCoach, setCoach, current as currentCoach, GROUPS as COACH_GROUPS } from "./chars/index.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’']/g, " ");
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
@@ -94,6 +95,10 @@ export function parseCommand(text) {
     if (/(plus petit|reduis|diminue|normal|petit)/.test(t)) return { type: "zoom", value: "down" };
   }
 
+  // Coach : « prends Kitty comme coach », « je veux le panda », « change de coach »…
+  const coach = coachIn(t, text, isQuestion);
+  if (coach) return coach;
+
   // Interrupteurs
   const target = /\bvoix|vocal|parle\b/.test(t) ? "voice" : /\bsons?\b|bips?\b/.test(t) ? "sound" : /spider|mascotte|bonhomme|personnage|araignee/.test(t) ? "mascot" : null;
   if (target && !isQuestion) {
@@ -159,6 +164,20 @@ export function parseCommand(text) {
   return null;
 }
 
+// Choix du coach. Un nom seul ne suffit pas : il faut une demande (« prends », « je veux », « comme coach »…).
+const COACH_WORD = /\b(coachs?|personnages?|mascotte|compagnon)\b/;
+const COACH_ASK = /\b(prends?|prendre|choisis|choisir|veux|voudrais|prefere|remplace|essaie|essayer|adopte|adopter|appelle|invite|deviens|devenir|avoir)\b/;
+function coachIn(t, text, isQuestion) {
+  const named = findCoach(text);
+  if (named && !isQuestion && !OFF.test(t)) {
+    if (COACH_WORD.test(t) && /\b(comme|en|mon|ma|nouveau|nouvelle|change|changer|passe|mets?|prends?|veux|voudrais|choisis|choisir)\b/.test(t)) return { type: "coach", id: named.id };
+    if (COACH_ASK.test(t)) return { type: "coach", id: named.id };
+  }
+  if (/\b(change[rsz]?|changement|autre|nouveau|choisir|choisis|voir|liste|montre)\b.{0,12}\b(de |d un |un |mon |les |des )?(coachs?|personnages?|mascotte)\b/.test(t) && !OFF.test(t)) return { type: "coach", id: null };
+  if (/^(quels?|qui) (sont )?(les |tes )?(autres )?(coachs?|personnages?)/.test(t)) return { type: "coach", id: null };
+  return null;
+}
+
 /* ---------- Exécution ---------- */
 const P = () => state.profile;
 
@@ -176,7 +195,7 @@ export function runCommand(cmd) {
     case "toggle": {
       p[cmd.target] = cmd.value; save();
       if (cmd.target === "mascot") window.dispatchEvent(new CustomEvent("greatness:mascot", { detail: cmd.value }));
-      const what = { voice: "Les consignes vocales", sound: "Les sons", mascot: "Spider-Man animé" }[cmd.target];
+      const what = { voice: "Les consignes vocales", sound: "Les sons", mascot: `${currentCoach().name} animé à l'écran` }[cmd.target];
       return { text: `${what} : **${cmd.value ? "activé" : "désactivé"}**.` };
     }
     case "goal": p.goal = cmd.value; save(); return { text: `Objectif changé : **${GOALS[cmd.value].name}**. J'adapte les répétitions et les repos de toutes tes séances.`, actions: [{ label: "Voir l'accueil", route: "#/" }], mood: "happy" };
@@ -216,6 +235,21 @@ export function runCommand(cmd) {
       save();
       return { text: `Séance « ${prog.name} » supprimée.` };
     }
+    case "coach": {
+      const list = coaches();
+      if (!cmd.id) {
+        const by = COACH_GROUPS.map(g => [g, list.filter(c => c.group === g)]).filter(([, l]) => l.length);
+        return {
+          text: `Tu peux choisir parmi **${list.length} coach${list.length > 1 ? "s" : ""}** :\n${by.map(([g, l]) => `• ${g} : ${l.map(c => c.name).join(", ")}`).join("\n")}\nDis-moi par exemple « Prends ${list.find(c => c.id !== currentCoach().id)?.name || "Spider-Man"} comme coach », ou ouvre la galerie.`,
+          actions: [{ label: "Voir les coachs", route: "#/profile?coach=1" }],
+        };
+      }
+      const c = list.find(x => x.id === cmd.id);
+      if (!c) return null;
+      if (c.id === currentCoach().id) return { text: `C'est déjà **${c.name}** qui te coache !`, actions: [{ label: "Voir les autres coachs", route: "#/profile?coach=1" }] };
+      setCoach(c.id);
+      return { text: `C'est fait : **${c.name}** est ton nouveau coach. ${c.bio || ""}`.trim(), mood: "party" };
+    }
     case "start": return { text: "C'est parti ! J'ouvre la séance.", actions: [{ label: "Ouvrir", start: cmd.program }], auto: { start: cmd.program } };
     case "nav": return { text: "J'y vais !", auto: { route: `#/${cmd.tab}` } };
   }
@@ -238,5 +272,6 @@ export const COMMAND_EXAMPLES = [
   "Mode clair",
   "Agrandis le texte",
   "Désactive la voix",
+  "Change de coach",
   "Lance la séance du jour",
 ];

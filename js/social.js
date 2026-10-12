@@ -146,7 +146,7 @@ async function shareText(text, url) {
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Lien copié ✓ Colle-le dans un message."); }
   catch { prompt("Copie ce lien :", url); }
 }
-export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec Spider-Man comme coach ! Mon pseudo : @${currentUser}`, appUrl());
+export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec un coach animé (Spider-Man, Kitty, ninja…) ! Mon pseudo : @${currentUser}`, appUrl());
 
 /* ---------- Partage de séance par lien ---------- */
 const b64 = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

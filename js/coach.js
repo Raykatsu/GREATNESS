@@ -1,4 +1,4 @@
-// Onglet Coach : discussion avec Spider-Man.
+// Onglet Coach : discussion avec le coach choisi (Spider-Man par défaut).
 // Priorité : Claude (si une clé est configurée) → IA locale (si chargée) → cerveau local.
 import { state, save } from "./store.js";
 import { answer, llmMessages } from "./brain.js";
@@ -7,9 +7,10 @@ import * as llm from "./llm.js";
 import { spidey } from "./spidey.js";
 import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
 import { $, $$, esc, md, I, spider, sheet, confirmSheet } from "./ui.js";
+import { coachName } from "./chars/index.js";
 
 const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
-const COACH = "Spider-Man";
+
 const HINT_KEY = "greatness.coach.noGpuHint";
 let cleanup = null;
 
@@ -25,11 +26,11 @@ export function renderCoach(view) {
   view.innerHTML = `
     <header class="coach-head">
       <div class="coach-av" aria-hidden="true">${spider()}<i class="coach-dot" id="dot"></i></div>
-      <div class="coach-id"><h1 class="coach-name">${COACH}</h1><div class="status" id="status" aria-live="polite"></div></div>
+      <div class="coach-id"><h1 class="coach-name" data-coach-name>${esc(coachName())}</h1><div class="status" id="status" aria-live="polite"></div></div>
       <button class="icon-btn plain" id="clear" aria-label="Effacer la discussion" ${state.chat.length ? "" : "hidden"}>${I.trash}</button>
     </header>
     <div id="llm-card"></div>
-    <div class="chat" id="chat" role="log" aria-label="Discussion avec ${COACH}"></div>
+    <div class="chat" id="chat" role="log" aria-label="Discussion avec ${esc(coachName())}"></div>
     <div class="eyebrow sugg-title" id="sugg-t" ${state.chat.length ? "hidden" : ""}>Pour commencer</div>
     <div class="chips sugg ${state.chat.length ? "" : "wrap"}" id="sugg" aria-label="Suggestions">${SUGGESTIONS.map(s => `<button class="chip">${esc(s)}</button>`).join("")}</div>
     <div class="coach-pad" aria-hidden="true"></div>
@@ -224,7 +225,7 @@ export function renderCoach(view) {
     // bulle « écrit… » : elle devient la réponse elle-même (pas de saut quand le texte arrive)
     const r = document.createElement("div");
     r.className = "msg-row bot new";
-    r.innerHTML = `${avatar()}<div class="msg bot is-typing" aria-label="${COACH} écrit…"><span class="typing"><span></span><span></span><span></span></span></div>`;
+    r.innerHTML = `${avatar()}<div class="msg bot is-typing" aria-label="${esc(coachName())} écrit…"><span class="typing"><span></span><span></span><span></span></span></div>`;
     chat.appendChild(r);
     const b = $(".msg", r);
     requestAnimationFrame(() => toBottom());

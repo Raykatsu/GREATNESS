@@ -1,6 +1,7 @@
 // Séance en direct : tableau des séries, ajustements temps réel, repos, fin de séance.
 import { EXERCISES } from "./data.js";
 import { getProgram } from "./store.js";
+import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
 import { Session, fmtTarget, plates } from "./engine.js";
 import { cycleInfo, isWorkout } from "./planner.js";
@@ -568,7 +569,7 @@ function finish() {
   } else if (llm.info().ready && sum.sets.length) {
     const lines = sum.compare.map(c => `${c.name} : meilleure série ${c.best.weight ? c.best.weight + " kg × " : ""}${c.best.reps}${c.delta === null ? " (première fois)" : c.delta > 0 ? " (en progrès)" : c.delta < 0 ? " (en baisse)" : " (stable)"}`).join("\n");
     llm.chat([
-      { role: "system", content: "Tu es Spider-Man, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste." },
+      { role: "system", content: `Tu es ${coachName()}, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste.` },
       { role: "user", content: `${athleteContext()}\n\nSéance terminée : ${sum.name}, ${Math.round(sum.durationSec / 60)} min, ${sum.volume} kg, ${sum.sets.length} séries, ${sum.prs.length} record(s), fatigue ${sum.fatigue} %.\n${lines}\n\nFais un débrief : ce qui était bien, un point à améliorer, et quoi viser à la prochaine séance.` },
     ], { maxTokens: 220, onDelta: t => { const d = $("#debrief"); if (d && t) d.textContent = t; } })
       .then(t => { if (t) speak(t, { interrupt: true }); })
