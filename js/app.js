@@ -479,6 +479,34 @@ function chart(pts, { unit = "", dec = 0 } = {}) {
   </svg>`;
 }
 
+// Pastilles d'icônes des Réglages (façon iOS)
+const GOAL_ICON = { force: "🏋️", muscle: "💪", seche: "🔥", forme: "⚡" };
+const SIC = {
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+  scale: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8.5 9.5a5 5 0 0 1 7 0L13 12"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  calplus: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+  dumbbell: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  sound: '<path d="M4 9v6h4l5 4V5L8 9H4zM17 9a4 4 0 0 1 0 6"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.4-1.2-1.6-1.2-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7.2" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>',
+  half: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
+  text: '<path d="M4 18 8.5 6h1L14 18M5.5 14h6.5M16 18l2.5-7h1L22 18M16.8 15.6h4.4"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2.2 2.2 0 0 0 4 0"/>',
+  notif: '<rect x="6" y="3" width="12" height="18" rx="3"/><path d="M10.5 17.5h3"/><circle cx="17.5" cy="5.5" r="2.5" fill="currentColor"/>',
+  at: '<circle cx="12" cy="12" r="3.5"/><path d="M15.5 8.5v5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.3 6.7"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/>',
+  down: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
+  up: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
+  trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
+};
+const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? spider() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
+
 /* =========================================================
    Profil
    ========================================================= */
@@ -486,73 +514,72 @@ function profile() {
   const p = state.profile;
   const r = rankInfo();
   view.innerHTML = `
-    <div class="eyebrow">Moi</div><h1 class="h1">${esc(p.name)}</h1>
+    <header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>
     ${progressSeg("settings")}
-    <div class="card rank mt">${ring(r.pct, r.level, 58)}<div><div class="eyebrow">Rang</div><div class="h3">${r.rank.name}</div><div class="xs muted">${r.xp} XP</div></div></div>
+    <div class="card rank me-id mt">${ring(r.pct, r.level, 56)}<div class="grow"><div class="eyebrow">Rang · niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div><div class="xs muted">${fmtNum(r.xp)} XP · @${esc(currentUser)}</div></div></div>
 
-    <div class="section"><h2>Objectif</h2></div>
-    <div class="opts">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
-
-    <div class="section"><h2>Mon programme</h2></div>
-    <div class="card">
-      <div class="small muted" style="margin-bottom:8px">Séances par semaine</div>
-      <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Matériel</div>
-      <div class="seg" id="equip">${[["gym", "Salle"], ["db", "Haltères"], ["home", "Rien"]].map(([v, l]) => `<button data-v="${v}" class="${p.equipment === v ? "on" : ""}">${l}</button>`).join("")}</div>
-      <button class="btn btn-soft btn-block mt" id="regen">${I.refresh} Régénérer mon programme</button>
+    <h2 class="set-title">Toi</h2>
+    <div class="card card-list set-list">
+      <label class="set-row">${sic("user", "#3b82f6")}<b class="grow">Prénom</b><input class="set-in" id="p-name" value="${esc(p.name)}" maxlength="30" autocomplete="given-name"/></label>
+      <label class="set-row">${sic("scale", "#14b8a6")}<b class="grow">Poids de corps</b><span class="set-unit"><input class="set-in" id="p-bw" type="number" inputmode="decimal" value="${p.bodyweight}"/>kg</span></label>
     </div>
 
-    <div class="section"><h2>Toi</h2></div>
-    <div class="card">
-      <div class="grid2">
-        <label class="field" style="margin:0"><span>Prénom</span><input class="input" id="p-name" value="${esc(p.name)}" maxlength="30"/></label>
-        <label class="field" style="margin:0"><span>Poids (kg)</span><input class="input" id="p-bw" type="number" inputmode="decimal" value="${p.bodyweight}"/></label>
-      </div>
+    <h2 class="set-title">Objectif</h2>
+    <div class="opts set-goals">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><i>${GOAL_ICON[k] || "🎯"}</i><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
+
+    <h2 class="set-title">Mon programme</h2>
+    <div class="card card-list set-list">
+      <div class="set-row stack"><div class="set-lbl">${sic("cal", "#ef4444")}<b>Séances par semaine</b></div>
+        <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("dumbbell", "#f59e0b")}<b>Matériel</b></div>
+        <div class="seg" id="equip">${[["gym", "Salle"], ["db", "Haltères"], ["home", "Rien"]].map(([v, l]) => `<button data-v="${v}" class="${p.equipment === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <label class="toggle set-row">${sic("moon", "#6366f1")}<div class="grow"><b>Semaine allégée auto</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+      <button class="set-row set-act" id="regen">${sic("refresh", "var(--red)")}<b class="grow">Régénérer mon programme</b>${I.chev}</button>
     </div>
 
-    <div class="section"><h2>Préférences</h2></div>
-    <div class="card" style="padding:4px 16px">
-      <label class="toggle"><div><b>Spider-Man animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
-      <label class="toggle"><div><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
-      <label class="toggle"><div><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
+    <h2 class="set-title">Coach & sons</h2>
+    <div class="card card-list set-list">
+      <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Spider-Man animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
     </div>
 
-    <div class="section"><h2>Apparence</h2></div>
-    <div class="card">
-      <div class="small muted" style="margin-bottom:10px">Couleur</div>
-      <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Fond</div>
-      <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Taille du texte</div>
-      <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div>
-      <p class="xs dim mt-s">Astuce : tu peux aussi demander au coach « passe l'app en vert » ou « mode clair ».</p>
+    <h2 class="set-title">Apparence</h2>
+    <div class="card card-list set-list">
+      <div class="set-row stack"><div class="set-lbl">${sic("palette", "#f97316")}<b>Couleur</b></div>
+        <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("half", "#64748b")}<b>Fond</b></div>
+        <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("text", "#0ea5e9")}<b>Taille du texte</b></div>
+        <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div></div>
+    </div>
+    <p class="set-note">Astuce : demande au coach « passe l'app en vert » ou « mode clair ».</p>
+
+    <h2 class="set-title">Rappels</h2>
+    <div class="card card-list set-list">
+      <label class="set-row">${sic("clock", "#3b82f6")}<b class="grow">Heure de la séance</b><input class="set-in" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
+      <label class="set-row">${sic("bell", "#f59e0b")}<b class="grow">Alerte</b><select class="set-in" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="toggle set-row">${sic("notif", "#ef4444")}<div class="grow"><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
+      <button class="set-row set-act" id="rem-ics">${sic("calplus", "#22c55e")}<b class="grow">Ajouter à mon calendrier</b>${I.chev}</button>
+    </div>
+    <p class="set-note">Une notification avant chaque séance prévue, même app fermée. Ou ajoute-les à ton calendrier.</p>
+
+    <div class="set-title row between"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
+    <div class="card card-list set-list">
+      <div class="set-row">${sic("at", "#64748b")}<div class="grow"><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
+      <button class="set-row set-act" id="acc-pin">${sic("key", "#f59e0b")}<b class="grow">Changer mon code</b>${I.chev}</button>
+      <button class="set-row set-act" id="acc-lock">${sic("lock", "#3b82f6")}<b class="grow">Verrouiller / changer de compte</b>${I.chev}</button>
+      <button class="set-row set-act danger" id="acc-forget">${sic("out", "var(--danger)")}<div class="grow"><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
     </div>
 
-    <div class="section"><h2>Rappels</h2></div>
-    <div class="card">
-      <p class="small muted" style="margin:0 0 12px">Reçois une notification avant chaque séance prévue (même app fermée), ou ajoute-les à ton calendrier.</p>
-      <div class="row" style="gap:10px"><label class="field grow" style="margin:0"><span>Heure de la séance</span><input class="input" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
-        <label class="field" style="margin:0;width:120px"><span>Alerte</span><select class="input" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
-      <label class="toggle"><div><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
-      <button class="btn btn-soft btn-block mt-s" id="rem-ics">${I.clock} Ajouter à mon calendrier</button>
-      <label class="toggle" style="padding-bottom:0"><div><b>Semaine allégée automatique</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+    <h2 class="set-title">Données</h2>
+    <div class="card card-list set-list">
+      <button class="set-row set-act" id="exp">${sic("down", "#22c55e")}<b class="grow">Exporter une sauvegarde</b>${I.chev}</button>
+      <label class="set-row set-act">${sic("up", "#3b82f6")}<b class="grow">Importer une sauvegarde</b>${I.chev}<input type="file" id="imp" accept="application/json" hidden/></label>
     </div>
+    <p class="set-note">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une copie.</p>
 
-    <div class="section"><h2>Données</h2></div>
-    <div class="card">
-      <div class="grid2"><button class="btn btn-soft btn-sm" id="exp">Exporter</button><label class="btn btn-soft btn-sm">Importer<input type="file" id="imp" accept="application/json" hidden/></label></div>
-      <p class="xs muted mt-s">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une sauvegarde.</p>
-    </div>
-
-    <div class="section"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
-    <div class="card" style="padding:4px 16px">
-      <div class="toggle"><div><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
-      <button class="toggle" id="acc-pin" style="width:100%;text-align:left"><div><b>Changer mon code</b></div>${I.chev}</button>
-      <button class="toggle" id="acc-lock" style="width:100%;text-align:left"><div><b>Verrouiller / changer de compte</b></div>${I.chev}</button>
-      <button class="toggle" id="acc-forget" style="width:100%;text-align:left;color:#ff7b88"><div><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
-    </div>
-
-    <div class="section"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
+    <div class="set-title row between"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
     <div class="card" id="llm-box"></div>
 
     <details class="card adv mt"><summary>IA Claude (facultatif, payant)</summary>
@@ -562,9 +589,11 @@ function profile() {
       <button class="btn btn-blue btn-sm mt" id="p-test">Tester la connexion</button>
     </details>
 
-    <button class="btn btn-soft btn-block mt-l" id="tour-again">${spider()} Revoir la visite guidée</button>
-    <button class="btn btn-ghost btn-block mt-s" id="reset" style="color:#ff7b88">Effacer mes séances et réglages</button>
-    <p class="center xs dim">GREATNESS · ton sympathique coach de quartier</p>`;
+    <div class="card card-list set-list mt-l">
+      <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${spider()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
+      <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
+    </div>
+    <p class="set-foot">${spider()}GREATNESS · ton sympathique coach de quartier</p>`;
   animateRings(view);
   bindProgressSeg();
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
