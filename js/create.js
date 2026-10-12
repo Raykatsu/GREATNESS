@@ -241,7 +241,7 @@ function row(e, i) {
   const grouped = e.ss && (draft.exercises[i - 1]?.ss === e.ss || draft.exercises[i + 1]?.ss === e.ss);
   return `<div class="bex ${open === i ? "open" : ""}" data-row="${i}">
     <button class="bex-head" data-i="${i}" aria-expanded="${open === i}"><span class="k tnum ${grouped ? "ss" : ""}">${i + 1}</span>
-      <span class="grow"><b class="ellipsis">${esc(ex.name)}</b><span class="bex-sum ellipsis">${summary(e)}</span></span><span class="bex-chev">${I.down}</span></button>
+      <span class="grow"><b>${esc(ex.name)}</b><span class="bex-sum ellipsis">${summary(e)}</span></span><span class="bex-chev">${I.down}</span></button>
     ${open === i ? body(e, i) : ""}
   </div>`;
 }
