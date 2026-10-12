@@ -804,7 +804,9 @@ class Coach {
   /* ---------- Bulles ---------- */
   say(text, { mood, action, ms } = {}) {
     if (!this.enabled || !text) return false;
-    this.bubbleIn.innerHTML = `<span>${text.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</span>${action ? `<b>${action.label} →</b>` : ""}`;
+    // typographie française : jamais de « ? » ou « ! » seul en début de ligne
+    const t = String(text).replace(/ ([?!:;»])/g, "\u00a0$1").replace(/« /g, "«\u00a0");
+    this.bubbleIn.innerHTML = `<span>${t.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</span>${action ? `<b>${action.label} →</b>` : ""}`;
     this.bubbleAction = action?.fn;
     this.bw = this.bubble.offsetWidth; this.bh = this.bubble.offsetHeight; // mesurée une fois, pas à chaque image
     this.placeBubble();
