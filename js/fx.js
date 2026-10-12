@@ -73,6 +73,7 @@ export const vibrate = p => navigator.vibrate?.(p);
 
 /* ---------- Petite toile qui éclot (validation, record) ---------- */
 export function webPop(x, y, color = "#ff3b4e") {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
   const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   el.setAttribute("viewBox", "-50 -50 100 100");
   el.classList.add("webpop");
@@ -84,6 +85,7 @@ export function webPop(x, y, color = "#ff3b4e") {
   el.innerHTML = `<g fill="none" stroke="currentColor" stroke-width="1.4">${spokes}${rings}</g>`;
   document.body.appendChild(el);
   el.addEventListener("animationend", () => el.remove());
+  setTimeout(() => el.remove(), 1500); // filet de sécurité si l'animation est interrompue
 }
 
 // Toile fine utilisée comme ornement (coins de cartes, chargement…).

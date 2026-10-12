@@ -1,6 +1,7 @@
 // Séance en direct : tableau des séries, ajustements temps réel, repos, fin de séance.
 import { EXERCISES } from "./data.js";
 import { getProgram } from "./store.js";
+import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
 import { Session, fmtTarget, plates } from "./engine.js";
 import { cycleInfo, isWorkout } from "./planner.js";
@@ -98,6 +99,7 @@ export function resumeLive(data, exit) {
 function begin(exit) {
   onExit = exit;
   showCues = false;
+  mounted = false; prevProg = 0; lastMsgKey = ""; lastIdx = -1;
   document.body.classList.add("hide-tabs");
   navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
   if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
@@ -116,6 +118,14 @@ function resetInputs() {
 
 const unit = ex => (ex.type === "time" ? "s" : "");
 const fmtSet = (s, ex) => (ex.type === "load" ? `${s.weight}×${s.reps}` : `${s.reps}${unit(ex)}`);
+const fmtKg = w => String(w).replace(".", ",");
+const target = ex => fmtTarget(ex).replace(/(\d)\.(\d)/g, "$1,$2");
+// coche qui se dessine (pathLength = 1 : le tracé s'anime en CSS)
+const TICK = `<svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path pathLength="1" d="m5 12.5 4.5 4.5L19 7.5"/></svg>`;
+const RPE = [[6, "Facile", "4 reps ou plus en réserve"], [7, "Modéré", "Encore 3 reps en réserve"], [8, "Dur", "Encore 2 reps en réserve"], [9, "Très dur", "Une seule rep en réserve"], [10, "Échec", "Plus aucune rep possible"]];
+const rpeHint = v => RPE.find(r => r[0] === v)?.[2] || "6 facile → 10 échec";
+
+let mounted = false, prevProg = 0, lastMsgKey = "", lastIdx = -1;
 
 function render() {
   if (!S) return;
@@ -125,103 +135,124 @@ function render() {
   const simple = S.program.simple;
   const note = state.exNotes?.[ex.id];
   const last = ex.last;
-  const rows = Array.from({ length: Math.max(ex.sets, ex.done.length) }, (_, i) => {
+  const load = ex.type === "load";
+  const total = Math.max(ex.sets, ex.done.length);
+  const rows = Array.from({ length: total }, (_, i) => {
     const d = ex.done[i];
     const prev = last?.[i] ? fmtSet(last[i], ex) : "—";
     if (d) return `<div class="set done ${i === justDone ? "just" : ""}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
-      <span class="val">${ex.type === "load" ? d.weight + "<small>kg</small>" : "—"}</span><span class="val">${d.reps}<small>${unit(ex) || ""}</small> <span class="rpe-b">@${d.rpe}</span></span><span class="ok">${I.check}</span></div>`;
+      ${load ? `<span class="val">${fmtKg(d.weight)}</span>` : ""}<span class="val">${d.reps}<small>${unit(ex)}</small>${simple ? "" : `<span class="rpe-b">@${d.rpe}</span>`}</span><span class="ok" aria-label="Série faite">${TICK}</span></div>`;
     const cur = i === ex.done.length;
-    return `<div class="set ${cur ? "cur" : ""}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
-      <span class="val ${cur ? "" : "dim"}">${ex.type === "load" ? (cur ? ui.weight : ex.weight) + "<small>kg</small>" : "—"}</span>
-      <span class="val ${cur ? "" : "dim"}">${cur ? ui.reps : ex.goal}<small>${unit(ex)}</small></span><span class="ok">${cur ? "" : ""}</span></div>
+    return `<div class="set ${cur ? "cur" : "todo"}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
+      ${load ? `<span class="val" ${cur ? 'id="v-weight"' : ""}>${fmtKg(cur ? ui.weight : ex.weight)}</span>` : ""}
+      <span class="val" ${cur ? 'id="v-reps"' : ""}>${cur ? ui.reps : ex.goal}<small>${unit(ex)}</small></span>
+      ${cur ? `<button class="ok" id="row-log" aria-label="Valider la série ${i + 1}"></button>` : `<span class="ok"></span>`}</div>
       ${cur ? editor(ex, simple) : ""}`;
   }).join("");
   const msg = S.log[0];
+  const msgKey = msg ? msg.title + msg.text : "";
+  const freshMsg = msgKey !== lastMsgKey;
+  lastMsgKey = msgKey;
+  const scroller = $(".live", overlay());
+  // même exercice : on garde la position de défilement ; nouvel exercice : retour en haut
+  const keepScroll = scroller && !scroller.classList.contains("fin") && lastIdx === S.idx ? scroller.scrollTop : 0;
+  lastIdx = S.idx;
+  const tools = [
+    `<button class="tool" id="add-set">${I.plus}<span>Série</span></button>`,
+    `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
+    `<button class="tool" id="skip">${I.skip}<span>Passer</span></button>`,
+    camSupported() && ex.type !== "time" && camTrackable(ex.id) ? `<button class="tool" id="cam">${I.camera}<span>Compter</span></button>` : "",
+    `<button class="tool" id="note">${I.edit}<span>Note</span></button>`,
+    S.history.length ? `<button class="tool" id="undo">${I.undo}<span>Annuler</span></button>` : "",
+  ].join("");
   overlay().innerHTML = `
-  <div class="live"><div class="live-wrap">
+  <div class="live ${mounted ? "" : "first"} ${rest ? "resting" : ""}"><div class="live-wrap">
     <header class="live-head">
-      <div class="row between">
-        <button class="icon-btn" id="quit" aria-label="Terminer">${I.x}</button>
-        <div class="center grow"><div class="title ellipsis">${esc(S.program.name)}</div><div class="timer" id="elapsed">${fmtTime(S.elapsed)}</div></div>
-        <div class="row" style="gap:6px"><button class="icon-btn ${listener?.active ? "on" : ""}" id="mic" aria-label="Mains libres">${I.mic}</button>
-        <button class="icon-btn" id="menu" aria-label="Options">${I.more}</button></div>
+      <div class="lh-row">
+        <div class="lh-side"><button class="icon-btn plain" id="quit" aria-label="Terminer la séance">${I.x}</button></div>
+        <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div>
+          <div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span><span class="sep">·</span><span>${S.idx + 1}/${S.plan.length}</span></div></div>
+        <div class="lh-side end"><button class="icon-btn plain ${listener?.active ? "on" : ""}" id="mic" aria-label="Mains libres">${I.mic}</button>
+        <button class="icon-btn plain" id="menu" aria-label="Options">${I.more}</button></div>
       </div>
-      <div class="thread"><i style="width:${S.progress * 100}%"></i></div>
+      <div class="thread" role="progressbar" aria-label="Progression de la séance" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(S.progress * 100)}"><i id="thread" style="--p:${prevProg}"></i></div>
+      <nav class="ex-tabs" id="tabs">${S.plan.map((e, i) => `<button class="ex-tab ${i === S.idx ? "cur" : e.status}" data-i="${i}" ${i === S.idx ? 'aria-current="step"' : ""}>
+        <span class="k">${e.status === "done" ? I.check : i + 1}</span><span class="nm">${esc(e.name)}</span>${e.ss ? `<span class="ss">${esc(e.ss)}</span>` : ""}</button>`).join("")}
+        <button class="ex-tab add" id="add-ex" aria-label="Ajouter un exercice">${I.plus}</button></nav>
     </header>
 
-    <nav class="ex-tabs" id="tabs">${S.plan.map((e, i) => `<button class="ex-tab ${i === S.idx ? "cur" : e.status}" data-i="${i}">
-      <span class="k">${e.status === "done" ? "✓" : i + 1}</span>${esc(e.name)}${e.ss ? `<span class="ss">${esc(e.ss)}</span>` : ""}</button>`).join("")}
-      <button class="ex-tab" id="add-ex">${I.plus} Exercice</button></nav>
-
     <div class="ex-head">
-      <div class="grow"><h2>${esc(ex.name)}</h2>
-        <div class="row mt-s" style="gap:6px;flex-wrap:wrap"><span class="chip">${esc(ex.muscle)}</span><span class="chip red">Objectif ${fmtTarget(ex)}</span>${ex.ss ? `<span class="chip blue">Superset ${esc(ex.ss)}</span>` : ""}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}</div></div>
-      <button class="icon-btn" id="cues-btn" aria-label="Technique" style="${showCues ? "background:var(--text);color:var(--bg)" : ""}">${I.info}</button>
+      <div class="grow"><div class="eyebrow">${esc(ex.muscle)}${ex.ss ? ` · Superset ${esc(ex.ss)}` : ""}</div><h2>${esc(ex.name)}</h2></div>
+      <button class="icon-btn cues-toggle ${showCues ? "sel" : ""}" id="cues-btn" aria-label="Technique" aria-expanded="${showCues}">${I.info}</button>
     </div>
-    ${showCues ? `<div class="cues">${animSvg(ex.id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>` : ""}
-    <div class="xs muted mt-s">${last ? `Dernière fois : ${last.map(s => fmtSet(s, ex)).join(" · ")}` : "Première fois sur cet exercice : je calibre dès la première série."}</div>
+    <div class="ex-chips"><span class="chip red">${I.flame}Objectif ${target(ex)}</span>${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}</div>
+    ${showCues ? `<div class="cues">${animSvg(ex.id, "cues-anim")}<ul class="grow">${ex.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+    <p class="ex-last">${I.clock}<span>${last ? `Dernière fois : <b>${last.map(s => fmtSet(s, ex)).join(" · ")}</b>` : "Première fois : je calibre dès la première série."}</span></p>
     ${note ? `<button class="note-line" id="note-show">${I.edit}<span>${esc(note)}</span></button>` : ""}
 
-    <div class="sets">
-      <div class="sets-h"><span>#</span><span>Avant</span><span>${ex.type === "load" ? "Kg" : ""}</span><span>${ex.type === "time" ? "Sec" : "Reps"}</span><span></span></div>
+    <div class="sets ${load ? "" : "noload"}">
+      <div class="sets-h"><span>Série</span><span>Avant</span>${load ? "<span>Kg</span>" : ""}<span>${ex.type === "time" ? "Sec" : "Reps"}</span><span></span></div>
       ${rows}
     </div>
 
-    <div class="ex-actions">
-      <button class="btn btn-soft btn-sm" id="add-set">${I.plus} Série</button>
-      <button class="btn btn-soft btn-sm" id="swap">${I.swap} Remplacer</button>
-      <button class="btn btn-soft btn-sm" id="skip">${I.skip} Passer</button>
-      <button class="btn btn-soft btn-sm" id="note">${I.edit} Note</button>
-      ${camSupported() && ex.type !== "time" && camTrackable(ex.id) ? `<button class="btn btn-soft btn-sm" id="cam">${I.camera} Compter</button>` : ""}
-      ${S.history.length ? `<button class="btn btn-soft btn-sm" id="undo">${I.undo} Annuler</button>` : ""}
-    </div>
+    <div class="tools scroll-x">${tools}</div>
 
-    ${msg ? `<div class="coach-line ${msg.kind}"><div class="av">${spider()}</div><div><b>${esc(msg.title)}</b><p>${esc(msg.text)}</p>
-      ${msg.swap && EXERCISES[msg.swap] ? `<button class="btn btn-soft btn-sm mt-s" id="add-alt">Ajouter ${esc(EXERCISES[msg.swap].name)}</button>` : ""}</div></div>` : ""}
+    ${msg ? `<div class="coach-line ${msg.kind} ${freshMsg ? "new" : ""}"><div class="av">${spider()}</div><div class="grow"><b>${esc(msg.title)}</b><p>${esc(msg.text)}</p>
+      ${msg.swap && EXERCISES[msg.swap] ? `<button class="btn btn-soft btn-sm mt-s" id="add-alt">${I.plus} Ajouter ${esc(EXERCISES[msg.swap].name)}</button>` : ""}</div></div>` : ""}
   </div></div>
   <div class="dock"><div class="dock-in" id="dock"></div></div>`;
+  mounted = true;
   justDone = -1;
+  const sc = $(".live", overlay());
+  if (keepScroll) sc.scrollTop = keepScroll;
+  // la barre de progression glisse de l'ancienne valeur à la nouvelle
+  const th = $("#thread"), p = S.progress;
+  if (th && p !== prevProg) requestAnimationFrame(() => th.style.setProperty("--p", p));
+  prevProg = p;
   renderDock();
   bind(ex);
-  const cur = $(`.ex-tab[data-i="${S.idx}"]`);
-  cur?.scrollIntoView({ inline: "center", block: "nearest" });
+  const tabs = $("#tabs"), cur = $(`.ex-tab[data-i="${S.idx}"]`);
+  if (tabs && cur) tabs.scrollLeft = cur.offsetLeft - (tabs.clientWidth - cur.offsetWidth) / 2;
 }
 
 function editor(ex, simple) {
-  const stepper = (key, val, label, step) => `<div class="stepper"><button data-s="${key}" data-d="${-step}" aria-label="moins">−</button>
-    <div class="mid" id="m-${key}"><input id="in-${key}" type="number" inputmode="decimal" step="${step}" value="${val}"/><small>${label}</small></div>
-    <button data-s="${key}" data-d="${step}" aria-label="plus">+</button></div>`;
+  const stepper = (key, val, label, step) => `<div class="stepper"><button class="st-btn" data-s="${key}" data-d="${-step}" aria-label="Moins ${step}">${I.minus}</button>
+    <div class="mid" id="m-${key}"><input id="in-${key}" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${fmtKg(val)}" aria-label="${label}"/><small>${label}</small></div>
+    <button class="st-btn" data-s="${key}" data-d="${step}" aria-label="Plus ${step}">${I.plus}</button></div>`;
   const repStep = ex.type === "time" ? 5 : 1;
   return `<div class="editor">
     <div class="steppers ${ex.type === "load" ? "" : "one"}">
-      ${ex.type === "load" ? stepper("weight", ui.weight, "KG", ex.step) : ""}
-      ${stepper("reps", ui.reps, ex.type === "time" ? "SECONDES" : "RÉPÉTITIONS", repStep)}
+      ${ex.type === "load" ? stepper("weight", ui.weight, "Kg", ex.step) : ""}
+      ${stepper("reps", ui.reps, ex.type === "time" ? "Secondes" : "Répétitions", repStep)}
     </div>
     ${EXERCISES[ex.id]?.equip === "bar" && ex.type === "load" ? `<button class="plates" id="plates">${platesText(ui.weight)}</button>` : ""}
-    ${simple ? "" : `<div class="rpe-lab"><span>Ressenti</span><span class="dim">6 facile → 10 échec</span></div>
-    <div class="rpe">${[[6, "Facile"], [7, "Modéré"], [8, "Dur"], [9, "Très dur"], [10, "Échec"]].map(([v, l]) => `<button data-rpe="${v}" class="${ui.rpe === v ? "on" : ""}">${v}<small>${l}</small></button>`).join("")}</div>
-    <label class="pain"><input type="checkbox" id="pain" ${ui.pain ? "checked" : ""}/> Douleur articulaire ou inhabituelle</label>`}
+    ${simple ? "" : `<div class="rpe-lab"><span>Ressenti</span><span class="dim" id="rpe-hint">${rpeHint(ui.rpe)}</span></div>
+    <div class="rpe" role="radiogroup" aria-label="Ressenti">${RPE.map(([v, l]) => `<button data-rpe="${v}" role="radio" aria-checked="${ui.rpe === v}" class="${ui.rpe === v ? "on" : ""}">${v}<small>${l}</small></button>`).join("")}</div>
+    <label class="toggle pain"><div><b>Douleur articulaire</b><span class="xs dim">Le coach adapte la suite</span></div><input type="checkbox" id="pain" ${ui.pain ? "checked" : ""}/></label>`}
   </div>`;
 }
 
 function platesText(w) {
   const p = plates(w);
   if (w < 20) return "Moins lourd qu'une barre olympique (20 kg)";
-  return `<b>Par côté</b> ${p.side.length ? p.side.map(x => String(x).replace(".", ",")).join(" + ") : "rien"}${p.rest > 0 ? ` <span class="dim">(+${String(p.rest).replace(".", ",")} kg à arrondir)</span>` : ""} <span class="dim">· barre 20 kg</span>`;
+  return `<b>Par côté</b> ${p.side.length ? p.side.map(x => String(x).replace(".", ",")).join(" + ") : "rien"}${p.rest > 0 ? ` <span class="dim">(+${String(p.rest).replace(".", ",")} kg à arrondir)</span>` : ""} <span class="dim">· barre 20&nbsp;kg</span>`;
 }
 
 function renderFreeEmpty() {
   overlay().innerHTML = `
-  <div class="live"><div class="live-wrap">
-    <header class="live-head"><div class="row between">
-      <button class="icon-btn" id="quit" aria-label="Terminer">${I.x}</button>
-      <div class="center grow"><div class="title">${esc(S.program.name)}</div><div class="timer" id="elapsed">${fmtTime(S.elapsed)}</div></div>
-      <button class="icon-btn" id="menu" aria-label="Options">${I.more}</button></div></header>
-    ${S.plan.length ? `<div class="card mt"><div class="eyebrow">Déjà fait</div>${S.plan.map(e => `<div class="cmp"><span>${esc(e.name)}</span><span class="small muted">${e.done.length} série${e.done.length > 1 ? "s" : ""}</span><span></span></div>`).join("")}</div>` : ""}
-    <div class="empty mt-l">${spider()}<b style="color:var(--text)">${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><br>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</div>
-    <button class="add-big" id="free-add">${I.plus} Ajouter un exercice</button>
+  <div class="live ${mounted ? "" : "first"}"><div class="live-wrap">
+    <header class="live-head"><div class="lh-row">
+      <div class="lh-side"><button class="icon-btn plain" id="quit" aria-label="Terminer la séance">${I.x}</button></div>
+      <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div><div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span></div></div>
+      <div class="lh-side end"><button class="icon-btn plain" id="menu" aria-label="Options">${I.more}</button></div></div></header>
+    <div class="free-empty stagger">
+      <div class="empty">${spider()}<b>${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><span>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</span></div>
+      <button class="btn btn-primary btn-lg btn-block" id="free-add">${I.plus} Ajouter un exercice</button>
+      ${S.plan.length ? `<div class="eyebrow free-done-h">Déjà fait</div><div class="card card-list">${S.plan.map(e => `<div class="cmp"><span class="ellipsis">${esc(e.name)}</span><span class="small muted">${e.done.length} série${e.done.length > 1 ? "s" : ""}</span><span class="delta p">${I.check}</span></div>`).join("")}</div>` : ""}
+    </div>
   </div></div>
-  <div class="dock"><div class="dock-in">${S.totalDone ? `<button class="btn btn-primary btn-lg btn-block" id="free-end">${I.check} Terminer la séance</button>` : ""}</div></div>`;
+  <div class="dock"><div class="dock-in">${S.totalDone ? `<button class="btn btn-soft btn-lg btn-block" id="free-end">${I.check} Terminer la séance</button>` : ""}</div></div>`;
+  mounted = true;
   $("#quit").onclick = quit; $("#menu").onclick = menu;
   $("#free-add").onclick = addExercise;
   $("#free-end")?.addEventListener("click", finish);
@@ -241,20 +272,47 @@ function renderDock() {
   const dock = $("#dock");
   if (!dock || !S || !S.current) return;
   const ex = S.current;
+  $(".live", overlay())?.classList.toggle("resting", !!rest);
   if (rest) {
     const nx = S.current;
-    dock.innerHTML = `<div class="rest" id="rest"><div class="fill" id="rest-fill"></div>
-      <div class="t" id="rest-t">${fmtTime(Math.ceil((rest.end - Date.now()) / 1000))}<small>REPOS</small></div>
-      <div class="nx">Ensuite<br><b>${esc(nx.name)}</b> · ${fmtTarget(nx)}</div>
-      <div class="ctr"><button data-r="-15">−15</button><button data-r="15">+15</button><button class="go" id="rest-skip">Go</button></div></div>`;
-    $$("[data-r]", dock).forEach(b => b.onclick = () => { rest.end += +b.dataset.r * 1000; rest.total = Math.max(rest.total + +b.dataset.r, 10); paintRest(); });
+    dock.innerHTML = `<div class="rest" id="rest" role="timer" aria-label="Repos">
+      <div class="rest-bar"><i id="rest-fill"></i></div>
+      <div class="rest-top">
+        <div class="rest-time"><small>Repos</small><span class="t tnum" id="rest-t">${fmtTime(Math.max(0, Math.ceil((rest.end - Date.now()) / 1000)))}</span></div>
+        <div class="nx"><small>Ensuite</small><b class="ellipsis">${esc(nx.name)}</b><span class="ellipsis">Série ${nx.done.length + 1} · ${target(nx)}</span></div>
+      </div>
+      <div class="ctr"><button data-r="-15" aria-label="Moins 15 secondes">−15 s</button><button data-r="15" aria-label="Plus 15 secondes">+15 s</button>
+        <button class="go" id="rest-skip">${I.play}<span>Go</span></button></div></div>`;
+    $$("[data-r]", dock).forEach(b => b.onclick = () => {
+      const d = +b.dataset.r;
+      rest.end = Math.max(Date.now() + 1000, rest.end + d * 1000); rest.total = Math.max(rest.total + d, 10);
+      vibrate(6); paintRest(true);
+    });
     $("#rest-skip", dock).onclick = () => endRest(true);
-    paintRest();
+    paintRest(true);
   } else {
-    dock.innerHTML = `<button class="btn btn-primary btn-lg btn-block" id="log">${I.check} Valider la série ${ex.done.length + 1}/${Math.max(ex.sets, ex.done.length + 1)}</button>`;
+    dock.innerHTML = `<button class="btn btn-primary btn-lg btn-block log-btn" id="log">${I.check}<span>Valider la série ${ex.done.length + 1}/${Math.max(ex.sets, ex.done.length + 1)}</span></button>`;
     $("#log", dock).onclick = logSet;
   }
 }
+
+// Appui long sur un bouton : l'action se répète de plus en plus vite.
+function holdRepeat(btn, fn) {
+  let t = null, n = 0;
+  const stop = () => { clearTimeout(t); t = null; btn.classList.remove("held"); };
+  btn.addEventListener("pointerdown", e => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    n = 0; fn(false); btn.classList.add("held");
+    const rep = () => { n++; fn(true); t = setTimeout(rep, n < 5 ? 120 : n < 15 ? 70 : 40); };
+    clearTimeout(t); t = setTimeout(rep, 420);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => btn.addEventListener(ev, stop));
+  btn.addEventListener("contextmenu", e => e.preventDefault());
+  btn.addEventListener("click", e => { if (e.detail === 0) fn(false); }); // clavier
+}
+
+const bump = (el, up) => el?.animate?.([{ transform: `scale(${up ? 1.1 : 0.92})` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.2,.9,.3,1.2)" });
 
 function bind(ex) {
   $("#quit").onclick = quit;
@@ -263,7 +321,7 @@ function bind(ex) {
   $("#cues-btn").onclick = () => { showCues = !showCues; render(); };
   mountAnims(overlay());
   $("#cam")?.addEventListener("click", () => openCam(ex, { onDone: n => {
-    ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n;
+    ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n; const c = $("#v-reps"); if (c) c.firstChild.nodeValue = n;
     toast(`${n} reps comptées : ajuste le ressenti puis valide.`);
   } }));
   $$(".ex-tab").forEach(b => b.onclick = () => {
@@ -273,15 +331,32 @@ function bind(ex) {
     resetInputs(); render();
     const intro = S.intro(); speak(intro.say, { interrupt: true });
   });
-  $$("[data-s]").forEach(b => b.onclick = () => {
+  const setVal = (k, v) => {
+    ui[k] = v;
+    const inp = $(`#in-${k}`); if (inp) inp.value = fmtKg(v);
+    const cell = $(`#v-${k}`); if (cell) cell.firstChild.nodeValue = k === "weight" ? fmtKg(v) : v;
+    if (k === "weight" && $("#plates")) $("#plates").innerHTML = platesText(v);
+  };
+  $$("[data-s]").forEach(b => holdRepeat(b, repeat => {
     const k = b.dataset.s, d = +b.dataset.d;
-    ui[k] = Math.max(0, +(ui[k] + d).toFixed(2));
-    const inp = $(`#in-${k}`); if (inp) inp.value = ui[k];
-    if (k === "weight" && $("#plates")) $("#plates").innerHTML = platesText(ui.weight);
-    vibrate(6);
+    const v = Math.max(0, +(ui[k] + d).toFixed(2));
+    if (v === ui[k]) return;
+    setVal(k, v);
+    bump($(`#in-${k}`), d > 0);
+    if (!repeat) vibrate(6);
+  }));
+  $$(".stepper input").forEach(inp => {
+    inp.onfocus = () => inp.select();
+    inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+    inp.onchange = () => setVal(inp.id.slice(3), Math.max(0, +String(inp.value).replace(",", ".") || 0));
   });
-  $$(".stepper input").forEach(inp => inp.onchange = () => { const k = inp.id.slice(3); ui[k] = Math.max(0, +inp.value || 0); });
-  $$("[data-rpe]").forEach(b => b.onclick = () => { ui.rpe = +b.dataset.rpe; $$("[data-rpe]").forEach(x => x.classList.toggle("on", x === b)); vibrate(8); });
+  $("#row-log")?.addEventListener("click", logSet);
+  $$("[data-rpe]").forEach(b => b.onclick = () => {
+    ui.rpe = +b.dataset.rpe;
+    $$("[data-rpe]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); });
+    const h = $("#rpe-hint"); if (h) h.textContent = rpeHint(ui.rpe);
+    vibrate(8);
+  });
   $("#pain")?.addEventListener("change", e => (ui.pain = e.target.checked));
   $("#add-set").onclick = () => { S.addSet(); render(); toast("Série ajoutée"); };
   $("#add-ex").onclick = addExercise;
@@ -351,12 +426,20 @@ function startRest(sec) {
   spidey.hang(true);
 }
 
-function paintRest() {
+// La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.
+function paintRest(restart = false) {
   if (!rest) return;
-  const left = Math.ceil((rest.end - Date.now()) / 1000);
+  const ms = rest.end - Date.now();
+  const left = Math.ceil(ms / 1000);
   const t = $("#rest-t"), f = $("#rest-fill"), box = $("#rest");
-  if (t) t.innerHTML = `${fmtTime(Math.max(0, left))}<small>REPOS</small>`;
-  if (f) f.style.width = `${Math.max(0, Math.min(100, (left / rest.total) * 100))}%`;
+  const txt = fmtTime(Math.max(0, left));
+  if (t && t.textContent !== txt) t.textContent = txt;
+  if (f && restart === true) {
+    f.style.animation = "none";
+    f.style.setProperty("--from", Math.max(0, Math.min(1, ms / (rest.total * 1000))).toFixed(4));
+    void f.offsetWidth;
+    f.style.animation = `restBar ${Math.max(0, ms)}ms linear forwards`;
+  }
   box?.classList.toggle("ending", left <= 5);
   if (left === 10 && !rest.said10) { rest.said10 = true; speak("Dix secondes."); }
   if (left <= 3 && left > 0 && !rest.beeped.has(left)) { rest.beeped.add(left); beep(880, 0.1); }
@@ -437,27 +520,38 @@ function finish() {
     const v = c.type === "load" ? `${c.delta > 0 ? "+" : ""}${Math.round(c.delta)} kg` : `${c.delta > 0 ? "+" : ""}${Math.round(c.delta)}`;
     return `<span class="delta ${c.delta > 0 ? "p" : "m"}">${v}</span>`;
   };
+  const reps = sum.sets.reduce((a, s) => a + (+s.reps || 0), 0);
+  const nEx = new Set(sum.sets.map(s => s.exId)).size;
+  const tiles = [
+    { v: sum.durationSec, f: "time", l: "Durée", ic: I.clock },
+    sum.volume > 0 ? { v: sum.volume, f: "num", u: "kg", l: "Volume soulevé", ic: I.bolt } : { v: reps, f: "num", l: "Répétitions", ic: I.bolt },
+    { v: sum.sets.length, f: "num", l: sum.sets.length > 1 ? "Séries" : "Série", ic: I.check },
+    sum.prs.length ? { v: sum.prs.length, f: "num", l: sum.prs.length > 1 ? "Records" : "Record", ic: I.trophy, cls: "gold" } : { v: nEx, f: "num", l: nEx > 1 ? "Exercices" : "Exercice", ic: I.flame },
+  ];
+  const fmtV = (v, f) => (f === "time" ? fmtTime(v) : fmtNum(v));
+  const burst = Array.from({ length: 14 }, (_, i) => `<i style="--a:${Math.round(i * 360 / 14 + (i % 2) * 9)}deg;--d:${i % 3 === 0 ? 92 : i % 3 === 1 ? 74 : 60}px;--c:var(${["--red", "--amber", "--blue", "--green"][i % 4]})"></i>`).join("");
   overlay().innerHTML = `
-  <div class="live"><div class="live-wrap enter" style="padding-bottom:40px">
-    <div class="done-hero"><div class="badge">${spider()}</div><h1>Mission accomplie</h1>
-      <div class="xp mt-s">+${sum.xp} XP</div>
-      ${after.level > before.level ? `<div class="chip amber mt-s">${I.trophy} Nouveau rang : ${after.rank.name}</div>` : ""}</div>
-    <div class="grid2 mt-l">
-      <div class="card stat"><div class="v">${fmtTime(sum.durationSec)}</div><div class="l">Durée</div></div>
-      <div class="card stat"><div class="v">${fmtNum(sum.volume)}<small>kg</small></div><div class="l">Volume soulevé</div></div>
-      <div class="card stat"><div class="v">${sum.sets.length}</div><div class="l">Séries</div></div>
-      <div class="card stat"><div class="v">${sum.prs.length}</div><div class="l">Records</div></div>
+  <div class="live fin"><div class="live-wrap stagger">
+    <div class="done-hero">
+      <div class="badge-wrap"><div class="burst" aria-hidden="true">${burst}</div><div class="ring" aria-hidden="true"></div><div class="badge">${spider()}</div></div>
+      <div class="eyebrow">${esc(sum.name)} · terminée</div>
+      <h1>Mission accomplie</h1>
+      <div class="xp-pill">${I.bolt}<span>+<span data-count="${sum.xp}">${sum.xp}</span> XP</span></div>
+      ${after.level > before.level ? `<div class="chip amber rank-up">${I.trophy} Nouveau rang : ${esc(after.rank.name)}</div>` : ""}
     </div>
-    <div class="coach-line ai"><div class="av">${spider()}</div><div><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
+    <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
+    <div class="coach-line ai"><div class="av">${spider()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
-    <div class="card" style="padding:4px 16px">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="chip amber" style="height:20px;font-size:10.5px;padding:0 7px">PR</span>` : ""}</span>
-      <span class="small muted">${c.type === "load" ? `${c.best.weight}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
+    <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
+      <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
-    ${sum.sets.length ? `<label class="field mt-l"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…" style="height:auto;padding:12px"></textarea></label>` : ""}
-    ${next ? `<button class="btn btn-primary btn-lg btn-block mt" id="next">${I.play} Échauffé ! Enchaîner : ${esc(next.program.name)}</button>`
-      : isWorkout(done.program) ? `<button class="btn btn-blue btn-block mt" id="cool">${I.heart} Étirements de retour au calme · 8 min</button>` : ""}
-    <button class="btn ${next ? "btn-soft" : "btn-primary btn-lg"} btn-block mt" id="home">Retour à l'accueil</button>
+    ${sum.sets.length ? `<label class="field fin-note"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…"></textarea></label>` : ""}
+    <div class="fin-actions">${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
+      : isWorkout(done.program) ? `<button class="btn btn-soft btn-block cool-btn" id="cool">${I.heart} Retour au calme · 8 min</button>` : ""}</div>
+    <div class="fin-foot">${next ? `<button class="btn btn-primary btn-lg btn-block" id="next">${I.play} Échauffé ! Enchaîner : ${esc(next.program.name)}</button>`
+      : `<button class="btn btn-primary btn-lg btn-block" id="home">Retour à l'accueil</button>`}</div>
   </div></div>`;
+  countUp(overlay());
   const relaunch = (program, readiness) => { const exit = onExit; onExit = null; close(); startLive(program, readiness, exit); };
   $("#next")?.addEventListener("click", () => relaunch(next.program, next.readiness));
   $("#cool")?.addEventListener("click", () => relaunch(getProgram("cooldown"), done.readiness));
@@ -475,12 +569,27 @@ function finish() {
   } else if (llm.info().ready && sum.sets.length) {
     const lines = sum.compare.map(c => `${c.name} : meilleure série ${c.best.weight ? c.best.weight + " kg × " : ""}${c.best.reps}${c.delta === null ? " (première fois)" : c.delta > 0 ? " (en progrès)" : c.delta < 0 ? " (en baisse)" : " (stable)"}`).join("\n");
     llm.chat([
-      { role: "system", content: "Tu es Spider-Man, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste." },
+      { role: "system", content: `Tu es ${coachName()}, coach sportif. Réponds en français, en tutoyant, en 3 ou 4 phrases maximum, sans liste.` },
       { role: "user", content: `${athleteContext()}\n\nSéance terminée : ${sum.name}, ${Math.round(sum.durationSec / 60)} min, ${sum.volume} kg, ${sum.sets.length} séries, ${sum.prs.length} record(s), fatigue ${sum.fatigue} %.\n${lines}\n\nFais un débrief : ce qui était bien, un point à améliorer, et quoi viser à la prochaine séance.` },
     ], { maxTokens: 220, onDelta: t => { const d = $("#debrief"); if (d && t) d.textContent = t; } })
       .then(t => { if (t) speak(t, { interrupt: true }); })
       .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
   }
+}
+
+// Les chiffres de la fin de séance défilent jusqu'à leur valeur (texte seulement, ~1 s).
+function countUp(root) {
+  const els = [...root.querySelectorAll("[data-count]")];
+  if (!els.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const fmt = (el, v) => (el.dataset.fmt === "time" ? fmtTime(Math.round(v)) : fmtNum(v));
+  els.forEach(el => (el.textContent = fmt(el, 0)));
+  const t0 = performance.now() + 250, dur = 950;
+  const step = now => {
+    const k = Math.min(1, Math.max(0, (now - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
+    for (const el of els) if (el.isConnected) el.textContent = fmt(el, +el.dataset.count * e);
+    if (k < 1 && els[0].isConnected) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 function close() {
@@ -489,6 +598,7 @@ function close() {
   clearSaved();
   wakeLock?.release?.(); wakeLock = null;
   S = null;
+  mounted = false;
   overlay().innerHTML = "";
   document.body.classList.remove("hide-tabs");
   spidey.hang(false);

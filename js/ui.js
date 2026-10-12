@@ -1,4 +1,5 @@
 // Petits outils d'interface partagés.
+import { coachFace } from "./chars/index.js";
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -42,43 +43,97 @@ export const I = {
   eye: ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
 };
-export const spider = (cls = "") => `<svg class="${cls}" viewBox="0 0 64 64"><use href="#spider"/></svg>`;
+// Visage du coach choisi (avatar utilisé partout dans l'app).
+// Visage du coach actuel (« cur-face » : remplacé en place quand on change de coach).
+export const spider = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");
 
+const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+// Toast : pilule au-dessus de la barre d'onglets. Un nouveau message remplace proprement le précédent ;
+// la durée s'allonge un peu pour les messages longs ; un toucher le ferme.
 let toastT;
 export function toast(msg, ms = 2400) {
   const t = $("#toast");
+  if (!t) return;
+  const showing = t.classList.contains("show");
   t.textContent = msg;
+  if (showing && !reduceMotion()) { t.classList.remove("swap"); void t.offsetWidth; t.classList.add("swap"); }
   t.classList.add("show");
+  t.onclick = () => { clearTimeout(toastT); t.classList.remove("show", "swap"); };
   clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.remove("show"), ms);
+  toastT = setTimeout(() => t.classList.remove("show", "swap"), Math.max(ms, 1200 + String(msg).length * 40));
 }
 
 // Feuille qui monte du bas. Renvoie { el, close }.
+// Montée en ressort, fond qui s'assombrit en fondu, glisser vers le bas pour fermer (suit le doigt,
+// tient compte de la vitesse), Échap pour fermer, la page dessous ne défile pas (voir CSS).
 export function sheet(html, { onClose, z } = {}) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
   if (z) wrap.style.zIndex = z;
-  wrap.innerHTML = `<div class="sheet" role="dialog"><div class="grab"></div>${html}</div>`;
+  wrap.innerHTML = `<div class="sheet-bd"></div><div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="grab"></div>${html}</div>`;
   document.body.appendChild(wrap);
+  const bd = wrap.firstElementChild, s = wrap.lastElementChild;
   let closed = false;
-  const close = () => {
+  const onKey = e => { if (e.key === "Escape" && [...document.querySelectorAll(".sheet-wrap:not(.closing)")].pop() === wrap) close(); };
+  const close = (flung = false) => {
     if (closed) return;
     closed = true;
+    document.removeEventListener("keydown", onKey);
+    s.style.transition = bd.style.transition = "none";
+    if (flung === true) wrap.classList.add("flung");
     wrap.classList.add("closing");
-    setTimeout(() => wrap.remove(), 220);
+    let gone = false;
+    const done = () => { if (!gone) { gone = true; wrap.remove(); } };
+    if (reduceMotion()) done();
+    else { s.addEventListener("animationend", e => e.target === s && done()); setTimeout(done, 300); }
     onClose?.();
   };
-  wrap.addEventListener("click", e => { if (e.target === wrap) close(); });
-  // glisser vers le bas pour fermer
-  const s = wrap.firstElementChild;
-  let y0 = null;
-  s.addEventListener("touchstart", e => { if (s.scrollTop <= 0) y0 = e.touches[0].clientY; }, { passive: true });
-  s.addEventListener("touchmove", e => { if (y0 === null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) s.style.transform = `translateY(${dy}px)`; }, { passive: true });
-  s.addEventListener("touchend", e => {
+  wrap.addEventListener("click", e => { if (e.target === wrap || e.target === bd) close(); });
+  document.addEventListener("keydown", onKey);
+  requestAnimationFrame(() => { if (!s.contains(document.activeElement)) s.focus({ preventScroll: true }); });
+
+  // glisser vers le bas pour fermer : la feuille suit le doigt (une écriture par image), le fond s'éclaircit
+  let y0 = null, x0 = 0, dy = 0, h = 1, dragging = false, lastY = 0, lastT = 0, vel = 0, raf = 0;
+  const paint = () => { raf = 0; s.style.transform = `translate3d(0, ${dy}px, 0)`; bd.style.opacity = String(Math.max(0, 1 - dy / h)); };
+  s.addEventListener("touchstart", e => {
+    y0 = null;
+    if (closed || e.touches.length > 1) return;
+    if (s.scrollTop > 0 && !e.target.closest(".grab")) return;
+    y0 = lastY = e.touches[0].clientY; x0 = e.touches[0].clientX; lastT = e.timeStamp; dy = vel = 0; dragging = false;
+  }, { passive: true });
+  s.addEventListener("touchmove", e => {
     if (y0 === null) return;
-    const dy = e.changedTouches[0].clientY - y0; y0 = null;
-    if (dy > 110) close(); else s.style.transform = "";
-  });
+    const y = e.touches[0].clientY, d = y - y0, dx = Math.abs(e.touches[0].clientX - x0);
+    if (!dragging) {
+      if (dx > Math.abs(d) || d < 0 || s.scrollTop > 0) { if (Math.abs(d) > 4 || dx > 4) y0 = null; return; }
+      if (e.cancelable) e.preventDefault(); // vers le bas, en haut du contenu : c'est la feuille qui bouge
+      if (d < 6) return;
+      dragging = true; y0 = y; h = s.offsetHeight || 1;
+      s.getAnimations?.().forEach(a => a.cancel());
+      s.style.transition = bd.style.transition = "none";
+      s.classList.add("dragging");
+    }
+    if (e.cancelable) e.preventDefault(); // la feuille bouge, pas son contenu
+    dy = Math.max(0, y - y0);
+    const dt = e.timeStamp - lastT;
+    if (dt > 0) vel = 0.75 * ((y - lastY) / dt) + 0.25 * vel;
+    lastY = y; lastT = e.timeStamp;
+    if (!raf) raf = requestAnimationFrame(paint);
+  }, { passive: false });
+  const end = () => {
+    if (y0 === null || !dragging) { y0 = null; return; }
+    y0 = null; dragging = false;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    s.classList.remove("dragging");
+    if (dy > Math.min(150, h * 0.33) || (vel > 0.55 && dy > 24)) return close(vel > 0.55);
+    // retour en ressort
+    s.style.transition = "transform var(--dur-5) var(--spring-soft)";
+    bd.style.transition = "opacity var(--dur-3) var(--ease-out)";
+    s.style.transform = ""; bd.style.opacity = "";
+  };
+  s.addEventListener("touchend", end);
+  s.addEventListener("touchcancel", end);
   return { el: s, close };
 }
 
