@@ -9,7 +9,7 @@ import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport } from "./social.js";
-import { showAuth } from "./auth.js";
+import { showAuth, emblem } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget } from "./cloud.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
@@ -307,60 +307,80 @@ function editDay(i) {
    ========================================================= */
 let monthOffset = 0, progressTab = "me";
 function progress() {
+  const p = state.profile;
+  const head = `<header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>`;
   if (progressTab === "friends") {
-    view.innerHTML = `<div class="eyebrow">Statistiques</div><h1 class="h1">Progrès</h1>${progressSeg()}<div id="friends"></div>`;
+    view.innerHTML = `${head}${progressSeg()}<div id="friends"></div>`;
     bindProgressSeg();
     return renderFriends($("#friends"));
   }
   const all = state.sessions;
   const totalVol = all.reduce((a, s) => a + s.volume, 0);
   const totalMin = Math.round(all.reduce((a, s) => a + s.durationSec, 0) / 60);
+  const r = rankInfo(), st = streak();
   const weeks = Array.from({ length: 8 }, (_, i) => ({ ...weekStats(7 - i), i }));
   const maxW = Math.max(1, ...weeks.map(w => w.volume));
+  const past = weeks.slice(0, 7).filter(w => w.volume);
+  const avg = past.length ? past.reduce((a, w) => a + w.volume, 0) / past.length : 0;
+  const cur = weeks[7];
   const lifts = Object.entries(state.lifts).filter(([id]) => EXERCISES[id]).sort((a, b) => (b[1].date || 0) - (a[1].date || 0));
+  const got = BADGES.filter(b => state.badges?.[b.id]);
+  const badges = [...got, ...BADGES.filter(b => !state.badges?.[b.id])];
+  const hist = all.slice().reverse().slice(0, 60);
+  const dec = n => n.toFixed(1).replace(".", ",").replace(",0", "");
+  const vsAvg = avg && cur.volume ? Math.round((cur.volume / avg - 1) * 100) : null;
 
-  view.innerHTML = `
-    <div class="eyebrow">Moi</div><h1 class="h1">${esc(state.profile.name)}</h1>
+  view.innerHTML = `${head}
     ${progressSeg()}
-    <div class="grid3 mt">
-      <div class="card stat"><div class="v">${all.length}</div><div class="l">Séances</div></div>
-      <div class="card stat"><div class="v">${totalVol >= 10000 ? (totalVol / 1000).toFixed(1) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</div><div class="l">Volume total</div></div>
-      <div class="card stat"><div class="v">${totalMin >= 120 ? (totalMin / 60).toFixed(1) + "<small>h</small>" : totalMin + "<small>min</small>"}</div><div class="l">Temps</div></div>
-    </div>
+    <section class="card me-hero mt">
+      <div class="me-rank">${ring(r.pct, r.level, 64)}
+        <div class="grow"><div class="eyebrow">Niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div>
+          <div class="bar"><i style="width:${Math.max(2, r.pct * 100)}%"></i></div>
+          <div class="xs muted">${r.next ? `${fmtNum(r.next.xp - r.xp)} XP avant « ${esc(r.next.name)} »` : "Rang maximum atteint, respect."}</div></div></div>
+      <div class="me-kpis">
+        <div><b class="num">${all.length}</b><span>Séances</span></div>
+        <div><b class="num">${totalVol >= 10000 ? dec(totalVol / 1000) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</b><span>Volume</span></div>
+        <div><b class="num">${totalMin >= 120 ? dec(totalMin / 60) + "<small>h</small>" : totalMin + "<small>min</small>"}</b><span>Temps</span></div>
+        <div class="${st ? "hot" : ""}"><b class="num">${st}<small>j</small></b><span>Série</span></div>
+      </div>
+    </section>
 
-    <div class="section"><h2>Corps</h2><button id="body-add">+ Mesurer</button></div>
-    ${bodyCard()}
-
-    <div class="section"><h2>Succès</h2><span class="xs muted">${Object.keys(state.badges || {}).length}/${BADGES.length}</span></div>
-    <div class="badges">${BADGES.map(b => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
-
-    <div class="section"><h2>${spider("emb")}Calendrier</h2>
-      <div class="row" style="gap:4px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled style='opacity:.3'" : ""}>${I.chev}</button></div></div>
-    <div class="card">${calendar()}</div>
+    <div class="section"><h2>${spider("emb")}Activité</h2></div>
+    <div class="card cal-card">${calendar()}</div>
 
     <div class="section"><h2>Volume par semaine</h2></div>
-    <div class="card"><div class="vbars">${weeks.map((w, k) => `<div class="b ${w.i === 7 ? "cur" : ""}"><div class="f" style="height:${Math.max(3, (w.volume / maxW) * 100)}%;animation-delay:${k * 50}ms" title="${fmtNum(w.volume)} kg"></div>
-      <span>${w.i === 7 ? "Cette" : "S-" + (7 - w.i)}</span></div>`).join("")}</div></div>
+    <div class="card vol-card">
+      <div class="row between"><div><div class="vol-big num">${fmtNum(cur.volume)}<small> kg</small></div><div class="xs muted">cette semaine</div></div>
+        ${vsAvg != null ? `<span class="chip ${vsAvg >= 0 ? "green" : "amber"}">${vsAvg >= 0 ? "+" : ""}${vsAvg} % vs moyenne</span>` : `<span class="xs dim">${cur.volume ? "" : "Pas encore de séance"}</span>`}</div>
+      <div class="vbars">${avg ? `<i class="avg" style="--y:${(avg / maxW).toFixed(3)}"><span>moy.</span></i>` : ""}${weeks.map((w, k) => `<div class="b ${w.i === 7 ? "cur" : ""}"><div class="col"><div class="f" style="height:${Math.max(3, (w.volume / maxW) * 100)}%;animation-delay:${k * 45}ms" title="${fmtNum(w.volume)} kg"></div></div>
+        <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
+    </div>
 
-    <div class="section"><h2>Exercices & records</h2></div>
-    ${lifts.length ? `<div class="card" style="padding:4px 16px">${lifts.map(([id, l]) => `<div class="rec" data-ex="${id}"><span class="ellipsis">${esc(EXERCISES[id].name)}</span>
-      <span class="v">${EXERCISES[id].type === "load" ? `${Math.round(l.best)} kg <span class="xs dim">1RM est.</span>` : `${l.bestReps}${EXERCISES[id].type === "time" ? " s" : " reps"}`}</span>${I.chev}</div>`).join("")}</div>`
-      : `<div class="card empty">${I.trophy}Tes records apparaîtront après ta première séance.</div>`}
+    <div class="section"><h2>Records</h2>${lifts.length ? `<span class="xs muted">1RM estimé</span>` : ""}</div>
+    ${lifts.length ? `<div class="card card-list">${lifts.map(([id, l]) => recRow(id, l)).join("")}</div>`
+      : `<div class="card empty">${I.trophy}<b>Aucun record pour l'instant</b>Ils apparaîtront après ta première séance.</div>`}
 
-    <div class="section"><h2>Historique</h2></div>
-    ${all.length ? all.slice().reverse().slice(0, 30).map(s => `
-      <article class="card sess tap mt-s" data-id="${s.id}">
-        <div class="row between"><div><b class="h3">${esc(s.name)}</b><div class="xs muted" style="text-transform:capitalize">${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</div></div>
-          <span class="chip green">+${s.xp} XP</span></div>
-        <div class="row xs muted mt-s" style="gap:14px"><span>${fmtTime(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span style="color:var(--amber)">${s.prs.length} PR</span>` : ""}</div>
-        <div class="det">${s.note ? `<div class="note-line" style="margin:0 0 8px">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
-      </article>`).join("") : `<div class="card empty">${I.clock}Aucune séance pour l'instant.</div>`}`;
+    <div class="section"><h2>Corps</h2><button class="me-add" id="body-add">${I.plus}Mesurer</button></div>
+    ${bodyCard()}
 
+    <div class="section"><h2>Succès</h2><span class="xs muted"><b class="tnum" style="color:var(--text)">${got.length}</b> / ${BADGES.length}</span></div>
+    <div class="badges few" id="badges">${badges.map((b, i) => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" style="--i:${i}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
+    <button class="btn btn-ghost btn-sm btn-block mt-s more-btn" id="badges-more">Voir les ${BADGES.length} succès</button>
+
+    <div class="section"><h2>Historique</h2>${all.length ? `<span class="xs muted">${all.length} séance${all.length > 1 ? "s" : ""}</span>` : ""}</div>
+    ${hist.length ? `<div class="card card-list hist few" id="hist">${hist.map(sessRow).join("")}</div>
+      ${hist.length > 8 ? `<button class="btn btn-ghost btn-sm btn-block mt-s more-btn" id="hist-more">Voir plus de séances</button>` : ""}`
+      : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
+
+  animateRings(view);
   bindProgressSeg();
   $("#body-add").onclick = bodySheet;
   $("#mp").onclick = () => { monthOffset--; route(); };
   $("#mn").onclick = () => { if (monthOffset < 0) { monthOffset++; route(); } };
   $$("[data-ex]").forEach(el => el.onclick = () => exerciseSheet(el.dataset.ex));
+  const more = (btn, box, on, off) => btn && (btn.onclick = () => { const few = box.classList.toggle("few"); btn.textContent = few ? off : on; });
+  more($("#badges-more"), $("#badges"), "Réduire", `Voir les ${BADGES.length} succès`);
+  more($("#hist-more"), $("#hist"), "Réduire", "Voir plus de séances");
   $$(".sess").forEach(el => el.onclick = e => { if (!e.target.closest("[data-del]")) el.classList.toggle("open"); });
   $$("[data-del]").forEach(b => b.onclick = async () => {
     if (!(await confirmSheet("Supprimer cette séance ?", "Elle sera retirée de ton historique.", "Supprimer", true))) return;
@@ -368,9 +388,32 @@ function progress() {
   });
 }
 
+// Pastille avec l'initiale (en-tête de l'onglet Moi)
+const meAvatar = name => `<div class="avatar me-av" aria-hidden="true">${esc((name || "?").charAt(0).toUpperCase())}</div>`;
+const durTxt = sec => { const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
+
+function recRow(id, l) {
+  const ex = EXERCISES[id], load = ex.type === "load";
+  const h = load ? exerciseHistory(id) : [];
+  const gain = h.length >= 2 ? Math.round(Math.max(...h.map(x => x.e1rm)) - h[0].e1rm) : 0;
+  return `<button class="rec" data-ex="${id}"><div class="grow"><b class="rec-n">${esc(ex.name)}</b><span class="ellipsis">${esc(ex.muscle || "")}</span></div>
+    <div class="rec-v"><b class="num">${load ? `${Math.round(l.best)}<small> kg</small>` : `${l.bestReps}<small>${ex.type === "time" ? " s" : " reps"}</small>`}</b>${gain > 0 ? `<span class="up">+${gain} kg</span>` : ""}</div>${I.chev}</button>`;
+}
+
+function sessRow(s) {
+  const d = new Date(s.date);
+  return `<article class="sess" data-id="${s.id}">
+    <div class="sess-top"><span class="sess-ic">${esc((s.name || "?").charAt(0).toUpperCase())}</span>
+      <div class="grow"><b class="ellipsis">${esc(s.name)}</b><span class="ellipsis">${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span></div>
+      <span class="chip green">+${s.xp} XP</span></div>
+    <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
+    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
+  </article>`;
+}
+
 // Onglet « Moi » : Stats, Amis & défis, Réglages
 const progressSeg = (on = current === "profile" ? "settings" : progressTab) => `<div class="seg mt" id="ptabs">
-  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis & défis</button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
+  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis<span class="seg-x"> & défis</span></button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
 function bindProgressSeg() {
   $$("#ptabs button").forEach(b => b.onclick = () => {
     if (b.dataset.t === "settings") return void (location.hash = "#/profile");
@@ -382,20 +425,24 @@ function bindProgressSeg() {
 const BODY = [["weight", "Poids", "kg"], ["waist", "Tour de taille", "cm"], ["chest", "Poitrine", "cm"], ["arm", "Bras", "cm"], ["thigh", "Cuisse", "cm"]];
 function bodyCard() {
   const b = state.body || [];
-  if (!b.length) return `<div class="card empty">Note ton poids et tes mensurations pour suivre ta transformation, pas seulement tes charges.</div>`;
+  if (!b.length) return `<div class="card empty">${I.edit}<b>Suis ta transformation</b>Note ton poids et tes mensurations : tu verras ton corps changer, pas seulement tes charges.</div>`;
   const last = b[b.length - 1], first = b[0];
-  const diff = (k, u) => (last[k] != null && first[k] != null && b.length > 1 ? `<span class="delta ${last[k] - first[k] <= 0 ? "n" : "p"}">${last[k] - first[k] > 0 ? "+" : ""}${(last[k] - first[k]).toFixed(1).replace(".0", "")} ${u}</span>` : "");
+  const diff = (k, u) => {
+    if (last[k] == null || first[k] == null || b.length < 2) return "";
+    const d = last[k] - first[k], txt = `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(1).replace(".0", "").replace(".", ",")} ${u}`;
+    return `<span class="delta ${d <= 0 ? "n" : "p"}">${txt}</span>`;
+  };
   const pts = b.filter(x => x.weight).map(x => ({ x: x.date, y: x.weight }));
-  return `<div class="card">
-    <div class="grid3">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num" style="font-size:22px">${last[k]}<small class="muted" style="font-size:12px"> ${u}</small></div><div class="xs muted">${l}</div>${diff(k, u)}</div>`).join("")}</div>
-    ${pts.length >= 2 ? `<div class="mt">${chart(pts)}</div>` : ""}
-    <div class="xs dim mt-s">Dernière mesure : ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure(s)</div></div>`;
+  return `<div class="card body-card">
+    <div class="body-kpis">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num">${String(last[k]).replace(".", ",")}<small> ${u}</small></div><div class="xs muted ellipsis">${l}</div>${diff(k, u)}</div>`).join("")}</div>
+    ${pts.length >= 2 ? `<div class="mt">${chart(pts, { unit: "kg", dec: 1 })}</div>` : ""}
+    <div class="xs dim mt-s">Dernière mesure le ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure${b.length > 1 ? "s" : ""}</div></div>`;
 }
 function bodySheet() {
   const last = (state.body || []).slice(-1)[0] || { weight: state.profile.bodyweight };
-  const sh = sheet(`<h2 class="h2">Mes mesures du jour</h2><p class="small muted">Remplis seulement ce que tu veux suivre.</p>
-    <div class="grid2">${BODY.map(([k, l, u]) => `<label class="field"><span>${l} (${u})</span><input class="input" id="b-${k}" type="number" inputmode="decimal" step="0.1" placeholder="${last[k] ?? ""}"/></label>`).join("")}</div>
-    <button class="btn btn-primary btn-block mt" id="b-save">Enregistrer</button>`);
+  const sh = sheet(`<h2 class="h2">Mes mesures du jour</h2><p class="small muted" style="margin:6px 0 0">Remplis seulement ce que tu veux suivre.</p>
+    <div class="grid2 body-form">${BODY.map(([k, l, u]) => `<label class="field"><span>${l} <i class="dim">(${u})</i></span><input class="input" id="b-${k}" type="number" inputmode="decimal" step="0.1" placeholder="${last[k] ?? ""}"/></label>`).join("")}</div>
+    <div class="sheet-foot"><button class="btn btn-primary btn-lg btn-block" id="b-save">Enregistrer</button></div>`);
   $("#b-save", sh.el).onclick = () => {
     const e = { date: Date.now() };
     BODY.forEach(([k]) => { const v = parseFloat($(`#b-${k}`, sh.el).value.replace(",", ".")); if (v > 0) e[k] = v; });
@@ -438,22 +485,26 @@ function calendar() {
   const first = (new Date(y, mo, 1).getDay() + 6) % 7;
   const n = new Date(y, mo + 1, 0).getDate();
   const done = new Set(state.sessions.filter(s => { const d = new Date(s.date); return d.getFullYear() === y && d.getMonth() === mo; }).map(s => new Date(s.date).getDate()));
-  const today = new Date();
+  const today = new Date(), plan = state.weekPlan || {};
   const cells = [];
   for (let i = 0; i < first; i++) cells.push(`<div class="c out"></div>`);
   for (let d = 1; d <= n; d++) {
-    const isToday = today.getFullYear() === y && today.getMonth() === mo && today.getDate() === d;
-    cells.push(`<div class="c ${done.has(d) ? "on" : ""} ${isToday ? "today" : ""}">${d}</div>`);
+    const date = new Date(y, mo, d);
+    const isToday = date.toDateString() === today.toDateString();
+    const planned = !done.has(d) && date > today && plan[(date.getDay() + 6) % 7] != null;
+    cells.push(`<div class="c${done.has(d) ? " on" : ""}${isToday ? " today" : ""}${planned ? " plan" : ""}"><span>${d}</span></div>`);
   }
-  return `<div class="row between" style="margin-bottom:10px"><b class="h3" style="text-transform:capitalize">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</b>
-    <span class="xs muted">${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span></div>
-    <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>`;
+  const st = streak();
+  return `<div class="cal-head"><b class="h3">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</b>
+      <div class="row" style="gap:2px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled" : ""}>${I.chev}</button></div></div>
+    <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>
+    <div class="cal-foot"><span><i class="lg on"></i>${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span>${monthOffset === 0 ? `<span><i class="lg plan"></i>Prévu</span>` : ""}${monthOffset === 0 && st ? `<span class="hot">${I.flame}${st} j d'affilée</span>` : ""}</div>`;
 }
 
 function groupSets(sets) {
   const g = {};
   sets.forEach(s => (g[s.name] ||= []).push(s));
-  return Object.entries(g).map(([n, arr]) => `<div style="margin-top:6px"><b style="color:var(--text)">${esc(n)}</b> — ${arr.map(s => `${s.weight ? s.weight + "×" : ""}${s.reps} <span class="dim">@${s.rpe}</span>`).join(" · ")}</div>`).join("");
+  return `<div class="sets-g">${Object.entries(g).map(([n, arr]) => `<div><b>${esc(exName(arr[0].exId) || n)}</b><div class="sets-p">${arr.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}${s.rpe ? `<i>@${s.rpe}</i>` : ""}</span>`).join("")}</div></div>`).join("")}</div>`;
 }
 
 function exerciseSheet(id) {
@@ -461,38 +512,82 @@ function exerciseSheet(id) {
   const hist = exerciseHistory(id);
   const load = ex.type === "load";
   const pts = hist.map(h => ({ x: h.date, y: load ? h.e1rm : h.top.reps }));
+  const unit = load ? "kg" : ex.type === "time" ? "s" : "reps";
   const sh = sheet(`<div class="eyebrow">${esc(ex.muscle)}</div><h2 class="h2" style="margin-top:4px">${esc(ex.name)}</h2>
     <div class="grid2 mt">
-      <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${ex.type === "time" ? "s" : "reps"}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
-      <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séances</div></div>
+      <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${unit}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
+      <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séance${hist.length > 1 ? "s" : ""}</div></div>
     </div>
-    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé (kg)" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts)}</div>
+    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit })}</div>
     <div class="section"><h2>Technique</h2></div>
     <div class="cues" style="margin-top:0">${animSvg(id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>
     <div class="section"><h2>Dernières séances</h2></div>
-    <div class="card" style="padding:4px 16px">${hist.slice().reverse().slice(0, 8).map(h => `<div class="cmp"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
-      <span class="small muted">${h.sets.map(s => (s.weight ? s.weight + "×" : "") + s.reps).join(" · ")}</span><span></span></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
+    <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+      <div class="sets-p">${h.sets.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}</span>`).join("")}</div></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
   mountAnims(sh.el);
 }
 
-function chart(pts) {
+// Courbe nette : grille légère, aire en dégradé de l'accent, dernier point mis en avant.
+let chartN = 0;
+function chart(pts, { unit = "", dec = 0 } = {}) {
   if (pts.length < 2) return `<div class="empty" style="padding:20px">La courbe apparaîtra après 2 séances.</div>`;
-  const W = 320, H = 150, pad = 26;
-  const ys = pts.map(p => p.y), min = Math.min(...ys), max = Math.max(...ys), span = max - min || 1;
-  const X = i => pad + (i / (pts.length - 1)) * (W - pad - 8);
-  const Y = v => H - 20 - ((v - min) / span) * (H - 40);
-  const d = pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
+  const W = 320, H = 150, L = 30, R = 14, T = 22, B = 22;
+  const ys = pts.map(p => p.y);
+  const dMin = Math.min(...ys), dMax = Math.max(...ys);
+  let min = dMin, max = dMax;
+  const padY = (max - min) * 0.12 || Math.max(1, max * 0.05);
+  min -= padY; max += padY;
+  const span = max - min;
+  const X = i => L + (i / (pts.length - 1)) * (W - L - R);
+  const Y = v => T + (1 - (v - min) / span) * (H - T - B);
+  const xy = pts.map((p, i) => [X(i), Y(p.y)]);
+  const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const fmtD = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}">
-    <defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8283b" stop-opacity=".35"/><stop offset="1" stop-color="#e8283b" stop-opacity="0"/></linearGradient></defs>
-    <line class="gl" x1="${pad}" x2="${W}" y1="${Y(max)}" y2="${Y(max)}"/><line class="gl" x1="${pad}" x2="${W}" y1="${Y(min)}" y2="${Y(min)}"/>
-    <text x="0" y="${Y(max) + 3}">${Math.round(max)}</text><text x="0" y="${Y(min) + 3}">${Math.round(min)}</text>
-    <path class="ar" d="${d} L${X(pts.length - 1)},${H - 20} L${X(0)},${H - 20} Z"/>
+  const fmtV = v => (dec ? v.toFixed(dec).replace(".0", "").replace(".", ",") : Math.round(v));
+  const grid = dMax - dMin > 0 ? [dMin, (dMin + dMax) / 2, dMax] : [dMin];
+  const id = "cg" + ++chartN;
+  const [lx, ly] = xy[xy.length - 1], last = pts[pts.length - 1].y;
+  const lbl = `${fmtV(last)}${unit ? " " + unit : ""}`, lw = lbl.length * 6.4 + 14;
+  const bx = Math.min(W - lw, Math.max(L, lx - lw / 2)), by = ly - 30 < 0 ? ly + 10 : ly - 30;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution : de ${fmtV(pts[0].y)} à ${fmtV(last)} ${unit}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s0"/><stop offset="1" class="s1"/></linearGradient></defs>
+    ${grid.map(v => `<line class="gl" x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${L - 8}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${fmtV(v)}</text>`).join("")}
+    <g class="plot"><path class="ar" fill="url(#${id})" d="${d} L${lx.toFixed(1)},${H - B} L${L},${H - B} Z"/>
     <path class="ln" d="${d}"/>
-    ${pts.map((p, i) => `<circle class="pt" cx="${X(i)}" cy="${Y(p.y)}" r="3.5"/>`).join("")}
-    <text x="${pad}" y="${H - 4}">${fmtD(pts[0].x)}</text><text x="${W}" y="${H - 4}" text-anchor="end">${fmtD(pts[pts.length - 1].x)}</text>
+    ${pts.length <= 24 ? xy.slice(0, -1).map(([x, y]) => `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6"/>`).join("") : ""}</g>
+    <g class="last"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt now" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>
+      <rect class="tag" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${lw.toFixed(1)}" height="20" rx="10"/><text class="tag-t" x="${(bx + lw / 2).toFixed(1)}" y="${(by + 13.8).toFixed(1)}" text-anchor="middle">${lbl}</text></g>
+    <text x="${L}" y="${H - 5}">${fmtD(pts[0].x)}</text><text x="${W - R}" y="${H - 5}" text-anchor="end">${fmtD(pts[pts.length - 1].x)}</text>
   </svg>`;
 }
+
+// Pastilles d'icônes des Réglages (façon iOS)
+const GOAL_ICON = { force: "🏋️", muscle: "💪", seche: "🔥", forme: "⚡" };
+const SIC = {
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+  scale: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8.5 9.5a5 5 0 0 1 7 0L13 12"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  calplus: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+  dumbbell: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  sound: '<path d="M4 9v6h4l5 4V5L8 9H4zM17 9a4 4 0 0 1 0 6"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.4-1.2-1.6-1.2-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7.2" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>',
+  half: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
+  text: '<path d="M4 18 8.5 6h1L14 18M5.5 14h6.5M16 18l2.5-7h1L22 18M16.8 15.6h4.4"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2.2 2.2 0 0 0 4 0"/>',
+  notif: '<rect x="6" y="3" width="12" height="18" rx="3"/><path d="M10.5 17.5h3"/><circle cx="17.5" cy="5.5" r="2.5" fill="currentColor"/>',
+  at: '<circle cx="12" cy="12" r="3.5"/><path d="M15.5 8.5v5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.3 6.7"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/>',
+  down: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
+  up: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
+  trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
+};
+const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? spider() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
 
 /* =========================================================
    Profil
@@ -501,73 +596,72 @@ function profile() {
   const p = state.profile;
   const r = rankInfo();
   view.innerHTML = `
-    <div class="eyebrow">Moi</div><h1 class="h1">${esc(p.name)}</h1>
+    <header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>
     ${progressSeg("settings")}
-    <div class="card rank mt">${ring(r.pct, r.level, 58)}<div><div class="eyebrow">Rang</div><div class="h3">${r.rank.name}</div><div class="xs muted">${r.xp} XP</div></div></div>
+    <div class="card rank me-id mt">${ring(r.pct, r.level, 56)}<div class="grow"><div class="eyebrow">Rang · niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div><div class="xs muted">${fmtNum(r.xp)} XP · @${esc(currentUser)}</div></div></div>
 
-    <div class="section"><h2>Objectif</h2></div>
-    <div class="opts">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
-
-    <div class="section"><h2>Mon programme</h2></div>
-    <div class="card">
-      <div class="small muted" style="margin-bottom:8px">Séances par semaine</div>
-      <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Matériel</div>
-      <div class="seg" id="equip">${[["gym", "Salle"], ["db", "Haltères"], ["home", "Rien"]].map(([v, l]) => `<button data-v="${v}" class="${p.equipment === v ? "on" : ""}">${l}</button>`).join("")}</div>
-      <button class="btn btn-soft btn-block mt" id="regen">${I.refresh} Régénérer mon programme</button>
+    <h2 class="set-title">Toi</h2>
+    <div class="card card-list set-list">
+      <label class="set-row">${sic("user", "#3b82f6")}<b class="grow">Prénom</b><input class="set-in" id="p-name" value="${esc(p.name)}" maxlength="30" autocomplete="given-name"/></label>
+      <label class="set-row">${sic("scale", "#14b8a6")}<b class="grow">Poids de corps</b><span class="set-unit"><input class="set-in" id="p-bw" type="number" inputmode="decimal" value="${p.bodyweight}"/>kg</span></label>
     </div>
 
-    <div class="section"><h2>Toi</h2></div>
-    <div class="card">
-      <div class="grid2">
-        <label class="field" style="margin:0"><span>Prénom</span><input class="input" id="p-name" value="${esc(p.name)}" maxlength="30"/></label>
-        <label class="field" style="margin:0"><span>Poids (kg)</span><input class="input" id="p-bw" type="number" inputmode="decimal" value="${p.bodyweight}"/></label>
-      </div>
+    <h2 class="set-title">Objectif</h2>
+    <div class="opts set-goals">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><i>${GOAL_ICON[k] || "🎯"}</i><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
+
+    <h2 class="set-title">Mon programme</h2>
+    <div class="card card-list set-list">
+      <div class="set-row stack"><div class="set-lbl">${sic("cal", "#ef4444")}<b>Séances par semaine</b></div>
+        <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("dumbbell", "#f59e0b")}<b>Matériel</b></div>
+        <div class="seg" id="equip">${[["gym", "Salle"], ["db", "Haltères"], ["home", "Rien"]].map(([v, l]) => `<button data-v="${v}" class="${p.equipment === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <label class="toggle set-row">${sic("moon", "#6366f1")}<div class="grow"><b>Semaine allégée auto</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+      <button class="set-row set-act" id="regen">${sic("refresh", "var(--red)")}<b class="grow">Régénérer mon programme</b>${I.chev}</button>
     </div>
 
-    <div class="section"><h2>Préférences</h2></div>
-    <div class="card" style="padding:4px 16px">
-      <label class="toggle"><div><b>Spider-Man animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
-      <label class="toggle"><div><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
-      <label class="toggle"><div><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
+    <h2 class="set-title">Coach & sons</h2>
+    <div class="card card-list set-list">
+      <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Spider-Man animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
     </div>
 
-    <div class="section"><h2>Apparence</h2></div>
-    <div class="card">
-      <div class="small muted" style="margin-bottom:10px">Couleur</div>
-      <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Fond</div>
-      <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div>
-      <div class="small muted" style="margin:14px 0 8px">Taille du texte</div>
-      <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div>
-      <p class="xs dim mt-s">Astuce : tu peux aussi demander au coach « passe l'app en vert » ou « mode clair ».</p>
+    <h2 class="set-title">Apparence</h2>
+    <div class="card card-list set-list">
+      <div class="set-row stack"><div class="set-lbl">${sic("palette", "#f97316")}<b>Couleur</b></div>
+        <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("half", "#64748b")}<b>Fond</b></div>
+        <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <div class="set-row stack"><div class="set-lbl">${sic("text", "#0ea5e9")}<b>Taille du texte</b></div>
+        <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div></div>
+    </div>
+    <p class="set-note">Astuce : demande au coach « passe l'app en vert » ou « mode clair ».</p>
+
+    <h2 class="set-title">Rappels</h2>
+    <div class="card card-list set-list">
+      <label class="set-row">${sic("clock", "#3b82f6")}<b class="grow">Heure de la séance</b><input class="set-in" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
+      <label class="set-row">${sic("bell", "#f59e0b")}<b class="grow">Alerte</b><select class="set-in" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="toggle set-row">${sic("notif", "#ef4444")}<div class="grow"><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
+      <button class="set-row set-act" id="rem-ics">${sic("calplus", "#22c55e")}<b class="grow">Ajouter à mon calendrier</b>${I.chev}</button>
+    </div>
+    <p class="set-note">Une notification avant chaque séance prévue, même app fermée. Ou ajoute-les à ton calendrier.</p>
+
+    <div class="set-title row between"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
+    <div class="card card-list set-list">
+      <div class="set-row">${sic("at", "#64748b")}<div class="grow"><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
+      <button class="set-row set-act" id="acc-pin">${sic("key", "#f59e0b")}<b class="grow">Changer mon code</b>${I.chev}</button>
+      <button class="set-row set-act" id="acc-lock">${sic("lock", "#3b82f6")}<b class="grow">Verrouiller / changer de compte</b>${I.chev}</button>
+      <button class="set-row set-act danger" id="acc-forget">${sic("out", "var(--danger)")}<div class="grow"><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
     </div>
 
-    <div class="section"><h2>Rappels</h2></div>
-    <div class="card">
-      <p class="small muted" style="margin:0 0 12px">Reçois une notification avant chaque séance prévue (même app fermée), ou ajoute-les à ton calendrier.</p>
-      <div class="row" style="gap:10px"><label class="field grow" style="margin:0"><span>Heure de la séance</span><input class="input" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
-        <label class="field" style="margin:0;width:120px"><span>Alerte</span><select class="input" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
-      <label class="toggle"><div><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
-      <button class="btn btn-soft btn-block mt-s" id="rem-ics">${I.clock} Ajouter à mon calendrier</button>
-      <label class="toggle" style="padding-bottom:0"><div><b>Semaine allégée automatique</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+    <h2 class="set-title">Données</h2>
+    <div class="card card-list set-list">
+      <button class="set-row set-act" id="exp">${sic("down", "#22c55e")}<b class="grow">Exporter une sauvegarde</b>${I.chev}</button>
+      <label class="set-row set-act">${sic("up", "#3b82f6")}<b class="grow">Importer une sauvegarde</b>${I.chev}<input type="file" id="imp" accept="application/json" hidden/></label>
     </div>
+    <p class="set-note">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une copie.</p>
 
-    <div class="section"><h2>Données</h2></div>
-    <div class="card">
-      <div class="grid2"><button class="btn btn-soft btn-sm" id="exp">Exporter</button><label class="btn btn-soft btn-sm">Importer<input type="file" id="imp" accept="application/json" hidden/></label></div>
-      <p class="xs muted mt-s">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une sauvegarde.</p>
-    </div>
-
-    <div class="section"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
-    <div class="card" style="padding:4px 16px">
-      <div class="toggle"><div><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
-      <button class="toggle" id="acc-pin" style="width:100%;text-align:left"><div><b>Changer mon code</b></div>${I.chev}</button>
-      <button class="toggle" id="acc-lock" style="width:100%;text-align:left"><div><b>Verrouiller / changer de compte</b></div>${I.chev}</button>
-      <button class="toggle" id="acc-forget" style="width:100%;text-align:left;color:#ff7b88"><div><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
-    </div>
-
-    <div class="section"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
+    <div class="set-title row between"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
     <div class="card" id="llm-box"></div>
 
     <details class="card adv mt"><summary>IA Claude (facultatif, payant)</summary>
@@ -577,9 +671,11 @@ function profile() {
       <button class="btn btn-blue btn-sm mt" id="p-test">Tester la connexion</button>
     </details>
 
-    <button class="btn btn-soft btn-block mt-l" id="tour-again">${spider()} Revoir la visite guidée</button>
-    <button class="btn btn-ghost btn-block mt-s" id="reset" style="color:#ff7b88">Effacer mes séances et réglages</button>
-    <p class="center xs dim">GREATNESS · ton sympathique coach de quartier</p>`;
+    <div class="card card-list set-list mt-l">
+      <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${spider()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
+      <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
+    </div>
+    <p class="set-foot">${spider()}GREATNESS · ton sympathique coach de quartier</p>`;
   animateRings(view);
   bindProgressSeg();
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
@@ -684,39 +780,40 @@ function onboarding(step = 1) {
   if (step === 1 && !draft.name) draft.name = state.profile.name || "";
   document.body.classList.add("hide-tabs");
   const p = state.profile;
-  const steps = `<div class="steps">${[1, 2, 3].map(i => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>`;
+  const total = 3;
+  const steps = `<div class="onb-top"><div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${step}">${Array.from({ length: total }, (_, k) => `<i class="${k + 1 < step ? "on" : k + 1 === step ? "on cur" : ""}"></i>`).join("")}</div><span class="onb-count">Étape ${step} sur ${total}</span></div>`;
   view.className = "view";
   void view.offsetWidth;
   view.className = "view enter";
   if (step === 1) {
-    view.innerHTML = `<div class="onb">${steps}
-      <div class="logo" style="justify-content:center">${spider()}GREATNESS</div>
-      <h1 class="h1 center mt">Ton coach t'attend.</h1>
-      <p class="muted center">Spider-Man pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p>
-      <label class="field mt-l"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
-      <button class="btn btn-primary btn-lg btn-block mt" id="next">Continuer</button></div>`;
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <div class="onb-hero">${emblem(true)}
+        <h1 class="h1 center">Ton coach t'attend.</h1>
+        <p class="muted center onb-lead">Spider-Man pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p></div>
+      <label class="field onb-name"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
+      <div class="onb-foot"><button class="btn btn-primary btn-lg btn-block" id="next">Continuer</button></div></div>`;
     setTimeout(() => spidey.say("Salut ! Je suis ton nouveau coach. On fait connaissance ?", { mood: "happy" }), 1200);
     $("#next").onclick = () => { const n = $("#name").value.trim(); if (!n) return toast("Il me faut ton prénom !"); draft.name = n; onboarding(2); };
     $("#name").onkeydown = e => { if (e.key === "Enter") $("#next").click(); };
   } else if (step === 2) {
-    view.innerHTML = `<div class="onb">${steps}
-      <h1 class="h1">Ton objectif, ${esc(draft.name)} ?</h1>
-      <p class="muted">J'adapte les répétitions, les repos et le programme.</p>
-      <div class="opts mt">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${draft.goal === k ? "on" : ""}" data-goal="${k}"><b>${g.name}</b><span>${{ force: "Soulever plus lourd", muscle: "Prendre du volume", seche: "Perdre du gras", forme: "Être en forme" }[k]}</span></button>`).join("")}</div>
-      <label class="field"><span>Poids de corps (kg)</span><input class="input" id="bw" type="number" inputmode="decimal" value="${draft.bodyweight}"/></label>
-      <div class="grid2 mt"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <h1 class="h1 onb-h">Ton objectif, ${esc(draft.name)} ?</h1>
+      <p class="muted onb-lead">J'adapte les répétitions, les repos et le programme.</p>
+      <div class="opts onb-goals">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${draft.goal === k ? "on" : ""}" data-goal="${k}"><i>${GOAL_ICON[k] || "🎯"}</i><b>${g.name}</b><span>${{ force: "Soulever plus lourd", muscle: "Prendre du volume", seche: "Perdre du gras", forme: "Être en forme" }[k]}</span></button>`).join("")}</div>
+      <label class="field onb-bw"><span>Poids de corps</span><span class="onb-unit"><input class="input" id="bw" type="number" inputmode="decimal" value="${draft.bodyweight}"/><i>kg</i></span></label>
+      <div class="onb-foot grid2"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
     $$("[data-goal]").forEach(b => b.onclick = () => { draft.goal = b.dataset.goal; $$("[data-goal]").forEach(x => x.classList.toggle("on", x === b)); });
     $("#prev").onclick = () => onboarding(1);
     $("#next").onclick = () => { draft.bodyweight = +$("#bw").value || 75; onboarding(3); };
   } else {
-    view.innerHTML = `<div class="onb">${steps}
-      <h1 class="h1">Ton rythme</h1>
-      <p class="muted">Je construis ton programme de la semaine. Tu pourras tout modifier.</p>
-      <div class="small muted mt" style="margin-bottom:8px">Séances par semaine</div>
+    view.innerHTML = `<div class="onb onb-flow">${steps}
+      <h1 class="h1 onb-h">Ton rythme</h1>
+      <p class="muted onb-lead">Je construis ton programme de la semaine. Tu pourras tout modifier.</p>
+      <div class="onb-lbl">Séances par semaine</div>
       <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${draft.days === d ? "on" : ""}">${d}</button>`).join("")}</div>
-      <div class="small muted" style="margin:16px 0 8px">Où t'entraînes-tu ?</div>
-      <div class="opts" id="equip">${[["gym", "En salle", "Barres, machines"], ["db", "Haltères", "À la maison"], ["home", "Sans matériel", "Poids du corps"]].map(([v, l, s]) => `<button class="opt ${draft.equipment === v ? "on" : ""}" data-v="${v}"><b>${l}</b><span>${s}</span></button>`).join("")}</div>
-      <div class="grid2 mt-l"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="done">C'est parti</button></div></div>`;
+      <div class="onb-lbl">Où t'entraînes-tu ?</div>
+      <div class="opts onb-list" id="equip">${[["gym", "En salle", "Barres, machines, poulies", "🏋️"], ["db", "Haltères", "À la maison, avec des haltères", "🏠"], ["home", "Sans matériel", "Au poids du corps, partout", "🤸"]].map(([v, l, s, e]) => `<button class="opt ${draft.equipment === v ? "on" : ""}" data-v="${v}"><i>${e}</i><div><b>${l}</b><span>${s}</span></div></button>`).join("")}</div>
+      <div class="onb-foot grid2"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="done">C'est parti</button></div></div>`;
     $$("#days button").forEach(b => b.onclick = () => { draft.days = +b.dataset.v; $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
     $$("#equip .opt").forEach(b => b.onclick = () => { draft.equipment = b.dataset.v; $$("#equip .opt").forEach(x => x.classList.toggle("on", x === b)); });
     $("#prev").onclick = () => onboarding(2);
