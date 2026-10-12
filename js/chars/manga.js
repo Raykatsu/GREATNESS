@@ -94,9 +94,9 @@ const saiyan = {
       <path d="M20.4 43 Q30 45.6 39.6 43 L39.5 47 Q30 49.6 20.5 47 Z" fill="#2a49c2"/>
       <path d="M28.4 45.4 L26.6 51.4 L28.6 51 Z M31.4 45.4 L33.6 51 L31.8 51.4 Z" fill="#223c9e"/><rect x="28.2" y="44.2" width="3.6" height="2.8" rx=".9" fill="#3a5ad6"/>
       <path d="M20.5 47.6 Q30 50.6 39.5 47.6 L39.5 48.5 Q30 51.5 20.5 48.5 Z" fill="#c4560c"/>`,
-  head: `<path d="M19 19 L6.6 13.4 L14 10.2 L5 2.4 L14.6 2.8 L10 -6.6 L19.8 -2 L21.4 -9.6 L27 -3.4 L31.4 -11 L34.4 -3.6 L41 -9.4 L40.6 -2 L50 -5.2 L46 2.4 L55 3.4 L46.6 9.2 L53.4 13.6 L41 19 Z" fill="url(#saiyan-hair)" stroke-linejoin="round"/>
+  head: `<path d="M19 19 L6.6 13.4 L14 10.2 L5 2.4 L14.6 2.8 L10 -6.6 L19.8 -2 L21.4 -9.6 L27 -3.4 L31.4 -11 L34.4 -3.6 L41 -9.4 L40.6 -2 L50 -5.2 L46 2.4 L55 3.4 L46.6 9.2 L53.4 13.6 L41 19 Z" fill="url(#saiyan-hair)" stroke="#59618a" stroke-width=".7" stroke-linejoin="round"/>
       <ellipse cx="30" cy="16.4" rx="10.2" ry="10" fill="url(#saiyan-skin)"/>
-      <path d="M19.6 13.6 Q19.4 6.8 25 5.4 Q30 4.4 35 5.4 Q40.6 6.8 40.4 13.6 L38.8 9.8 L37.6 14 L35 8.8 L33.8 12.4 L31.4 7.6 L28.8 12.8 L27.6 8 L24.6 13.2 L24 9.2 L21.4 14.8 Z" fill="url(#saiyan-hair)" stroke-linejoin="round"/>
+      <path d="M19.6 13.6 Q19.4 6.8 25 5.4 Q30 4.4 35 5.4 Q40.6 6.8 40.4 13.6 L38.8 9.8 L37.6 14 L35 8.8 L33.8 12.4 L31.4 7.6 L28.8 12.8 L27.6 8 L24.6 13.2 L24 9.2 L21.4 14.8 Z" fill="url(#saiyan-hair)" stroke="#3b4160" stroke-width=".5" stroke-linejoin="round"/>
       <path d="M22.6 2 Q27 -2.6 31.8 -1.6" stroke="#6a7192" stroke-width=".8" fill="none" opacity=".7" stroke-linecap="round"/>
       ${eyes(16.8, 4.8, "#1d1a22", 2, 2.6)}
       <path d="M21.6 13.4 L27.2 14.4 M38.4 13.4 L32.8 14.4" stroke="#14151c" stroke-width="1" stroke-linecap="round"/>
@@ -229,23 +229,23 @@ const pika = {
   defs: grad("pika-fur", "#ffe45c", "#f6bf1d") + grad("pika-tail", "#ffe04d", "#f5b914"),
   back: `<g class="pika-tail"><path d="M36.6 56 L42.4 50.6 L39.8 48.2 L47.6 41.4 L45 38.6 L54.4 28.6 L58.6 31.6 L51.2 39.6 L54 42 L46.4 49.6 L48.8 51.6 L40.4 58.6 Z" fill="url(#pika-tail)" stroke="#e8a90e" stroke-width=".6" stroke-linejoin="round"/>
       <path d="M36.6 56 L42.4 50.6 L44.2 52.4 L40.4 58.6 Z" fill="#a8652a"/></g>`,
-  legL: `<path d="M26 48 L24.2 72" stroke="#f8c826" stroke-width="7.4" stroke-linecap="round"/><ellipse cx="23" cy="75.4" rx="4.6" ry="2.7" fill="#f2b616"/><path d="M20.4 76.4 V74.6 M23 76.8 V74.8 M25.6 76.4 V74.6" stroke="#d99a0c" stroke-width=".55" stroke-linecap="round"/>`,
-  legR: `<path d="M34 48 L35.8 72" stroke="#f8c826" stroke-width="7.4" stroke-linecap="round"/><ellipse cx="37" cy="75.4" rx="4.6" ry="2.7" fill="#f2b616"/><path d="M34.4 76.4 V74.6 M37 76.8 V74.8 M39.6 76.4 V74.6" stroke="#d99a0c" stroke-width=".55" stroke-linecap="round"/>`,
+  legL: `<path d="M26 48 L24.2 72" stroke="#f8c826" stroke-width="7.4" stroke-linecap="round"/><ellipse cx="23" cy="75.2" rx="5" ry="3" fill="#f2b616"/><path d="M20.4 76.4 V74.6 M23 76.8 V74.8 M25.6 76.4 V74.6" stroke="#d99a0c" stroke-width=".55" stroke-linecap="round"/>`,
+  legR: `<path d="M34 48 L35.8 72" stroke="#f8c826" stroke-width="7.4" stroke-linecap="round"/><ellipse cx="37" cy="75.2" rx="5" ry="3" fill="#f2b616"/><path d="M34.4 76.4 V74.6 M37 76.8 V74.8 M39.6 76.4 V74.6" stroke="#d99a0c" stroke-width=".55" stroke-linecap="round"/>`,
   armL: limb("20 30", "16.4 39.5", "15 47", 5, 4.6, "#fbd232", "#fbd232") + `<circle cx="14.3" cy="49.5" r="2.7" fill="#f6c21e"/>`,
   armR: limb("40 30", "43.6 39.5", "45 47", 5, 4.6, "#fbd232", "#fbd232") + `<circle cx="45.7" cy="49.5" r="2.7" fill="#f6c21e"/>`,
-  torso: `<path d="M19.6 29 Q30 24 40.4 29 Q44.8 42 42.6 54 Q40.4 65 30 65 Q19.6 65 17.4 54 Q15.2 42 19.6 29 Z" fill="url(#pika-fur)"/>
-      <path d="M21 33 Q18.6 44 20.4 54" stroke="#fff6b8" stroke-width="1.2" fill="none" opacity=".55" stroke-linecap="round"/>
-      <path d="M25.4 57.8 Q30 60.4 34.6 57.8" stroke="#e5a813" stroke-width=".7" fill="none" opacity=".7" stroke-linecap="round"/>`,
-  head: `<g class="pika-earL"><path d="M22.4 7.4 Q14.6 2.6 9.4 -6.4 Q18.6 -4.6 27 4.6 Z" fill="url(#pika-fur)"/><path d="M9.4 -6.4 Q12.6 -5.8 15.8 -4 Q14.2 -1.6 12.8 -0.8 Q10.8 -3.2 9.4 -6.4 Z" fill="#1f1c22"/></g>
-      <g class="pika-earR"><path d="M37.6 7.4 Q45.4 2.6 50.6 -6.4 Q41.4 -4.6 33 4.6 Z" fill="url(#pika-fur)"/><path d="M50.6 -6.4 Q47.4 -5.8 44.2 -4 Q45.8 -1.6 47.2 -0.8 Q49.2 -3.2 50.6 -6.4 Z" fill="#1f1c22"/></g>
-      <ellipse cx="30" cy="15" rx="12.6" ry="11.2" fill="url(#pika-fur)"/>
-      <path d="M21.4 8.4 Q25 5.2 29.6 5" stroke="#fff6b8" stroke-width="1" fill="none" opacity=".7" stroke-linecap="round"/>
-      ${eyes(14.4, 5.4, "#1b1820", 2.2, 2.5)}
-      <circle cx="20.4" cy="19.4" r="2.7" fill="#f2433d"/><circle cx="39.6" cy="19.4" r="2.7" fill="#f2433d"/>
-      <circle cx="19.6" cy="18.6" r=".8" fill="#fff" opacity=".45"/><circle cx="38.8" cy="18.6" r=".8" fill="#fff" opacity=".45"/>
-      <ellipse cx="30" cy="17.4" rx=".75" ry=".5" fill="#2a1d18"/>
-      <path d="M27.4 19.2 Q28.7 20.8 30 19.4 Q31.3 20.8 32.6 19.2" stroke="#5a2b1e" stroke-width=".75" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
-  css: `${eyeBox("pika", 14.4)}
+  torso: `<path d="M19 28.5 Q30 23.5 41 28.5 Q46 44 44.4 56 Q42.6 68.4 30 68.4 Q17.4 68.4 15.6 56 Q14 44 19 28.5 Z" fill="url(#pika-fur)"/>
+      <ellipse cx="30" cy="53" rx="9.4" ry="10.6" fill="#fff3a0" opacity=".32"/>
+      <path d="M20.2 34 Q17.6 45 19.4 56" stroke="#fff6b8" stroke-width="1.2" fill="none" opacity=".55" stroke-linecap="round"/>`,
+  head: `<g class="pika-earL"><path d="M21.6 8 Q14.2 3 9 -6.4 Q18.6 -4.8 27 4.4 Z" fill="url(#pika-fur)"/><path d="M9 -6.4 Q12.4 -5.8 15.6 -4 Q14 -1.6 12.6 -0.8 Q10.4 -3.2 9 -6.4 Z" fill="#1f1c22"/></g>
+      <g class="pika-earR"><path d="M38.4 8 Q45.8 3 51 -6.4 Q41.4 -4.8 33 4.4 Z" fill="url(#pika-fur)"/><path d="M51 -6.4 Q47.6 -5.8 44.4 -4 Q46 -1.6 47.4 -0.8 Q49.6 -3.2 51 -6.4 Z" fill="#1f1c22"/></g>
+      <ellipse cx="30" cy="15.6" rx="13.4" ry="11.8" fill="url(#pika-fur)"/>
+      <path d="M21 8.6 Q25 5 29.6 4.8" stroke="#fff6b8" stroke-width="1" fill="none" opacity=".7" stroke-linecap="round"/>
+      ${eyes(15, 5.6, "#1b1820", 2.3, 2.6)}
+      <circle cx="19.8" cy="20.4" r="2.9" fill="#f2433d"/><circle cx="40.2" cy="20.4" r="2.9" fill="#f2433d"/>
+      <circle cx="19" cy="19.5" r=".85" fill="#fff" opacity=".45"/><circle cx="39.4" cy="19.5" r=".85" fill="#fff" opacity=".45"/>
+      <ellipse cx="30" cy="18.2" rx=".8" ry=".52" fill="#2a1d18"/>
+      <path d="M27.3 20 Q28.65 21.7 30 20.2 Q31.35 21.7 32.7 20 M28.6 21.4 Q30 23.8 31.4 21.4" stroke="#5a2b1e" stroke-width=".75" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+  css: `${eyeBox("pika", 15)}
   @media (prefers-reduced-motion: no-preference) {
     .ch-pika .pika-tail { transform-origin: 38px 57px; animation: pika-tail 1.8s ease-in-out infinite; }
     @keyframes pika-tail { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-8deg); } }
