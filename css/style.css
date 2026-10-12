@@ -613,7 +613,7 @@ html:has(> body > .sheet-wrap:not(.closing)) { overflow: hidden; }
   opacity: 0; transform: translateY(8px) scale(.8); transition: transform var(--dur-3) var(--ease-in), opacity var(--dur-2) var(--ease-in); }
 .chat-down svg { width: 20px; height: 20px; }
 .composer.show-down .chat-down { opacity: 1; transform: none; pointer-events: auto; transition: transform var(--dur-4) var(--spring), opacity var(--dur-2) var(--ease-out); }
-html:has(.composer) .toast { bottom: calc(var(--tab-h) + var(--safe-b) + var(--composer-vh, 72px) + 6px); }
+html:has(> body > :where(#view) > .composer) .toast { bottom: calc(var(--tab-h) + var(--safe-b) + var(--composer-vh, 72px) + 6px); }
 @media (prefers-reduced-motion: reduce) {
   .msg-row.new :is(.msg, .msg-av), .typing span, .typing-txt b, .status.warm > i { animation: none; }
 }
