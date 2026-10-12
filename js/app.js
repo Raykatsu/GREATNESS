@@ -225,65 +225,108 @@ function editDay(i) {
    ========================================================= */
 let monthOffset = 0, progressTab = "me";
 function progress() {
+  const p = state.profile;
+  const head = `<header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>`;
   if (progressTab === "friends") {
-    view.innerHTML = `<div class="eyebrow">Statistiques</div><h1 class="h1">Progrès</h1>${progressSeg()}<div id="friends"></div>`;
+    view.innerHTML = `${head}${progressSeg()}<div id="friends"></div>`;
     bindProgressSeg();
     return renderFriends($("#friends"));
   }
   const all = state.sessions;
   const totalVol = all.reduce((a, s) => a + s.volume, 0);
   const totalMin = Math.round(all.reduce((a, s) => a + s.durationSec, 0) / 60);
+  const r = rankInfo(), st = streak();
   const weeks = Array.from({ length: 8 }, (_, i) => ({ ...weekStats(7 - i), i }));
   const maxW = Math.max(1, ...weeks.map(w => w.volume));
+  const past = weeks.slice(0, 7).filter(w => w.volume);
+  const avg = past.length ? past.reduce((a, w) => a + w.volume, 0) / past.length : 0;
+  const cur = weeks[7];
   const lifts = Object.entries(state.lifts).filter(([id]) => EXERCISES[id]).sort((a, b) => (b[1].date || 0) - (a[1].date || 0));
+  const got = BADGES.filter(b => state.badges?.[b.id]);
+  const badges = [...got, ...BADGES.filter(b => !state.badges?.[b.id])];
+  const hist = all.slice().reverse().slice(0, 60);
+  const dec = n => n.toFixed(1).replace(".", ",").replace(",0", "");
+  const vsAvg = avg && cur.volume ? Math.round((cur.volume / avg - 1) * 100) : null;
 
-  view.innerHTML = `
-    <div class="eyebrow">Moi</div><h1 class="h1">${esc(state.profile.name)}</h1>
+  view.innerHTML = `${head}
     ${progressSeg()}
-    <div class="grid3 mt">
-      <div class="card stat"><div class="v">${all.length}</div><div class="l">Séances</div></div>
-      <div class="card stat"><div class="v">${totalVol >= 10000 ? (totalVol / 1000).toFixed(1) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</div><div class="l">Volume total</div></div>
-      <div class="card stat"><div class="v">${totalMin >= 120 ? (totalMin / 60).toFixed(1) + "<small>h</small>" : totalMin + "<small>min</small>"}</div><div class="l">Temps</div></div>
-    </div>
+    <section class="card me-hero mt">
+      <div class="me-rank">${ring(r.pct, r.level, 64)}
+        <div class="grow"><div class="eyebrow">Niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div>
+          <div class="bar"><i style="width:${Math.max(2, r.pct * 100)}%"></i></div>
+          <div class="xs muted">${r.next ? `${fmtNum(r.next.xp - r.xp)} XP avant « ${esc(r.next.name)} »` : "Rang maximum atteint, respect."}</div></div></div>
+      <div class="me-kpis">
+        <div><b class="num">${all.length}</b><span>Séances</span></div>
+        <div><b class="num">${totalVol >= 10000 ? dec(totalVol / 1000) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</b><span>Volume</span></div>
+        <div><b class="num">${totalMin >= 120 ? dec(totalMin / 60) + "<small>h</small>" : totalMin + "<small>min</small>"}</b><span>Temps</span></div>
+        <div class="${st ? "hot" : ""}"><b class="num">${st}<small>j</small></b><span>Série</span></div>
+      </div>
+    </section>
 
-    <div class="section"><h2>Corps</h2><button id="body-add">+ Mesurer</button></div>
-    ${bodyCard()}
-
-    <div class="section"><h2>Succès</h2><span class="xs muted">${Object.keys(state.badges || {}).length}/${BADGES.length}</span></div>
-    <div class="badges">${BADGES.map(b => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
-
-    <div class="section"><h2>${spider("emb")}Calendrier</h2>
-      <div class="row" style="gap:4px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled style='opacity:.3'" : ""}>${I.chev}</button></div></div>
-    <div class="card">${calendar()}</div>
+    <div class="section"><h2>${spider("emb")}Activité</h2></div>
+    <div class="card cal-card">${calendar()}</div>
 
     <div class="section"><h2>Volume par semaine</h2></div>
-    <div class="card"><div class="vbars">${weeks.map((w, k) => `<div class="b ${w.i === 7 ? "cur" : ""}"><div class="f" style="height:${Math.max(3, (w.volume / maxW) * 100)}%;animation-delay:${k * 50}ms" title="${fmtNum(w.volume)} kg"></div>
-      <span>${w.i === 7 ? "Cette" : "S-" + (7 - w.i)}</span></div>`).join("")}</div></div>
+    <div class="card vol-card">
+      <div class="row between"><div><div class="vol-big num">${fmtNum(cur.volume)}<small> kg</small></div><div class="xs muted">cette semaine</div></div>
+        ${vsAvg != null ? `<span class="chip ${vsAvg >= 0 ? "green" : "amber"}">${vsAvg >= 0 ? "+" : ""}${vsAvg} % vs moyenne</span>` : `<span class="xs dim">${cur.volume ? "" : "Pas encore de séance"}</span>`}</div>
+      <div class="vbars">${avg ? `<i class="avg" style="--y:${(avg / maxW).toFixed(3)}"><span>moy.</span></i>` : ""}${weeks.map((w, k) => `<div class="b ${w.i === 7 ? "cur" : ""}"><div class="col"><div class="f" style="height:${Math.max(3, (w.volume / maxW) * 100)}%;animation-delay:${k * 45}ms" title="${fmtNum(w.volume)} kg"></div></div>
+        <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
+    </div>
 
-    <div class="section"><h2>Exercices & records</h2></div>
-    ${lifts.length ? `<div class="card" style="padding:4px 16px">${lifts.map(([id, l]) => `<div class="rec" data-ex="${id}"><span class="ellipsis">${esc(EXERCISES[id].name)}</span>
-      <span class="v">${EXERCISES[id].type === "load" ? `${Math.round(l.best)} kg <span class="xs dim">1RM est.</span>` : `${l.bestReps}${EXERCISES[id].type === "time" ? " s" : " reps"}`}</span>${I.chev}</div>`).join("")}</div>`
-      : `<div class="card empty">${I.trophy}Tes records apparaîtront après ta première séance.</div>`}
+    <div class="section"><h2>Records</h2>${lifts.length ? `<span class="xs muted">1RM estimé</span>` : ""}</div>
+    ${lifts.length ? `<div class="card card-list">${lifts.map(([id, l]) => recRow(id, l)).join("")}</div>`
+      : `<div class="card empty">${I.trophy}<b>Aucun record pour l'instant</b>Ils apparaîtront après ta première séance.</div>`}
 
-    <div class="section"><h2>Historique</h2></div>
-    ${all.length ? all.slice().reverse().slice(0, 30).map(s => `
-      <article class="card sess tap mt-s" data-id="${s.id}">
-        <div class="row between"><div><b class="h3">${esc(s.name)}</b><div class="xs muted" style="text-transform:capitalize">${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</div></div>
-          <span class="chip green">+${s.xp} XP</span></div>
-        <div class="row xs muted mt-s" style="gap:14px"><span>${fmtTime(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span style="color:var(--amber)">${s.prs.length} PR</span>` : ""}</div>
-        <div class="det">${s.note ? `<div class="note-line" style="margin:0 0 8px">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
-      </article>`).join("") : `<div class="card empty">${I.clock}Aucune séance pour l'instant.</div>`}`;
+    <div class="section"><h2>Corps</h2><button class="me-add" id="body-add">${I.plus}Mesurer</button></div>
+    ${bodyCard()}
 
+    <div class="section"><h2>Succès</h2><span class="xs muted"><b class="tnum" style="color:var(--text)">${got.length}</b> / ${BADGES.length}</span></div>
+    <div class="badges few" id="badges">${badges.map((b, i) => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" style="--i:${i}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
+    <button class="btn btn-ghost btn-sm btn-block mt-s more-btn" id="badges-more">Voir les ${BADGES.length} succès</button>
+
+    <div class="section"><h2>Historique</h2>${all.length ? `<span class="xs muted">${all.length} séance${all.length > 1 ? "s" : ""}</span>` : ""}</div>
+    ${hist.length ? `<div class="card card-list hist few" id="hist">${hist.map(sessRow).join("")}</div>
+      ${hist.length > 8 ? `<button class="btn btn-ghost btn-sm btn-block mt-s more-btn" id="hist-more">Voir plus de séances</button>` : ""}`
+      : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
+
+  animateRings(view);
   bindProgressSeg();
   $("#body-add").onclick = bodySheet;
   $("#mp").onclick = () => { monthOffset--; route(); };
   $("#mn").onclick = () => { if (monthOffset < 0) { monthOffset++; route(); } };
   $$("[data-ex]").forEach(el => el.onclick = () => exerciseSheet(el.dataset.ex));
+  const more = (btn, box, on, off) => btn && (btn.onclick = () => { const few = box.classList.toggle("few"); btn.textContent = few ? off : on; });
+  more($("#badges-more"), $("#badges"), "Réduire", `Voir les ${BADGES.length} succès`);
+  more($("#hist-more"), $("#hist"), "Réduire", "Voir plus de séances");
   $$(".sess").forEach(el => el.onclick = e => { if (!e.target.closest("[data-del]")) el.classList.toggle("open"); });
   $$("[data-del]").forEach(b => b.onclick = async () => {
     if (!(await confirmSheet("Supprimer cette séance ?", "Elle sera retirée de ton historique.", "Supprimer", true))) return;
     state.sessions = state.sessions.filter(s => s.id !== b.dataset.del); tombstone("sessions", b.dataset.del); save(); route();
   });
+}
+
+// Pastille avec l'initiale (en-tête de l'onglet Moi)
+const meAvatar = name => `<div class="avatar me-av" aria-hidden="true">${esc((name || "?").charAt(0).toUpperCase())}</div>`;
+const durTxt = sec => { const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
+
+function recRow(id, l) {
+  const ex = EXERCISES[id], load = ex.type === "load";
+  const h = load ? exerciseHistory(id) : [];
+  const gain = h.length >= 2 ? Math.round(Math.max(...h.map(x => x.e1rm)) - h[0].e1rm) : 0;
+  return `<button class="rec" data-ex="${id}"><div class="grow"><b class="ellipsis">${esc(ex.name)}</b><span class="ellipsis">${esc(ex.muscle || "")}</span></div>
+    <div class="rec-v"><b class="num">${load ? `${Math.round(l.best)}<small> kg</small>` : `${l.bestReps}<small>${ex.type === "time" ? " s" : " reps"}</small>`}</b>${gain > 0 ? `<span class="up">+${gain} kg</span>` : ""}</div>${I.chev}</button>`;
+}
+
+function sessRow(s) {
+  const d = new Date(s.date);
+  return `<article class="sess" data-id="${s.id}">
+    <div class="sess-top"><span class="sess-ic">${esc((s.name || "?").charAt(0).toUpperCase())}</span>
+      <div class="grow"><b class="ellipsis">${esc(s.name)}</b><span class="ellipsis">${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span></div>
+      <span class="chip green">+${s.xp} XP</span></div>
+    <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
+    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
+  </article>`;
 }
 
 // Onglet « Moi » : Stats, Amis & défis, Réglages
@@ -300,20 +343,24 @@ function bindProgressSeg() {
 const BODY = [["weight", "Poids", "kg"], ["waist", "Tour de taille", "cm"], ["chest", "Poitrine", "cm"], ["arm", "Bras", "cm"], ["thigh", "Cuisse", "cm"]];
 function bodyCard() {
   const b = state.body || [];
-  if (!b.length) return `<div class="card empty">Note ton poids et tes mensurations pour suivre ta transformation, pas seulement tes charges.</div>`;
+  if (!b.length) return `<div class="card empty">${I.edit}<b>Suis ta transformation</b>Note ton poids et tes mensurations : tu verras ton corps changer, pas seulement tes charges.</div>`;
   const last = b[b.length - 1], first = b[0];
-  const diff = (k, u) => (last[k] != null && first[k] != null && b.length > 1 ? `<span class="delta ${last[k] - first[k] <= 0 ? "n" : "p"}">${last[k] - first[k] > 0 ? "+" : ""}${(last[k] - first[k]).toFixed(1).replace(".0", "")} ${u}</span>` : "");
+  const diff = (k, u) => {
+    if (last[k] == null || first[k] == null || b.length < 2) return "";
+    const d = last[k] - first[k], txt = `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(1).replace(".0", "").replace(".", ",")} ${u}`;
+    return `<span class="delta ${d <= 0 ? "n" : "p"}">${txt}</span>`;
+  };
   const pts = b.filter(x => x.weight).map(x => ({ x: x.date, y: x.weight }));
-  return `<div class="card">
-    <div class="grid3">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num" style="font-size:22px">${last[k]}<small class="muted" style="font-size:12px"> ${u}</small></div><div class="xs muted">${l}</div>${diff(k, u)}</div>`).join("")}</div>
-    ${pts.length >= 2 ? `<div class="mt">${chart(pts)}</div>` : ""}
-    <div class="xs dim mt-s">Dernière mesure : ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure(s)</div></div>`;
+  return `<div class="card body-card">
+    <div class="body-kpis">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num">${String(last[k]).replace(".", ",")}<small> ${u}</small></div><div class="xs muted ellipsis">${l}</div>${diff(k, u)}</div>`).join("")}</div>
+    ${pts.length >= 2 ? `<div class="mt">${chart(pts, { unit: "kg", dec: 1 })}</div>` : ""}
+    <div class="xs dim mt-s">Dernière mesure le ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure${b.length > 1 ? "s" : ""}</div></div>`;
 }
 function bodySheet() {
   const last = (state.body || []).slice(-1)[0] || { weight: state.profile.bodyweight };
-  const sh = sheet(`<h2 class="h2">Mes mesures du jour</h2><p class="small muted">Remplis seulement ce que tu veux suivre.</p>
-    <div class="grid2">${BODY.map(([k, l, u]) => `<label class="field"><span>${l} (${u})</span><input class="input" id="b-${k}" type="number" inputmode="decimal" step="0.1" placeholder="${last[k] ?? ""}"/></label>`).join("")}</div>
-    <button class="btn btn-primary btn-block mt" id="b-save">Enregistrer</button>`);
+  const sh = sheet(`<h2 class="h2">Mes mesures du jour</h2><p class="small muted" style="margin:6px 0 0">Remplis seulement ce que tu veux suivre.</p>
+    <div class="grid2 body-form">${BODY.map(([k, l, u]) => `<label class="field"><span>${l} <i class="dim">(${u})</i></span><input class="input" id="b-${k}" type="number" inputmode="decimal" step="0.1" placeholder="${last[k] ?? ""}"/></label>`).join("")}</div>
+    <div class="sheet-foot"><button class="btn btn-primary btn-lg btn-block" id="b-save">Enregistrer</button></div>`);
   $("#b-save", sh.el).onclick = () => {
     const e = { date: Date.now() };
     BODY.forEach(([k]) => { const v = parseFloat($(`#b-${k}`, sh.el).value.replace(",", ".")); if (v > 0) e[k] = v; });
@@ -356,22 +403,26 @@ function calendar() {
   const first = (new Date(y, mo, 1).getDay() + 6) % 7;
   const n = new Date(y, mo + 1, 0).getDate();
   const done = new Set(state.sessions.filter(s => { const d = new Date(s.date); return d.getFullYear() === y && d.getMonth() === mo; }).map(s => new Date(s.date).getDate()));
-  const today = new Date();
+  const today = new Date(), plan = state.weekPlan || {};
   const cells = [];
   for (let i = 0; i < first; i++) cells.push(`<div class="c out"></div>`);
   for (let d = 1; d <= n; d++) {
-    const isToday = today.getFullYear() === y && today.getMonth() === mo && today.getDate() === d;
-    cells.push(`<div class="c ${done.has(d) ? "on" : ""} ${isToday ? "today" : ""}">${d}</div>`);
+    const date = new Date(y, mo, d);
+    const isToday = date.toDateString() === today.toDateString();
+    const planned = !done.has(d) && date > today && plan[(date.getDay() + 6) % 7] != null;
+    cells.push(`<div class="c${done.has(d) ? " on" : ""}${isToday ? " today" : ""}${planned ? " plan" : ""}"><span>${d}</span></div>`);
   }
-  return `<div class="row between" style="margin-bottom:10px"><b class="h3" style="text-transform:capitalize">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</b>
-    <span class="xs muted">${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span></div>
-    <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>`;
+  const st = streak();
+  return `<div class="cal-head"><b class="h3">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</b>
+      <div class="row" style="gap:2px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled" : ""}>${I.chev}</button></div></div>
+    <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>
+    <div class="cal-foot"><span><i class="lg on"></i>${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span>${monthOffset === 0 ? `<span><i class="lg plan"></i>Prévu</span>` : ""}${monthOffset === 0 && st ? `<span class="hot">${I.flame}${st} j d'affilée</span>` : ""}</div>`;
 }
 
 function groupSets(sets) {
   const g = {};
   sets.forEach(s => (g[s.name] ||= []).push(s));
-  return Object.entries(g).map(([n, arr]) => `<div style="margin-top:6px"><b style="color:var(--text)">${esc(n)}</b> — ${arr.map(s => `${s.weight ? s.weight + "×" : ""}${s.reps} <span class="dim">@${s.rpe}</span>`).join(" · ")}</div>`).join("");
+  return `<div class="sets-g">${Object.entries(g).map(([n, arr]) => `<div><b>${esc(exName(arr[0].exId) || n)}</b><div class="sets-p">${arr.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}${s.rpe ? `<i>@${s.rpe}</i>` : ""}</span>`).join("")}</div></div>`).join("")}</div>`;
 }
 
 function exerciseSheet(id) {
@@ -379,36 +430,52 @@ function exerciseSheet(id) {
   const hist = exerciseHistory(id);
   const load = ex.type === "load";
   const pts = hist.map(h => ({ x: h.date, y: load ? h.e1rm : h.top.reps }));
+  const unit = load ? "kg" : ex.type === "time" ? "s" : "reps";
   const sh = sheet(`<div class="eyebrow">${esc(ex.muscle)}</div><h2 class="h2" style="margin-top:4px">${esc(ex.name)}</h2>
     <div class="grid2 mt">
-      <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${ex.type === "time" ? "s" : "reps"}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
-      <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séances</div></div>
+      <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${unit}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
+      <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séance${hist.length > 1 ? "s" : ""}</div></div>
     </div>
-    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé (kg)" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts)}</div>
+    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit })}</div>
     <div class="section"><h2>Technique</h2></div>
     <div class="cues" style="margin-top:0">${animSvg(id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>
     <div class="section"><h2>Dernières séances</h2></div>
-    <div class="card" style="padding:4px 16px">${hist.slice().reverse().slice(0, 8).map(h => `<div class="cmp"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
-      <span class="small muted">${h.sets.map(s => (s.weight ? s.weight + "×" : "") + s.reps).join(" · ")}</span><span></span></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
+    <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+      <div class="sets-p">${h.sets.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}</span>`).join("")}</div></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
   mountAnims(sh.el);
 }
 
-function chart(pts) {
+// Courbe nette : grille légère, aire en dégradé de l'accent, dernier point mis en avant.
+let chartN = 0;
+function chart(pts, { unit = "", dec = 0 } = {}) {
   if (pts.length < 2) return `<div class="empty" style="padding:20px">La courbe apparaîtra après 2 séances.</div>`;
-  const W = 320, H = 150, pad = 26;
-  const ys = pts.map(p => p.y), min = Math.min(...ys), max = Math.max(...ys), span = max - min || 1;
-  const X = i => pad + (i / (pts.length - 1)) * (W - pad - 8);
-  const Y = v => H - 20 - ((v - min) / span) * (H - 40);
-  const d = pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
+  const W = 320, H = 150, L = 30, R = 14, T = 22, B = 22;
+  const ys = pts.map(p => p.y);
+  const dMin = Math.min(...ys), dMax = Math.max(...ys);
+  let min = dMin, max = dMax;
+  const padY = (max - min) * 0.12 || Math.max(1, max * 0.05);
+  min -= padY; max += padY;
+  const span = max - min;
+  const X = i => L + (i / (pts.length - 1)) * (W - L - R);
+  const Y = v => T + (1 - (v - min) / span) * (H - T - B);
+  const xy = pts.map((p, i) => [X(i), Y(p.y)]);
+  const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const fmtD = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}">
-    <defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8283b" stop-opacity=".35"/><stop offset="1" stop-color="#e8283b" stop-opacity="0"/></linearGradient></defs>
-    <line class="gl" x1="${pad}" x2="${W}" y1="${Y(max)}" y2="${Y(max)}"/><line class="gl" x1="${pad}" x2="${W}" y1="${Y(min)}" y2="${Y(min)}"/>
-    <text x="0" y="${Y(max) + 3}">${Math.round(max)}</text><text x="0" y="${Y(min) + 3}">${Math.round(min)}</text>
-    <path class="ar" d="${d} L${X(pts.length - 1)},${H - 20} L${X(0)},${H - 20} Z"/>
+  const fmtV = v => (dec ? v.toFixed(dec).replace(".0", "").replace(".", ",") : Math.round(v));
+  const grid = dMax - dMin > 0 ? [dMin, (dMin + dMax) / 2, dMax] : [dMin];
+  const id = "cg" + ++chartN;
+  const [lx, ly] = xy[xy.length - 1], last = pts[pts.length - 1].y;
+  const lbl = `${fmtV(last)}${unit ? " " + unit : ""}`, lw = lbl.length * 6.4 + 14;
+  const bx = Math.min(W - lw, Math.max(L, lx - lw / 2)), by = ly - 30 < 0 ? ly + 10 : ly - 30;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution : de ${fmtV(pts[0].y)} à ${fmtV(last)} ${unit}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s0"/><stop offset="1" class="s1"/></linearGradient></defs>
+    ${grid.map(v => `<line class="gl" x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${L - 8}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${fmtV(v)}</text>`).join("")}
+    <g class="plot"><path class="ar" fill="url(#${id})" d="${d} L${lx.toFixed(1)},${H - B} L${L},${H - B} Z"/>
     <path class="ln" d="${d}"/>
-    ${pts.map((p, i) => `<circle class="pt" cx="${X(i)}" cy="${Y(p.y)}" r="3.5"/>`).join("")}
-    <text x="${pad}" y="${H - 4}">${fmtD(pts[0].x)}</text><text x="${W}" y="${H - 4}" text-anchor="end">${fmtD(pts[pts.length - 1].x)}</text>
+    ${pts.length <= 24 ? xy.slice(0, -1).map(([x, y]) => `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6"/>`).join("") : ""}</g>
+    <g class="last"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt now" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>
+      <rect class="tag" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${lw.toFixed(1)}" height="20" rx="10"/><text class="tag-t" x="${(bx + lw / 2).toFixed(1)}" y="${(by + 13.8).toFixed(1)}" text-anchor="middle">${lbl}</text></g>
+    <text x="${L}" y="${H - 5}">${fmtD(pts[0].x)}</text><text x="${W - R}" y="${H - 5}" text-anchor="end">${fmtD(pts[pts.length - 1].x)}</text>
   </svg>`;
 }
 
