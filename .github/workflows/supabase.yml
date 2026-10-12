@@ -102,12 +102,12 @@ jobs:
           echo "Faux jeton : $bad"
           case "$bad" in *BAD_TOKEN*) ;; *) echo "::error::réponse inattendue au faux jeton"; fail=1 ;; esac
 
-          # Diagnostic complet : clé Gemini, modèles disponibles, compteur, recherche Google, flux
-          curl -sS --max-time 170 -X POST "$FUNCTION_URL" -H "apikey: $PUBLISHABLE_KEY" -H "x-diag-token: $DIAG" \
-            -H "Content-Type: application/json" -d '{}' -o diag.json || true
+          # Diagnostic complet, une ligne par étape : clé Gemini, compteur, modèles disponibles,
+          # vrai chemin du chat (flux + recherche Google) avec la durée de chaque essai, puis un essai par modèle
           echo "Diagnostic :"
-          jq . diag.json || cat diag.json
-          [ "$(jq -r .ok diag.json 2>/dev/null)" = "true" ] || { echo "::error::Gemini ne répond pas : voir le diagnostic ci-dessus"; fail=1; }
+          curl -sS -N --max-time 170 -X POST "$FUNCTION_URL" -H "apikey: $PUBLISHABLE_KEY" -H "x-diag-token: $DIAG" \
+            -H "Content-Type: application/json" -d '{}' | grep --line-buffered -v '^[[:space:]]*$' | tee diag.txt || true
+          [ "$(tail -n 1 diag.txt | jq -r .ok 2>/dev/null)" = "true" ] || { echo "::error::Gemini ne répond pas : voir le diagnostic ci-dessus"; fail=1; }
           exit $fail
 
       - name: Retrait du secret de diagnostic
