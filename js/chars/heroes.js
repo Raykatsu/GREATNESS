@@ -37,12 +37,12 @@ const knight = {
   fx: { color: "#c9ced8", trail: "none" },
   defs: `<linearGradient id="knight-suit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#666c7a"/><stop offset="1" stop-color="#3c414d"/></linearGradient>
     <linearGradient id="knight-cowl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b404c"/><stop offset="1" stop-color="#1c1f27"/></linearGradient>
-    <linearGradient id="knight-cape" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e333e"/><stop offset="1" stop-color="#15171d"/></linearGradient>
+    <linearGradient id="knight-cape" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#363d4d"/><stop offset="1" stop-color="#1b1f29"/></linearGradient>
     <linearGradient id="knight-skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d3b6"/><stop offset="1" stop-color="#e6b896"/></linearGradient>`,
-  back: `<g class="knight-cape"><path d="M19 26.5 Q30 23.5 41 26.5 L50.5 63 Q47.5 60.6 45 64 Q42.2 61 38.6 64.6 Q35 61.4 30 65.2 Q25 61.4 21.4 64.6 Q17.8 61 15 64 Q12.5 60.6 9.5 63 Z" fill="url(#knight-cape)" stroke="#4d5361" stroke-width=".5" stroke-linejoin="round"/>
+  back: `<g class="knight-cape"><path d="M19 26.5 Q30 23.5 41 26.5 L50.5 63 Q47.5 60.6 45 64 Q42.2 61 38.6 64.6 Q35 61.4 30 65.2 Q25 61.4 21.4 64.6 Q17.8 61 15 64 Q12.5 60.6 9.5 63 Z" fill="url(#knight-cape)" stroke="#5c6476" stroke-width=".6" stroke-linejoin="round"/>
       <path d="M24 30 L19 60 M36 30 L41 60" stroke="#0c0d11" stroke-width=".7" opacity=".55"/></g>`,
-  legL: limb("26 48", "24 61", "24 72.5", 7, 6.4, "#4a505d", "#1d2028") + `<ellipse cx="23" cy="75.5" rx="4.3" ry="2.6" fill="#16181e"/>`,
-  legR: limb("34 48", "36 61", "36 72.5", 7, 6.4, "#4a505d", "#1d2028") + `<ellipse cx="37" cy="75.5" rx="4.3" ry="2.6" fill="#16181e"/>`,
+  legL: limb("26 48", "24 61", "24 72.5", 7, 6.4, "#555c6b", "#262a34") + `<ellipse cx="23" cy="75.5" rx="4.3" ry="2.6" fill="#0f1116"/>`,
+  legR: limb("34 48", "36 61", "36 72.5", 7, 6.4, "#555c6b", "#262a34") + `<ellipse cx="37" cy="75.5" rx="4.3" ry="2.6" fill="#0f1116"/>`,
   armL: limb("20 30", "16 39.5", "14.5 48", 5.6, 5.2, "#5a606d", "#1d2028") + `<path d="M15.6 41.5 L12.6 42.6 L15.3 44 Z M15.3 44.4 L12.4 45.6 L15 47 Z" fill="#1d2028"/><circle cx="14.3" cy="49.5" r="3" fill="#1d2028"/>`,
   armR: limb("40 30", "44 39.5", "45.5 48", 5.6, 5.2, "#5a606d", "#1d2028") + `<path d="M44.4 41.5 L47.4 42.6 L44.7 44 Z M44.7 44.4 L47.6 45.6 L45 47 Z" fill="#1d2028"/><circle cx="45.7" cy="49.5" r="3" fill="#1d2028"/>`,
   torso: `<path d="${TORSO}" fill="url(#knight-suit)"/>
@@ -79,8 +79,8 @@ const nova = {
   id: "nova",
   name: "Super Nova",
   group: "Héros",
-  bio: "Venue des étoiles, elle soulève des montagnes et croit en toi plus que quiconque.",
-  persona: "Héroïne solaire, optimiste et chaleureuse, d'une force tranquille, qui encourage avec douceur et parle d'étoiles et de lumière.",
+  bio: "Venu des étoiles, il soulève des montagnes et croit en toi plus que quiconque.",
+  persona: "Héros solaire, optimiste et chaleureux, d'une force tranquille, qui encourage avec douceur et parle d'étoiles et de lumière.",
   travel: "fly",
   climb: false,
   fx: { color: "#ffd24a", trail: "stars" },
@@ -115,7 +115,7 @@ const nova = {
     @keyframes nova-cape { 0%, 100% { transform: skewX(0deg); } 50% { transform: skewX(3deg) scaleX(1.03); } }
   }`,
   lines: {
-    hello: ["Bonjour, petite étoile ! On brille aujourd'hui ?", "Le soleil est levé, et toi aussi. Allez !", "Prête à décoller ? Ta séance t'attend."],
+    hello: ["Bonjour, petite étoile ! On brille aujourd'hui ?", "Le soleil est levé, et toi aussi. Allez !", "Prêt à décoller ? Ta séance t'attend."],
     tap: ["Hihi, ça chatouille comme une comète !", "Tu cherches ta force ? Elle est déjà en toi.", "Je pourrais soulever un camion. Toi, ta série !"],
     pr: ["Supernova ! Tu viens d'exploser ton record !", "Une nouvelle étoile est née : toi !", "Plus fort que l'acier, bravo !"],
     rest: ["Recharge au soleil, je veille sur toi.", "Repos : même les étoiles prennent leur temps."],
@@ -252,7 +252,7 @@ const amazon = {
       ${eyes(16.2, 4.8, "#3a2416")}`,
   css: `${eyeBox("amazon")}`,
   lines: {
-    hello: ["Salut, guerrière ou guerrier ! Prêt au combat ?", "Que la force soit dans tes bras aujourd'hui !", "L'île m'envoie : on s'entraîne ensemble ?"],
+    hello: ["Salut, héros ! On part au combat ?", "Que la force soit dans tes bras aujourd'hui !", "L'île m'envoie : on s'entraîne ensemble ?"],
     tap: ["Mon lasso dit la vérité : tu peux le faire.", "Doucement ! J'ai des bracelets réflexes.", "Une vraie guerrière ne recule jamais."],
     pr: ["Record ! Même les dieux applaudissent.", "Victoire ! Ta force est légendaire.", "Ça, c'est digne d'une amazone !"],
     rest: ["Repos, guerrier. La bataille reprend bientôt.", "Respire profondément, comme sur mon île."],
