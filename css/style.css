@@ -408,7 +408,7 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .prog.blue::before { background: var(--blue); }
 .prog h3 { font-size: 18px; }
 .prog-list { display: grid; gap: 10px; }
-.prog.pc { grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; padding: 14px 14px 14px 14px; content-visibility: auto; contain-intrinsic-size: auto 92px; }
+.prog.pc { grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; padding: 14px 14px 14px 14px; }
 .prog.pc::before { display: none; }
 .pc-ic { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: var(--c-soft); color: var(--c); align-self: start; }
 .pc-ic svg { width: 22px; height: 22px; }
@@ -539,7 +539,7 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .pk-gh { font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin: 14px 4px 2px; }
 .pick-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
 button.pick-item { width: 100%; text-align: left; color: inherit; font: inherit; }
-.pk-items .pick-item { padding: 11px 10px; margin: 0 -10px; width: calc(100% + 20px); border-radius: var(--r-xs); border-bottom: 0; transition: background-color var(--dur-2); content-visibility: auto; contain-intrinsic-size: auto 60px; }
+.pk-items .pick-item { padding: 11px 10px; margin: 0 -10px; width: calc(100% + 20px); border-radius: var(--r-xs); border-bottom: 0; transition: background-color var(--dur-2); content-visibility: auto; contain-intrinsic-size: auto 62px; }
 .pk-items .pick-item { position: relative; }
 .pk-items .pick-item + .pick-item::before { content: ""; position: absolute; left: 10px; right: 10px; top: 0; height: 1px; background: var(--line); }
 .pk-items .pick-item:active { background: var(--card); }
