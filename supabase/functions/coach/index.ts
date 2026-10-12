@@ -24,6 +24,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 const enc = new TextEncoder();
 const sse = (o: unknown) => enc.encode(`data: ${JSON.stringify(o)}\n\n`);
 
+const clip = (t: string) => String(t).replace(/\s+/g, " ").slice(0, 200);
 function reply(events: unknown[]) {
   return new Response(new ReadableStream({ start(c) { events.forEach(e => c.enqueue(sse(e))); c.close(); } }),
     { headers: { ...CORS, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" } });
@@ -75,7 +76,7 @@ Deno.serve(async req => {
   if (!token || !messages.length || messages[messages.length - 1].role !== "user") return reply([{ error: "BAD_REQUEST" }]);
 
   let quota;
-  try { quota = await take(token); } catch (e) { console.error(e); return reply([{ error: "DOWN" }]); }
+  try { quota = await take(token); } catch (e) { console.error(e); return reply([{ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }]); }
   if (quota.error) return reply([{ error: quota.error }]);
 
   const base = {
@@ -89,17 +90,19 @@ Deno.serve(async req => {
     attempts.push({ model, search: false });
   }
 
-  let upstream: Response | null = null, used = "";
+  let upstream: Response | null = null, used = "", lastErr = "";
   const skip = new Set<string>();
   for (const a of attempts) {
     if (skip.has(a.model)) continue;
     const res = await callGemini(a.model, a.search ? { ...base, tools: [{ google_search: {} }] } : base);
     if (res.ok && res.body) { upstream = res; used = a.model; break; }
-    console.error("gemini", a.model, a.search, res.status, (await res.text()).slice(0, 300));
+    const errText = (await res.text()).slice(0, 300);
+    console.error("gemini", a.model, a.search, res.status, errText);
+    lastErr = `Gemini ${a.model} HTTP ${res.status} ${clip(errText)}`;
     // quota épuisé ou modèle introuvable : inutile de réessayer ce modèle sans la recherche
     if (res.status === 429 || res.status === 404) skip.add(a.model);
   }
-  if (!upstream) return reply([{ error: "DOWN" }]);
+  if (!upstream) return reply([{ error: "DOWN", detail: lastErr }]);
 
   // On relaie le texte au fil de l'eau, puis les sources de la recherche Google.
   const reader = upstream.body!.getReader();
