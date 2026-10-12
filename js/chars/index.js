@@ -132,7 +132,7 @@ export function ensureCss(c) {
   if (!c.css || injected.has(c.id) || !hasDom()) return;
   injected.add(c.id);
   const st = document.createElement("style");
-  st.dataset.coach = c.id;
+  st.dataset.coachCss = c.id;
   st.textContent = c.css;
   document.head.appendChild(st);
 }

@@ -95,7 +95,9 @@ export function coachGallery(el, { compact = false, onPick } = {}) {
     const list = all().filter(c => filter === "Tous" || c.group === filter).sort((a, b) => (b.id === pinned) - (a.id === pinned));
     const pending = (filter === "Tous" ? GROUPS : [filter]).filter(waiting);
     grid.classList.toggle("still", !animate);
-    grid.innerHTML = list.map((c, i) => tile(c, i, c.id === cur)).join("") + pending.flatMap(() => [skel(), skel(), skel()]).join("");
+    const soon = !pending.length && filter === "Tous" && list.length < 3
+      ? `<div class="cg-tile cg-soon" aria-hidden="true"><span class="cg-fig"><i class="cg-q">?</i></span><b class="cg-name">Bientôt</b><span class="cg-meta">D'autres coachs arrivent</span></div>` : "";
+    grid.innerHTML = list.map((c, i) => tile(c, i, c.id === cur)).join("") + pending.flatMap(() => [skel(), skel(), skel()]).join("") + soon;
     if (animate && !first) grid.scrollTop = 0;
     first = false;
     drawNote();

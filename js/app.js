@@ -599,6 +599,7 @@ function onboarding(step = 1) {
       <p class="muted">Il t'accompagne à chaque séance et se déplace à sa façon. Tu pourras en changer quand tu veux dans Réglages.</p>
       <div id="onb-coach" class="mt"></div>
       <div class="grid2 mt"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
+    spidey.hideBubble(); // le bonjour de l'étape 1 ne doit pas masquer la galerie
     coachGallery($("#onb-coach"), { compact: true });
     $("#prev").onclick = () => onboarding(1);
     $("#next").onclick = () => onboarding(3);
