@@ -265,7 +265,8 @@ export function renderCoach(view) {
           const { system, messages } = onlineMessages(history, text);
           const res = await onlineChat({ system, messages, onDelta: stream });
           const src = res.sources.length ? `\n\nSources : ${res.sources.map(x => `[${x.title.replace(/[[\]]/g, "")}](${x.url})`).join(" · ")}` : "";
-          reply = { role: "assistant", content: res.text + src };
+          const cut = res.cut ? "\n\n*(Réponse coupée par le réseau : écris « continue » pour la suite.)*" : "";
+          reply = { role: "assistant", content: res.text + cut + src };
         } catch (err) {
           // l'IA en ligne ne répond pas : l'IA du téléphone ou le mode simple prend le relais
           const why = err.detail ? ` (${err.detail})` : "";

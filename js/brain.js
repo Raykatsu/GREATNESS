@@ -50,6 +50,57 @@ function exerciseAdvice(id) {
   return lines.join("\n");
 }
 
+// « J'ai fait 4×5 au bench à 100 kg à l'échec » : on lit la performance et on conseille la suite.
+export function parsePerf(q) {
+  const t = norm(q).replace(/,/g, ".").replace(/×/g, "x");
+  const sr = t.match(/(\d{1,2})\s*(?:x|\*|series?\s*(?:de|x))\s*(\d{1,3})\b/);
+  const reps = sr ? +sr[2] : +(t.match(/(\d{1,3})\s*(?:reps?|repetitions?)\b/)?.[1] || 0);
+  const sets = sr ? +sr[1] : +(t.match(/(\d{1,2})\s*series?\b/)?.[1] || 0);
+  const w = t.match(/(\d{1,3}(?:\.\d+)?)\s*(?:kg|kilos?)\b/) || t.match(/\b(?:a|avec)\s+(\d{2,3}(?:\.\d+)?)\b/);
+  const weight = w ? +w[1] : 0;
+  const rpeNum = t.match(/(?:rpe|@)\s*(\d+(?:\.\d)?)/);
+  const rpe = rpeNum ? Math.min(10, +rpeNum[1])
+    : /echec|a fond|\bmax\b|plus rien|j.?en pouvais plus/.test(t) ? 10
+    : /tres dur|super dur|hyper dur|galere/.test(t) ? 9.5
+    : /\bdur\b|difficile|limite/.test(t) ? 9
+    : /facile|tranquille|leger|large/.test(t) ? 7 : null;
+  if (!reps && !weight) return null;
+  return { sets, reps, weight, rpe };
+}
+
+function perfAdvice(id, perf) {
+  const ex = EXERCISES[id];
+  const g = state.profile.goal;
+  const { sets, reps, weight, rpe } = perf;
+  const step = ex.step || 2.5;
+  const lines = [];
+  const desc = `${sets ? sets + "×" : ""}${reps || "?"}${weight ? ` à ${String(weight).replace(".", ",")} kg` : ""}`;
+  if (weight && reps) {
+    const rir = rpe ? 10 - rpe : 2;
+    const est = weight * (1 + (reps + rir) / 30);
+    const best = state.lifts[id]?.best || 0;
+    lines.push(`**${ex.name} : ${desc}${rpe === 10 ? " à l'échec" : ""}**, soit un 1RM estimé d'environ **${Math.round(est)} kg**${best ? (est > best + 0.5 ? ` (ton ancien record était ${Math.round(best)} kg : **nouveau record** !)` : ` (ton record estimé : ${Math.round(best)} kg)`) : ""}.`);
+  } else lines.push(`**${ex.name} : ${desc}.**`);
+  const next = n => String(n).replace(".", ",");
+  if (rpe === 10) {
+    lines.push(`• Aller à l'échec sur toutes les séries fatigue énormément (surtout au ${ex.name.toLowerCase()}) pour très peu de gain en plus.`);
+    lines.push(`• Prochaine séance : garde **${next(weight)} kg** et arrête chaque série **1 à 2 reps avant l'échec** (RPE 8–9). Si tu n'arrives plus à ${reps} reps propres, passe à ${sets || 4}×${Math.max(1, reps - 1)}.`);
+    lines.push(`• Quand ${sets || 4}×${reps} passe proprement avec 1–2 reps en réserve : **+${next(step)} kg**.`);
+  } else if (rpe && rpe >= 9) {
+    lines.push(`• C'était très dur : reste à **${next(weight)} kg** la prochaine fois et vise les mêmes reps avec un peu plus de marge, puis +${next(step)} kg.`);
+  } else if (rpe && rpe <= 7) {
+    lines.push(`• Il te restait de la marge : la prochaine fois, passe à **${next(weight + step)} kg**${reps ? ` pour ${sets || 4}×${reps}` : ""}.`);
+  } else if (weight) {
+    lines.push(`• Prochaine séance : **${next(weight)} kg** pour ${sets || 4}×${reps + 1}, puis **${next(weight + step)} kg** quand c'est validé (double progression).`);
+  }
+  if (g === "muscle" && reps && reps < 6) lines.push("• Pour la prise de muscle, alterne avec des séries de 6 à 10 reps (un peu plus léger) : plus de volume, moins de fatigue nerveuse.");
+  if (g === "force" && reps > 6) lines.push("• Pour la force, reviens vers 3 à 6 reps avec plus de charge.");
+  if (g === "seche") lines.push("• En sèche, l'objectif est de **garder tes charges** : c'est le signal qui protège tes muscles. Évite l'échec, la récupération est plus lente en déficit.");
+  if (id === "bench") lines.push("• Pour débloquer ton développé couché : triceps (barre au front, dips), développé incliné haltères, et omoplates bien serrées sur le banc.");
+  lines.push("• Récupération : 2 à 3 min de repos entre les séries lourdes, protéines et sommeil.");
+  return lines.join("\n");
+}
+
 const INTENTS = [
   { re: /(\bmal\b|douleur|blesse|tendin|genou|epaule qui|dos qui)/, fn: () =>
     `Si ça fait mal, on arrête l'exercice qui déclenche la douleur : même ${coachName()} ne s'entraîne pas blessé.\n• Douleur vive, gonflement ou qui dure plus de quelques jours → kiné ou médecin.\n• Sinon : 48 h de repos sur la zone, puis reprise légère sans douleur.\n• En séance, coche « Douleur » : j'arrête l'exercice et je te propose une alternative.\n• Pour les raideurs : Séances → **Soulager** (dos, nuque, épaules, genoux, hanches, poignets), des séances douces à faire sans douleur. Dis-moi par exemple « lance mal de dos ».` },
@@ -105,6 +156,8 @@ export function answer(q) {
   const exId = findExercise(q);
   const intent = INTENTS.find(i => i.re.test(t));
   // Une question technique sur un exercice précis l'emporte (sauf douleur).
+  const perf = exId && EXERCISES[exId]?.type === "load" ? parsePerf(q) : null;
+  if (perf && !/\bmal\b|douleur|blesse/.test(t)) return { text: perfAdvice(exId, perf), matched: true };
   if (exId && (!intent || !/\bmal\b|douleur|blesse/.test(t))) {
     return { text: exerciseAdvice(exId), matched: true };
   }
@@ -154,12 +207,12 @@ export function idleTip(route) {
 
 /* ---------- Contexte pour l'IA locale ---------- */
 // La personnalité suit le coach choisi (Spider-Man par défaut).
-const system = () => `Tu es ${coachName()}, le coach sportif de l'app GREATNESS. Ta personnalité : ${coachPersona() || "drôle, bienveillant et motivant"}
+const system = (online = false) => `Tu es ${coachName()}, le coach sportif de l'app GREATNESS. Ta personnalité : ${coachPersona() || "drôle, bienveillant et motivant"}
 Garde ta voix de personnage, mais reste toujours un coach sérieux, juste et bienveillant.
 Tu tutoies et tu réponds toujours en français, de façon claire, juste et utile.
 Tu peux répondre à toutes les questions : entraînement, technique, programmes, nutrition, sommeil, récupération, motivation, et aussi n'importe quel autre sujet de la vie courante.
 Pour tout ce qui touche au sport, appuie-toi sur les données réelles de l'athlète ci-dessous et cite ses chiffres quand c'est utile.
-Style : direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée. Une petite touche de ton personnage (${coachName()}) de temps en temps, sans en abuser. Mets en **gras** les points clés.
+Style : ${online ? "direct, précis et structuré. Adapte la longueur à la question : quelques phrases pour une question simple ; pour un programme, une analyse de séance ou une explication, développe avec des titres courts (###), des puces et des chiffres précis (séries, reps, charges en kg, RPE, repos, grammes). Pas de tableaux (l'app ne les affiche pas) : préfère des listes. Pas de généralités ni de remplissage : chaque phrase doit servir." : "direct et concret. 3 à 8 phrases ou une courte liste à puces, sauf si on te demande un programme ou une explication détaillée."} Une petite touche de ton personnage (${coachName()}) de temps en temps, sans en abuser. Mets en **gras** les points clés.
 Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant. Si tu ne sais pas, dis-le simplement.
 L'app exécute automatiquement certaines demandes : créer une séance, modifier le programme de la semaine, l'objectif, la couleur de l'app, le mode clair, la taille du texte, la voix… Si l'utilisateur veut une modification de ce genre, donne-lui la phrase exacte à envoyer, par exemple : « Crée une séance dos de 45 min », « Mets Legs le mercredi », « Passe l'app en bleu », « Mode clair », « Agrandis le texte ».`;
 
@@ -210,9 +263,9 @@ function fullExtras() {
 // Messages pour l'IA en ligne : consignes + toutes les données utiles + conversation récente.
 export function onlineMessages(history, question) {
   const local = answer(question);
-  const notes = local.matched ? `\n\nNotes fiables du coach sur cette question (à utiliser, reformuler et compléter) :\n${local.text}` : "";
+  const notes = local.matched ? `\n\nRepères calculés par l'app pour cette question (chiffres fiables ; reformule, complète ou corrige si besoin, ne recopie pas) :\n${local.text}` : "";
   return {
-    system: `${system()}\n\n### Données de l'athlète (à jour)\n${athleteContext({ full: true })}${notes}`,
+    system: `${system(true)}\n\n### Données de l'athlète (à jour)\n${athleteContext({ full: true })}${notes}`,
     messages: [...history.slice(-16).map(m => ({ role: m.role, content: m.content.slice(0, 2500) })), { role: "user", content: question }],
   };
 }

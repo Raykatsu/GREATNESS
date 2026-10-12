@@ -29,7 +29,7 @@ Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 
 
 ## IA en ligne
 
-Avec les comptes en ligne, le coach répond grâce à **Gemini** (Google, gratuit) via une fonction Supabase : réponses en flux, recherche Google, et il connaît tout ton compte (séances, records, programme, mensurations, notes). Il fait aussi le débrief de fin de séance. Mise en place : SUPABASE.md, section « IA en ligne ».
+Avec les comptes en ligne, le coach répond grâce à **Gemini** (Google, gratuit) via une fonction Supabase : réponses en flux, recherche Google, et il connaît tout ton compte (séances, records, programme, mensurations, notes). Il fait aussi le débrief de fin de séance. Mise en place : SUPABASE.md, section « IA en ligne » (GitHub Actions déploie la fonction et vérifie que Gemini répond).
 
 ## IA intelligente locale
 

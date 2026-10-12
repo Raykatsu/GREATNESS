@@ -10,5 +10,5 @@ export const SUPABASE_ANON_KEY = "sb_publishable_QXGwpXit7dx-N2xEkcx2Zw_3V30TXwU
 export const VAPID_PUBLIC_KEY = "BM_ye3bkSLsUqAQjW6iip9LXIqxTnrn7bu0h6BlYvEpqoXy1AcbjYOhr175DkfM0sEAWb-6t_DcFuja9DRQw0Mw";
 
 // Nom (slug) de la fonction Supabase de l'IA en ligne : visible dans l'adresse de la fonction
-// (…/functions/v1/<nom>). Sensible aux majuscules.
-export const AI_FUNCTION = "Coach";
+// (…/functions/v1/<nom>). Sensible aux majuscules. « coach » est déployée par GitHub Actions (voir SUPABASE.md).
+export const AI_FUNCTION = "coach";
