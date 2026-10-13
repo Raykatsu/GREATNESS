@@ -1,4 +1,4 @@
-// Coachs du groupe « Héros » : personnages originaux inspirés des grands justiciers.
+// Coachs du groupe « Héros » : personnages originaux inspirés des grands justiciers, et Harley Quinn.
 // Contrat : voir l'en-tête de js/chars/spider.js (repère 60 × 80, pivots fixes, sol à y = 78).
 
 // ---------- petits utilitaires de dessin (aucun import) ----------
@@ -260,4 +260,64 @@ const amazon = {
   },
 };
 
-export default [knight, nova, titan, captain, amazon];
+
+// ---------- 6. Harley Quinn ----------
+const DIAMOND = (x, y, w, h, fill) => `<path d="M${x} ${y - h} L${x + w} ${y} L${x} ${y + h} L${x - w} ${y} Z" fill="${fill}"/>`;
+const harley = {
+  id: "harley",
+  name: "Harley Quinn",
+  group: "Héros",
+  aliases: ["harley", "harley quinn", "arley", "arley queen", "harley queen", "quinn"],
+  bio: "Acrobate déjantée de Gotham : imprévisible, pétillante et redoutablement souple.",
+  persona: "Acrobate déjantée, pétillante et imprévisible, ancienne gymnaste : surnoms affectueux (« poussin », « mon chou »), humour un peu fou et théâtral, mais conseils d'entraînement sérieux, précis et bienveillants.",
+  travel: "hop",
+  climb: false,
+  fx: { color: "#ff4fa3", trail: "hearts" },
+  defs: `<linearGradient id="harley-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2324c"/><stop offset="1" stop-color="#b10f29"/></linearGradient>
+    <linearGradient id="harley-black" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34313f"/><stop offset="1" stop-color="#131219"/></linearGradient>
+    <linearGradient id="harley-skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0e6"/><stop offset="1" stop-color="#f3d2c0"/></linearGradient>
+    <linearGradient id="harley-hair" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset="1" stop-color="#f0c75c"/></linearGradient>
+    <linearGradient id="harley-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff86c4"/><stop offset="1" stop-color="#e1308a"/></linearGradient>
+    <linearGradient id="harley-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fb6ff"/><stop offset="1" stop-color="#2d68dd"/></linearGradient>
+    <linearGradient id="harley-wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0c48a"/><stop offset="1" stop-color="#b9783c"/></linearGradient>`,
+  back: `<g class="harley-bat"><path d="M16.2 51.3 L42.2 18.5 Q45.9 16.4 45.8 21.6 L17.8 52.7 Z" fill="url(#harley-wood)" stroke="#8a5528" stroke-width=".6" stroke-linejoin="round"/>
+      <circle cx="17" cy="52" r="1.7" fill="#8a5528"/><path d="M19.6 46.6 L22.4 43.2 M21.2 47.8 L24 44.4" stroke="#2b2836" stroke-width="1" stroke-linecap="round"/></g>`,
+  legL: limb("26 48", "24 61", "24 72", 7, 6.4, "#e8243f", "#c3142e") + DIAMOND(24.6, 55, 1.5, 2.3, "#1a1820") + `<path d="M20.2 69.8 Q24 68.6 27.8 69.8 L27.4 73.6 H20.6 Z" fill="#1a1820"/><ellipse cx="23" cy="75.5" rx="4.4" ry="2.7" fill="#141219"/>`,
+  legR: limb("34 48", "36 61", "36 72", 7, 6.4, "#2a2733", "#1c1a23") + DIAMOND(35.4, 55, 1.5, 2.3, "#e8243f") + `<path d="M32.2 69.8 Q36 68.6 39.8 69.8 L39.4 73.6 H32.6 Z" fill="#c3142e"/><ellipse cx="37" cy="75.5" rx="4.4" ry="2.7" fill="#a40f25"/>`,
+  armL: limb("20 30", "16 39.5", "14.6 47.5", 5.6, 5, "#2a2733", "#e8243f") + `<path d="M13 41.4 Q16 40 18.2 41.8 L17.6 43.6 Q15.6 42.4 13.2 43.4 Z" fill="#fff" opacity=".95"/><circle cx="14.3" cy="49.5" r="3" fill="#c3142e"/>`,
+  armR: limb("40 30", "44 39.5", "45.4 47.5", 5.6, 5, "#e8243f", "#2a2733") + `<path d="M47 41.4 Q44 40 41.8 41.8 L42.4 43.6 Q44.4 42.4 46.8 43.4 Z" fill="#fff" opacity=".95"/><circle cx="45.7" cy="49.5" r="3" fill="#1a1820"/>`,
+  torso: `<path d="${TORSO}" fill="url(#harley-red)"/>
+      <path d="M30 24.7 Q36.4 25 41.5 28 L39.5 48.5 Q34.8 50.4 30 50.6 Z" fill="url(#harley-black)"/>
+      ${DIAMOND(24.8, 38.2, 2.6, 3.8, "#1a1820")}${DIAMOND(35.2, 38.2, 2.6, 3.8, "#e8243f")}
+      <rect x="20.6" y="43.4" width="18.8" height="2.8" rx="1" fill="#141219"/>
+      ${DIAMOND(30, 44.8, 2.2, 2.2, "#f4f6fb")}
+      <path d="M19.8 27.6 L21.8 31 L24 28.4 L26.4 31.6 L28.6 28.6 L30 31.8 L31.4 28.6 L33.6 31.6 L36 28.4 L38.2 31 L40.2 27.6 Q30 23.6 19.8 27.6 Z" fill="#fff" stroke="#d9dbe4" stroke-width=".5" stroke-linejoin="round"/>`,
+  head: `<g class="harley-tailL"><path d="M19.6 7.4 Q11.6 9.8 10.4 17.6 Q9.6 23.4 12.6 27.6 Q13.4 21.6 16.6 17.4 Q19 14.2 21.4 11.8 Z" fill="url(#harley-hair)"/>
+        <path d="M10.6 19.6 Q9.6 23.8 12.6 27.6 Q13.2 23.6 14.8 20.2 Q12.6 18.6 10.6 19.6 Z" fill="url(#harley-pink)"/>
+        <rect x="18.2" y="7.4" width="3.4" height="2.6" rx="1.1" fill="#e8243f" transform="rotate(-28 19.9 8.7)"/></g>
+      <g class="harley-tailR"><path d="M40.4 7.4 Q48.4 9.8 49.6 17.6 Q50.4 23.4 47.4 27.6 Q46.6 21.6 43.4 17.4 Q41 14.2 38.6 11.8 Z" fill="url(#harley-hair)"/>
+        <path d="M49.4 19.6 Q50.4 23.8 47.4 27.6 Q46.8 23.6 45.2 20.2 Q47.4 18.6 49.4 19.6 Z" fill="url(#harley-blue)"/>
+        <rect x="38.4" y="7.4" width="3.4" height="2.6" rx="1.1" fill="#2a2733" transform="rotate(28 40.1 8.7)"/></g>
+      <ellipse cx="30" cy="15.6" rx="10.6" ry="11.2" fill="url(#harley-hair)"/>
+      <ellipse cx="30" cy="16.4" rx="9.8" ry="10.2" fill="url(#harley-skin)"/>
+      <path d="M19.8 14.4 Q20 4.2 30 4 Q40 4.2 40.2 14.4 Q37.6 9.6 34 10.6 Q32.4 8.4 29.6 10.2 Q26.6 8.2 24.8 10.8 Q21.6 9.8 19.8 14.4 Z" fill="url(#harley-hair)"/>
+      <path d="M21.2 13.4 Q23.6 11.6 26.6 13.2 Q26.8 17.8 23.6 18.6 Q20.8 18 21.2 13.4 Z" fill="#ff7fbf" opacity=".42"/>
+      <path d="M38.8 13.4 Q36.4 11.6 33.4 13.2 Q33.2 17.8 36.4 18.6 Q39.2 18 38.8 13.4 Z" fill="#5aa2ff" opacity=".42"/>
+      <path d="M34.6 20.6 q.55-.7 1.1 0 q.55-.7 1.1 0 q0 .8-1.1 1.5 q-1.1-.7-1.1-1.5 z" fill="#141219"/>
+      ${blush(20.6, 0.35)}<path d="M27.4 21.8 Q30 24.2 32.6 21.8 Q30 22.9 27.4 21.8 Z" fill="#d1153a" stroke="#d1153a" stroke-width=".7" stroke-linejoin="round"/>
+      ${eyes(16, 4.8, "#2b56c4")}`,
+  css: `${eyeBox("harley")}
+    .ch-harley .harley-tailL { transform-box: view-box; transform-origin: 19.6px 8.6px; animation: harleyTail 1.9s ease-in-out infinite; }
+    .ch-harley .harley-tailR { transform-box: view-box; transform-origin: 40.4px 8.6px; animation: harleyTail 1.9s ease-in-out infinite reverse; }
+    @keyframes harleyTail { 50% { transform: rotate(5deg); } }
+    @media (prefers-reduced-motion: reduce) { .ch-harley .harley-tailL, .ch-harley .harley-tailR { animation: none; } }`,
+  lines: {
+    hello: ["Coucou, poussin ! Prêt à faire des folies… musculaires ?", "Ta-daaa ! Harley est là, on va bien s'amuser !", "Salut, mon chou ! On met le feu à la salle ?"],
+    tap: ["Hé ! Tu me chatouilles, coquin !", "Attention, j'ai ma batte… je rigole !", "Encore ? T'es pire que moi !"],
+    pr: ["Woohoo ! Record pulvérisé, comme un coup de batte !", "Bravo poussin, t'es complètement dingue… dans le bon sens !", "Boum ! Même Gotham a tremblé !"],
+    rest: ["Petite pause, poussin. Après, on remet le bazar !", "Respire… et on repart pour la fête !"],
+    sleep: ["Zzz… je rêve de barbe à papa…", "Chut… Harley fait la sieste…"],
+  },
+};
+
+export default [knight, nova, titan, captain, amazon, harley];

@@ -48,6 +48,21 @@ function validate(c, group) {
 const byId = new Map();
 const base = validate(spider, "Héros");
 byId.set(base.id, base);
+
+// « Aucun personnage » : coach neutre (un simple badge) quand on masque les personnages.
+// Il n'est pas dans la galerie comme les autres : il remplace le coach choisi tant que profile.mascot === false.
+const BOLT = "M31.6 6.2 22.4 18.4h6.1l-2.2 10.4 9.5-13.2h-6.3z";
+const NONE = Object.freeze({
+  ...validate({
+    id: "none", name: "Coach", group: "Héros", travel: "walk", fx: { color: "#e8283b", trail: "none" },
+    bio: "Sans personnage : l'app reste sobre, ton coach te répond toujours.",
+    persona: "Coach sportif expert, précis et bienveillant, au ton direct et motivant, sans jeu de rôle ni personnage.",
+    defs: `<linearGradient id="none-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d5e"/><stop offset="1" stop-color="#b8101f"/></linearGradient>`,
+    legL: "<g/>", legR: "<g/>", armL: "<g/>", armR: "<g/>", torso: "<g/>",
+    head: `<circle cx="30" cy="17.5" r="12.5" fill="url(#none-bg)"/><path d="${BOLT}" fill="#fff"/><g class="sp-eyes"><g class="sp-eyeL"/><g class="sp-eyeR"/></g>`,
+  }, "Héros"),
+});
+export const charsOn = () => state.profile?.mascot !== false;
 let list = [base];
 const status = Object.fromEntries(GROUPS.map(g => [g, "idle"])); // idle | loading | ok | missing
 const pending = {};
@@ -85,7 +100,8 @@ export function loadAll() {
 export const all = () => list.slice();
 export const byIdGet = id => byId.get(id);
 export const groupStatus = g => status[g];
-export const current = () => byId.get(state.profile?.coach) || base;
+export const current = () => (charsOn() ? byId.get(state.profile?.coach) || base : NONE);
+export const none = () => NONE;
 export const coachName = () => current().name;
 export const coachPersona = () => current().persona;
 export function coachLine(kind, c = current()) {
@@ -107,12 +123,21 @@ export const sync = () => emit("sync");
 export function onCoachChange(fn) { subs.add(fn); return () => subs.delete(fn); }
 
 export async function setCoach(id) {
+  if (id === "none") return setCharsOn(false), NONE;
   let c = byId.get(id);
   if (!c) { await loadAll(); c = byId.get(id); }
   if (!c) return null;
-  if (state.profile.coach !== c.id) { state.profile.coach = c.id; save(); }
+  const was = charsOn();
+  if (state.profile.coach !== c.id || !was) { state.profile.coach = c.id; state.profile.mascot = true; save(); }
   emit("set");
   return c;
+}
+
+// Afficher ou masquer les personnages (mascotte, visages) ; le choix suit le compte et l'appareil.
+export function setCharsOn(on) {
+  if (charsOn() !== on) { state.profile.mascot = on; save(); }
+  try { localStorage.setItem("greatness.chars", on ? "on" : "off"); } catch { /* mode privé */ }
+  emit("set");
 }
 
 /* ---------- Rendu SVG ---------- */

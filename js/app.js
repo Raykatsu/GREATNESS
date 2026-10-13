@@ -22,7 +22,7 @@ import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
-import { coachName } from "./chars/index.js";
+import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard } from "./food.js";
 import { pruneFood } from "./nutrition.js";
@@ -48,6 +48,7 @@ function route() {
   current = key || "home";
   applyAppearance(state.profile);
   if (!currentUser && resumeSession()) { setTimeout(offerResume, 600); }
+  applyChars();
   if (!currentUser) { shown = null; return showAuth(view, () => { if (!isOnlineMode()) llm.autoload(); route(); offerResume(); }); }
   if (!state.profile.onboarded) { shown = null; return onboarding(); }
   if (state.meta.prunedOn !== new Date().toDateString()) { pruneFood(state); state.meta.prunedOn = new Date().toDateString(); save({ silent: true }); }
@@ -142,7 +143,16 @@ addEventListener("greatness:start", e => {
   const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
   if (p) openProgram(p, launch);
 });
-addEventListener("greatness:mascot", e => spidey.setEnabled(e.detail));
+// Personnages affichés ou masqués : réglage du compte (et, avant la connexion, dernier choix de l'appareil)
+function applyChars() {
+  let on = state.profile.mascot !== false;
+  if (!currentUser) { try { on = localStorage.getItem("greatness.chars") !== "off"; } catch { /* mode privé */ } }
+  else { try { localStorage.setItem("greatness.chars", on ? "on" : "off"); } catch { /* mode privé */ } }
+  document.body.classList.toggle("no-chars", !on);
+  if (spidey.enabled !== on) spidey.setEnabled(on);
+}
+addEventListener("greatness:mascot", e => { setCharsOn(e.detail); applyChars(); });
+onCoachChange(() => applyChars());
 
 /* =========================================================
    Accueil
@@ -694,7 +704,7 @@ function profile() {
 
     <h2 class="set-title">Coach & sons</h2>
     <div class="card card-list set-list">
-      <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Coach animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Personnages</b><span class="xs muted">Ton coach animé se balade et te parle. Désactive pour une app sans personnage.</span></div><input type="checkbox" id="p-mascot" ${p.mascot !== false ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
       <button class="set-row set-act" id="p-memory">${sic("user", "#0ea5e9")}<div class="grow"><b>Ce que le coach sait de toi</b><span class="xs muted">${(state.memory || []).length ? `${state.memory.length} info${state.memory.length > 1 ? "s" : ""} retenue${state.memory.length > 1 ? "s" : ""}` : "Blessures, matériel, préférences…"}</span></div>${I.chev}</button>
@@ -784,7 +794,7 @@ function profile() {
   const bind = (id, fn) => $(id).addEventListener("change", e => { fn(e.target); save(); });
   bind("#p-name", t => (p.name = t.value.trim().slice(0, 30) || p.name));
   bind("#p-bw", t => (p.bodyweight = +t.value || 75));
-  bind("#p-mascot", t => { p.mascot = t.checked; spidey.setEnabled(t.checked); });
+  bind("#p-mascot", t => { setCharsOn(t.checked); applyChars(); toast(t.checked ? "Personnages affichés." : "Personnages masqués : l'app reste sobre."); });
   bind("#p-voice", t => { p.voice = t.checked; if (t.checked) speak("Consignes vocales activées."); });
   bind("#p-sound", t => (p.sound = t.checked));
   $("#p-memory").onclick = () => memorySheet();

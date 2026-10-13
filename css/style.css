@@ -2092,14 +2092,6 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 
 /* ---------- Animation des exercices ---------- */
 .ex-anim { width: 84px; height: 84px; flex: none; border-radius: 14px; background: rgba(var(--accent-rgb), .07); }
-.ex-anim line { stroke-linecap: round; }
-.ex-anim .body line { stroke: var(--text); stroke-width: 5; }
-.ex-anim .head { fill: var(--text); }
-.ex-anim .floor { stroke: var(--line-2); stroke-width: 1.5; }
-.ex-anim .prop { stroke: var(--muted); stroke-width: 4; }
-.ex-anim .bar { stroke: var(--red); stroke-width: 2.5; }
-.ex-anim .plate { fill: var(--red); }
-.ex-anim .cable { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; }
 .cues .ex-anim { width: 88px; height: 88px; }
 .bex-anim { width: 64px; height: 64px; }
 
@@ -2292,9 +2284,15 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .pk-demo { width: 32px; height: 32px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--red-soft); color: var(--accent-ink); }
 .pk-demo svg { width: 13px; height: 13px; }
 .demo-stage { position: relative; margin: 2px -4px 0; border-radius: var(--r-md); background: radial-gradient(circle at 50% 40%, rgba(var(--accent-rgb), .12), transparent 70%), var(--bg-2); border: 1px solid var(--line); overflow: hidden; }
-.demo-anim.ex-anim { display: block; width: 100%; height: auto; aspect-ratio: 1; max-height: 36vh; margin: 0 auto; background: none; border-radius: 0; }
-.demo-anim .body line { stroke-width: 4.2; }
-.ex-anim .body line.hot { stroke: var(--red); }
+.demo-anim { display: block; width: 100%; height: auto; aspect-ratio: 1.12; max-height: 40vh; margin: 0 auto; }
+.demo-view { position: absolute; top: 10px; left: 10px; padding: 3px 9px; border-radius: 99px; background: rgba(0, 0, 0, .38); color: #fff; font-size: 11.5px; font-weight: 650; letter-spacing: .01em; }
+.demo-mus { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--card-2); }
+.demo-mus .body-map { max-width: 150px; }
+.dm-leg { display: grid; gap: 10px; font-size: 13.5px; line-height: 1.35; }
+.dm-leg > div { display: flex; gap: 8px; align-items: flex-start; }
+.dm-leg b { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; }
+.dm-leg .lg { width: 12px; height: 12px; flex: none; border-radius: 4px; margin-top: 3px; }
+.dm-leg .lg.p { background: var(--mus1); } .dm-leg .lg.s { background: var(--mus2); }
 .demo-phase { margin: 0 10px 10px; padding: 9px 12px; border-radius: 12px; background: rgba(0, 0, 0, .4); color: #fff; font-weight: 650; font-size: 14px; line-height: 1.3; text-align: center; min-height: 3.2em; display: grid; place-items: center; }
 .demo-ctrl { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 10px; }
 .demo-ctrl .icon-btn svg { width: 17px; height: 17px; }
@@ -2481,3 +2479,67 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .dp-opt { display: grid; gap: 2px; padding: 12px; border-radius: var(--r-sm); border: 1.5px solid var(--line); background: var(--card); text-align: left; }
 .dp-opt small { color: var(--muted); font-size: 12px; }
 .dp-opt.on { border-color: var(--red); background: var(--red-soft); }
+
+/* ---------- Sans personnage ---------- */
+.no-chars #corner-web, .no-chars .corner-web, .no-chars h2 > .coach-face.emb { display: none; }
+.cg-fig .cg-badge { width: 52px; height: 52px; margin-bottom: 14px; }
+.cg-none .cg-fig { place-items: center; padding-bottom: 0; }
+.cg-none .cg-fig .cg-badge { margin: 0; }
+.cc-stage .cc-none { position: relative; z-index: 1; width: 56%; height: auto; aspect-ratio: 1; align-self: center; margin-bottom: 0; }
+
+/* ---------- Démos dessinées (body.js) ---------- */
+:root { --fig: #c9d2e3; --fig-far: #7d8699; --fig-edge: rgba(8, 10, 18, .55); --fig-shoe: #4b5363; --mus1: #ff3b4e; --mus2: #ff9f43;
+  --gear: #2b303c; --gear-hi: #6b7385; --gear-edge: #9aa3b5; --pad: #3a4150; --frame: #5b6375; --aid: #4fe3a0; }
+:root[data-mode="light"] { --fig: #a7b1c4; --fig-far: #d2d8e3; --fig-edge: rgba(30, 36, 52, .55); --fig-shoe: #6b7487; --gear: #3a404d; --gear-hi: #8a93a6;
+  --gear-edge: #505869; --pad: #59606e; --frame: #8a92a3; --aid: #0f9d63; }
+.fig { overflow: visible; }
+.fig .bd { fill: var(--fig); stroke: var(--fig-edge); stroke-width: .45; stroke-linejoin: round; }
+.fig .far .bd { fill: var(--fig-far); }
+.fig .bd.shoe { fill: var(--fig-shoe); }
+.fig .eye { fill: var(--fig-edge); opacity: .8; }
+.fig .mus { stroke: none; pointer-events: none; }
+.fig .mus.p { fill: var(--mus1); opacity: .92; }
+.fig .mus.s { fill: var(--mus2); opacity: .72; }
+.fig .far .mus { opacity: .5; }
+.fig-floor { stroke: var(--line-2); stroke-width: .8; }
+.fig-small .fig-floor { stroke-width: 1; }
+.fig-shadow { fill: rgba(0, 0, 0, .28); }
+:root[data-mode="light"] .fig-shadow { fill: rgba(20, 24, 40, .12); }
+.fig-ghost path { fill: var(--fig); opacity: .11; }
+.fig .plate { fill: var(--gear); fill-opacity: .62; stroke: var(--gear-edge); stroke-width: .9; }
+.fig .plate.far { fill-opacity: 1; stroke-width: .5; opacity: .9; }
+.fig .plate-ring { fill: none; stroke: var(--gear-hi); stroke-width: .7; opacity: .7; }
+.fig .plate-hub { fill: var(--gear-edge); }
+.fig .db { fill: var(--gear); stroke: var(--gear-edge); stroke-width: .7; }
+.fig .db.far { opacity: .75; }
+.fig .db-bar { stroke: var(--gear-edge); stroke-width: 1.4; stroke-linecap: round; }
+.fig .kb { fill: var(--gear); stroke: var(--gear-edge); stroke-width: .7; }
+.fig .kb-handle { fill: none; stroke: var(--gear-edge); stroke-width: 1.3; }
+.fig .cable { stroke: var(--gear-edge); stroke-width: .7; }
+.fig .pulley { fill: var(--gear); stroke: var(--gear-edge); stroke-width: .8; }
+.fig .grip { fill: var(--gear-edge); }
+.fig .band { fill: none; stroke: var(--mus2); stroke-width: 1.1; stroke-linecap: round; }
+.fig .band.thick { stroke-width: 1.8; stroke: var(--gear-edge); }
+.fig .pad { fill: var(--pad); stroke: var(--gear-edge); stroke-width: .5; }
+.fig .post, .fig .frame { stroke: var(--frame); stroke-width: 1.6; stroke-linecap: round; fill: none; }
+.fig .frame.thick { stroke-width: 2.6; }
+.fig .rail { stroke: var(--frame); stroke-width: 1.2; opacity: .7; }
+.fig .fixbar { fill: var(--gear-edge); }
+.fig .box { fill: var(--pad); stroke: var(--gear-edge); stroke-width: .5; }
+.fig .mat { fill: var(--pad); opacity: .7; }
+.fig-aids { pointer-events: none; }
+.fig .aid-path { fill: none; stroke: var(--aid); stroke-width: .7; stroke-dasharray: 1.6 1.6; opacity: .85; }
+.fig .aid line, .fig .aid path { stroke: var(--aid); stroke-width: .8; fill: none; }
+.fig .aid-line line { stroke-dasharray: 2.4 1.6; }
+.fig .aid-arrow line { stroke-width: 1.4; stroke-linecap: round; }
+.fig .aid-arrow path { fill: var(--aid); stroke: none; }
+.fig .aid-angle { transition: opacity .25s; }
+.fig .aid text { fill: var(--aid); font: 700 4.2px var(--font); stroke: var(--bg-2); stroke-width: 1.3px; stroke-linejoin: round; paint-order: stroke; }
+.fig .aid-pin circle { fill: none; stroke: var(--aid); stroke-width: .8; }
+.fig .aid-pin .dot { fill: var(--aid); stroke: none; }
+.body-map { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
+.body-map .sil { fill: var(--fig-far); opacity: .55; }
+.body-map .mz { fill: var(--fig); opacity: .28; }
+.body-map .mus.p { fill: var(--mus1); }
+.body-map .mus.s { fill: var(--mus2); opacity: .8; }
+.body-map text { fill: var(--muted); font: 600 5px var(--font); text-anchor: middle; }

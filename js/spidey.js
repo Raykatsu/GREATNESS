@@ -80,7 +80,10 @@ class Coach {
     this.bubble.addEventListener("click", () => { const a = this.bubbleAction; this.hideBubble(); a?.(); });
     onCoachChange((c, why) => this.swap(c, why));
     loadAll(); // le reste du catalogue arrive en arrière-plan (dont le coach choisi s'il n'est pas Spider-Man)
-    this.setEnabled(state.profile.mascot !== false);
+    // avant la connexion : le dernier choix fait sur cet appareil (personnages masqués ou non)
+    let device = true;
+    try { device = localStorage.getItem("greatness.chars") !== "off"; } catch { /* mode privé */ }
+    this.setEnabled(state.profile.mascot !== false && device);
   }
 
   /* ---------- Personnage ---------- */

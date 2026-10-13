@@ -1,8 +1,10 @@
 // Démonstration d'un exercice pour les débutants, à la demande (petit bouton ▶) : animation en grand,
 // étape en cours écrite en direct, ralenti, mise en place, respiration, points clés et erreurs à éviter.
 import { EXERCISES, EQUIP } from "./data.js";
-import { PATTERNS, patternOf } from "./motion.js";
-import { build } from "./anim.js";
+import { patternOf } from "./motion.js";
+import { figure, bodyMap, muscleNames } from "./body.js";
+import { moveOf, sayOf, viewLabel } from "./moves.js";
+import { phaseAt } from "./anim.js";
 import { camFor, openCam } from "./cam.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
@@ -56,13 +58,16 @@ const GUIDE = {
 };
 const fallback = GUIDE.stretch;
 
-export const guideOf = id => GUIDE[patternOf(id)] || fallback;
+// Consignes du type de mouvement, précisées pour l'exercice (moves.js)
+export const guideOf = id => ({ ...(GUIDE[patternOf(id)] || fallback), ...sayOf(id) });
 
 // Respiration : on souffle pendant l'effort
-function breathing(g) {
-  if (!g.effort) return g === GUIDE.stretch ? "Respire lentement ; expire en allant un peu plus loin." : "Respire calmement et régulièrement, sans bloquer.";
+function breathing(g, id) {
+  if (g.steps) return patternOf(id) === "cardio" ? "Respire en rythme, sans bloquer : souffle fort quand l'effort monte." : "Respire calmement et régulièrement, sans bloquer.";
+  if (!g.effort) return patternOf(id) === "stretch" ? "Respire lentement ; expire en allant un peu plus loin." : "Respire calmement et régulièrement, sans bloquer.";
   return g.effort === "go" ? "Souffle pendant que tu pousses ou tires (étape 1), inspire en revenant (étape 2)." : "Inspire en descendant (étape 1), souffle en remontant (étape 2).";
 }
+const names = ids => esc(muscleNames(ids).join(", "));
 
 // Petit bouton à placer à côté d'un exercice
 export const demoBtn = (id, cls = "") => (EXERCISES[id] && !EXERCISES[id].custom
@@ -84,35 +89,44 @@ export function wireDemos() {
 export function openDemo(id) {
   const ex = EXERCISES[id];
   if (!ex) return;
-  const pat = PATTERNS[patternOf(id)], g = guideOf(id);
-  const steps = [["go", g.go], ["back", g.back]];
+  const move = moveOf(id), g = guideOf(id), view = viewLabel(move), mus = move.mus || {};
+  // étapes : aller (1) et retour (2), ou les phases d'un mouvement en boucle (course, sauts…)
+  const steps = move.loop ? (g.steps || [[0, g.go]]).map(([at, t], i) => [String(i), t, at]) : [["go", g.go], ["back", g.back]];
   const sh = sheet(`<div class="demo">
-    <div class="demo-stage"><svg class="ex-anim demo-anim" viewBox="0 0 100 100" role="img" aria-label="Animation : ${esc(pat.name)}"></svg>
+    <div class="demo-stage"><svg class="demo-anim" role="img" aria-label="Démo animée : ${esc(ex.name)}"></svg>
+      ${view ? `<span class="demo-view">${esc(view)}</span>` : ""}
       <div class="demo-phase" aria-live="polite"></div></div>
     <div class="demo-ctrl"><button class="icon-btn" id="dm-play" aria-label="Pause">${PAUSE}</button>
       <div class="seg" id="dm-speed" style="--n:2"><button data-s="0.5">Ralenti</button><button data-s="1" class="on">Normal</button></div></div>
     <div class="eyebrow mt">${esc(ex.muscle)} · ${esc(EQUIP[ex.equip] || "")}</div>
     <h2 class="h2" style="margin-top:2px">${esc(ex.name)}</h2>
+    ${mus.p?.length ? `<div class="demo-mus">${bodyMap(mus)}<div class="dm-leg">
+      <div><i class="lg p"></i><span><b>Travaille surtout</b>${names(mus.p)}</span></div>
+      ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>` : ""}
     ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
     <h3 class="demo-h">Mise en place</h3><p>${esc(g.setup)}</p>
     <h3 class="demo-h">Le mouvement</h3>
     <ol class="demo-steps">${steps.map(([k, t], i) => `<li data-step="${k}"><span class="tnum">${i + 1}</span>${esc(t)}</li>`).join("")}</ol>
-    <h3 class="demo-h">Respiration</h3><p>${esc(breathing(g))}</p>
+    <h3 class="demo-h">Respiration</h3><p>${esc(breathing(g, id))}</p>
     ${ex.cues?.length ? `<h3 class="demo-h">Les points clés</h3><ul class="demo-list ok">${ex.cues.map(c => `<li>${I.check}${esc(c)}</li>`).join("")}</ul>` : ""}
     <h3 class="demo-h">Erreurs à éviter</h3><ul class="demo-list ko">${g.mistakes.map(c => `<li>${I.x}${esc(c)}</li>`).join("")}</ul>
     ${ex.alts?.length ? `<p class="small muted mt">Variante plus simple ou sans le matériel : ${ex.alts.filter(a => EXERCISES[a]).map(a => `<button class="link" data-demo="${esc(a)}">${esc(EXERCISES[a].name)}</button>`).join(", ")}.</p>` : ""}
     <p class="xs muted mt">Commence léger : la technique d'abord, la charge ensuite.</p>
   </div>`, { z: 85, onClose: () => { closed = true; cancelAnimationFrame(raf); } });
   const svgEl = $(".demo-anim", sh.el), phase = $(".demo-phase", sh.el);
-  const draw = build(svgEl, pat, ex.equip, { focus: true });
+  const draw = figure(svgEl, move, { big: true });
+  // un aller-retour en 3,2 s (6,4 s au ralenti) ; une boucle un peu plus lente que dans les vignettes
+  const cyc = move.loop ? (move.dur || 1600) * 1.25 : 3200;
   let closed = false, raf = 0, speed = 1, playing = true, t0 = performance.now(), offset = 0, lastLabel = "";
-  const label = c => (c < 0.42 ? ["go", `1 · ${g.go}`] : c < 0.5 ? ["hold", "Pause"] : c < 0.92 ? ["back", `2 · ${g.back}`] : ["start", "Position de départ"]);
+  const label = (c, p) => {
+    if (move.loop) { let i = 0; while (i < steps.length - 1 && p >= steps[i + 1][2]) i++; return [steps[i][0], steps.length > 1 ? `${i + 1} · ${steps[i][1]}` : steps[i][1]]; }
+    return c < 0.42 ? ["go", `1 · ${g.go}`] : c < 0.5 ? ["hold", "Pause"] : c < 0.92 ? ["back", `2 · ${g.back}`] : ["start", "Position de départ"];
+  };
   const frame = now => {
     if (closed || !sh.el.isConnected) return;
-    const c = ((offset + (playing ? (now - t0) : 0) * speed) % 3200) / 3200; // un aller-retour en 3,2 s (6,4 s au ralenti)
-    const t = c < 0.42 ? ease(c / 0.42) : c < 0.5 ? 1 : c < 0.92 ? 1 - ease((c - 0.5) / 0.42) : 0;
-    draw(t);
-    const [k, txt] = label(c);
+    const c = ((offset + (playing ? (now - t0) : 0) * speed) % cyc) / cyc, p = phaseAt(move, c);
+    draw(p);
+    const [k, txt] = label(c, p);
     if (txt !== lastLabel) {
       lastLabel = txt;
       phase.textContent = txt;
@@ -137,9 +151,8 @@ export function openDemo(id) {
     offset += (now - t0) * speed; t0 = now; speed = +b.dataset.s;
     $$("#dm-speed button", sh.el).forEach(x => x.classList.toggle("on", x === b));
   });
-  if (reduced) { playing = false; offset = 0.3 * 3200; $("#dm-play", sh.el).innerHTML = I.play; }
+  if (reduced) { playing = false; offset = 0.3 * cyc; $("#dm-play", sh.el).innerHTML = I.play; }
   raf = requestAnimationFrame(frame);
 }
 
-const ease = t => 0.5 - Math.cos(t * Math.PI) / 2;
 const PAUSE = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>`;
