@@ -7,8 +7,11 @@ import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
 import { spidey } from "./spidey.js";
 import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
-import { $, $$, esc, md, I, spider, sheet, confirmSheet } from "./ui.js";
+import { $, $$, esc, md, I, spider, sheet, confirmSheet, toast } from "./ui.js";
 import { coachName } from "./chars/index.js";
+import { parseActions, streamText, describe, applyAction } from "./aiact.js";
+import { memoryCommand, addMemory } from "./memory.js";
+import { generateWeekPlan } from "./planner.js";
 
 const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
 
@@ -187,12 +190,35 @@ export function renderCoach(view) {
   const actionsHtml = m => m.actions?.length ? `<div class="acts">${m.actions.map((a, i) => `<button class="chip red" data-act="${i}">${esc(a.label)}</button>`).join("")}</div>` : "";
   const bindActions = (el, m) => $$("[data-act]", el).forEach(b => {
     const a = m.actions?.[+b.dataset.act];
+    if (a?.done) { b.disabled = true; b.classList.add("done"); }
     b.onclick = () => {
       if (a?.start) window.dispatchEvent(new CustomEvent("greatness:start", { detail: a.start }));
       else if (a?.route) location.hash = a.route;
       else if (a?.ask) send(a.ask);
+      else if (a?.ai || a?.all) runAi(el, m, a);
     };
   });
+  // Actions proposées par l'IA en ligne : appliquées au toucher (« Tout appliquer » les fait dans l'ordre)
+  const runAi = (el, m, a) => {
+    m.created ||= {};
+    const list = a.all ? m.actions.filter(x => x.ai && !x.done) : [a];
+    const out = [];
+    for (const x of list) {
+      const r = applyAction(x.ai, m.created);
+      out.push(r.text);
+      if (!r.ok) continue;
+      x.done = true; x.label = `✓ ${x.label}`;
+      if (r.programId) m.actions.push({ label: "▶ Lancer la séance", start: r.programId });
+      if (r.replan) state.weekPlan = generateWeekPlan();
+    }
+    if (a.all) a.done = true;
+    if (m.actions.every(x => !x.ai || x.done)) m.actions = m.actions.filter(x => !x.all);
+    save();
+    toast(out.join(" · "), 3500);
+    spidey.react("happy");
+    const box = $(".acts", el);
+    if (box) { box.outerHTML = actionsHtml(m); bindActions(el, m); }
+  };
   const row = (m, isNew) => {
     const me = m.role === "user";
     const el = document.createElement("div");
@@ -247,7 +273,11 @@ export function renderCoach(view) {
     let reply, auto = null;
     try {
       const cmd = parseCommand(text);
-      const rc = cmd && runCommand(cmd);
+      // créer une séance : l'IA en ligne la compose (elle tient compte de ta mémoire et de ton historique) ;
+      // le générateur de l'app reste en secours. Les réglages simples restent instantanés, en local.
+      const aiFirst = cmd?.type === "create" && onlineReady();
+      const rc = cmd && !aiFirst && runCommand(cmd);
+      const mem = !rc && !/\?/.test(text) ? memoryCommand(text) : null;
       if (/ce que tu peux faire|que peux[- ]tu faire|tes (pouvoirs|capacites)|aide$/i.test(text.normalize("NFD").replace(/[̀-ͯ]/g, ""))) {
         await new Promise(res => setTimeout(res, 450));
         reply = { role: "assistant", content: `Je réponds à toutes tes questions, et je peux aussi **modifier l'app pour toi**. Par exemple :\n${COMMAND_EXAMPLES.map(e => `• « ${e} »`).join("\n")}`, actions: COMMAND_EXAMPLES.slice(0, 3).map(e => ({ label: e, ask: e })) };
@@ -256,6 +286,10 @@ export function renderCoach(view) {
         reply = { role: "assistant", content: rc.text, actions: rc.actions };
         auto = rc.auto;
         if (rc.mood) spidey.react(rc.mood === "party" ? "party" : "happy");
+      } else if (mem) {
+        await new Promise(res => setTimeout(res, 350));
+        const m = addMemory(state, mem, "user");
+        reply = { role: "assistant", content: m ? `C'est noté, je m'en souviendrai : **${m.text}**\n\nTu retrouves tout ce que je sais de toi dans Moi → Réglages.` : "Je n'ai pas compris quoi retenir." };
       } else if (aiReady()) {
         const msgs = [...history, { role: "user", content: text }].slice(-16).map(m => ({ role: m.role, content: m.content }));
         let out = "";
@@ -263,15 +297,24 @@ export function renderCoach(view) {
       } else if (onlineReady()) {
         try {
           const { system, messages } = onlineMessages(history, text);
-          const res = await onlineChat({ system, messages, onDelta: stream });
+          const res = await onlineChat({ system, messages, onDelta: t => stream(streamText(t)) });
           const src = res.sources.length ? `\n\nSources : ${res.sources.map(x => `[${x.title.replace(/[[\]]/g, "")}](${x.url})`).join(" · ")}` : "";
           const cut = res.cut ? "\n\n*(Réponse coupée par le réseau : écris « continue » pour la suite.)*" : "";
-          reply = { role: "assistant", content: res.text + cut + src };
+          // actions proposées : « retenir » s'applique tout seul, le reste devient des boutons
+          const { text: clean, actions } = parseActions(res.text), notes = [], buttons = [];
+          for (const a of actions) {
+            if (a.type === "remember") { const r = applyAction(a); if (r.ok) notes.push(`📝 ${r.text}`); }
+            else buttons.push({ label: describe(a), ai: a });
+          }
+          if (buttons.length > 1) buttons.push({ label: "Tout appliquer", all: true });
+          if (notes.length) save();
+          reply = { role: "assistant", content: (clean || "C'est prêt :") + cut + (notes.length ? `\n\n${notes.join("\n")}` : "") + src, actions: buttons };
         } catch (err) {
           // l'IA en ligne ne répond pas : l'IA du téléphone ou le mode simple prend le relais
           const why = err.detail ? ` (${err.detail})` : "";
           const note = `\n\n${err.message}${why}`;
-          if (llm.info().ready) reply = { role: "assistant", content: (await llm.chat(llmMessages(history, text), { onDelta: stream })) + note };
+          if (aiFirst) { const rc2 = runCommand(cmd); reply = { role: "assistant", content: rc2.text, actions: rc2.actions }; auto = rc2.auto; }
+          else if (llm.info().ready) reply = { role: "assistant", content: (await llm.chat(llmMessages(history, text), { onDelta: stream })) + note };
           else { const a = answer(text); reply = { role: "assistant", content: a.text + note, actions: a.actions }; }
         }
       } else if (llm.info().ready) {

@@ -23,6 +23,9 @@ import { coachName } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard } from "./food.js";
 import { pruneFood } from "./nutrition.js";
+import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
+import { addMemory, removeMemory } from "./memory.js";
+import { openTargets } from "./food.js";
 
 const view = $("#view");
 wireDemos();
@@ -242,6 +245,7 @@ function home() {
       </div>
     </section>
 
+    ${reviewCard(now)}
     <div class="quick mt-s">
       <button class="card quick-tile" id="free"><span class="qi">${I.bolt}</span><span class="qt"><b>Séance libre</b><small>Au feeling</small></span></button>
       <a class="card quick-tile" href="#/create"><span class="qi qi-blue">${I.plus}</span><span class="qt"><b>Créer</b><small>Sur mesure</small></span></a>
@@ -286,6 +290,11 @@ function home() {
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
+  const wk = bindReviewCard(view);
+  if (wk && !state.reviews?.[wk]?.hinted) {
+    (state.reviews ||= {})[wk] = { ...state.reviews[wk], hinted: Date.now() }; save({ silent: true });
+    setTimeout(() => { if (!document.querySelector(".sheet-wrap") && location.hash.replace(/^#\/?/, "") === "") spidey.say("Ton bilan de la semaine est prêt : ta note, tes points forts et quoi ajuster.", { action: { label: "Voir mon bilan", fn: () => openReview(wk) } }); }, 1800);
+  }
   $("#resume")?.addEventListener("click", () => resumeLive(saved, route));
   $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
   const daysOff = has ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
@@ -364,6 +373,7 @@ function progress() {
 
     <div class="section"><h2>${spider("emb")}Activité</h2></div>
     <div class="card cal-card">${calendar()}</div>
+    ${reviewsHtml()}
 
     <div class="section"><h2>Volume par semaine</h2></div>
     <div class="card vol-card">
@@ -389,6 +399,7 @@ function progress() {
       ${hist.length > 8 ? `<button class="btn btn-ghost btn-sm btn-block mt-s more-btn" id="hist-more">Voir plus de séances</button>` : ""}`
       : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
 
+  bindReviews(view);
   animateRings(view);
   bindProgressSeg();
   $("#body-add").onclick = bodySheet;
@@ -609,6 +620,26 @@ const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? 
 /* =========================================================
    Profil
    ========================================================= */
+// Ce que le coach sait de toi : visible, modifiable, effaçable
+function memorySheet() {
+  const sh = sheet(`<h2 class="h2">Ce que le coach sait de toi</h2>
+    <p class="muted small">Il s'en sert dans toutes ses réponses et ses séances. Dans le Coach, dis-lui simplement « retiens que… ».</p>
+    <div id="mem-list" class="mem-list mt-s"></div>
+    <label class="field"><span>Ajouter une info</span><input class="input" id="mem-in" maxlength="200" placeholder="Ex : épaule gauche fragile, pas de développé militaire"/></label>
+    <button class="btn btn-primary btn-block mt-s" id="mem-add">${I.plus} Ajouter</button>`);
+  const draw = () => {
+    const list = state.memory || [];
+    $("#mem-list", sh.el).innerHTML = list.length ? list.slice().reverse().map(m => `<div class="mem-row"><span class="grow">${esc(m.text)}<small class="xs muted">${m.src === "ai" ? "retenu par le coach" : "ajouté par toi"} · ${new Date(m.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</small></span>
+      <button class="icon-btn plain" data-del="${m.id}" aria-label="Oublier">${I.trash}</button></div>`).join("") : `<div class="a-empty">${I.info}<b>Rien pour l'instant</b><span>Blessures, matériel, préférences, horaires : tout ce qui aide le coach à te connaître.</span></div>`;
+    $$("[data-del]", sh.el).forEach(b => b.onclick = () => { removeMemory(state, b.dataset.del); save(); draw(); toast("Oublié"); });
+  };
+  $("#mem-add", sh.el).onclick = () => {
+    const input = $("#mem-in", sh.el);
+    if (addMemory(state, input.value, "user")) { input.value = ""; save(); draw(); toast("Retenu ✓"); } else input.focus();
+  };
+  draw();
+}
+
 function profile() {
   const p = state.profile;
   const r = rankInfo();
@@ -642,6 +673,8 @@ function profile() {
       <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Coach animé</b><span class="xs muted">Ton coach se balade à l'écran</span></div><input type="checkbox" id="p-mascot" ${p.mascot ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
+      <button class="set-row set-act" id="p-memory">${sic("user", "#0ea5e9")}<div class="grow"><b>Ce que le coach sait de toi</b><span class="xs muted">${(state.memory || []).length ? `${state.memory.length} info${state.memory.length > 1 ? "s" : ""} retenue${state.memory.length > 1 ? "s" : ""}` : "Blessures, matériel, préférences…"}</span></div>${I.chev}</button>
+      <button class="set-row set-act" id="p-nutri">${sic("scale", "#22c55e")}<div class="grow"><b>Objectifs nutrition</b><span class="xs muted">Calories, protéines, eau</span></div>${I.chev}</button>
     </div>
 
     <h2 class="set-title">Apparence</h2>
@@ -730,6 +763,8 @@ function profile() {
   bind("#p-mascot", t => { p.mascot = t.checked; spidey.setEnabled(t.checked); });
   bind("#p-voice", t => { p.voice = t.checked; if (t.checked) speak("Consignes vocales activées."); });
   bind("#p-sound", t => (p.sound = t.checked));
+  $("#p-memory").onclick = () => memorySheet();
+  $("#p-nutri").onclick = () => openTargets();
   bind("#p-pinlock", t => (p.pinLock = t.checked));
   bind("#p-ai", t => { p.aiEnabled = t.checked; });
   bind("#p-key", t => { p.aiKey = t.value.trim(); resetClient(); });

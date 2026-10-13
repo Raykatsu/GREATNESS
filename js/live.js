@@ -9,7 +9,8 @@ import { pickExercises } from "./train.js";
 import { defaultItem } from "./create.js";
 import { checkBadges } from "./badges.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
-import { debrief, athleteContext } from "./brain.js";
+import { debrief, athleteContext, answer } from "./brain.js";
+import { parseActions, streamText, applyAction, actionsGuide, resolveExercise } from "./aiact.js";
 import * as llm from "./llm.js";
 import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
@@ -18,7 +19,7 @@ import { openCam, camSupported, camTrackable } from "./cam.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { spidey } from "./spidey.js";
-import { $, $$, esc, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
+import { $, $$, esc, md, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 
 let S = null, ui = null, tick = null, wakeLock = null, rest = null, showCues = false, onExit = null, justDone = -1;
 const overlay = () => $("#overlay");
@@ -161,6 +162,7 @@ function render() {
   lastIdx = S.idx;
   const tools = [
     `<button class="tool" id="add-set">${I.plus}<span>Série</span></button>`,
+    `<button class="tool" id="ask">${I.sparkle}<span>Coach</span></button>`,
     `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
     `<button class="tool" id="skip">${I.skip}<span>Passer</span></button>`,
     camSupported() && ex.type !== "time" && camTrackable(ex.id) ? `<button class="tool" id="cam">${I.camera}<span>Compter</span></button>` : "",
@@ -374,6 +376,7 @@ function bind(ex) {
   $("#plates")?.addEventListener("click", () => toast("Disques calculés pour une barre de 20 kg."));
   $("#skip").onclick = () => { endRest(false); const ev = S.skip(); if (S.finished) return finish(); resetInputs(); render(); announce(ev); };
   $("#swap").onclick = openSwap;
+  $("#ask").onclick = askCoach;
   $("#undo")?.addEventListener("click", () => { endRest(false); if (S.undo()) { resetInputs(); const ex2 = S.current; const d = ex2.done.length; render(); toast(`Série ${d + 1} annulée`); } });
   $("#add-alt")?.addEventListener("click", () => { const id = S.log[0].swap; S.log[0].swap = null; S.insertAlt(id); resetInputs(); render(); const intro = S.intro(); speak(intro.say, { interrupt: true }); });
 }
@@ -472,6 +475,79 @@ function openSwap() {
   const sh = sheet(`<h2 class="h2">Remplacer ${esc(ex.name)}</h2><p class="muted small">Machine prise, pas le matériel, gêne ? Choisis une alternative.</p>
     ${alts.map(a => `<div class="pick-item" data-a="${a}"><div><div style="font-weight:600">${esc(EXERCISES[a].name)}</div><div class="xs muted">${esc(EXERCISES[a].muscle)}</div></div><div class="add">${I.swap}</div></div>`).join("")}`, { z: 60 });
   $$("[data-a]", sh.el).forEach(b => b.onclick = () => { sh.close(); S.swap(b.dataset.a); resetInputs(); render(); const intro = S.intro(); speak(intro.say, { interrupt: true }); });
+}
+
+/* ---------- Coach pendant la séance ---------- */
+// Réponses immédiates (même hors ligne) aux cas courants ; une vraie question part à l'IA en ligne,
+// qui connaît la séance en cours et peut changer la charge (action set_weight, à valider d'un geste).
+const QUICK = [["harder", "Trop facile"], ["easier", "Trop dur"], ["pain", "Gêne ou douleur"], ["busy", "Machine prise"], ["rest", "Combien de repos ?"]];
+function askCoach() {
+  const ex = S?.current;
+  if (!ex) return;
+  const sh = sheet(`<h2 class="h2">Demander au coach</h2>
+    <p class="muted small" id="ak-sub"></p>
+    <div class="ak-chips mt-s">${QUICK.map(([k, l]) => `<button class="chip" data-k="${k}">${l}</button>`).join("")}</div>
+    <div class="ak-row mt"><input class="input" id="ak-in" maxlength="300" placeholder="Pose ta question…" enterkeyhint="send" autocomplete="off"/>
+      <button class="btn btn-primary" id="ak-go" aria-label="Envoyer">${I.send}</button></div>
+    <div class="ak-out" id="ak-out" aria-live="polite"></div><div class="acts" id="ak-acts"></div>`, { z: 60 });
+  const out = $("#ak-out", sh.el), acts = $("#ak-acts", sh.el), input = $("#ak-in", sh.el);
+  const say = t => { out.innerHTML = md(t); };
+  const sub = () => { $("#ak-sub", sh.el).textContent = `${ex.name} · série ${Math.min(ex.done.length + 1, ex.sets)}/${ex.sets}${ex.type === "load" ? ` · ${fmtKg(ex.weight)} kg` : ` · objectif ${ex.goal}${ex.type === "time" ? " s" : " reps"}`}`; };
+  sub();
+  const adjust = dir => {
+    if (ex.type === "load") {
+      const w = Math.max(0, Math.round((ex.weight + dir * ex.step) / ex.step) * ex.step);
+      ex.weight = w; ui.weight = w;
+      return `Charge ${dir > 0 ? "montée" : "baissée"} à **${fmtKg(w)} kg** pour la prochaine série.`;
+    }
+    ex.goal = Math.max(1, ex.goal + dir * ex.step); ui.reps = ex.goal;
+    return `Objectif ${dir > 0 ? "relevé" : "baissé"} à **${ex.goal}${ex.type === "time" ? " s" : " reps"}** pour la prochaine série.`;
+  };
+  $$("[data-k]", sh.el).forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    acts.innerHTML = "";
+    if (k === "harder" || k === "easier") {
+      const t = adjust(k === "harder" ? 1 : -1);
+      render(); sub();
+      say(`${t} ${k === "easier" ? "Garde une technique propre et 1 à 2 reps en réserve." : "Si ça reste facile, on remontera encore à la série suivante."}`);
+      speak(t.replace(/\*\*/g, ""), { interrupt: true });
+    } else if (k === "pain") {
+      say("**Arrête l'exercice si la douleur est vive ou si elle pique.** Gêne légère : baisse la charge et réduis l'amplitude. Sinon, remplace-le par une variante qui ne fait pas mal, et parles-en à un professionnel si ça dure.");
+      acts.innerHTML = `<button class="chip red" id="ak-swap">${I.swap} Remplacer l'exercice</button>`;
+      $("#ak-swap", sh.el).onclick = () => { sh.close(); openSwap(); };
+    } else if (k === "busy") { sh.close(); openSwap(); }
+    else say(`Repos conseillé : **${ex.rest} s** entre les séries de cet exercice. Plus long (jusqu'à ${Math.round(ex.rest * 1.5)} s) si la série d'avant était très dure, plus court sur les petits muscles.`);
+  });
+  const ask = async () => {
+    const q = input.value.trim();
+    if (!q) return input.focus();
+    input.value = ""; acts.innerHTML = "";
+    if (!onlineReady()) return say(answer(q).text);
+    out.innerHTML = `<div class="rv-wait"><i class="spinner"></i><span>${esc(coachName())} réfléchit…</span></div>`;
+    try {
+      const res = await onlineChat({
+        search: false,
+        system: `Tu es ${coachName()}, le coach sportif de l'app GREATNESS. L'athlète est EN PLEINE SÉANCE, entre deux séries : réponds en 2 à 4 phrases, concrètes et directes, en français et en tutoyant. Pour changer la charge d'un exercice de la séance (en cours : ${ex.name}), utilise l'action set_weight.\n\n### Données de l'athlète\n${athleteContext()}\n\n### Séance en cours\n${JSON.stringify(S.snapshot())}\n\n${actionsGuide("")}`,
+        messages: [{ role: "user", content: q }],
+        onDelta: t => say(streamText(t)),
+      });
+      const { text, actions } = parseActions(res.text);
+      say(text || "C'est noté.");
+      if (actions.some(a => a.type === "remember")) { actions.filter(a => a.type === "remember").forEach(a => applyAction(a)); save(); }
+      const sw = actions.filter(a => a.type === "set_weight" && +a.weight >= 0);
+      acts.innerHTML = sw.map((a, i) => `<button class="chip red" data-sw="${i}">Appliquer : ${esc(EXERCISES[resolveExercise(a.exercise) || ex.id]?.name || ex.name)} à ${fmtKg(+a.weight)} kg</button>`).join("");
+      $$("[data-sw]", acts).forEach(b => b.onclick = () => {
+        const a = sw[+b.dataset.sw], id = resolveExercise(a.exercise) || ex.id, item = S.plan.find(x => x.id === id) || ex;
+        if (item.type !== "load") return toast("Cet exercice n'a pas de charge.");
+        item.weight = Math.max(0, Math.round(+a.weight / item.step) * item.step);
+        if (item === S.current) ui.weight = item.weight;
+        render(); sub(); b.disabled = true; b.textContent = `✓ ${item.name} : ${fmtKg(item.weight)} kg`;
+        toast(`${item.name} : ${fmtKg(item.weight)} kg`);
+      });
+    } catch (e) { say(`${answer(q).text}\n\n*(${e.message}${e.detail ? ` : ${e.detail}` : ""})*`); }
+  };
+  $("#ak-go", sh.el).onclick = ask;
+  input.onkeydown = e => { if (e.key === "Enter") ask(); };
 }
 
 function menu() {

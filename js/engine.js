@@ -32,6 +32,8 @@ function startingTarget(item) {
   const [min, max] = item.reps;
   let weight = item.weight;
   let goal = Math.round((min + max) / 2);
+  // charge fixée par le coach pour la prochaine séance
+  if (last?.next > 0 && meta.type === "load") return { weight: last.next, goal: min };
   if (last) {
     if (meta.type === "load") {
       weight = last.weight || item.weight;
