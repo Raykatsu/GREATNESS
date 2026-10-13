@@ -5,7 +5,7 @@ import { getProgram, allPrograms } from "./store.js";
 import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } from "./store.js";
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
-import { nutritionContext } from "./nutrition.js";
+import { nutritionContext, foodFacts } from "./nutrition.js";
 import { memoryContext } from "./memory.js";
 import { recoveryContext, recoveryAnswer } from "./recovery.js";
 import { actionsGuide } from "./aiact.js";
@@ -158,6 +158,9 @@ const INTENTS = [
 
 export function answer(q) {
   const t = norm(q);
+  // « Combien de calories dans… » : valeurs d'un aliment de la base (ou appris grâce à l'IA)
+  const facts = foodFacts(q, state);
+  if (facts) return { text: facts, matched: true, actions: [{ label: "Noter un repas", route: "#/food" }] };
   const exId = findExercise(q);
   const intent = INTENTS.find(i => i.re.test(t));
   // Une question technique sur un exercice précis l'emporte (sauf douleur).

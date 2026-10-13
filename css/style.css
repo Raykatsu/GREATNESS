@@ -2171,6 +2171,14 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .fr-k { font-family: var(--display); font-weight: 700; color: var(--muted); }
 .food-add { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--red-soft); color: var(--accent-ink); }
 .food-add svg { width: 17px; height: 17px; }
+.ai-ask { margin-top: 6px; }
+.ai-ask .ai-ic { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue-ink); }
+.ai-ask .ai-ic svg { width: 17px; height: 17px; }
+.ai-ask > svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.a-sec svg { width: 13px; height: 13px; color: var(--blue-ink); }
+.rv-ref { font-style: normal; color: var(--green-ink); }
+.a-note { display: flex; gap: 8px; margin: 10px 0 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--card-2); color: var(--muted); font-size: 13px; line-height: 1.4; }
+.a-note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 .meal-foot { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 6px; margin-left: -10px; border-top: 1px solid var(--line); }
 .meal-foot .btn svg { width: 16px; height: 16px; }
 .water .glasses { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 12px; }

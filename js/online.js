@@ -101,11 +101,11 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
   return { text: text.trim(), sources: end?.sources || [], remaining: end?.remaining ?? null, blocked: !!end?.blocked, cut: cut || !end || !!end.cut };
 }
 
-// Analyse d'un repas par l'IA en ligne (description ou photo) → { items: [{ name, grams, kcal, protein, carbs, fat, fiber }], note }
-export async function foodAI({ text = "", image = null } = {}) {
+// Demande JSON à la fonction (analyse de repas, aliment cherché par son nom)
+async function foodTask(payload, ms) {
   if (!isOnlineMode() || !authToken()) throw new OnlineError("DOWN", "comptes en ligne non configurés");
   if (navigator.onLine === false) throw new OnlineError("DOWN", "pas de connexion");
-  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 75000);
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), ms);
   let res;
   try {
     res = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/${AI_FUNCTION}`, {
@@ -115,7 +115,7 @@ export async function foodAI({ text = "", image = null } = {}) {
         ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token: authToken(), task: "food", text, image }),
+      body: JSON.stringify({ token: authToken(), task: "food", ...payload }),
       signal: ctrl.signal,
     });
   } catch (e) {
@@ -126,5 +126,17 @@ export async function foodAI({ text = "", image = null } = {}) {
   if (!j) throw new OnlineError("DOWN", `HTTP ${res.status}`);
   if (j.error) throw new OnlineError(j.error, j.detail);
   if (j.remaining != null) lastRemaining = j.remaining;
+  return j;
+}
+
+// Analyse d'un repas par l'IA en ligne (description ou photo) → { items: [{ name, grams, kcal, protein, carbs, fat, fiber }], note }
+export async function foodAI({ text = "", image = null } = {}) {
+  const j = await foodTask({ text, image }, 75000);
   return { items: Array.isArray(j.items) ? j.items : [], note: j.note || "" };
+}
+
+// Un aliment, un plat ou un produit cherché par son nom → { foods: [{ name, brand, kcal, protein… pour 100 g, portion_label, portion_grams, liquid }], note }
+export async function foodInfoAI(q) {
+  const j = await foodTask({ mode: "info", text: String(q || "").slice(0, 120) }, 45000);
+  return { foods: Array.isArray(j.foods) ? j.foods : [], note: j.note || "" };
 }

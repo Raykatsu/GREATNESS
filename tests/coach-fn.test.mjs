@@ -54,6 +54,14 @@ globalThis.fetch = async (url, opts = {}) => {
   if (model === (mode.overloadModel || "gemini-flash-latest") && (mode.overload || (mode.overloadOnce && !mode.overloaded))) { mode.overloaded = true; return fail(503, "This model is currently experiencing high demand."); }
   if (body.generationConfig?.responseMimeType === "application/json") { // analyse d'un repas
     if (mode.foodBroken === model) return Response.json({ candidates: [{ content: { parts: [{ text: "pas du json" }] } }] });
+    if (body.generationConfig.responseSchema?.properties?.foods) { // un aliment cherché par son nom
+      const foods = [{ name: "Phở au bœuf", kcal: 62, protein: 5, carbs: 7, fat: 1.5, fiber: 0.4, portion_label: "bol", portion_grams: 550, liquid: false },
+        { name: "Phở au poulet", brand: "", kcal: 58, protein: 5.5, carbs: 7, fat: 1, portion_label: "bol", portion_grams: 550 },
+        { name: "", kcal: 0, protein: 0, carbs: 0, fat: 0, portion_label: "", portion_grams: 0 },
+        { name: "Trop", kcal: 5000, protein: 900, carbs: 2, fat: 1, sugars: 300, salt: -2, portion_label: "x".repeat(50), portion_grams: 1e6 },
+        { name: "En trop", kcal: 50, protein: 1, carbs: 10, fat: 1, portion_label: "pot", portion_grams: 100 }];
+      return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ foods, note: "Valeurs moyennes." }) }] } }], modelVersion: VERSIONS[model] });
+    }
     const items = [{ name: "Blanc de poulet", grams: 200, kcal: 330, protein: 62, carbs: 0, fat: 7.2 }, { name: "Riz", grams: -5, kcal: 0, protein: 0, carbs: 0, fat: 0 }, { name: "x".repeat(90), grams: 99999, kcal: 1e9, protein: "12", carbs: 1, fat: 1 }];
     return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ items, note: "Portion de riz estimée." }) }] } }], modelVersion: VERSIONS[model] });
   }
@@ -268,6 +276,24 @@ test("repas : analyse d'une description ou d'une photo, valeurs bornées", async
   assert.equal((await call({ task: "food", text: "pomme" })).j.error, "BAD_REQUEST");
   quota = { error: "LIMIT" };
   assert.equal((await call({ token: "t", task: "food", text: "pomme" })).j.error, "LIMIT");
+});
+
+test("aliment cherché par son nom : valeurs pour 100 g, variantes, bornes", async () => {
+  await forget();
+  const call = async body => { calls.length = 0; const r = await handler(new Request("https://fn.test/coach", { method: "POST", body: JSON.stringify(body) })); return await r.json(); };
+  const j = await call({ token: "t", task: "food", mode: "info", text: "pho", image: { mime: "image/jpeg", data: "AAAA" } });
+  assert.equal(j.foods.length, 3); // 4 variantes au plus, l'élément vide retiré
+  assert.deepEqual(j.foods[0], { name: "Phở au bœuf", brand: "", kcal: 62, protein: 5, carbs: 7, fat: 1.5, fiber: 0.4, sugars: 0, salt: 0, portion_label: "bol", portion_grams: 550, liquid: false });
+  assert.deepEqual([j.foods[2].kcal, j.foods[2].protein, j.foods[2].sugars, j.foods[2].salt, j.foods[2].portion_label.length, j.foods[2].portion_grams], [900, 100, 100, 0, 30, 2000]);
+  assert.equal(j.note, "Valeurs moyennes.");
+  const g = gem()[0];
+  assert.ok(g.body.generationConfig.responseSchema.properties.foods);
+  assert.match(g.body.systemInstruction.parts[0].text, /POUR 100 g/);
+  assert.equal(g.body.contents[0].parts.length, 1); // pas de photo pour une recherche
+  assert.equal(g.body.contents[0].parts[0].text, "pho");
+  await call({ token: "t", task: "food", mode: "info", text: "x".repeat(500) });
+  assert.equal(gem()[0].body.contents[0].parts[0].text.length, 120);
+  assert.equal((await call({ token: "t", task: "food", mode: "info", text: "" })).error, "BAD_REQUEST");
 });
 
 test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => {

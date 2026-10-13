@@ -5,11 +5,11 @@ import { state, save } from "./store.js";
 import { GOALS } from "./data.js";
 import {
   MEALS, ACTIVITY, targets, dayKey, keyDate, shiftKey, dayOf, itemTotals, sumItems, addItem, updateItem, removeItem,
-  setWater, copyMeal, lastDays, weekNutrition, searchLocal, parseMeal, template, r1, newId,
+  setWater, copyMeal, lastDays, weekNutrition, searchLocal, parseMeal, template, r1, newId, aiInfoFood, learnFood, refFood,
 } from "./nutrition.js";
 import { lookupBarcode, searchOff } from "./off.js";
 import { openScanner, askCode } from "./scan.js";
-import { foodAI, OnlineError } from "./online.js";
+import { foodAI, foodInfoAI, OnlineError } from "./online.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings } from "./ui.js";
 
@@ -24,7 +24,7 @@ export const IC = {
 
 let viewKey = null, host = null;
 const mealName = id => MEALS.find(m => m.id === id)?.name || "Repas";
-const liquid = f => /verre|canette|tasse|demi|bouteille/.test(f.unit?.label || "") || /\b(lait|jus|soda|cafe|café|the|thé|biere|bière|vin|boisson|smoothie|eau)\b/i.test(f.name);
+const liquid = f => !!f.liquid || /verre|canette|tasse|demi|bouteille|coupe/.test(f.unit?.label || "") || /\b(lait|jus|soda|cafe|café|the|thé|biere|bière|vin|boisson|smoothie|eau)\b/i.test(f.name);
 const unitWord = f => (liquid(f) ? "ml" : "g");
 const nice = n => (Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toLocaleString("fr-FR", { maximumFractionDigits: 1 }));
 const SRC = { db: "Aliment courant", off: "Open Food Facts", custom: "Ajouté par toi", ai: "Estimé par l'IA", text: "Estimé", manual: "Ajout rapide" };
@@ -182,14 +182,39 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
   const row = (f, k) => `<button class="food-row" data-k="${k}"><span class="grow fr-txt"><span class="fr-name ellipsis">${esc(f.name)}</span>
     <span class="fr-sub ellipsis">${esc([f.brand, `${fmtNum(f.per.k)} kcal / 100 ${unitWord(f)}`, f.src === "db" ? "" : f.lastG ? `dernière fois ${nice(f.lastG)} ${unitWord(f)}` : ""].filter(Boolean).join(" · "))}</span></span>
     ${nutriBadge(f.nutri)}<span class="food-add">${I.plus}</span></button>`;
-  const bindRows = () => $$("[data-k]", res).forEach(b => b.onclick = () => openPortion(shown[+b.dataset.k], { meal: cur, then: () => input.focus({ preventScroll: true }) }));
+  const bindRows = () => {
+    $$("[data-k]", res).forEach(b => b.onclick = () => openPortion(shown[+b.dataset.k], { meal: cur, learn: input.value.trim(), then: () => input.focus({ preventScroll: true }) }));
+    $("#a-ai", res)?.addEventListener("click", askAI);
+  };
+  // L'IA connaît tous les aliments et tous les plats : valeurs pour 100 g et portion habituelle, retenues ensuite
+  const aiRow = q => (q.length >= 2 ? `<div id="a-ai-box"><button class="food-row ai-ask" id="a-ai"><span class="ai-ic">${I.sparkle}</span><span class="grow fr-txt">
+    <span class="fr-name ellipsis">Demander à l'IA : « ${esc(q)} »</span><span class="fr-sub">N'importe quel aliment, plat ou produit, valeurs estimées</span></span>${I.chev}</button></div>` : "");
+  async function askAI() {
+    const q = input.value.trim(), box = $("#a-ai-box", res);
+    if (!q || !box) return;
+    if (!aiAvailable()) { box.innerHTML = `<p class="a-note">${I.info}<span>L'IA en ligne demande un compte en ligne et une connexion. En attendant, essaie un autre nom ou l'ajout rapide.</span></p>`; return; }
+    box.innerHTML = `<div class="a-sec">L'IA cherche « ${esc(q)} » <i class="spinner"></i></div>`;
+    const my = seq;
+    try {
+      const r = await foodInfoAI(q);
+      if (my !== seq || !box.isConnected) return;
+      const list = r.foods.map(aiInfoFood);
+      if (!list.length) { box.innerHTML = `<p class="a-note">${I.info}<span>${esc(r.note || "L'IA ne reconnaît pas cet aliment.")}</span></p>`; return; }
+      const at = shown.length;
+      shown.push(...list);
+      box.innerHTML = `<div class="a-sec">${I.sparkle} Estimé par l'IA${r.note ? ` · ${esc(r.note)}` : ""}</div>${list.map((f, i) => row(f, at + i)).join("")}`;
+      bindRows();
+    } catch (e) {
+      if (my === seq && box.isConnected) box.innerHTML = `<p class="a-note">${I.alert}<span>${esc(e.message || "L'IA ne répond pas")}${e.detail ? ` (${esc(e.detail)})` : ""}</span></p>`;
+    }
+  }
 
   function home() {
     const recent = state.foodRecent || [], meals = state.foodMeals || [];
     shown = recent.slice(0, 15);
     res.innerHTML = (meals.length ? `<div class="a-sec">Mes repas enregistrés</div>${meals.map(m => `<div class="food-row saved-meal"><button class="grow fr-txt" data-sm="${m.id}"><span class="fr-name ellipsis">${esc(m.name)}</span>
         <span class="fr-sub ellipsis">${m.items.length} aliments · ${fmtNum(sumItems(m.items).k)} kcal</span></button><button class="icon-btn sm" data-smx="${m.id}" aria-label="Supprimer">${I.x}</button></div>`).join("")}` : "")
-      + (shown.length ? `<div class="a-sec">Récents</div>${shown.map(row).join("")}` : `<div class="a-empty">${I.search}<b>Cherche un aliment</b><span>Aliments courants et produits de marque (Open Food Facts), ou scanne le code-barres.</span></div>`);
+      + (shown.length ? `<div class="a-sec">Récents</div>${shown.map(row).join("")}` : `<div class="a-empty">${I.search}<b>Cherche un aliment</b><span>365 aliments et plats courants, les produits de marque (Open Food Facts) et, pour tout le reste, l'IA. Ou scanne le code-barres.</span></div>`);
     bindRows();
     $$("[data-sm]", res).forEach(b => b.onclick = () => {
       const m = meals.find(x => x.id === b.dataset.sm);
@@ -208,7 +233,7 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
     const local = searchLocal(q, state);
     shown = [...local];
     const online = isOnlineMode() || navigator.onLine !== false;
-    res.innerHTML = (local.length ? local.map(row).join("") : "") + (online && q.length >= 3 ? `<div class="a-sec" id="a-off">Produits de marque <i class="spinner"></i></div>` : local.length ? "" : `<div class="a-empty"><b>Rien trouvé</b><span>Essaie un autre mot, ou l'ajout rapide.</span></div>`);
+    res.innerHTML = (local.length ? local.map(row).join("") : "") + (online && q.length >= 3 ? `<div class="a-sec" id="a-off">Produits de marque <i class="spinner"></i></div>` : local.length ? "" : `<div class="a-empty"><b>Rien trouvé</b><span>Essaie un autre mot, demande à l'IA, ou fais un ajout rapide.</span></div>`) + aiRow(q);
     bindRows();
     clearTimeout(timer); abort?.abort();
     if (!online || q.length < 3) return;
@@ -242,7 +267,7 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
 }
 
 /* ---------- Quantité ---------- */
-export function openPortion(food, { meal = defaultMeal(), item = null, then } = {}) {
+export function openPortion(food, { meal = defaultMeal(), item = null, then, learn = null } = {}) {
   const unit = food.unit?.g ? food.unit : null, w = unitWord(food);
   let g = item ? item.g : food.lastG || unit?.g || 100, cur = item ? item.meal : meal;
   const sh = sheet(`<div class="pf-head">${food.img ? `<img class="pf-img" src="${esc(food.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : ""}
@@ -274,7 +299,10 @@ export function openPortion(food, { meal = defaultMeal(), item = null, then } = 
     if (!(g > 0)) { input.focus(); return; }
     const key = viewKey || dayKey();
     if (item) updateItem(state, key, item.id, { g, meal: cur });
-    else addItem(state, key, food, { g, meal: cur });
+    else {
+      addItem(state, key, food, { g, meal: cur });
+      if (food.src === "ai" && learn != null) learnFood(state, food, learn); // reconnu ensuite, même hors ligne
+    }
     save(); sh.close(); refresh();
     toast(item ? "Modifié ✓" : `${food.name} ajouté · ${fmtNum(itemTotals({ ...food, g }).k)} kcal`);
     then?.();
@@ -396,7 +424,11 @@ async function review(meal, { text = "", photo = null }) {
   try {
     if (aiAvailable()) {
       const r = await foodAI(photo ? { text, image: photo.image } : { text });
-      items = r.items.map(x => ({ name: x.name, g: x.grams || 100, per: per100(x), on: true }));
+      // un aliment connu de la base garde ses valeurs de référence ; l'IA donne la quantité
+      items = r.items.map(x => {
+        const ref = refFood(x.name);
+        return ref ? { name: ref.name, g: x.grams || ref.unit.g, per: ref.per, unit: ref.unit, on: true, ref: true } : { name: x.name, g: x.grams || 100, per: per100(x), on: true };
+      });
       note = r.note;
     } else throw new OnlineError("DOWN", "hors ligne");
   } catch (e) {
@@ -411,11 +443,11 @@ async function review(meal, { text = "", photo = null }) {
   const draw = () => {
     const tot = sumItems(items.filter(x => x.on));
     body.innerHTML = `<div class="rv-list">${items.map((x, i) => `<div class="rv-row ${x.on ? "" : "off"}"><button class="rv-check" data-on="${i}" aria-label="${x.on ? "Retirer" : "Garder"}">${x.on ? I.check : ""}</button>
-        <span class="grow fr-txt"><span class="fr-name ellipsis">${esc(x.name)}</span><span class="fr-sub tnum">${fmtNum(itemTotals(x).k)} kcal · P ${nice(r1(itemTotals(x).p))} g</span></span>
+        <span class="grow fr-txt"><span class="fr-name ellipsis">${esc(x.name)}</span><span class="fr-sub tnum">${fmtNum(itemTotals(x).k)} kcal · P ${nice(r1(itemTotals(x).p))} g${x.ref ? ` · <em class="rv-ref">valeurs de référence</em>` : ""}</span></span>
         <label class="rv-g"><input type="number" inputmode="decimal" min="0" step="any" value="${nice(x.g).replace(",", ".")}" data-g="${i}" aria-label="Quantité de ${esc(x.name)}"/><span>${unitWord(x)}</span></label></div>`).join("")}</div>
       <div class="rv-tot tnum"><b>${fmtNum(tot.k)} kcal</b> · P ${Math.round(tot.p)} g · G ${Math.round(tot.c)} g · L ${Math.round(tot.f)} g</div>
       ${note ? `<p class="xs muted">${esc(note)}</p>` : ""}
-      <p class="xs muted">${src === "ai" ? "Estimation de l'IA : vérifie les quantités, elles comptent plus que tout." : "Estimation à partir des aliments courants."}</p>
+      <p class="xs muted">${src === "ai" ? `Estimation de l'IA${items.some(x => x.ref) ? ", avec les valeurs de référence de la base pour les aliments courants" : ""} : vérifie les quantités, elles comptent plus que tout.` : "Estimation à partir des aliments courants."}</p>
       <div class="chips mt-s" id="rv-meal">${MEALS.map(m => `<button class="chip ${m.id === meal ? "on" : ""}" data-m="${m.id}">${m.name}</button>`).join("")}</div>
       <button class="btn btn-primary btn-block mt" id="rv-ok" ${items.some(x => x.on) ? "" : "disabled"}>${I.check} Ajouter ${items.filter(x => x.on).length} aliment${items.filter(x => x.on).length > 1 ? "s" : ""}</button>`;
     $$("[data-on]", body).forEach(b => b.onclick = () => { items[+b.dataset.on].on = !items[+b.dataset.on].on; draw(); });
@@ -423,7 +455,7 @@ async function review(meal, { text = "", photo = null }) {
     $$("#rv-meal .chip", body).forEach(b => b.onclick = () => { meal = b.dataset.m; $$("#rv-meal .chip", body).forEach(c => c.classList.toggle("on", c === b)); });
     $("#rv-ok", body).onclick = () => {
       const key = viewKey || dayKey(), keep = items.filter(x => x.on && x.g > 0);
-      keep.forEach(x => addItem(state, key, { name: x.name, per: x.per, unit: x.unit, src }, { g: x.g, meal }));
+      keep.forEach(x => addItem(state, key, { name: x.name, per: x.per, unit: x.unit, src: x.ref ? "db" : src }, { g: x.g, meal }));
       save(); sh.close(); refresh();
       toast(`${keep.length} aliment${keep.length > 1 ? "s" : ""} ajouté${keep.length > 1 ? "s" : ""} · ${fmtNum(sumItems(keep).k)} kcal`);
     };
