@@ -12,7 +12,6 @@ const RAD = Math.PI / 180;
 export const dir = a => [Math.sin(a * RAD), -Math.cos(a * RAD)];
 const add = (p, a, l) => { const d = dir(a); return [p[0] + d[0] * l, p[1] + d[1] * l]; };
 const lerp = (a, b, t) => a + (b - a) * t;
-const ease = t => t * t * (3 - 2 * t);
 const r1 = v => Math.round(v * 10) / 10;
 
 // Position debout, bras le long du corps. Angles en degrés : direction de l'os, de l'articulation proche vers
@@ -25,9 +24,11 @@ const PTS = ["Wt", "W2t", "At", "A2t", "Wr", "W2r"], SIDES = ["eb", "eb2", "kb",
 
 // Joints d'une pose : A cheville, K genou, H hanche, S épaule, E coude, W poignet (2 = côté éloigné),
 // N base du cou, C centre de la tête, et les pieds (talon / pointe).
-// Cibles facultatives (cinématique inverse) : Wt / W2t position du poignet, At / A2t position de la cheville ;
+// Cibles facultatives (cinématique inverse) : Wt / W2t position du poignet, At / A2t position de la cheville, Wv barre tenue
+// bras tendus sur la verticale x = Wv ; balance : équilibre (voir balanced) ;
 // eb / kb : côté du coude / du genou (+1 ou -1). luarm, lfarm… : raccourci de perspective (membre qui sort du plan).
 export function solve(q) {
+  if (q.balance) return balanced(q);
   const P = { ...STAND, ...q };
   const len = k => L[k] * (P["l" + k] ?? 1);
   let H;
@@ -50,15 +51,54 @@ export function solve(q) {
   // Wr : main placée dans le repère du buste [le long, en travers (+ devant)], ex. barre sur les épaules
   const rel = r => { const u = dir(P.torso), n = dir(P.torso + 90); return [S[0] + u[0] * r[0] + n[0] * r[1], S[1] + u[1] * r[0] + n[1] * r[1]]; };
   if (P.Wr && !P.Wt) P.Wt = rel(P.Wr);
+  if (P.Wv != null && !P.Wt) { // Wv : barre tenue bras tendus, sur la verticale x = Wv (trajectoire de barre droite)
+    const reach = len("uarm") + len("farm") - 0.01, dx = P.Wv - S[0];
+    P.Wt = [P.Wv, S[1] + Math.sqrt(Math.max(0, reach * reach - dx * dx))];
+  }
   if (P.W2r && !P.W2t) P.W2t = rel(P.W2r);
   if (P.Wt && P.at !== "wrist") [P.uarm, P.farm] = ik(S, P.Wt, len("uarm"), len("farm"), P.eb ?? 1);
-  if (P.W2t) [P.uarm2, P.farm2] = ik(S, P.W2t, len("uarm") * (P.luarm2 ?? 1) / (P.luarm ?? 1), len("farm"), P.eb2 ?? P.eb ?? 1);
+  // bras éloigné : il copie le bras proche (même raccourci) sauf s'il a sa propre cible ou ses propres angles
+  const la2 = L.uarm * (P.luarm2 ?? (ownArm2(P) ? 1 : P.luarm ?? 1));
+  if (P.W2t) [P.uarm2, P.farm2] = ik(S, P.W2t, la2, len("farm"), P.eb2 ?? P.eb ?? 1);
   const uarm2 = P.uarm2 ?? P.uarm, farm2 = P.farm2 ?? P.farm;
   const E = add(S, P.uarm, len("uarm")), W = add(E, P.farm, len("farm"));
-  const E2 = add(S, uarm2, len("uarm") * (P.luarm2 ?? 1) / (P.luarm ?? 1)), W2 = add(E2, farm2, len("farm"));
+  const E2 = add(S, uarm2, la2), W2 = add(E2, farm2, len("farm"));
   const ha = P.torso + topBend(P.spine) + (P.head || 0), S0 = P.shrug ? add(H, P.torso, L.torso) : S; // haussement : la tête ne bouge pas
   const N = add(S0, ha - (P.head || 0), 2.2), C = add(add(S0, ha, L.head), ha + 90, 0.9 - (P.chin || 0)); // chin : tête rentrée vers l'arrière
   return { H, K, A, K2, A2, S, E, W, E2, W2, N, C, ha, q: { ...P, thigh2, shin2, uarm2, farm2, foot2 }, ...feet(A, P.foot), ...feet(A2, foot2, "2") };
+}
+// Équilibre, comme le fait un vrai pratiquant : le centre de gravité (corps + charge tenue au point « of », en fraction du
+// poids du corps) reste à l'aplomb du milieu du pied. by : on cherche l'inclinaison du buste (« torso », par défaut) ou celle
+// des jambes autour des chevilles (« ankle » : les hanches partent en arrière). x : c'est le point « of » qui doit rester
+// à l'aplomb de x (barre guidée). balance : { of?, load?, x?, by?, min?, max? }
+function balanced(q) {
+  const { balance: b, ...r } = q, ankle = b.by === "ankle";
+  const pose = t => (ankle ? { ...r, thigh: (r.thigh ?? 180) + t, shin: (r.shin ?? 180) + t,
+    ...(r.thigh2 != null && { thigh2: r.thigh2 + t }), ...(r.shin2 != null && { shin2: r.shin2 + t }) } : { ...r, torso: t });
+  // cible : debout bras le long du corps, notre corps est d'aplomb 2,5 en arrière du milieu du pied ; une charge lourde
+  // (barre) se place, elle, au-dessus du milieu du pied
+  const f = t => {
+    const j = solve(pose(t)), x = b.x != null && b.of ? at(j, b.of)[0] : com(j, b.load, b.of);
+    return [x - (b.x ?? (j.heel[0] + j.toe[0]) / 2 - 2.5 / (1 + (b.load || 0))), j];
+  };
+  let lo = b.min ?? (ankle ? -30 : -25), hi = b.max ?? (ankle ? 30 : 95), [flo, jlo] = f(lo), [fhi, jhi] = f(hi);
+  if (flo > 0 === fhi > 0) return Math.abs(flo) < Math.abs(fhi) ? jlo : jhi; // pas d'équilibre possible : la butée la plus proche
+  let j = jlo;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2, [fm, jm] = f(mid);
+    j = jm;
+    if (fm > 0 === flo > 0) { lo = mid; flo = fm; } else hi = mid;
+  }
+  return j;
+}
+// Centre de gravité horizontal : masses des segments du corps (tables de Winter) + charge facultative au point « of »
+const SEG = [["H", "S", 0.497, 0.5], ["S", "C", 0.081, 1], ["S", "E", 0.028, 0.436], ["E", "W", 0.022, 0.6], ["S", "E2", 0.028, 0.436], ["E2", "W2", 0.022, 0.6],
+  ["H", "K", 0.1, 0.433], ["K", "A", 0.0465, 0.433], ["H", "K2", 0.1, 0.433], ["K2", "A2", 0.0465, 0.433], ["heel", "toe", 0.0145, 0.5], ["heel2", "toe2", 0.0145, 0.5]];
+export function com(j, load = 0, of) {
+  let x = 0, m = 0;
+  for (const [a, c, w, s] of SEG) { x += w * (j[a][0] + (j[c][0] - j[a][0]) * s); m += w; }
+  if (load && of) { x += load * at(j, of)[0]; m += load; }
+  return x / m;
 }
 // Courbure du dos : le haut du buste s'enroule vers l'avant (spine > 0) ou se creuse (spine < 0)
 const bendK = spine => ((spine || 0) / 90) * L.torso * 0.2;
@@ -79,39 +119,84 @@ function feet(A, foot, k = "") {
   return { ["heel" + k]: add(add(A, foot, -3.2), down, L.ankle), ["toe" + k]: add(add(A, foot, 8.8), down, L.ankle) };
 }
 
-// Pose au temps p (0 → 1) d'un mouvement à positions clés { p, ...pose } ; loop : le mouvement tourne en boucle
+// Pose au temps p (0 → 1) d'un mouvement à positions clés { p, ...pose } ; loop : le mouvement tourne en boucle.
+// Entre les positions clés, chaque angle suit une courbe douce (cubique monotone) : le corps ne s'arrête qu'aux vrais
+// changements de sens, sans à-coup ni dépassement ; une main ou un pied posé aux deux positions reste sur sa cible.
 export function sample(move, p) {
   const ks = move.keys;
   if (ks.length === 1) return { ...move.base, ...ks[0] };
   p = move.loop ? ((p % 1) + 1) % 1 : Math.max(0, Math.min(1, p));
+  const P = prep(move);
   let i = 0;
-  while (i < ks.length - 2 && p > ks[i + 1].p) i++;
-  const a = ks[i], b = ks[i + 1];
-  const t = b.p === a.p ? 1 : (move.linear ? (p - a.p) / (b.p - a.p) : ease((p - a.p) / (b.p - a.p)));
-  const A = { ...move.base, ...a }, B = { ...move.base, ...b };
-  // cible d'un seul côté (main ou pied placé d'un côté, angles de l'autre) : on résout chaque position clé
-  // et on interpole les angles obtenus, sans que le coude ou le genou change de côté en route
-  for (const k of PTS) if (!A[k] !== !B[k]) {
-    const [ja, jb] = [solve(A).q, solve(B).q];
-    for (const ang of LIMB_OF[k]) { A[ang] = ja[ang]; B[ang] = jb[ang]; }
-    delete A[k]; delete B[k]; if (k[0] === "W") { delete A[k[1] === "2" ? "W2t" : "Wt"]; delete B[k[1] === "2" ? "W2t" : "Wt"]; }
+  while (i < ks.length - 2 && p > P.ps[i + 1]) i++;
+  const h = P.ps[i + 1] - P.ps[i], u = h > 0 ? Math.min(1, Math.max(0, (p - P.ps[i]) / h)) : 1;
+  const A = P.ks[i], B = P.ks[i + 1], out = { ...A };
+  for (const c of KEYS) out[c] = herm(P.ps, P.chan[c], P.slope[c], i, u);
+  for (const [c, par] of REL) out[c] += out[par];
+  for (const k of PTS) {
+    delete out[k];
+    if (A[k] && B[k]) out[k] = [herm(P.ps, P.pt[k][0], P.pts[k][0], i, u), herm(P.ps, P.pt[k][1], P.pts[k][1], i, u)];
   }
-  const out = { ...A };
-  for (const k of KEYS) {
-    const va = A[k], vb = B[k];
-    if (va == null && vb == null) continue;
-    const dflt = k.startsWith("l") ? 1 : STAND[k];
-    const x = va ?? (k.endsWith("2") ? A[k.slice(0, -1)] : dflt), y = vb ?? (k.endsWith("2") ? B[k.slice(0, -1)] : dflt);
-    if (x != null && y != null) out[k] = ANGLES.has(k) ? lerpAngle(x, y, t) : lerp(x, y, t);
-  }
-  for (const k of PTS) if (A[k] && B[k]) out[k] = [lerp(A[k][0], B[k][0], t), lerp(A[k][1], B[k][1], t)];
   for (const k of SIDES) out[k] = A[k] ?? B[k]; // côté du coude / du genou : jamais interpolé
+  for (const c of TWO) if (!P.own[c][i] && !P.own[c][i + 1]) delete out[c]; // membre éloigné non décrit : il copie l'autre
   return out;
 }
-const LIMB_OF = { Wt: ["uarm", "farm"], Wr: ["uarm", "farm"], W2t: ["uarm2", "farm2"], W2r: ["uarm2", "farm2"], At: ["thigh", "shin"], A2t: ["thigh2", "shin2"] };
+// Préparation (une fois par mouvement) : chaque position clé complète, angles résolus (cinématique inverse comprise)
+// et déroulés pour rester continus, pentes de chaque courbe
+const PREP = new WeakMap();
+const dflt = c => (c[0] === "l" && c !== "lerp" ? 1 : STAND[c] ?? 0);
+function prep(move) {
+  let P = PREP.get(move);
+  if (P) return P;
+  const ks = move.keys.map(k => ({ ...move.base, ...k })), ps = ks.map(k => k.p), qs = ks.map(k => solve(k).q);
+  const chan = {}, slope = {}, pt = {}, pts = {};
+  for (const c of KEYS) chan[c] = qs.map((q, i) => q[c] ?? ks[i][c] ?? (c === "luarm2" ? (ownArm2(ks[i]) ? 1 : q.luarm ?? 1)
+    : c.endsWith("2") && c[0] !== "l" ? q[c.slice(0, -1)] ?? dflt(c.slice(0, -1)) : dflt(c)));
+  // avant-bras et tibia suivis par rapport au bras et à la cuisse : le coude et le genou plient toujours dans le bon sens
+  for (const [c, par] of REL) chan[c] = chan[c].map((v, i) => n180(v - chan[par][i]));
+  for (const c of KEYS) {
+    const v = chan[c];
+    if (ANGLES.has(c)) for (let i = 1; i < v.length; i++) v[i] = v[i - 1] + n180(v[i] - v[i - 1]);
+    slope[c] = slopes(ps, v, move.loop);
+  }
+  for (const k of PTS) {
+    pt[k] = [0, 1].map(a => ks.map(q => (q[k] ? q[k][a] : NaN)));
+    pts[k] = pt[k].map(v => slopes(ps, v, move.loop));
+  }
+  const own = {};
+  for (const c of TWO) own[c] = ks.map(k => k[c] != null || (TWO_BY[c] || []).some(t => k[t] != null));
+  P = { ks, ps, chan, slope, pt, pts, own };
+  PREP.set(move, P);
+  return P;
+}
+// Pentes d'une cubique monotone (Fritsch–Butland) : nulles aux extrémités d'un aller-retour et à chaque sommet
+function slopes(ps, v, loop) {
+  const n = v.length, m = new Array(n).fill(0), ok = i => i >= 0 && i < n && !Number.isNaN(v[i]);
+  for (let i = 0; i < n; i++) {
+    if (!ok(i)) continue;
+    let l = i - 1, r = i + 1, hl, hr;
+    if (loop && i === 0) l = n - 2;
+    if (loop && i === n - 1) r = 1;
+    if (!ok(l) || !ok(r) || (!loop && (i === 0 || i === n - 1))) continue;
+    hl = i === 0 ? ps[n - 1] - ps[n - 2] : ps[i] - ps[l];
+    hr = i === n - 1 ? ps[1] - ps[0] : ps[r] - ps[i];
+    const dl = (v[i] - v[l]) / (hl || 1e-9), dr = (v[r] - v[i]) / (hr || 1e-9);
+    if (!(dl * dr > 0)) continue; // sommet ou palier : arrêt naturel
+    m[i] = (3 * (hl + hr)) / ((2 * hr + hl) / dl + (hr + 2 * hl) / dr);
+  }
+  return m;
+}
+function herm(ps, v, m, i, u) {
+  const h = ps[i + 1] - ps[i], u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * v[i] + (u3 - 2 * u2 + u) * h * m[i] + (-2 * u3 + 3 * u2) * v[i + 1] + (u3 - u2) * h * m[i + 1];
+}
 const ANGLES = new Set(["thigh", "shin", "torso", "uarm", "farm", "foot", "thigh2", "shin2", "uarm2", "farm2", "foot2"]);
-// par le plus court chemin (un os ne fait jamais le tour par l'autre côté)
-const lerpAngle = (a, b, t) => a + ((((b - a) % 360) + 540) % 360 - 180) * t;
+const REL = [["shin", "thigh"], ["shin2", "thigh2"], ["farm", "uarm"], ["farm2", "uarm2"]];
+const n180 = a => ((((a + 180) % 360) + 360) % 360) - 180;
+// Canaux du membre éloigné et les cibles qui les décident
+const TWO = ["thigh2", "shin2", "uarm2", "farm2", "foot2", "hand2", "luarm2"];
+const ownArm2 = q => q.W2t != null || q.W2r != null || q.uarm2 != null;
+const TWO_BY = { thigh2: ["A2t"], shin2: ["A2t"], uarm2: ["W2t", "W2r"], farm2: ["W2t", "W2r"] };
 
 /* ---------- Matériel ---------- */
 // Point désigné par un nom de joint (« W », « S »…), avec décalage facultatif le long d'un angle
@@ -529,14 +614,21 @@ const FKEYS = Object.keys(FSTAND);
 export function sampleFront(move, p) {
   const ks = move.keys;
   p = move.loop ? ((p % 1) + 1) % 1 : Math.max(0, Math.min(1, p));
-  let i = 0;
-  while (i < ks.length - 2 && p > ks[i + 1].p) i++;
-  const a = { ...FSTAND, ...move.base, ...ks[i] }, b = { ...FSTAND, ...move.base, ...(ks[i + 1] || ks[i]) };
-  const t = ks.length < 2 || b.p === a.p ? 1 : (move.linear ? (p - a.p) / (b.p - a.p) : ease((p - a.p) / (b.p - a.p)));
+  let P = FPREP.get(move);
+  if (!P) { // mêmes courbes douces que de profil
+    const rows = ks.map(k => ({ ...FSTAND, ...move.base, ...k })), ps = rows.map(r => r.p ?? 0), v = {}, m = {};
+    for (const k of FKEYS) { v[k] = rows.map(r => r[k]); m[k] = slopes(ps, v[k], move.loop); }
+    FPREP.set(move, P = { ps, v, m });
+  }
   const out = {};
-  for (const k of FKEYS) out[k] = lerp(a[k], b[k], t);
+  if (ks.length < 2) { for (const k of FKEYS) out[k] = P.v[k][0]; return out; }
+  let i = 0;
+  while (i < ks.length - 2 && p > P.ps[i + 1]) i++;
+  const h = P.ps[i + 1] - P.ps[i], u = h > 0 ? Math.min(1, Math.max(0, (p - P.ps[i]) / h)) : 1;
+  for (const k of FKEYS) out[k] = herm(P.ps, P.v[k], P.m[k], i, u);
   return out;
 }
+const FPREP = new WeakMap();
 export function solveFront(q) {
   const P = [q.x, q.y], up = -q.lean, S0 = add(P, up, L.torso + q.shrug), side = up + 90;
   const sh = (s, w) => add(S0, side, s * w), hip = (s, w) => add(P, side, s * w);
