@@ -219,7 +219,7 @@ function openCompare(all, pose, focusId) {
     if (t1 && t2) parts.push(`tour de taille ${t2 - t1 > 0 ? "+" : t2 < t1 ? "−" : ""}${num(Math.abs(t2 - t1))} cm`);
     return parts.join(" · ");
   };
-  const lab = (p, k) => `${k} · ${fmtDay(p.date, { day: "numeric", month: "short", year: "2-digit" })}${p.weight ? ` · ${num(p.weight)} kg` : ""}`;
+  const lab = (p, k) => `${k} · ${fmtDay(p.date, { day: "numeric", month: "short", ...(new Date(p.date).getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}) })}${p.weight ? ` · ${num(p.weight)} kg` : ""}`;
   const draw = () => {
     const ua = u(a), ub = u(b), main = $("#cp-main", sh.el);
     main.innerHTML = mode === "wipe"

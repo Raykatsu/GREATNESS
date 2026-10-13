@@ -20,7 +20,7 @@ import { chart } from "./chart.js";
 import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
 import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
-import { pushBlocker, pushEnabled, enablePush, disablePush } from "./push.js";
+import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 import { coachName } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
@@ -335,6 +335,7 @@ let socialAt = 0;
 async function socialTick() {
   if (!currentUser || !isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
   socialAt = Date.now();
+  refreshPush();
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
   const top = ev.find(e => e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
@@ -715,7 +716,7 @@ function profile() {
     <div class="card card-list set-list">
       <label class="set-row">${sic("clock", "#3b82f6")}<b class="grow">Heure de la séance</b><input class="set-in" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
       <label class="set-row">${sic("bell", "#f59e0b")}<b class="grow">Alerte</b><select class="set-in" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="toggle set-row">${sic("notif", "#ef4444")}<div class="grow"><b>Notifications de rappel</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Les jours de séance, sauf si elle est déjà faite")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
+      <label class="toggle set-row">${sic("notif", "#ef4444")}<div class="grow"><b>Notifications</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Rappels les jours de séance, et défis de tes amis (duel, dépassé au classement)")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
       <button class="set-row set-act" id="rem-ics">${sic("calplus", "#22c55e")}<b class="grow">Ajouter à mon calendrier</b>${I.chev}</button>
     </div>
     <p class="set-note">Une notification avant chaque séance prévue, même app fermée. Ou ajoute-les à ton calendrier.</p>
@@ -769,8 +770,8 @@ function profile() {
   $("#p-push").onchange = async e => {
     const c = e.target; c.disabled = true;
     try {
-      if (c.checked) { saveRem(); await enablePush(); toast(`Rappels activés : ${p.remindBefore ? p.remindBefore + " min avant" : "à"} ${p.remindAt}, les jours de séance.`, 4000); }
-      else { await disablePush(); toast("Rappels désactivés."); }
+      if (c.checked) { saveRem(); await enablePush(); toast(`Notifications activées : rappel ${p.remindBefore ? p.remindBefore + " min avant" : "à"} ${p.remindAt} les jours de séance, et défis de tes amis.`, 4500); }
+      else { await disablePush(); toast("Notifications désactivées."); }
     } catch (err) { c.checked = false; toast(err.message || "Impossible d'activer les notifications.", 5000); }
     c.disabled = false;
   };

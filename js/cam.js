@@ -48,7 +48,7 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
   const video = wrap.querySelector("video"), canvas = wrap.querySelector("canvas"), g = canvas.getContext("2d");
   const msg = t => { const m = $("#cam-msg", wrap); if (m && m.textContent !== t) m.textContent = t; };
   let stream = null, raf = null, closed = false, facing = "user", lastSeen = 0, side = null;
-  let counter = new RepCounter(pat), coach = new FormCoach(ex.id), event = null, shown = null, said = {}, lastSay = 0, lastSec = 0;
+  let counter = new RepCounter(pat), coach = new FormCoach(ex.id), event = null, sticky = null, shown = null, said = {}, lastSay = 0, lastSec = 0;
 
   const stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); stream = null; };
   const close = () => { if (closed) return; closed = true; stop(); wrap.remove(); };
@@ -74,9 +74,12 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
     if (!key) return;
     box.className = `cam-form ${id ? "bad" : "ok"}`;
     box.innerHTML = id ? `${I.alert}<span>${esc(issueText(id))}</span>` : `${I.check}<span>${hold ? "Position parfaite, tiens bon" : "Bonne technique, continue"}</span>`;
-    if (!id) return;
-    vibrate([30, 40, 30]);
+    if (id) nudge(id);
+  }
+  // le coach le dit (et le redit si le défaut continue), sans parler en boucle
+  function nudge(id) {
     const now = performance.now();
+    vibrate([30, 40, 30]);
     if (voice && now - lastSay > 3500 && now - (said[id] || -1e9) > 9000) { speak(ISSUES[id].say, { interrupt: true }); lastSay = now; said[id] = now; }
   }
 
@@ -161,13 +164,17 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
       const e = coach.event(r, now);
       if (e) event = { id: e, until: now + 2600 };
       if (r === "rep") {
+        // le défaut de cette rep reste affiché jusqu'à une rep propre
+        const done = coach.reps[coach.reps.length - 1]?.issues || [];
+        sticky = Object.keys(ISSUES).find(id => done.includes(id)) || null;
+        if (sticky && sticky === shown) nudge(sticky);
         setN(); quality(); beep(1040, 0.08); vibrate(15);
         msg(counter.count === 1 ? "Bien ! Continue." : "Rep comptée");
         if (voice && counter.count % 5 === 0 && !f?.issue && !e) speak(String(counter.count));
       } else { beep(300, 0.12, "square", 0.05); msg("Rep non comptée"); }
     }
     if (event && now > event.until) event = null;
-    showForm(f?.issue || event?.id || null, counter.start != null);
+    showForm(f?.issue || event?.id || sticky, counter.start != null);
     return f;
   }
 
@@ -189,7 +196,7 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
     box.querySelector("[data-again]").onclick = () => { box.hidden = true; reset(); startCam(); };
   }
   function reset() {
-    counter = new RepCounter(pat); coach = new FormCoach(ex.id); event = null; lastSec = 0;
+    counter = new RepCounter(pat); coach = new FormCoach(ex.id); event = sticky = null; lastSec = 0;
     setN(false); quality(); showForm(null, false); msg("Compteur remis à zéro.");
   }
 

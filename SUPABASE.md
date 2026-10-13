@@ -24,23 +24,17 @@ Compte environ 10 minutes.
 
 Même chose avec le fichier [`supabase/002_social.sql`](supabase/002_social.sql) : SQL Editor → New query → coller → **Run**. À faire une seule fois (le relancer ne casse rien).
 
-## 2 ter. Activer les vraies notifications de rappel (facultatif)
+## 2 ter. Notifications (rappels de séance et défis entre amis)
 
-Les rappels arrivent sur le téléphone les jours de séance (même app fermée), à l'heure choisie dans Moi → Réglages → Rappels.
+Avec le déploiement automatique (secret GitHub `SUPABASE_ACCESS_TOKEN`, voir « Déploiement automatique »), il n'y a rien à faire : à chaque modification de `supabase/`, GitHub installe [`003_push.sql`](supabase/003_push.sql) et [`005_social_push.sql`](supabase/005_social_push.sql), crée les clés VAPID si elles manquent (la privée reste dans les secrets Supabase), déploie la fonction `reminders` et la planifie toutes les 15 minutes (pg_cron + pg_net). L'app lit la clé publique auprès de la fonction : pas de clé à recopier.
 
-1. **SQL Editor** → New query → colle tout le contenu de [`supabase/003_push.sql`](supabase/003_push.sql) → **Run**.
-2. **Edge Functions** → *Deploy a new function* → *Via Editor*. Nom : `reminders`. Remplace le code par celui de [`supabase/functions/reminders/index.ts`](supabase/functions/reminders/index.ts) → **Deploy**.
-   Puis dans les *Details* de la fonction, **désactive « Verify JWT »** et enregistre (la fonction n'envoie que les rappels dus, une seule fois par jour : l'appeler en trop ne fait rien).
-3. **Edge Functions → Secrets** → ajoute trois secrets :
-   - `VAPID_PUBLIC_KEY` : la valeur de `VAPID_PUBLIC_KEY` dans `js/config.js`
-   - `VAPID_PRIVATE_KEY` : la clé privée qui va avec (donnée à part, **ne la mets jamais dans le code**)
-   - `VAPID_SUBJECT` : `mailto:ton.adresse@mail.com`
-4. **Integrations → Cron** → active-le → *Create job* : nom `greatness-reminders`, planning `*/15 * * * *` (toutes les 15 min), type *Supabase Edge Function*, méthode POST, fonction `reminders`.
-5. Dans l'app : **Moi → Réglages → Rappels → Notifications de rappel**. Sur iPhone (iOS 16.4 ou plus), il faut d'abord ajouter l'app à l'écran d'accueil et l'ouvrir depuis l'icône.
+Ce que la fonction envoie : le rappel les jours de séance (sauf si elle est déjà faite), et les défis entre amis (invitation à un duel, ami qui te dépasse au classement, dernières heures d'un duel le dimanche soir), jamais la nuit et 3 par jour au plus.
 
-Pour tester sans attendre : *Edge Functions → reminders → Test* doit répondre `{"due":0,"sent":0,"gone":0}` (aucun rappel dû à cet instant) et pas une erreur.
+Dans l'app : **Moi → Réglages → Notifications**. Sur iPhone (iOS 16.4 ou plus), il faut d'abord ajouter l'app à l'écran d'accueil et l'ouvrir depuis l'icône.
 
-> Pour changer de paire de clés VAPID : `npx web-push generate-vapid-keys`, mets la publique dans `js/config.js` et dans le secret, la privée seulement dans le secret. Les téléphones devront réactiver les rappels.
+Pour vérifier : onglet **Actions** → « Supabase (IA en ligne) » → étape « Notifications » : `Essai de la fonction : {"due":0,"social":0,"sent":0,"gone":0}` (rien de dû à cet instant) et « Sans la clé de planification : HTTP 403 ».
+
+> Pour changer de paire de clés VAPID : supprime les secrets `VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY` dans Supabase puis relance le déploiement ; les téléphones se réabonnent tout seuls à la prochaine ouverture.
 
 ## 2 quater. Brancher l'IA en ligne du coach (Gemini, gratuit)
 
