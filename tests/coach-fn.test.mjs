@@ -32,7 +32,7 @@ function stream(list, { cutAfter = 0, stallAfter = 0, signal } = {}) {
 }
 // Gemini qui ne répond jamais (jusqu'à l'annulation)
 const hang = signal => new Promise((_, rej) => signal?.addEventListener("abort", () => rej(new DOMException("annulé", "AbortError"))));
-const VERSIONS = { "gemini-flash-latest": "gemini-3.8-flash", "gemini-flash-lite-latest": "gemini-3.5-flash-lite", "gemini-2.5-flash": "gemini-2.5-flash", "gemma-4-31b-it": "gemma-4-31b-it" };
+const VERSIONS = { "gemini-flash-latest": "gemini-3.8-flash", "gemini-3.7-flash": "gemini-3.7-flash", "gemini-flash-lite-latest": "gemini-3.5-flash-lite", "gemma-4-26b-a4b-it": "gemma-4-26b-a4b-it" };
 const fail = (status, message) => Response.json({ error: { code: status, message } }, { status });
 
 globalThis.fetch = async (url, opts = {}) => {
@@ -51,6 +51,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (body.generationConfig?.thinkingConfig && (mode.noThinking || []).includes(model)) return fail(400, "Thinking level is not supported for this model.");
   if (body.tools && (mode.noSearch || []).includes(model)) return fail(429, "Resource has been exhausted (e.g. check quota).");
   if (mode.all429 || (mode.flash429 && model === "gemini-flash-latest") || (mode.gemmaOnly && !model.startsWith("gemma"))) return fail(429, "quota");
+  if (model === "gemini-flash-latest" && (mode.overload || (mode.overloadOnce && !mode.overloaded))) { mode.overloaded = true; return fail(503, "This model is currently experiencing high demand."); }
   if (!url.includes("streamGenerateContent")) return Response.json({ candidates: [{ content: { parts: [{ text: "OK" }] } }], modelVersion: VERSIONS[model] });
   if (mode.hangFlash && model === "gemini-flash-latest") return hang(opts.signal);
   if (mode.emptyFlash && model === "gemini-flash-latest") return stream([{ candidates: [{ content: { parts: [] }, finishReason: "SAFETY" }] }], { signal: opts.signal });
@@ -95,8 +96,8 @@ test("question d'entraînement : meilleur modèle, réflexion courte, sans reche
 test("question d'actualité : recherche Google et sources", async () => {
   reset();
   const { ev } = await ask(WEBQ);
-  assert.deepEqual(tried(), ["gemini-2.5-flash+recherche"]);
-  assert.equal(gem()[0].body.generationConfig.thinkingConfig, undefined); // réglage réservé à Gemini 3 et plus
+  assert.deepEqual(tried(), ["gemini-flash-latest+recherche"]);
+  assert.deepEqual(gem()[0].body.generationConfig.thinkingConfig, { thinkingLevel: "low" });
   assert.deepEqual(ev.at(-1).sources, [{ url: "https://ex.fr/a", title: "Source A" }]);
   for (const q of ["Quel est le prix d'une barre olympique ?", "Une vidéo YouTube pour le soulevé de terre ?", "Les résultats des championnats de France 2026 ?"]) {
     await ask(question(q));
@@ -110,13 +111,13 @@ test("question d'actualité : recherche Google et sources", async () => {
   assert.equal(gem()[0].body.tools, undefined);
 });
 
-test("secours : Flash-Lite, Gemini 2.5, puis Gemma (consignes dans le premier message)", async () => {
+test("secours : Flash précédent, Flash-Lite, puis Gemma (consignes dans le premier message)", async () => {
   reset(); mode = { flash429: true };
-  assert.equal((await ask(Q)).ev.at(-1).model, "gemini-flash-lite-latest");
-  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest"]);
+  assert.equal((await ask(Q)).ev.at(-1).model, "gemini-3.7-flash");
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-3.7-flash"]);
   mode = { gemmaOnly: true };
-  assert.equal((await ask(Q)).ev.at(-1).model, "gemma-4-31b-it");
-  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemma-4-31b-it"]);
+  assert.equal((await ask(Q)).ev.at(-1).model, "gemma-4-26b-a4b-it");
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-3.7-flash", "gemini-flash-lite-latest", "gemma-4-26b-a4b-it"]);
   const gm = gem().at(-1);
   assert.equal(gm.body.systemInstruction, undefined);
   assert.equal(gm.body.tools, undefined);
@@ -128,7 +129,7 @@ test("réponse vide ou bloquée : on passe au modèle suivant", async () => {
   reset(); mode = { emptyFlash: true };
   const { ev } = await ask(Q);
   assert.equal(text(ev), "Bonjour Alex !");
-  assert.equal(ev.at(-1).model, "gemini-flash-lite-latest");
+  assert.equal(ev.at(-1).model, "gemini-3.7-flash");
   assert.equal(ev.at(-1).blocked, true);
 });
 
@@ -144,11 +145,22 @@ test("Gemini trop lent ou muet : modèle suivant, ou début de réponse gardé",
   reset(); mode = { hangFlash: true };
   let { ev } = await ask(Q);
   assert.equal(text(ev), "Bonjour Alex !");
-  assert.equal(ev.at(-1).model, "gemini-flash-lite-latest");
+  assert.equal(ev.at(-1).model, "gemini-3.7-flash");
   mode = { stall: true };
   ({ ev } = await ask(Q));
   assert.equal(text(ev), "Bonjour ");
   assert.equal(ev.at(-1).cut, true);
+});
+
+test("surcharge passagère (503) : un nouvel essai, puis le modèle suivant", async () => {
+  reset(); mode = { overloadOnce: true };
+  let { ev } = await ask(Q);
+  assert.equal(ev.at(-1).model, "gemini-flash-latest");
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-latest"]);
+  mode = { overload: true };
+  ({ ev } = await ask(Q));
+  assert.equal(ev.at(-1).model, "gemini-3.7-flash");
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-latest", "gemini-3.7-flash"]);
 });
 
 test("pannes : la cause précise est renvoyée à l'app", async () => {
@@ -156,7 +168,7 @@ test("pannes : la cause précise est renvoyée à l'app", async () => {
   let { ev } = await ask(Q);
   assert.equal(ev.length, 1);
   assert.equal(ev[0].error, "DOWN");
-  assert.match(ev[0].detail, /gemma-4-31b-it : HTTP 429 quota/);
+  assert.match(ev[0].detail, /gemma-4-26b-a4b-it : HTTP 429 quota/);
   mode = { badKey: true };
   ({ ev } = await ask(Q));
   assert.match(ev[0].detail, /API key not valid/);
@@ -183,16 +195,17 @@ test("004_ai.sql pas encore lancé : le jeton est quand même vérifié", async 
 });
 
 test("recherche refusée par le quota : modèle suivant, et on n'insiste plus ensuite", async () => {
-  reset(); mode = { noSearch: ["gemini-2.5-flash"] };
+  reset(); mode = { noSearch: ["gemini-flash-latest"] };
   let { ev } = await ask(WEBQ);
   assert.equal(ev.at(-1).model, "gemini-flash-lite-latest");
-  assert.deepEqual(tried(), ["gemini-2.5-flash+recherche", "gemini-flash-lite-latest+recherche"]);
+  assert.deepEqual(tried(), ["gemini-flash-latest+recherche", "gemini-flash-lite-latest+recherche"]);
   ({ ev } = await ask(WEBQ));
   assert.deepEqual(tried(), ["gemini-flash-lite-latest+recherche"]);
-  mode = { noSearch: ["gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-flash-latest"] };
-  ({ ev } = await ask(WEBQ)); // plus aucune recherche possible : réponse sans recherche
+  mode = { noSearch: ["gemini-flash-lite-latest", "gemini-flash-latest"] };
+  ({ ev } = await ask(WEBQ)); // plus aucune recherche possible : réponse sans recherche, par le meilleur modèle
   assert.equal(text(ev), "Bonjour Alex !");
   assert.equal(ev.at(-1).model, "gemini-flash-latest");
+  assert.deepEqual(tried(), ["gemini-flash-lite-latest+recherche", "gemini-flash-latest"]);
 });
 
 test("modèle qui refuse le réglage de réflexion : réessayé sans, et retenu", async () => {
