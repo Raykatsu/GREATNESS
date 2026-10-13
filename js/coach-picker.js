@@ -1,6 +1,6 @@
 // Choix du coach : carte « Ton coach » (en tête des Réglages), galerie par univers dans une feuille,
 // et la même galerie, compacte, dans l'accueil des nouveaux comptes.
-import { GROUPS, TRAVELS, all, byIdGet, loadGroup, current, setCoach, figure, fxRgb, groupStatus, onCoachChange, coachLine } from "./chars/index.js";
+import { GROUPS, TRAVELS, all, byIdGet, loadGroup, current, setCoach, figure, fxRgb, groupStatus, onCoachChange, coachLine, coachFace, none } from "./chars/index.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, sheet, toast, I } from "./ui.js";
 
@@ -21,11 +21,11 @@ export function coachCard(el, { open = false } = {}) {
   const draw = () => {
     const c = current();
     el.innerHTML = `<div class="coach-card" style="${look(c)}">
-      <button class="cc-stage" aria-label="Dire bonjour à ${esc(c.name)}">${figure(c, { pose: "idle" })}</button>
+      <button class="cc-stage" aria-label="Dire bonjour à ${esc(c.name)}">${c.id === "none" ? coachFace("cc-none", c) : figure(c, { pose: "idle" })}</button>
       <div class="cc-info">
         <div class="eyebrow">Ton coach</div>
         <div class="cc-name">${esc(c.name)}</div>
-        <div class="cc-tags"><span class="cc-tag uni">${esc(c.group)}</span><span class="cc-tag">${TRAVEL_ICON[c.travel]}${travelLabel(c)}</span></div>
+        <div class="cc-tags">${c.id === "none" ? `<span class="cc-tag uni">Personnages masqués</span>` : `<span class="cc-tag uni">${esc(c.group)}</span><span class="cc-tag">${TRAVEL_ICON[c.travel]}${travelLabel(c)}</span>`}</div>
         ${c.bio ? `<p class="cc-bio">${esc(c.bio)}</p>` : ""}
         <button class="btn btn-soft btn-sm cc-change" id="coach-change">${I.swap}Changer</button>
       </div>
@@ -33,6 +33,7 @@ export function coachCard(el, { open = false } = {}) {
     const stage = $(".cc-stage", el);
     stage.onclick = () => {
       const svg = $("svg", stage);
+      if (c.id === "none") return openCoachGallery();
       svg.setAttribute("class", svg.getAttribute("class").replace(/pose-\S+/, "pose-wave") + " mood-happy");
       clearTimeout(stage._t);
       stage._t = setTimeout(() => svg.setAttribute("class", svg.getAttribute("class").replace(/pose-\S+/, "pose-idle").replace(" mood-happy", "")), 1500);
@@ -57,7 +58,7 @@ export function openCoachGallery() {
     onPick: c => {
       sh.close();
       if (c.id === current().id) return;
-      setTimeout(async () => { const ok = await setCoach(c.id); if (ok) toast(`${ok.name} est ton nouveau coach !`); }, 240);
+      setTimeout(async () => { const ok = await setCoach(c.id); if (ok) toast(ok.id === "none" ? "Personnages masqués : l'app reste sobre." : `${ok.name} est ton nouveau coach !`); }, 240);
     },
   });
 }
@@ -88,6 +89,10 @@ export function coachGallery(el, { compact = false, onPick } = {}) {
       <b class="cg-name">${esc(c.name)}</b>
       <span class="cg-meta">${compact ? "" : `<span>${esc(c.group)}</span>`}<span class="cg-tr" title="${esc(travelLabel(c))}">${TRAVEL_ICON[c.travel]}</span></span>
       <i class="cg-check" aria-hidden="true">${I.check}</i></button>`;
+  // pas de personnage du tout : un badge sobre, la mascotte et les visages disparaissent
+  const noneTile = on => `<button class="cg-tile cg-none${on ? " on" : ""}" data-coach="none" style="--i:0" aria-pressed="${on}" aria-label="Aucun personnage">
+      <span class="cg-fig">${coachFace("cg-badge", none())}</span><b class="cg-name">Aucun personnage</b>
+      <span class="cg-meta"><span>App sobre</span></span><i class="cg-check" aria-hidden="true">${I.check}</i></button>`;
   const skel = () => `<div class="cg-tile cg-sk" aria-hidden="true"><span class="cg-fig"></span><b class="cg-name"></b><span class="cg-meta"></span></div>`;
 
   const drawGrid = animate => {
@@ -97,7 +102,7 @@ export function coachGallery(el, { compact = false, onPick } = {}) {
     grid.classList.toggle("still", !animate);
     const soon = !pending.length && filter === "Tous" && list.length < 3
       ? `<div class="cg-tile cg-soon" aria-hidden="true"><span class="cg-fig"><i class="cg-q">?</i></span><b class="cg-name">Bientôt</b><span class="cg-meta">D'autres coachs arrivent</span></div>` : "";
-    grid.innerHTML = list.map((c, i) => tile(c, i, c.id === cur)).join("") + pending.flatMap(() => [skel(), skel(), skel()]).join("") + soon;
+    grid.innerHTML = (filter === "Tous" ? noneTile(cur === "none") : "") + list.map((c, i) => tile(c, i + 1, c.id === cur)).join("") + pending.flatMap(() => [skel(), skel(), skel()]).join("") + soon;
     if (animate && !first) grid.scrollTop = 0;
     first = false;
     drawNote();
@@ -110,7 +115,7 @@ export function coachGallery(el, { compact = false, onPick } = {}) {
 
   grid.onclick = e => {
     const t = e.target.closest("[data-coach]");
-    const c = t && byIdGet(t.dataset.coach);
+    const c = t && (t.dataset.coach === "none" ? none() : byIdGet(t.dataset.coach));
     if (!c) return;
     $$(".cg-tile", grid).forEach(x => { const on = x === t; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
     if (onPick) return onPick(c);

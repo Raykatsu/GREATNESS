@@ -76,7 +76,19 @@ Moi → **Amis & défis** :
 
 ## Démos des exercices
 
-Un petit bouton **▶ Démo** à côté de chaque exercice (aperçu des séances, création, sélecteur, séance en cours, fiche exercice) ouvre une démonstration pour débutants : animation en grand avec les muscles qui travaillent en couleur, l'étape en cours écrite en direct, ralenti et pause, mise en place, respiration, points clés et erreurs à éviter.
+Un petit bouton **▶ Démo** à côté de chaque exercice (aperçu des séances, création, sélecteur, séance en cours, fiche exercice) ouvre une démonstration pour débutants : animation en grand, l'étape en cours écrite en direct, ralenti et pause, mise en place, respiration, points clés et erreurs à éviter.
+
+Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
+
+- **un vrai corps** aux proportions humaines (os de longueur fixe : le corps ne se déforme jamais), animé de profil, de face, de dos ou de dessus selon ce qui montre le mieux le geste ;
+- **le matériel** : barre et disques, haltères, kettlebell, bancs plats ou inclinés, machines (presse, leg extension, leg curl, pec deck, poulies et câbles), barre de traction, barres de dips, box, élastiques, rouleau, tapis, vélo, rameur, tapis de course… ;
+- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), et une **carte du corps face / dos** avec la légende ;
+- **des repères** : trajectoire de la barre, « cuisses parallèles », dos plat, angle du genou ou du coude, articulation qui reste fixe, flèche du mouvement ;
+- les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
+
+## Personnages
+
+22 coachs à choisir (Héros, Manga, Mignons, Animaux), dont **Harley Quinn**. Pour une app sobre : **Moi → Réglages → Personnages** (ou « Aucun personnage » dans la galerie) masque la mascotte et les visages ; le choix est gardé sur le compte et sur l'appareil, même avant la connexion.
 
 ## Onglet Créer
 
@@ -111,7 +123,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ## Fonctionnalités
 
-- **21 coachs animés au choix** (Héros, Manga, Mignons, Animaux), chacun avec sa façon de se déplacer (toile, vol, sauts, ninja, marche) : Moi → Réglages → Ton coach.
+- **22 coachs animés au choix** (Héros, Manga, Mignons, Animaux), chacun avec sa façon de se déplacer (toile, vol, sauts, ninja, marche) : Moi → Réglages → Ton coach. Ou aucun personnage, pour une app sobre.
 - **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
@@ -164,8 +176,11 @@ js/badges.js      succès
 js/social.js      amis, classement, défis, partage de séance
 js/merge.js       fusion des données entre appareils
 js/voice.js       mains libres (reconnaissance vocale)
-js/motion.js      mouvements des exercices + compteur de reps par angles
-js/anim.js        bonhomme animé des exercices
+js/motion.js      types de mouvement + compteur de reps par angles
+js/body.js        démos dessinées : corps, matériel, muscles, repères, carte du corps
+js/moves.js       les 183 mouvements (positions clés) et leurs consignes
+js/anim.js        petites démos animées (vignettes)
+js/demo.js        fiche Démo des exercices
 js/cam.js         compteur de reps à la caméra (MediaPipe)
 js/push.js        abonnement aux notifications de rappel
 sw.js             cache hors ligne + réception des notifications
