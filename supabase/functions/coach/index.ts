@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-9";
+const VERSION = "coach-10";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -16,9 +16,10 @@ const env = (k: string) => (Deno.env.get(k) ?? "").trim();
 const KEY = env("GEMINI_API_KEY");
 const list = (v: string) => v.split(",").map(s => s.trim()).filter(Boolean);
 // Modèles, du meilleur au plus endurant. Les alias « latest » suivent le dernier Flash et Flash-Lite de
-// Google. En période de forte demande, la version gratuite du dernier Flash peut rester muette : Flash-Lite
-// (très rapide) prend alors le relais, puis le Flash précédent et Gemma. Un modèle retiré (404) est sauté.
-const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemini-3.7-flash,gemma-4-26b-a4b-it");
+// Google. En période de forte demande, la version gratuite du dernier Flash peut rester muette ou épuiser son
+// quota : Flash-Lite (très rapide) prend alors le relais, puis les Flash précédents (quotas séparés, souvent
+// disponibles quand les plus récents saturent) et Gemma. Un modèle retiré (404) est sauté.
+const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemini-3.7-flash,gemini-3.6-flash,gemma-4-26b-a4b-it");
 // Recherche Google, pour les questions qui demandent une info récente (actualité, prix, études…), essayée
 // avant les modèles sans recherche. Le quota gratuit de Google la refuse souvent : le refus est retenu
 // 15 min et la réponse vient alors sans recherche (elle marche dès que la facturation Google est activée).
@@ -368,7 +369,7 @@ function diagnose() {
         // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun ; plus deux candidats
         // et le meilleur modèle sans réglage de réflexion, pour comparer leur réactivité
         const probes = [...MODELS.map(model => ({ model, thinking: true })), { model: MODELS[0], thinking: false },
-          ...["gemini-3.5-flash", "gemini-3.6-flash"].filter(m => !MODELS.includes(m)).map(model => ({ model, thinking: true }))];
+          ...["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"].filter(m => !MODELS.includes(m)).map(model => ({ model, thinking: true }))];
         const tests = await Promise.all(probes.map(async ({ model, thinking }) => {
           const s = Date.now(), name = `essai ${model}${thinking ? "" : " (réflexion par défaut)"}`;
           try {
@@ -395,7 +396,7 @@ function diagnose() {
 }
 
 /* ---------- Repas : estimation nutritionnelle d'une description ou d'une photo (réponse JSON) ---------- */
-const FOOD_MODELS = list(env("GEMINI_FOOD_MODELS") || "gemini-flash-lite-latest,gemini-flash-latest,gemini-3.7-flash");
+const FOOD_MODELS = list(env("GEMINI_FOOD_MODELS") || "gemini-flash-lite-latest,gemini-flash-latest,gemini-3.7-flash,gemini-3.6-flash");
 const FOOD_PROMPT = `Tu es nutritionniste. On te décrit un repas (texte) ou on te montre sa photo. Liste les aliments, estime leur quantité en grammes (millilitres pour les boissons) et leurs valeurs nutritionnelles POUR CETTE QUANTITÉ (pas pour 100 g).
 Règles : noms courts en français ; quantité non précisée → portion adulte standard ; plat classique → un seul élément (« Pizza margherita, 1/2 ») ; sinon ses composants principaux ; pense à l'huile de cuisson, aux sauces et aux boissons mentionnées ou visibles ; valeurs réalistes (tables CIQUAL ou USDA). Si ce n'est pas de la nourriture, renvoie une liste vide et explique-le dans la note. La note (facultative, une phrase) signale une incertitude utile.`;
 const FOOD_SCHEMA = {

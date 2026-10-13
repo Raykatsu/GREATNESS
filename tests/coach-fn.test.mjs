@@ -119,13 +119,13 @@ test("question d'actualité : recherche Google et sources", async () => {
   assert.equal(gem()[0].body.tools, undefined);
 });
 
-test("secours : Flash-Lite, le Flash précédent, puis Gemma (consignes dans le premier message)", async () => {
+test("secours : Flash-Lite, les Flash précédents, puis Gemma (consignes dans le premier message)", async () => {
   await forget(); mode = { flash429: true };
   assert.equal((await ask(Q)).ev.at(-1).model, "gemini-flash-lite-latest");
   assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest"]);
   mode = { gemmaOnly: true };
   assert.equal((await ask(Q)).ev.at(-1).model, "gemma-4-26b-a4b-it");
-  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash", "gemma-4-26b-a4b-it"]);
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash", "gemini-3.6-flash", "gemma-4-26b-a4b-it"]);
   const gm = gem().at(-1);
   assert.equal(gm.body.systemInstruction, undefined);
   assert.equal(gm.body.tools, undefined);
@@ -176,7 +176,7 @@ test("surcharge (503) : modèle suivant tout de suite, nouvel essai seulement po
   await forget(); mode = { gemmaOnly: true, overloadOnce: true, overloadModel: "gemma-4-26b-a4b-it" };
   ({ ev } = await ask(Q));
   assert.equal(ev.at(-1).model, "gemma-4-26b-a4b-it");
-  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash", "gemma-4-26b-a4b-it", "gemma-4-26b-a4b-it"]);
+  assert.deepEqual(tried(), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash", "gemini-3.6-flash", "gemma-4-26b-a4b-it", "gemma-4-26b-a4b-it"]);
 });
 
 test("pannes : la cause précise est renvoyée à l'app", async () => {
@@ -188,7 +188,7 @@ test("pannes : la cause précise est renvoyée à l'app", async () => {
   mode = { badKey: true };
   ({ ev } = await ask(Q));
   assert.match(ev[0].detail, /API key not valid/);
-  assert.equal(tried().length, 4); // un seul essai par modèle
+  assert.equal(tried().length, 5); // un seul essai par modèle
 });
 
 test("compte : limite, jeton refusé, requêtes invalides", async () => {
@@ -298,7 +298,7 @@ test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => 
   assert.equal(web.sources, 1);
   assert.equal(step("repas (IA)").answered, true);
   assert.equal(step("repas (IA)").items, 2);
-  assert.equal(lines.filter(l => /^essai /.test(l.step)).length, 7);
+  assert.equal(lines.filter(l => /^essai /.test(l.step)).length, 8);
   assert.ok(step("essai gemini-flash-latest (réflexion par défaut)"));
   assert.equal(step("essai gemini-3.6-flash").status, 200);
   for (const secret of [env.GEMINI_API_KEY, "sb_secret_abc", "eyJancienne", env.DIAG_TOKEN]) assert.ok(!raw.includes(secret), "secret dans le diagnostic");
