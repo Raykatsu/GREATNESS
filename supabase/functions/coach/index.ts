@@ -1,10 +1,11 @@
 // GREATNESS : le coach en ligne. Reçoit la question et le contexte du compte (profil, séances,
 // records, programme…), appelle Gemini (avec la recherche Google) et renvoie la réponse en flux (SSE).
 // Déployée automatiquement par GitHub Actions (.github/workflows/supabase.yml) : voir SUPABASE.md.
-// Secrets (Edge Functions → Secrets) : GEMINI_API_KEY (obligatoire, gratuite sur aistudio.google.com),
-// GEMINI_MODELS (facultatif, liste séparée par des virgules), AI_DAILY_LIMIT (facultatif, 80 par défaut).
+// Secrets (Edge Functions → Secrets) : GEMINI_API_KEY (obligatoire, gratuite sur aistudio.google.com).
+// Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
+// (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-4";
+const VERSION = "coach-5";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -13,10 +14,15 @@ const CORS = {
 };
 const env = (k: string) => (Deno.env.get(k) ?? "").trim();
 const KEY = env("GEMINI_API_KEY");
-// Alias « latest » : suivent le dernier modèle de Google. Flash-Lite puis Gemma prennent le relais
-// quand le quota gratuit du modèle précédent est épuisé (Gemma : quota large, mais sans recherche Google).
-const MODELS = (env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemma-3-27b-it")
-  .split(",").map(s => s.trim()).filter(Boolean);
+const list = (v: string) => v.split(",").map(s => s.trim()).filter(Boolean);
+// Modèles, du meilleur au plus endurant. Les alias « latest » suivent le dernier Flash et Flash-Lite de
+// Google ; Gemini 2.5 Flash et Gemma ont leur propre quota gratuit et prennent le relais quand il le faut.
+const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemini-2.5-flash,gemma-4-31b-it");
+// Recherche Google, pour les questions qui demandent une info récente (actualité, prix, études…) :
+// modèles dont le quota gratuit l'autorise, essayés dans l'ordre avant les modèles sans recherche.
+const SEARCH_MODELS = list(env("GEMINI_SEARCH_MODELS") || "gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest");
+// Réflexion des modèles Gemini 3 et plus : « low » répond en quelques secondes au lieu d'une vingtaine.
+const THINKING = env("GEMINI_THINKING") || "low";
 const LIMIT = Number(env("AI_DAILY_LIMIT") || 80);
 const SB = env("SUPABASE_URL").replace(/\/$/, "");
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta";
@@ -37,7 +43,7 @@ const GUARD = `Tu es le coach sportif de l'app GREATNESS. Réponds toujours en f
 Tu es un vrai expert : entraînement de force et d'hypertrophie, programmation, technique, mobilité, nutrition sportive, sommeil et récupération. Tes réponses sont précises, chiffrées et personnalisées avec les données de l'athlète (charges, reps, records, objectif, poids de corps, historique). Réponds d'abord exactement à la question posée, puis donne le conseil concret à appliquer à la prochaine séance.
 Si le message décrit une performance (ex. « 4×5 à 100 kg à l'échec »), analyse-la : effort (RPE, reps en réserve), 1RM estimé, comparaison avec ses records, puis la charge et les reps à viser la prochaine fois.
 Sécurité : en cas de douleur ou de blessure, conseille d'arrêter l'exercice et de consulter un professionnel de santé ; ne pose pas de diagnostic médical ; ne donne jamais de dosage de médicament ni de produit dopant ; pas de conseils de régime extrême.
-Tu peux utiliser la recherche Google quand une question demande une info factuelle récente ou précise (études, actualité, produits, lieux), pas pour les questions d'entraînement que les données de l'athlète suffisent à traiter.`;
+Quand la recherche Google est disponible, utilise-la pour les infos factuelles récentes ou précises (études, actualité, produits, prix, lieux), pas pour les questions d'entraînement que les données de l'athlète suffisent à traiter. Sans recherche, réponds avec tes connaissances et signale simplement quand une info a pu changer.`;
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Attempt = { model: string; search: boolean };
@@ -93,6 +99,16 @@ function contents(messages: Msg[]) {
 }
 
 const isGemma = (model: string) => /gemma/i.test(model);
+// Mémoire de l'instance (elle sert plusieurs requêtes de suite) : modèles qui refusent le réglage de
+// réflexion, et recherche refusée par le quota (on n'insiste pas pendant 15 min).
+const noThinking = new Set<string>();
+const searchBlocked = new Map<string, number>();
+const thinks = (model: string) => THINKING !== "default" && !noThinking.has(model) && !/lite|gemma|gemini-[12]\./i.test(model);
+
+// La question demande-t-elle une info récente ou introuvable dans les données de l'athlète ?
+const WEB = /\b(actu|actus|actualites?|news|recemment|recente?s?|derni(er|ere|ers|eres) (etudes?|recherches?|nouvelles?|versions?|sorties?)|etudes?|meta-analyses?|selon (la science|les etudes|les chercheurs)|prix|couts?|coute|tarifs?|promos?|acheter|achat|ou trouver|magasins?|boutiques?|marques?|avis sur|comparatif|horaires?|adresse|pres de chez|meteo|match|tournoi|championnats?|jeux olympiques|record du monde|qui a gagne|transferts?|sites?|liens?|videos?|youtube|internet|google|cherche sur|20[2-9]\d)\b/;
+const wantsWeb = (text: string) => WEB.test(text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
 function requestBody(model: string, search: boolean, system: string, messages: Msg[]) {
   const sys = `${GUARD}\n\n${system}`.trim();
   const conv = contents(messages);
@@ -105,18 +121,18 @@ function requestBody(model: string, search: boolean, system: string, messages: M
     systemInstruction: { parts: [{ text: sys }] },
     contents: conv,
     ...(search ? { tools: [{ google_search: {} }] } : {}),
-    generationConfig: { maxOutputTokens: 16384 },
+    generationConfig: { maxOutputTokens: 16384, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
   };
 }
 
-function plan(search: boolean): Attempt[] {
-  const out: Attempt[] = [];
-  for (const model of MODELS) {
-    if (search && !isGemma(model)) out.push({ model, search: true });
-    out.push({ model, search: false });
-  }
+// Ordre des essais : avec la recherche Google d'abord si la question en a besoin, puis sans.
+function plan(web: boolean): Attempt[] {
+  const now = Date.now(), out: Attempt[] = [];
+  if (web) for (const model of SEARCH_MODELS) if (!isGemma(model) && (searchBlocked.get(model) ?? 0) < now) out.push({ model, search: true });
+  for (const model of MODELS) out.push({ model, search: false });
   return out;
 }
+const errMsg = (t: string) => { try { return String(JSON.parse(t)?.error?.message ?? t); } catch { return t; } };
 
 async function gemini(model: string, body: unknown, stream: boolean, signal?: AbortSignal) {
   const url = `${GEMINI}/models/${model}:${stream ? "streamGenerateContent?alt=sse" : "generateContent"}`;
@@ -168,11 +184,13 @@ function chunkInfo(chunk: any) {
 // totale (la plateforme coupe une requête au bout de 150 s).
 const FIRST_MS = Number(env("GEMINI_FIRST_MS") || 45_000), STALL_MS = Number(env("GEMINI_STALL_MS") || 30_000);
 type Run = { model: string; version: string; err: string; cut: boolean; blocked: boolean; ttft: number; tries: string[]; sources: Map<string, string> };
-async function* converse(system: string, messages: Msg[], search: boolean, run: Run, budgetMs = 120_000) {
+async function* converse(system: string, messages: Msg[], web: boolean, run: Run, budgetMs = 120_000) {
   const skip = new Set<string>();
   const t0 = Date.now(), deadline = t0 + budgetMs;
   const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
-  for (const a of plan(search)) {
+  const queue = plan(web);
+  while (queue.length) {
+    const a = queue.shift()!;
     if (skip.has(a.model)) continue;
     if (deadline - Date.now() < 8_000) { run.err ||= "temps maximal dépassé"; return; }
     const label = `Gemini ${a.model}${a.search ? " + recherche" : ""}`;
@@ -190,12 +208,18 @@ async function* converse(system: string, messages: Msg[], search: boolean, run: 
         continue;
       }
       if (!res.ok || !res.body) {
-        const t = await res.text().catch(() => "");
+        const t = errMsg(await res.text().catch(() => ""));
         run.err = `${label} : HTTP ${res.status} ${clip(t, 240)}`;
-        run.tries.push(`${label} → HTTP ${res.status} (${secs(Date.now() - s)})`);
+        run.tries.push(`${label} → HTTP ${res.status} (${secs(Date.now() - s)}) ${clip(t, 140)}`);
         console.error(run.err);
-        // 429 avec la recherche : c'est peut-être le quota de la recherche, on réessaie sans
-        if ([401, 403, 404].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t)) || (res.status === 429 && !a.search)) skip.add(a.model);
+        if (res.status === 400 && /thinking/i.test(t) && !noThinking.has(a.model)) {
+          noThinking.add(a.model); // ce modèle ne connaît pas le réglage de réflexion : on réessaie sans
+          queue.unshift(a);
+        } else if (a.search && (res.status === 429 || (res.status === 400 && /search|grounding|tool/i.test(t)))) {
+          searchBlocked.set(a.model, Date.now() + 15 * 60e3); // quota de la recherche : le modèle reste utilisable sans
+        } else if ([401, 403, 404, 429].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t))) {
+          skip.add(a.model);
+        }
         continue;
       }
       try {
@@ -231,7 +255,7 @@ const newRun = (): Run => ({ model: "", version: "", err: "", cut: false, blocke
 const topSources = (run: Run) => [...run.sources].slice(0, 5).map(([url, title]) => ({ url, title }));
 
 // Réponse en flux pour l'app. Un « ping » toutes les 8 s garde la connexion ouverte pendant que Gemini réfléchit.
-function chat(system: string, messages: Msg[], search: boolean, quota: { remaining?: number | null; note?: string }) {
+function chat(system: string, messages: Msg[], web: boolean, quota: { remaining?: number | null; note?: string }) {
   let closed = false;
   return new Response(new ReadableStream({
     async start(c) {
@@ -240,7 +264,7 @@ function chat(system: string, messages: Msg[], search: boolean, quota: { remaini
       const run = newRun();
       let sent = 0;
       try {
-        for await (const t of converse(system, messages, search, run)) {
+        for await (const t of converse(system, messages, web, run)) {
           if (closed) break; // l'app a fermé la connexion
           sent += t.length; send(sse({ t }));
         }
@@ -275,7 +299,7 @@ function diagnose() {
           step: "configuration", version: VERSION,
           gemini_key: { present: !!KEY, length: KEY.length, prefix: KEY.slice(0, 3) },
           server_key: { sources: keys.map(x => x.source), format: k.startsWith("sb_secret_") ? "sb_secret" : k.startsWith("eyJ") ? "jwt" : k ? "autre" : "absente" },
-          supabase_url: SB ? "présente" : "ABSENTE", models: MODELS, daily_limit: LIMIT,
+          supabase_url: SB ? "présente" : "ABSENTE", models: MODELS, search_models: SEARCH_MODELS, thinking: THINKING, daily_limit: LIMIT,
         });
         try {
           const r = await rpc("gt_ai_take", { p_token: "diagnostic", p_limit: LIMIT });
@@ -292,15 +316,26 @@ function diagnose() {
               .map(m => String(m.name).replace("models/", "")).filter(n => /flash|pro|gemma/i.test(n)) });
           } else line({ step: "modèles disponibles", error: `HTTP ${r.status} ${clip(t, 300)}` });
         } catch (e) { line({ step: "modèles disponibles", error: clip((e as Error).message) }); }
-        // Le vrai chemin du chat : flux + recherche Google, avec une question type
-        const s = Date.now(), run = newRun();
-        let text = "", chunks = 0;
-        try {
-          for await (const t of converse("Athlète : Alex, 80 kg, objectif force. Développé couché : record 100 kg × 3.",
-            [{ role: "user", content: "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?" }], true, run, 70_000)) { text += t; chunks++; }
-        } catch (e) { run.err = `erreur interne : ${clip((e as Error).message)}`; }
-        ok = !!text.trim();
-        line({ step: "chat (flux + recherche)", answered: ok, model: run.model, version: run.version, first_text_ms: run.ttft, ms: Date.now() - s, chunks, chars: text.length, sources: run.sources.size, tries: run.tries, ...(ok ? { sample: clip(text, 200) } : { error: run.err }) });
+        // Le vrai chemin du chat, avec deux questions types : une d'entraînement (sans recherche)
+        // et une d'actualité (recherche Google), en parallèle. On repart de zéro : refus retenus oubliés.
+        searchBlocked.clear();
+        noThinking.clear();
+        const probe = async (name: string, question: string) => {
+          const s = Date.now(), run = newRun();
+          let text = "", chunks = 0;
+          try {
+            const web = wantsWeb(question);
+            for await (const t of converse("Athlète : Alex, 80 kg, objectif force. Développé couché : record 100 kg × 3.", [{ role: "user", content: question }], web, run, 65_000)) { text += t; chunks++; }
+          } catch (e) { run.err = `erreur interne : ${clip((e as Error).message)}`; }
+          const answered = !!text.trim();
+          line({ step: name, answered, model: run.model, version: run.version, first_text_ms: run.ttft, ms: Date.now() - s, chunks, chars: text.length, sources: run.sources.size, tries: run.tries, ...(answered ? { sample: clip(text, 200) } : { error: run.err }) });
+          return answered;
+        };
+        const [coach] = await Promise.all([
+          probe("chat (entraînement)", "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?"),
+          probe("chat (actualité, recherche Google)", "Quelles sont les dernières études sur la créatine ? Cite tes sources."),
+        ]);
+        ok = coach;
         // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun
         const tests = await Promise.all(MODELS.map(async model => {
           const s = Date.now();
@@ -347,5 +382,6 @@ Deno.serve(async req => {
   let quota;
   try { quota = await take(token); } catch (e) { console.error(e); return reply([{ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }]); }
   if (quota.error) return reply([{ error: quota.error }]);
-  return chat(system, messages, input.search !== false, quota);
+  // Recherche Google seulement si l'app l'autorise et si la question demande une info récente
+  return chat(system, messages, input.search !== false && wantsWeb(messages[messages.length - 1].content), quota);
 });

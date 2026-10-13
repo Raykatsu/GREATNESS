@@ -47,7 +47,11 @@ Pour tester sans attendre : *Edge Functions → reminders → Test* doit répond
 Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recherche Google), en s'appuyant sur tout le compte : profil, objectif, séances, records, mensurations, notes. La clé reste cachée sur le serveur ; chaque compte a une limite de messages par jour (80 par défaut) pour rester dans le quota gratuit. Si l'IA en ligne ne répond pas, le coach repasse tout seul en mode simple et affiche la cause en bas de sa réponse.
 
 1. **Clé gratuite** : va sur [aistudio.google.com](https://aistudio.google.com), connecte-toi avec un compte Google → **Get API key** → **Create API key**. Copie la clé.
-2. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Facultatif : `AI_DAILY_LIMIT` (messages par jour et par compte, 80 par défaut) et `GEMINI_MODELS` (par défaut `gemini-flash-latest,gemini-flash-lite-latest,gemma-3-27b-it` : le dernier Flash de Google, puis Flash-Lite et Gemma en secours quand le quota gratuit du précédent est épuisé).
+2. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Réglages facultatifs (les valeurs par défaut conviennent) :
+   - `AI_DAILY_LIMIT` : messages par jour et par compte (80).
+   - `GEMINI_MODELS` : modèles dans l'ordre (`gemini-flash-latest,gemini-flash-lite-latest,gemini-2.5-flash,gemma-4-31b-it`). Le dernier Flash de Google répond ; les suivants prennent le relais quand le quota gratuit du précédent est épuisé.
+   - `GEMINI_SEARCH_MODELS` : modèles utilisés avec la recherche Google, seulement pour les questions qui demandent une info récente (actualité, prix, études…) (`gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest`).
+   - `GEMINI_THINKING` : réflexion des modèles Gemini 3 et plus (`low` : réponse en quelques secondes ; `medium` ou `high` : plus poussée mais plus lente).
 3. **Déploiement automatique** (une seule fois, ensuite tout est fait par GitHub) :
    1. Sur [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) → **Generate new token** → nom `github` → copie le jeton (il commence par `sbp_`).
    2. Sur GitHub, dans le dépôt : **Settings → Secrets and variables → Actions → New repository secret**. Nom : `SUPABASE_ACCESS_TOKEN`, valeur : le jeton → **Add secret**.
