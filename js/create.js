@@ -6,7 +6,8 @@ import { generateSession, GROUPS, estimateMinutes } from "./planner.js";
 import { pickExercises, openProgram } from "./train.js";
 import { spidey } from "./spidey.js";
 import { shareProgram } from "./social.js";
-import { animSvg, mountAnims } from "./anim.js";
+import { mountAnims } from "./anim.js";
+import { demoBtn } from "./demo.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, spider } from "./ui.js";
 
 let tab = "new", draft = null, open = -1, genOpen = true;
@@ -254,7 +255,7 @@ function body(e, i) {
     <button data-st="${k}" data-i="${i}" data-d="${d}" aria-label="${label} : plus">${I.plus}</button></div></div>`;
   const last = i >= draft.exercises.length - 1;
   return `<div class="bex-body">
-      <div class="bex-info">${ex.custom ? `<span class="bex-ph">${IC.dumbbell}</span>` : animSvg(e.id, "bex-anim")}
+      <div class="bex-info">${ex.custom ? `<span class="bex-ph">${IC.dumbbell}</span>` : demoBtn(e.id, "demo-tile")}
         <div class="grow"><b>${esc(ex.muscle)}</b><span>${EQUIP[ex.equip] || ""}${ex.custom ? " · exercice perso" : ""}</span></div></div>
       <div class="msteps">
         ${st("sets", "Séries", e.sets)}

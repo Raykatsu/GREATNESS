@@ -9,6 +9,7 @@ const DEFAULT = {
   profile: {
     name: "", bodyweight: 75, goal: "muscle", days: 3, equipment: "gym",
     voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "spider",
+    sex: "", age: "", height: "", activity: "light", nutri: null, // nutrition (voir nutrition.js)
   },
   sessions: [],
   lifts: {},
@@ -19,7 +20,11 @@ const DEFAULT = {
   body: [],           // [{ date, weight, waist, chest, arm, thigh }]
   badges: {},         // { badgeId: date }
   cycleStart: null,   // début du cycle d'entraînement (pour les semaines allégées)
-  deleted: { sessions: [], programs: [], exercises: [] }, // pour que la synchro ne ressuscite rien
+  food: {},          // journal alimentaire : { "2026-10-13": { items: [...], water, at } }
+  foodRecent: [],    // aliments récents (ajout rapide)
+  foodMeals: [],     // repas enregistrés
+  foodCustom: {},    // produits ajoutés à la main, par code-barres
+  deleted: { sessions: [], programs: [], exercises: [], food: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };

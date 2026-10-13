@@ -4,6 +4,8 @@
 // - séances / exercices perso : réunion ; en cas de conflit, la version la plus récente
 // - réglages, programme de la semaine, discussion : le côté le plus récent
 
+import { mergeFood } from "./nutrition.js";
+
 const byId = list => new Map((list || []).map(x => [x.id, x]));
 
 export function mergeData(a = {}, b = {}) {
@@ -11,7 +13,7 @@ export function mergeData(a = {}, b = {}) {
   const [older, newer] = aAt >= bAt ? [b, a] : [a, b];
 
   const deleted = {};
-  for (const k of ["sessions", "programs", "exercises"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])];
+  for (const k of ["sessions", "programs", "exercises", "food"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])].slice(-1000);
   const gone = k => new Set(deleted[k]);
 
   const unionById = (x, y, kind) => {
@@ -39,9 +41,17 @@ export function mergeData(a = {}, b = {}) {
   const badges = { ...newer.badges };
   for (const [k, d] of Object.entries(older.badges || {})) badges[k] = badges[k] ? Math.min(badges[k], d) : d;
 
+  // nutrition : journal fusionné jour par jour, récents et produits perso réunis
+  const food = mergeFood(older.food, newer.food, deleted.food);
+  const seen = new Set();
+  const foodRecent = [...(newer.foodRecent || []), ...(older.foodRecent || [])].sort((x, y) => (y.used || 0) - (x.used || 0))
+    .filter(f => { const k = f.code || `${f.name}|${f.brand || ""}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 40);
+  const foodMeals = unionById(older.foodMeals, newer.foodMeals, "food");
+
   return {
     ...older, ...newer,
     sessions, customPrograms, customExercises, lifts, badges, deleted,
+    food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom },
     body: [...bodyMap.values()].sort((p, q) => p.date - q.date),
     exNotes: { ...older.exNotes, ...newer.exNotes },
     cycleStart: Math.min(...[a.cycleStart, b.cycleStart].filter(Boolean)) || null,
@@ -54,6 +64,7 @@ export function differs(merged, base) {
   // les listes / objets vides comptent comme absents
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
-  const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length], clean);
+  const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
+    d.food, d.foodMeals, d.foodCustom], clean);
   return pick(merged) !== pick(base);
 }
