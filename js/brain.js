@@ -6,6 +6,8 @@ import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } fro
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
 import { nutritionContext } from "./nutrition.js";
+import { memoryContext } from "./memory.js";
+import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -238,6 +240,7 @@ export function athleteContext({ full = false } = {}) {
     recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
     `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
     nutritionContext(state),
+    memoryContext(state),
     ...(full ? fullExtras() : []),
   ].filter(Boolean).join("\n");
 }
@@ -267,7 +270,7 @@ export function onlineMessages(history, question) {
   const local = answer(question);
   const notes = local.matched ? `\n\nRepères calculés par l'app pour cette question (chiffres fiables ; reformule, complète ou corrige si besoin, ne recopie pas) :\n${local.text}` : "";
   return {
-    system: `${system(true)}\n\n### Données de l'athlète (à jour)\n${athleteContext({ full: true })}${notes}`,
+    system: `${system(true)}\n\n### Données de l'athlète (à jour)\n${athleteContext({ full: true })}${notes}\n\n${actionsGuide(question)}`,
     messages: [...history.slice(-16).map(m => ({ role: m.role, content: m.content.slice(0, 2500) })), { role: "user", content: question }],
   };
 }

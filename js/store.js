@@ -24,7 +24,9 @@ const DEFAULT = {
   foodRecent: [],    // aliments récents (ajout rapide)
   foodMeals: [],     // repas enregistrés
   foodCustom: {},    // produits ajoutés à la main, par code-barres
-  deleted: { sessions: [], programs: [], exercises: [], food: [] }, // pour que la synchro ne ressuscite rien
+  memory: [],        // ce que le coach sait de toi (voir memory.js)
+  reviews: {},       // bilans de la semaine : { lundiTs: { text, at } }
+  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
