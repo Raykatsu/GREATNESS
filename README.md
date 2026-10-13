@@ -52,6 +52,28 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Bilan de la semaine** : le dimanche soir et le lundi, une carte sur l'accueil te donne ta note sur 100, tes séances, ton volume, tes records, les muscles travaillés, ta nutrition et ton poids, tes points forts et ce qu'il faut travailler. L'IA en ligne écrit une analyse détaillée et propose les ajustements (programme, charges) en boutons. Les derniers bilans restent dans Progrès.
 - **Coach pendant la séance** : bouton « Coach » entre deux séries. « Trop facile », « Trop dur » ajustent la charge de la série suivante tout de suite ; « Gêne ou douleur », « Machine prise » proposent une alternative ; une question libre part à l'IA en ligne, qui connaît ta séance en cours et peut changer la charge d'un geste.
 
+## La caméra corrige ta posture
+
+Bouton **Caméra** en séance (et « Vérifier ma technique » dans chaque démo) : pose le téléphone à 2-3 m, de profil. En plus de compter les reps, elle surveille ta technique et le coach te le dit à voix haute, avec le segment fautif en rouge et la ligne à retrouver en pointillés :
+- **dos rond** (soulevé de terre, roumain, good morning, rowing penché), **buste trop penché** (squat, fentes), **genoux trop pliés** au roumain ;
+- **bassin qui s'affaisse ou fesses trop hautes** (pompes, gainage), **coudes qui bougent** et **élan du buste** (curls, extensions, élévations, tirages), **dos cambré** au développé militaire ;
+- **amplitude incomplète** (conseil propre à chaque mouvement) et **reps trop rapides**.
+
+À la fin : « Technique 80 % (8/10 reps propres) » et le conseil principal. Le gainage et la chaise sont chronométrés seulement quand tu es en position, avec le temps passé en bonne posture. Tout est calculé sur le téléphone (MediaPipe), rien n'est envoyé.
+
+## Progrès en images
+
+- **Courbes de force** : 1RM estimé de tes exercices principaux (et le total squat + développé couché + soulevé de terre), records en doré, tendance en kg par mois, sur 3 mois, 6 mois, 1 an ou tout.
+- **Mur des records** : une carte par exercice avec ta meilleure charge, ton 1RM estimé, ta progression depuis le début, ton **niveau de force** (Débutant → Élite, repères selon ton poids de corps) et le prochain palier ; « 2 plaques » au-delà de 100 kg à la barre.
+- **Photos avant / après** : face, profil, dos. Le **cadrage fantôme** affiche ta photo précédente en transparence avec un retardateur, pour refaire exactement la même. Comparaison au curseur ou côte à côte, avec l'évolution du poids et du tour de taille, et une image avant/après à partager. Les photos restent sur le téléphone, jamais en ligne.
+
+## Défis entre amis
+
+Moi → **Amis & défis** :
+- **Duels 1 contre 1** à la semaine : volume, séances, minutes ou records. Ton ami reçoit l'invitation, la relève, et vous suivez le score en direct jusqu'au dimanche soir ; ton palmarès (victoires, défaites) se remplit.
+- **Fil d'actus** : un ami te dépasse au classement, bat un record, te défie, accepte ton duel ; résultats de ton duel et du défi de la semaine passée. Pastille sur l'onglet Moi et carte sur l'accueil.
+- **Notifications**, même app fermée : « Léo te défie en duel », « Léo t'a dépassé », « Dernières heures du duel » (jamais la nuit, 3 par jour au plus). À activer dans Moi → Réglages → Notifications.
+
 ## Démos des exercices
 
 Un petit bouton **▶ Démo** à côté de chaque exercice (aperçu des séances, création, sélecteur, séance en cours, fiche exercice) ouvre une démonstration pour débutants : animation en grand avec les muscles qui travaillent en couleur, l'étape en cours écrite en direct, ralenti et pause, mise en place, respiration, points clés et erreurs à éviter.
@@ -77,9 +99,9 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
 - **Corps** : poids et mensurations avec courbe (onglet Progrès).
 - **Cycles** : semaine allégée automatique toutes les 7 semaines ; plateau détecté après 3 séances sans progrès → recul de 10 % pour relancer.
 - **Succès** : 18 badges à débloquer.
-- **Rappels** : vraies notifications les jours de séance (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
+- **Rappels** : vraies notifications les jours de séance et pour les défis entre amis (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
 - **Mains libres** : touche le micro en séance et dis « 8 reps, difficile », « 10 à 60 kilos », « annule », « passe », « go ».
-- **Compteur caméra** : bouton « Compter » en séance ; le téléphone posé de profil compte tes reps et signale les amplitudes trop courtes (détection de pose MediaPipe, tout reste sur le téléphone).
+- **Caméra** : compte tes reps et corrige ta posture (voir plus haut).
 - **Animations** : chaque exercice est montré par un petit bonhomme animé (technique en séance, fiche exercice, onglet Créer).
 - **Synchro sans perte** : un compte utilisé sur deux téléphones fusionne les séances des deux côtés.
 
@@ -97,14 +119,14 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
 - **Séance en direct** : tableau des séries (précédent / kg / reps), steppers, choix libre de l'exercice, annuler, ajouter une série, remplacer, minuteur de repos compact.
-- **Progrès** : calendrier, volume par semaine, courbe de progression par exercice, historique.
+- **Progrès** : calendrier, volume par semaine, courbes de force, mur des records, photos avant/après, historique.
 - **Claude (optionnel, payant)** : dans Moi → Réglages → « IA Claude », une clé API Anthropic ajoute des ajustements IA, briefing, débrief et chat libre.
 
 ## Tests
 
 ```bash
 npm install
-npm test   # moteur, demandes au coach, voix, fusion, compteur de reps, planning, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, planning, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).

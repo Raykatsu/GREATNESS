@@ -181,7 +181,7 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
   let shown = [];
   const row = (f, k) => `<button class="food-row" data-k="${k}"><span class="grow fr-txt"><span class="fr-name ellipsis">${esc(f.name)}</span>
     <span class="fr-sub ellipsis">${esc([f.brand, `${fmtNum(f.per.k)} kcal / 100 ${unitWord(f)}`, f.src === "db" ? "" : f.lastG ? `dernière fois ${nice(f.lastG)} ${unitWord(f)}` : ""].filter(Boolean).join(" · "))}</span></span>
-    ${nutriBadge(f.nutri)}<span class="fr-add">${I.plus}</span></button>`;
+    ${nutriBadge(f.nutri)}<span class="food-add">${I.plus}</span></button>`;
   const bindRows = () => $$("[data-k]", res).forEach(b => b.onclick = () => openPortion(shown[+b.dataset.k], { meal: cur, then: () => input.focus({ preventScroll: true }) }));
 
   function home() {

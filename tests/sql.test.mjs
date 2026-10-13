@@ -97,3 +97,41 @@ test("IA en ligne : jeton vérifié et limite de messages par jour", async () =>
   assert.equal((await take(m, 3)).remaining, 0);
   assert.equal((await take(m, 3)).error, "LIMIT");
 });
+
+test("notifications des défis entre amis : dépassé, duel, fin de duel, jamais la nuit", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/005_social_push.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  const g = (await call("gt_login", "gwen", "4321")).token;
+  assert.equal((await call("gt_friends", m)).friends.find(f => f.username === "gwen")?.status, "accepted");
+  await call("gt_push_subscribe", m, { endpoint: "https://push.example/miles", keys: { p256dh: "x", auth: "y" } }, "Europe/Paris");
+  await assert.rejects(call("gt_push_social", "2026-10-14T10:00:00Z")); // réservé au serveur
+  const ws = Date.parse("2026-10-11T22:00:00Z"); // lundi 12 octobre 2026, 0 h à Paris
+  const week = (volume, count = 1) => ({ start: ws, volume, count, minutes: 60, prs: 0 });
+  const pushAs = (t, name, wk, duels = [], mine = []) => call("gt_push", t, JSON.stringify({ duels: mine, public: { name, week: wk, duels } }));
+  const run = async iso => (await db.query("select * from gt_push_social($1)", [iso])).rows;
+  await pushAs(m, "Miles", week(5000));
+  await pushAs(g, "Gwen", week(4000));
+  assert.equal((await run("2026-10-14T10:00:00Z")).length, 0); // mercredi midi : Miles devant, rien à dire
+  await pushAs(g, "Gwen", week(6200));
+  const over = await run("2026-10-14T10:15:00Z");
+  assert.equal(over.length, 1);
+  assert.equal(over[0].endpoint, "https://push.example/miles");
+  assert.equal(over[0].title, "⚡ Gwen t'a dépassé");
+  assert.equal(over[0].body, "Gwen : 6 200 kg cette semaine, toi 5 000 kg. À toi de jouer !");
+  assert.equal((await run("2026-10-14T10:30:00Z")).length, 0); // une seule fois par semaine
+  // invitation à un duel, mais pas la nuit
+  await pushAs(g, "Gwen", week(6200, 2), [{ u: "miles", m: "count", w: ws }]);
+  assert.equal((await run("2026-10-14T20:30:00Z")).length, 0); // 22 h 30 à Paris
+  const inv = await run("2026-10-15T07:30:00Z");                 // jeudi 9 h 30
+  assert.equal(inv[0].title, "⚔️ Gwen te défie en duel");
+  assert.match(inv[0].body, /Épreuve : nombre de séances jusqu'à dimanche/);
+  assert.equal((await run("2026-10-15T08:00:00Z")).length, 0);
+  // Miles relève le défi ; dimanche soir, Gwen mène : dernier rappel
+  await pushAs(m, "Miles", week(5000, 1), [{ u: "gwen", m: "count", w: ws }], [{ id: "d1", u: "gwen", m: "count", w: ws, by: "gwen" }]);
+  assert.equal((await run("2026-10-18T15:00:00Z")).length, 0); // dimanche 17 h : trop tôt
+  const end = await run("2026-10-18T17:00:00Z");
+  assert.equal(end[0].title, "⏳ Dernières heures du duel");
+  assert.equal((await run("2026-10-18T17:30:00Z")).length, 0);
+  await db.query("select gt_push_gone($1)", [["https://push.example/miles"]]);
+});

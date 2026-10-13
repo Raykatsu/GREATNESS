@@ -26,7 +26,10 @@ const DEFAULT = {
   foodCustom: {},    // produits ajoutés à la main, par code-barres
   memory: [],        // ce que le coach sait de toi (voir memory.js)
   reviews: {},       // bilans de la semaine : { lundiTs: { text, at } }
-  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [] }, // pour que la synchro ne ressuscite rien
+  duels: [],         // duels entre amis : [{ id, u, m, w, by, at }] (voir rivals.js)
+  duelLog: [],       // palmarès : [{ id, u, m, w, me, them, res }]
+  social: {},        // ce qu'on a déjà vu des amis + fil d'actus
+  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
@@ -177,6 +180,22 @@ export function lastPerformance(exId) {
 
 export const exName = id => EXERCISES[id]?.name || id;
 
+// Derniers records battus, datés (pour le fil d'actus des amis)
+function recentPrs(n) {
+  const out = [];
+  for (let i = state.sessions.length - 1; i >= 0 && out.length < n; i--) {
+    const s = state.sessions[i];
+    for (const id of s.prs || []) {
+      const sets = s.sets.filter(x => x.exId === id);
+      if (!sets.length || out.length >= n) continue;
+      const load = sets.some(x => x.weight > 0);
+      const v = load ? Math.round(Math.max(...sets.map(x => e1rm(x.weight, x.reps)))) : Math.max(...sets.map(x => x.reps));
+      out.push({ n: exName(id), v, unit: load ? "kg" : EXERCISES[id]?.type === "time" ? "s" : "reps", d: s.date });
+    }
+  }
+  return out;
+}
+
 // Résumé public visible par les amis (rien d'autre n'est partagé).
 // Ce que le serveur de rappels doit savoir : heure, avance et séances prévues (jour 0 = lundi).
 export function reminderPlan() {
@@ -200,6 +219,10 @@ export function publicSummary() {
       .map(([id, l]) => ({ n: exName(id), kg: Math.round(l.best) })),
     recent: state.sessions.slice(-5).reverse().map(s => ({ d: s.date, n: s.name, v: s.volume, s: s.sets.length, pr: s.prs?.length || 0 })),
     badges: Object.keys(state.badges || {}).length,
+    // pour les défis : semaine passée, duels en cours, derniers records datés
+    last: (() => { const l = weekStats(1); return { start: ws - 7 * 864e5, count: l.count, volume: Math.round(l.volume), minutes: l.minutes, prs: l.prs }; })(),
+    duels: (state.duels || []).filter(d => d.w >= ws - 8 * 864e5).map(({ u, m, w, by }) => ({ u, m, w, by })),
+    prs: recentPrs(5),
     updatedAt: Date.now(),
   };
 }

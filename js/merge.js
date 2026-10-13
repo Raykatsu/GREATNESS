@@ -13,7 +13,7 @@ export function mergeData(a = {}, b = {}) {
   const [older, newer] = aAt >= bAt ? [b, a] : [a, b];
 
   const deleted = {};
-  for (const k of ["sessions", "programs", "exercises", "food", "memory"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])].slice(-1000);
+  for (const k of ["sessions", "programs", "exercises", "food", "memory", "duels"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])].slice(-1000);
   const gone = k => new Set(deleted[k]);
 
   const unionById = (x, y, kind) => {
@@ -49,11 +49,15 @@ export function mergeData(a = {}, b = {}) {
   const foodMeals = unionById(older.foodMeals, newer.foodMeals, "food");
   const memory = unionById(older.memory, newer.memory, "memory").sort((x, y) => (x.at || 0) - (y.at || 0)).slice(-30);
   const reviews = { ...older.reviews, ...newer.reviews };
+  // défis entre amis : duels réunis (sauf annulés), palmarès réuni, déjà-vu du côté le plus récent
+  const recent = Date.now() - 35 * 864e5;
+  const duels = unionById(older.duels, newer.duels, "duels").filter(d => d.w > recent);
+  const duelLog = unionById(older.duelLog, newer.duelLog, "duelLog").sort((x, y) => x.w - y.w).slice(-100);
 
   return {
     ...older, ...newer,
     sessions, customPrograms, customExercises, lifts, badges, deleted,
-    food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom }, memory, reviews,
+    food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom }, memory, reviews, duels, duelLog,
     body: [...bodyMap.values()].sort((p, q) => p.date - q.date),
     exNotes: { ...older.exNotes, ...newer.exNotes },
     cycleStart: Math.min(...[a.cycleStart, b.cycleStart].filter(Boolean)) || null,
@@ -67,6 +71,6 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog], clean);
   return pick(merged) !== pick(base);
 }
