@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-6";
+const VERSION = "coach-7";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -16,9 +16,9 @@ const env = (k: string) => (Deno.env.get(k) ?? "").trim();
 const KEY = env("GEMINI_API_KEY");
 const list = (v: string) => v.split(",").map(s => s.trim()).filter(Boolean);
 // Modèles, du meilleur au plus endurant. Les alias « latest » suivent le dernier Flash et Flash-Lite de
-// Google ; le Flash précédent et Gemma ont leur propre capacité et prennent le relais en cas de surcharge
-// ou de quota épuisé. Un modèle retiré (404) est simplement sauté.
-const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-3.7-flash,gemini-flash-lite-latest,gemma-4-26b-a4b-it");
+// Google. En période de forte demande, la version gratuite du dernier Flash peut rester muette : Flash-Lite
+// (très rapide) prend alors le relais, puis le Flash précédent et Gemma. Un modèle retiré (404) est sauté.
+const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemini-3.7-flash,gemma-4-26b-a4b-it");
 // Recherche Google, pour les questions qui demandent une info récente (actualité, prix, études…), essayée
 // avant les modèles sans recherche. Le quota gratuit de Google la refuse souvent : le refus est retenu
 // 15 min et la réponse vient alors sans recherche (elle marche dès que la facturation Google est activée).
@@ -105,6 +105,9 @@ const isGemma = (model: string) => /gemma/i.test(model);
 // réflexion, et recherche refusée par le quota (on n'insiste pas pendant 15 min).
 const noThinking = new Set<string>();
 const searchBlocked = new Map<string, number>();
+// Modèle surchargé (503) ou muet : passé en dernier pendant 10 min, pour ne pas le réattendre à chaque message.
+const slowUntil = new Map<string, number>();
+const isSlow = (model: string) => (slowUntil.get(model) ?? 0) > Date.now();
 const thinks = (model: string) => THINKING !== "default" && !noThinking.has(model) && !/lite|gemma|gemini-[12]\./i.test(model);
 
 // La question demande-t-elle une info récente ou introuvable dans les données de l'athlète ?
@@ -130,8 +133,9 @@ function requestBody(model: string, search: boolean, system: string, messages: M
 // Ordre des essais : avec la recherche Google d'abord si la question en a besoin, puis sans.
 function plan(web: boolean): Attempt[] {
   const now = Date.now(), out: Attempt[] = [];
-  if (web) for (const model of SEARCH_MODELS) if (!isGemma(model) && (searchBlocked.get(model) ?? 0) < now) out.push({ model, search: true });
-  for (const model of MODELS) out.push({ model, search: false });
+  const order = (models: string[]) => [...models.filter(m => !isSlow(m)), ...models.filter(isSlow)];
+  if (web) for (const model of order(SEARCH_MODELS)) if (!isGemma(model) && (searchBlocked.get(model) ?? 0) < now) out.push({ model, search: true });
+  for (const model of order(MODELS)) out.push({ model, search: false });
   return out;
 }
 const errMsg = (t: string) => { try { return String(JSON.parse(t)?.error?.message ?? t); } catch { return t; } };
@@ -182,9 +186,11 @@ function chunkInfo(chunk: any) {
 
 // Le cœur : essaie les modèles dans l'ordre et relaie le texte au fil de l'eau.
 // Quota épuisé, modèle absent, panne, lenteur ou réponse vide : on passe à l'essai suivant.
-// Délais : 45 s pour que Gemini commence, 30 s sans nouvelles en cours de réponse, et une limite
-// totale (la plateforme coupe une requête au bout de 150 s).
-const FIRST_MS = Number(env("GEMINI_FIRST_MS") || 45_000), STALL_MS = Number(env("GEMINI_STALL_MS") || 30_000);
+// Délais avant le premier mot : 12 s pour le meilleur modèle (sinon un plus rapide prend le relais), 25 s
+// pour les suivants ; puis 30 s sans nouvelles en cours de réponse, et une limite totale (la plateforme
+// coupe une requête au bout de 150 s).
+const PRIMARY_MS = Number(env("GEMINI_PRIMARY_MS") || 12_000), FIRST_MS = Number(env("GEMINI_FIRST_MS") || 25_000);
+const STALL_MS = Number(env("GEMINI_STALL_MS") || 30_000);
 type Run = { model: string; version: string; err: string; cut: boolean; blocked: boolean; ttft: number; tries: string[]; sources: Map<string, string> };
 async function* converse(system: string, messages: Msg[], web: boolean, run: Run, budgetMs = 120_000) {
   const skip = new Set<string>();
@@ -197,7 +203,8 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
     if (deadline - Date.now() < 8_000) { run.err ||= "temps maximal dépassé"; return; }
     const label = `Gemini ${a.model}${a.search ? " + recherche" : ""}`;
     const ctrl = new AbortController(), s = Date.now();
-    let timer = setTimeout(() => ctrl.abort(), Math.min(FIRST_MS, deadline - Date.now()));
+    const firstMs = !a.search && a.model === MODELS[0] ? PRIMARY_MS : FIRST_MS;
+    let timer = setTimeout(() => ctrl.abort(), Math.min(firstMs, deadline - Date.now()));
     let got = 0;
     try {
       let res: Response;
@@ -206,7 +213,7 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
         run.err = `${label} : ${ctrl.signal.aborted ? `pas de réponse en ${secs(Date.now() - s)}` : clip((e as Error).message)}`;
         run.tries.push(`${label} → ${ctrl.signal.aborted ? "délai dépassé" : "erreur réseau"} (${secs(Date.now() - s)})`);
         console.error(run.err);
-        if (ctrl.signal.aborted) skip.add(a.model); // trop lent : on passe au modèle suivant
+        if (ctrl.signal.aborted) { skip.add(a.model); slowUntil.set(a.model, Date.now() + 10 * 60e3); } // trop lent : modèle suivant
         continue;
       }
       if (!res.ok || !res.body) {
@@ -221,10 +228,14 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
           searchBlocked.set(a.model, Date.now() + 15 * 60e3); // quota de la recherche : le modèle reste utilisable sans
         } else if ([401, 403, 404, 429].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t))) {
           skip.add(a.model);
-        } else if (res.status >= 500 && !retried.has(label) && deadline - Date.now() > 15_000) {
-          retried.add(label); // surcharge passagère chez Google (503) : un seul nouvel essai, 1 s plus tard
-          await new Promise(r => setTimeout(r, 1000));
-          queue.unshift(a);
+        } else if (res.status >= 500) {
+          // surcharge chez Google (503) : on passe au modèle suivant ; s'il n'y en a plus, un nouvel essai 1 s plus tard
+          slowUntil.set(a.model, Date.now() + 10 * 60e3);
+          if (!queue.some(x => !skip.has(x.model)) && !retried.has(label) && deadline - Date.now() > 15_000) {
+            retried.add(label);
+            await new Promise(r => setTimeout(r, 1000));
+            queue.unshift(a);
+          }
         }
         continue;
       }
@@ -243,9 +254,11 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
           }
         }
       } catch (e) {
-        run.err = `${label} : flux interrompu (${ctrl.signal.aborted ? `plus rien pendant ${secs(STALL_MS)}` : clip((e as Error).message)})`;
+        const silent = ctrl.signal.aborted;
+        run.err = `${label} : ${got ? "flux interrompu" : "pas de réponse"} (${silent ? (got ? `plus rien pendant ${secs(STALL_MS)}` : `rien en ${secs(Date.now() - s)}`) : clip((e as Error).message)})`;
         console.error(run.err);
         if (got) run.cut = true;
+        else if (silent) { skip.add(a.model); slowUntil.set(a.model, Date.now() + 10 * 60e3); }
       }
       run.tries.push(`${label} → ${got ? `${got} caractères` : "réponse vide"}${run.cut ? " (coupée)" : ""} (${secs(Date.now() - s)})`);
       if (got) { run.model = a.model; return; }
@@ -326,6 +339,7 @@ function diagnose() {
         // et une d'actualité (recherche Google), en parallèle. On repart de zéro : refus retenus oubliés.
         searchBlocked.clear();
         noThinking.clear();
+        slowUntil.clear();
         const probe = async (name: string, question: string) => {
           const s = Date.now(), run = newRun();
           let text = "", chunks = 0;
@@ -342,17 +356,23 @@ function diagnose() {
           probe("chat (actualité, recherche Google)", "Quelles sont les dernières études sur la créatine ? Cite tes sources."),
         ]);
         ok = coach;
-        // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun
-        const tests = await Promise.all(MODELS.map(async model => {
-          const s = Date.now();
+        // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun ; plus deux candidats
+        // et le meilleur modèle sans réglage de réflexion, pour comparer leur réactivité
+        const probes = [...MODELS.map(model => ({ model, thinking: true })), { model: MODELS[0], thinking: false },
+          ...["gemini-3.5-flash", "gemini-3.6-flash"].filter(m => !MODELS.includes(m)).map(model => ({ model, thinking: true }))];
+        const tests = await Promise.all(probes.map(async ({ model, thinking }) => {
+          const s = Date.now(), name = `essai ${model}${thinking ? "" : " (réflexion par défaut)"}`;
           try {
-            const r = await gemini(model, requestBody(model, false, "Test technique.", [{ role: "user", content: "Réponds seulement : OK" }]), false, AbortSignal.timeout(35_000));
+            const body = requestBody(model, false, "Test technique.", [{ role: "user", content: "Réponds seulement : OK" }]);
+            // deno-lint-ignore no-explicit-any
+            if (!thinking) delete (body.generationConfig as any).thinkingConfig;
+            const r = await gemini(model, body, false, AbortSignal.timeout(35_000));
             const t = await r.text();
             let reply = "", version = "";
             try { const j = JSON.parse(t); reply = chunkInfo(j).text; version = j.modelVersion || ""; } catch { /* corps non JSON */ }
-            return { step: `essai ${model}`, status: r.status, ms: Date.now() - s, ...(r.ok ? { version, reply: clip(reply, 60) } : { error: clip(t, 300) }) };
+            return { step: name, status: r.status, ms: Date.now() - s, ...(r.ok ? { version, reply: clip(reply, 60) } : { error: clip(errMsg(t), 300) }) };
           } catch (e) {
-            return { step: `essai ${model}`, ms: Date.now() - s, error: (e as Error).name === "TimeoutError" ? "pas de réponse en 35 s" : clip((e as Error).message) };
+            return { step: name, ms: Date.now() - s, error: (e as Error).name === "TimeoutError" ? "pas de réponse en 35 s" : clip((e as Error).message) };
           }
         }));
         tests.forEach(line);
