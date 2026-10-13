@@ -29,6 +29,7 @@ import { pruneFood } from "./nutrition.js";
 import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
 import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
+import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 
 const view = $("#view");
 wireDemos();
@@ -218,6 +219,7 @@ function home() {
   const left = Math.max(0, planned - ws.count);
   const tons = ws.volume >= 10000;
   const volPct = prev.volume ? Math.min(1, ws.volume / prev.volume) : ws.volume ? 1 : 0;
+  const strain = kind === "go" ? strainNote(prog) : "";
 
   view.innerHTML = `
     <header class="home-head">
@@ -246,6 +248,7 @@ function home() {
       </div>
       <h2 class="m-title">${esc(doneName || m.program.name)}</h2>
       <p class="m-sub">${m.doneToday ? "Bravo ! Un peu de mobilité t'aidera à bien récupérer." : esc(m.program.tag || "")}</p>
+      ${strain ? `<p class="m-rec">${I.info}<span>${esc(strain)}</span></p>` : ""}
       ${m.doneToday ? "" : `
       <div class="m-meta">
         <span>${I.clock}~${estimateMinutes(prog)} min</span>
@@ -260,6 +263,7 @@ function home() {
       </div>
     </section>
 
+    ${recoveryCard()}
     ${reviewCard(now)}
     ${socialCard()}
     <div class="quick mt-s">
@@ -306,6 +310,7 @@ function home() {
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
+  bindRecoveryCard(view);
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {

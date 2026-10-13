@@ -3,6 +3,7 @@
 // elle est activée, peut ensuite affiner ces décisions.
 import { EXERCISES } from "./data.js";
 import { state, e1rm, lastPerformance, exerciseHistory } from "./store.js";
+import { recovery, exerciseReady, programStrain } from "./recovery.js";
 
 const round = (v, step) => Math.max(0, Math.round(v / step) * step);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -47,16 +48,19 @@ function startingTarget(item) {
   return { weight, goal };
 }
 
-function makeItem(item, verdict, isMain) {
+// rec : récupération des muscles (recovery.js) ; un exercice dont les muscles principaux ne sont pas remis
+// (sous 50 %) perd une série et 5 % de charge : on ne recharge pas un muscle encore fatigué.
+function makeItem(item, verdict, isMain, rec) {
   const meta = EXERCISES[item.id];
   const t = startingTarget(item);
-  const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0) - (verdict.deload ? 1 : 0));
+  const sore = rec ? exerciseReady(item.id, rec) < 0.5 : false;
+  const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0) - (verdict.deload ? 1 : 0) - (sore ? 1 : 0));
   // Plateau : 3 séances sans progrès → on recule de 10 % pour mieux repartir.
   const plateau = meta.type === "load" && stalled(item.id);
   return {
     id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
-    sets, reps: item.reps, rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau,
-    weight: meta.type === "load" ? round(t.weight * verdict.factor * (plateau ? 0.9 : 1), meta.step) : 0,
+    sets, reps: item.reps, rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau, sore,
+    weight: meta.type === "load" ? round(t.weight * verdict.factor * (plateau ? 0.9 : 1) * (sore ? 0.95 : 1), meta.step) : 0,
     goal: meta.type === "load" ? t.goal : Math.max(item.reps[0], round(t.goal * (verdict.factor < 1 ? 0.9 : 1), meta.step)),
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
   };
@@ -91,7 +95,8 @@ export class Session {
     this.prs = [];
     this.log = [];
     this.history = []; // pour annuler
-    this.plan = program.exercises.map((item, i) => makeItem(item, this.verdict, i < 2));
+    this.recovery = recovery(state.sessions, this.startedAt);
+    this.plan = program.exercises.map((item, i) => makeItem(item, this.verdict, i < 2, this.recovery));
     this.idx = 0;
   }
 
@@ -102,6 +107,17 @@ export class Session {
   get progress() {
     const total = this.plan.reduce((a, e) => a + (e.status === "skipped" ? e.done.length : Math.max(e.sets, e.done.length)), 0);
     return total ? this.totalDone / total : 0;
+  }
+
+  // Muscles pas encore remis : message de départ (les exercices concernés sont déjà allégés)
+  recoveryNote() {
+    const sore = this.plan.filter(e => e.sore);
+    if (!sore.length || !this.recovery) return null;
+    const ms = programStrain(this.program, this.recovery).filter(x => x.ready < 0.5).slice(0, 3);
+    if (!ms.length) return null;
+    return this.push({ kind: "warn", title: "Muscles pas encore remis",
+      text: `${ms.map(x => `${x.name} ${Math.round(x.ready * 100)} %`).join(", ")} : une série de moins et charge un peu allégée sur ${sore.map(e => e.name).join(", ")}.`,
+      say: `${ms.map(x => x.name).join(" et ")} pas encore récupérés : j'allège un peu ces exercices.` });
   }
 
   push(ev) {
@@ -126,6 +142,7 @@ export class Session {
     const ssMates = ex.ss ? this.plan.filter(e => e.ss === ex.ss && e !== ex).map(e => e.name) : [];
     if (ssMates.length) warm += ` Superset avec ${ssMates.join(" et ")} : enchaîne sans repos.`;
     if (ex.plateau) warm += " Ça stagne depuis 3 séances : on recule de 10 % pour mieux repartir.";
+    if (ex.sore) warm += " Muscles pas encore remis : une série de moins et charge un peu allégée.";
     return this.push({ kind: "info", title: ex.name, text: `${ex.sets} série${ex.sets > 1 ? "s" : ""} · objectif ${fmtTarget(ex)}. ${cue}${warm}`,
       say: `${ex.name}. ${ex.sets} série${ex.sets > 1 ? "s" : ""}. Objectif : ${target}. ${cue}${warm}` });
   }
@@ -271,7 +288,7 @@ export class Session {
 
   // Séance libre (ou ajout en cours de séance) : nouvel exercice à la fin.
   addExercise(item) {
-    this.plan.push(makeItem(item, { factor: 1, setDelta: 0 }, this.plan.length < 2));
+    this.plan.push(makeItem(item, { factor: 1, setDelta: 0 }, this.plan.length < 2, this.recovery));
     this.idx = this.plan.length - 1;
   }
 
@@ -303,7 +320,7 @@ export class Session {
     const meta = EXERCISES[altId];
     const item = { id: altId, sets: ex.sets - ex.done.length || 1, reps: ex.reps, rpe: ex.rpe, rest: ex.rest,
       weight: meta.type === "load" ? (ex.type === "load" ? Math.round(ex.weight * 0.5) : 10) : 0 };
-    const fresh = makeItem(item, { factor: 1, setDelta: 0 }, true);
+    const fresh = makeItem(item, { factor: 1, setDelta: 0 }, true, this.recovery);
     if (ex.done.length) {
       ex.status = "done"; ex.sets = ex.done.length;
       this.plan.splice(this.idx + 1, 0, fresh);
@@ -320,7 +337,7 @@ export class Session {
     const ref = this.plan.find(e => e.status === "skipped") || this.plan[0];
     const item = { id: altId, sets: 3, reps: ref.reps, rpe: ref.rpe, rest: ref.rest, weight: meta.type === "load" ? 10 : 0 };
     const pos = Math.min(this.idx, this.plan.length);
-    this.plan.splice(pos, 0, makeItem(item, { factor: 1, setDelta: 0 }, true));
+    this.plan.splice(pos, 0, makeItem(item, { factor: 1, setDelta: 0 }, true, this.recovery));
     this.idx = pos;
   }
 

@@ -7,6 +7,7 @@ const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dima
 import { todaysMission } from "./planner.js";
 import { nutritionContext } from "./nutrition.js";
 import { memoryContext } from "./memory.js";
+import { recoveryContext, recoveryAnswer } from "./recovery.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
@@ -125,6 +126,7 @@ const INTENTS = [
     "Pour prendre du muscle :\n• 10 à 20 séries par muscle et par semaine.\n• Reps entre 6 et 15, proche de l'échec (ressenti 8 à 9).\n• Léger surplus calorique, ~1,8 g de protéines par kilo.\n• Patience : environ 0,5 à 1 kg de muscle par mois pour un débutant, moins ensuite." },
   { re: /(cardio|courir|course|endurance|souffle)/, fn: () =>
     "Le cardio complète bien la muscu :\n• 2 séances par semaine suffisent (HIIT 20 min ou footing 30 min).\n• Fais-le après la muscu ou un autre jour, pas avant les jambes.\n• Les séances « HIIT express » et « Corde & gainage » sont dans l'onglet Séances." },
+  { re: /(recupere|recuperation|courbatur|muscles? (fatigue|pret|repose)|quels? muscles?|quoi travailler)/, fn: () => recoveryAnswer(state.sessions) },
   { re: /(etire|mobilite|souplesse|stretch|courbature)/, fn: () =>
     "Mobilité et courbatures :\n• Les courbatures sont normales après une nouveauté ; elles diminuent en 2 à 3 jours.\n• Bouger doucement aide plus que rester immobile.\n• La séance « Mobilité » (15 min) est parfaite les jours off ; je la place le dimanche dans ton programme." },
   { re: /(creatine|complement|whey|supplement|bcaa)/, fn: () =>
@@ -239,6 +241,7 @@ export function athleteContext({ full = false } = {}) {
     lifts.length ? `Performances :\n- ${lifts.join("\n- ")}` : "Pas encore de performances enregistrées.",
     recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
     `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
+    recoveryContext(state.sessions),
     nutritionContext(state),
     memoryContext(state),
     ...(full ? fullExtras() : []),

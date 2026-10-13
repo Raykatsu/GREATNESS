@@ -77,11 +77,12 @@ export function startWithWarmup(warmupId, program, readiness, exit) {
 export function startLive(program, readiness, exit) {
   chain = null;
   S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload });
+  const rest = S.recoveryNote();
   begin(exit);
   const intro = S.intro();
   if (S.current) setTimeout(() => spidey.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
   else setTimeout(() => spidey.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
-  speak(`${S.verdict.text} ${intro?.say || ""}`, { interrupt: true });
+  speak(`${S.verdict.text} ${rest?.say || ""} ${intro?.say || ""}`, { interrupt: true });
   if (aiReady() && S.current) {
     aiBrief(S).then(txt => {
       if (!txt || !S) return;

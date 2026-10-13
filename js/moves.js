@@ -15,55 +15,66 @@ const M = (p, s = []) => ({ p, s });
 /* ---------- Jambes ---------- */
 const SQ_ARMS = { Wr: [-0.6, -6.2], eb: -1 }; // mains sur la barre, derrière la nuque
 const PARALLEL = { k: "line", from: "H", to: "K", ext: 0.3, at: 1, label: "cuisses parallèles", labelAt: "start" };
+// balance : le buste se penche juste ce qu'il faut pour garder barre et corps au-dessus du milieu du pied (body.js)
+// xrot : bras tournés hors du plan (mains sur la barre derrière la nuque) : le coude paraît plié « à l'envers » de profil
 const squatBar = {
-  mus: M(["quads", "glutes"], ["hams", "lowerback", "abs", "adductors"]),
+  mus: M(["quads", "glutes"], ["hams", "lowerback", "abs", "adductors"]), xrot: true,
+  base: { balance: { of: { j: "back" }, load: 0.8 } },
   keys: [
-    { p: 0, ...stand({ torso: 6, ...SQ_ARMS, head: -4 }) },
-    { p: 1, ...stand({ shin: 211, thigh: 90, torso: 44, ...SQ_ARMS, head: -22 }) },
+    { p: 0, ...stand({ shin: 182, thigh: 182, ...SQ_ARMS, head: -4 }) },
+    { p: 1, ...stand({ shin: 211, thigh: 90, ...SQ_ARMS, head: -22 }) },
   ],
   gear: [plate({ j: "back" })],
   aids: [{ k: "path", of: { j: "back" } }, PARALLEL, { k: "arrow", of: "H", off: [-8, 0] }],
 };
 const frontSquat = {
-  ...squatBar, mus: M(["quads", "glutes"], ["abs", "lowerback", "adductors"]),
+  ...squatBar, mus: M(["quads", "glutes"], ["abs", "lowerback", "adductors"]), xrot: false,
+  base: { balance: { of: { j: "rack" }, load: 0.7, min: -3 } },
   keys: [
-    { p: 0, ...stand({ torso: 2, uarm: 72, farm: 257, lfarm: 0.7, head: 0 }) },
-    { p: 1, ...stand({ shin: 214, thigh: 88, torso: 22, uarm: 92, farm: 277, lfarm: 0.7, head: -12 }) },
+    { p: 0, ...stand({ uarm: 72, farm: 257, lfarm: 0.7, head: 0 }) },
+    { p: 1, ...stand({ shin: 214, thigh: 88, uarm: 92, farm: 277, lfarm: 0.7, head: -12 }) },
   ],
   gear: [plate({ j: "rack" })], aids: [{ k: "path", of: { j: "rack" } }, PARALLEL],
 };
 const goblet = {
   mus: M(["quads", "glutes"], ["abs", "adductors", "lowerback"]),
+  base: { balance: { of: "W", load: 0.3, min: -3 } },
   keys: [
-    { p: 0, ...stand({ torso: 2, Wr: [-6.5, 8.6], eb: 1 }) },
-    { p: 1, ...stand({ shin: 214, thigh: 84, torso: 26, Wr: [-6.5, 8.6], eb: 1 }) },
+    { p: 0, ...stand({ Wr: [-6.5, 8.6], eb: 1 }) },
+    { p: 1, ...stand({ shin: 214, thigh: 84, Wr: [-6.5, 8.6], eb: 1 }) },
   ],
   gear: [db("W", { r: 4.2 })], aids: [PARALLEL, { k: "arrow", of: "H", off: [-8, 0] }],
 };
 const airSquat = {
   mus: M(["quads", "glutes"], ["hams", "abs"]),
+  base: { balance: {} },
   keys: [
-    { p: 0, ...stand({ torso: 2, uarm: 175, farm: 175 }) },
-    { p: 1, ...stand({ shin: 212, thigh: 88, torso: 36, uarm: 92, farm: 92 }) },
+    { p: 0, ...stand({ uarm: 175, farm: 175 }) },
+    { p: 1, ...stand({ shin: 212, thigh: 88, uarm: 92, farm: 92 }) },
   ],
   aids: [PARALLEL, { k: "arrow", of: "H", off: [-8, 0] }],
 };
+// Wv : barre tenue bras tendus sur la verticale du milieu du pied (trajectoire droite, comme un bon soulevé de terre)
+const MIDFOOT = 52.8;
 const deadlift = {
   mus: M(["glutes", "hams", "lowerback"], ["quads", "traps", "forearms", "lats"]),
+  base: { Wv: MIDFOOT },
   keys: [
-    { p: 0, ...stand({ shin: 190, thigh: 100, torso: 60, head: -24 }) },
-    { p: 0.5, ...stand({ shin: 180, thigh: 140, torso: 44, head: -16 }) },
+    { p: 0, ...stand({ shin: 194, thigh: 104, torso: 58, head: -24 }) },
+    { p: 0.5, ...stand({ shin: 181, thigh: 140, torso: 44, head: -16 }) },
     { p: 1, ...stand({ torso: 0, head: 0 }) },
   ],
   gear: [plate({ j: "W", dy: 1.6 })],
   aids: [{ k: "path", of: { j: "W", dy: 1.6 } }, { k: "line", from: "H", to: "S", ext: 0.25 }, { k: "arrow", of: "W", off: [-14, 0] }],
   ghostAt: 1,
 };
+// les hanches partent en arrière (rotation des jambes autour des chevilles) pour rester en équilibre
 const rdl = {
   mus: M(["hams", "glutes"], ["lowerback", "forearms"]),
+  base: { Wv: MIDFOOT, balance: { of: "W", load: 0.6, by: "ankle", min: -16, max: 16 } },
   keys: [
-    { p: 0, ...stand({ torso: 0 }) },
-    { p: 1, ...stand({ shin: 186, thigh: 158, torso: 62, head: -16 }) },
+    { p: 0, ...stand({ torso: 2 }) },
+    { p: 1, ...stand({ shin: 180, thigh: 152, torso: 66, head: -16 }) },
   ],
   gear: [plate({ j: "W", dy: 1.6 })],
   aids: [{ k: "line", from: "H", to: "S", ext: 0.25 }, { k: "path", of: { j: "W", dy: 1.6 } }, { k: "arrow", of: "H", off: [-7, 0] }],
@@ -89,10 +100,10 @@ const legPress = {
 };
 const hipThrust = {
   mus: M(["glutes"], ["hams", "quads", "abs"]),
-  base: { at: "shoulder", x: 30, y: 74, head: 70, uarm: 120, farm: 60, kb: -1 },
+  base: { at: "shoulder", x: 30, y: 74, uarm: 120, farm: 60, kb: -1, At: [73, ANK] },
   keys: [
-    { p: 0, torso: 250, At: [70, ANK] },
-    { p: 1, torso: 272, At: [70, ANK] },
+    { p: 0, torso: 306, head: 36 },
+    { p: 1, torso: 271, head: 46 },
   ],
   gear: [bench(10, 79.4, 22), plate({ j: "hips" }, 9)],
   aids: [{ k: "line", from: "S", to: "K", ext: 0.05 }, { k: "arrow", of: "H", off: [0, 4] }],
@@ -100,15 +111,16 @@ const hipThrust = {
 
 const smithSquat = {
   ...squatBar,
+  base: { balance: { of: { j: "back" }, x: 52.4 } }, // la barre guidée reste sur son rail
   keys: [
-    { p: 0, ...stand({ x: 56, torso: 4, ...SQ_ARMS, head: -4 }) },
-    { p: 1, ...stand({ x: 56, shin: 202, thigh: 90, torso: 38, ...SQ_ARMS, head: -20 }) },
+    { p: 0, ...stand({ x: 56, ...SQ_ARMS, head: -4 }) },
+    { p: 1, ...stand({ x: 56, shin: 202, thigh: 90, ...SQ_ARMS, head: -20 }) },
   ],
   gear: [{ k: "rail", x: 52.4, y: 6, back: true }, plate({ j: "back" })],
   aids: [PARALLEL, { k: "arrow", of: "H", off: [-8, 0] }],
 };
 const hackSquat = {
-  mus: M(["quads", "glutes"], ["adductors", "hams"]),
+  mus: M(["quads", "glutes"], ["adductors", "hams"]), xrot: true,
   base: { at: "hip", torso: 342, head: -4, At: [64, 88.6], kb: -1, foot: 72, Wr: [-1, 5.5], eb: -1 },
   keys: [
     { p: 0, x: 47, y: 54 },
@@ -134,33 +146,37 @@ const jumpSquat = {
 };
 const wallSit = {
   mus: M(["quads"], ["glutes", "abs"]),
-  base: { at: "hip", x: 31, torso: 0, head: 0, kb: -1, At: [50.5, ANK], uarm: 165, farm: 355 },
+  base: { at: "hip", x: 31, torso: 0, head: 0, kb: -1, At: [50.5, ANK], uarm: 168, farm: 28 }, // bras croisés sur la poitrine
   keys: [{ p: 0, y: 64 }, { p: 1, y: 77.3 }],
   gear: [{ k: "wall", x: 21.4, y: 14, back: true }],
   aids: [{ k: "angle", j: "K", a: "H", b: "A", at: 1, label: "90°" }, { k: "arrow", of: "H", off: [5, -9] }],
 };
 const BOX = { k: "box", x: 64, y: 76, w: 26, back: true };
+const ON_BOX = 72.8; // cheville d'un pied posé sur la box
 const boxJump = {
-  dur: 4200,
+  dur: 4400,
   mus: M(["quads", "glutes"], ["calves", "hams"]), loop: true,
+  base: { at: "hip", kb: -1, kb2: -1 },
   keys: [
-    { p: 0, ...stand({ x: 46 }) },
-    { p: 0.15, ...stand({ x: 46, shin: 206, thigh: 108, torso: 42, uarm: 200, farm: 192, head: -14 }) },
-    { p: 0.28, ...stand({ x: 52, y: ANK - 7, foot: 140, thigh: 170, shin: 176, torso: 12, uarm: 30, farm: 22 }) },
-    { p: 0.4, ...stand({ x: 68, y: 68, foot: 105, thigh: 85, shin: 182, torso: 22, uarm: 100, farm: 90 }) },
-    { p: 0.5, ...stand({ x: 74, y: 72.8, shin: 208, thigh: 104, torso: 36, uarm: 110, farm: 100, head: -12 }) },
-    { p: 0.62, ...stand({ x: 74, y: 72.8 }) },
-    { p: 0.76, ...stand({ x: 74, y: 72.8, shin: 196, thigh: 120, torso: 22, A2t: [54, ANK], kb2: -1, foot2: 100 }) },
-    { p: 0.86, ...stand({ x: 62, y: 70, foot: 120, thigh: 190, shin: 150, torso: 10, A2t: [54, ANK], kb2: -1, foot2: 90 }) },
-    { p: 1, ...stand({ x: 46 }) },
+    { p: 0, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, uarm: 180, farm: 180, head: 0 },
+    { p: 0.14, x: 44, y: 70, torso: 40, At: [50, ANK], foot: 90, uarm: 192, farm: 184, head: -14 },
+    { p: 0.26, x: 53, y: 53, torso: 12, At: [54, 88.4], foot: 150, uarm: 22, farm: 14, head: -4 },
+    { p: 0.36, x: 60, y: 46, torso: 16, At: [62, 64], foot: 155, uarm: 80, farm: 70, head: -6 },
+    { p: 0.48, x: 68, y: 51, torso: 38, At: [74, ON_BOX], foot: 90, uarm: 100, farm: 92, head: -12 },
+    { p: 0.62, x: 74, y: ON_BOX - 39, torso: 0, At: [74, ON_BOX], foot: 90, uarm: 180, farm: 180, head: 0 },
+    { p: 0.74, x: 60, y: 61, torso: 16, At: [74, ON_BOX], foot: 90, A2t: [50, ANK], foot2: 90, uarm: 160, farm: 150, head: -8 },
+    { p: 0.82, x: 54, y: 59, torso: 10, At: [66, 69], foot: 120, A2t: [50, ANK], foot2: 90, uarm: 170, farm: 165, head: -4 },
+    { p: 0.9, x: 51, y: 58.2, torso: 4, At: [52, ANK - 5], foot: 110, A2t: [50, ANK], foot2: 90, uarm: 178, farm: 176, head: 0 },
+    { p: 1, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, A2t: [50, ANK], foot2: 90, uarm: 180, farm: 180, head: 0 },
   ],
   gear: [BOX],
 };
 const deepSquat = {
   mus: M(["quads", "glutes", "adductors"], ["calves", "lowerback"]),
+  base: { balance: {} },
   keys: [
     { p: 0, ...stand({ uarm: 175, farm: 40 }) },
-    { p: 1, ...stand({ shin: 225, thigh: 72, torso: 28, uarm: 150, farm: 20, head: -10 }) },
+    { p: 1, ...stand({ shin: 222, thigh: 72, uarm: 150, farm: 20, head: -10 }) },
   ],
   aids: [{ k: "arrow", of: "H", off: [-8, 0] }],
 };
@@ -173,10 +189,10 @@ const dbLunge = {
 const bulgarian = {
   mus: M(["quads", "glutes"], ["adductors", "hams"]),
   keys: [
-    { p: 0, ...stand({ x: 64, torso: 4, A2t: [30, 75], kb2: -1, foot2: 250, uarm: 180, farm: 180 }) },
-    { p: 1, ...stand({ x: 64, shin: 195, thigh: 100, torso: 10, A2t: [30, 75], kb2: -1, foot2: 250, uarm: 182, farm: 180, head: -6 }) },
+    { p: 0, ...stand({ x: 64, torso: 4, A2t: [38, 78], kb2: -1, foot2: 250, uarm: 180, farm: 180 }) },
+    { p: 1, ...stand({ x: 64, shin: 200, thigh: 96, torso: 20, A2t: [38, 78], kb2: -1, foot2: 250, uarm: 182, farm: 180, head: -8 }) },
   ],
-  gear: [bench(12, 82, 24), db("W")],
+  gear: [bench(22, 82, 22), db("W")],
   aids: [{ k: "angle", j: "K", a: "H", b: "A", at: 1 }, { k: "arrow", of: "H", off: [0, -9] }],
 };
 const stepUp = {
@@ -230,7 +246,7 @@ const seatedLegCurl = {
 };
 const nordic = {
   mus: M(["hams"], ["glutes", "lowerback"]),
-  base: { at: "knee", x: 46, y: 95.6, shin: 285, foot: 175, eb: -1 },
+  base: { at: "knee", x: 46, y: 95.6, shin: 285, foot: 175 },
   keys: [
     { p: 0, thigh: 180, torso: 0, uarm: 160, farm: 40 },
     { p: 0.82, thigh: 236, torso: 56, Wt: [86, 96], head: 10 },
@@ -241,7 +257,7 @@ const nordic = {
 };
 const CALF_BLOCK = { k: "box", x: 52, y: 92, w: 18, back: true };
 const calf = {
-  mus: M(["calves"], []),
+  mus: M(["calves"], []), xrot: true,
   base: { at: "toe", x: 63, y: 92, torso: 0, Wr: [2.4, 3], eb: -1 },
   keys: [{ p: 0, foot: 68 }, { p: 1, foot: 124 }],
   gear: [CALF_BLOCK, { k: "post", x: 38, y: 12, back: true }, { k: "roll", at: { j: "S", u: 2.4, n: -0.8 }, r: 2.8, pivot: { j: "S", u: 2.4, n: -11 } }],
@@ -271,16 +287,18 @@ const calfBw = {
 /* ---------- Charnière de hanche, fessiers ---------- */
 const dbRdl = { ...rdl, gear: [db("W2", { back: true }), db("W")], aids: rdl.aids.filter(a => a.k !== "path") };
 const goodMorning = {
-  mus: M(["hams", "glutes", "lowerback"], ["abs"]),
+  mus: M(["hams", "glutes", "lowerback"], ["abs"]), xrot: true,
+  base: { balance: { of: { j: "back" }, load: 0.6, by: "ankle", min: -16, max: 16 } },
   keys: [
-    { p: 0, ...stand({ torso: 2, ...SQ_ARMS, head: -2 }) },
-    { p: 1, ...stand({ shin: 186, thigh: 160, torso: 74, ...SQ_ARMS, head: -14 }) },
+    { p: 0, ...stand({ torso: 4, ...SQ_ARMS, head: -2 }) },
+    { p: 1, ...stand({ shin: 180, thigh: 158, torso: 72, ...SQ_ARMS, head: -14 }) },
   ],
   gear: [plate({ j: "back" })],
   aids: [{ k: "line", from: "H", to: "S", ext: 0.25 }, { k: "arrow", of: "H", off: [-8, 0] }],
 };
 const sumo = {
   mus: M(["glutes", "quads", "adductors"], ["hams", "lowerback", "traps", "forearms"]),
+  base: { Wv: MIDFOOT },
   keys: [
     { p: 0, ...stand({ shin: 196, thigh: 103, lthigh: 0.8, torso: 55, head: -18 }) },
     { p: 1, ...stand({ lthigh: 1, torso: 0, head: 0 }) },
@@ -303,7 +321,7 @@ const kbSwing = {
 };
 const backExt = {
   mus: M(["lowerback", "glutes"], ["hams"]),
-  base: { at: "hip", x: 50, y: 58, thigh: 225, shin: 225, foot: 135, Wr: [-5, 4.5], eb: -1 },
+  base: { at: "hip", x: 50, y: 58, thigh: 225, shin: 225, foot: 135, Wr: [-5, 4.5], eb: 1 },
   keys: [{ p: 0, torso: 150, head: 0 }, { p: 1, torso: 45, head: 0 }],
   gear: [{ k: "pad", x: 58.4, y: 60.6, len: 12, ang: 225, th: 4, back: true }, { k: "post", x: 52, y: 70, back: true }, { k: "post", x: 36, y: 86, x2: 52, y2: 70, back: true },
     { k: "line", from: { j: "heel", dx: -1.6, dy: 1.6 }, to: { j: "toe", dx: -1.6, dy: 1.6 }, cls: "frame thick", back: true }, { k: "roll", at: { j: "A", dx: 2.4, dy: -1.2 }, r: 2.2 }],
@@ -324,7 +342,7 @@ const seatedFold = {
   base: { at: "hip", x: 36, y: 93.4, thigh: 90, shin: 90, foot: 0 },
   keys: [
     { p: 0, torso: 0, uarm: 70, farm: 75, head: 0 },
-    { p: 1, torso: 58, spine: 36, Wt: [78, 87], eb: -1, head: 14 },
+    { p: 1, torso: 58, spine: 36, Wt: [78, 87], head: 14 },
   ],
   gear: [{ k: "mat", x: 18, w: 76 }],
   aids: [{ k: "arrow", of: "S", off: [2, -8] }],
@@ -332,19 +350,19 @@ const seatedFold = {
 const inchworm = {
   dur: 6400,
   mus: M(["hams", "abs"], ["delts", "pecs", "triceps"]), loop: true,
-  base: { at: "toe", x: 40, y: 100, eb: -1, hand: -90 },
+  base: { at: "toe", x: 40, y: 100, hand: -90 },
   keys: [
     { p: 0, foot: 90, uarm: 180, farm: 180 },
-    { p: 0.2, foot: 90, thigh: 174, shin: 180, torso: 172, head: 0, Wt: [52, 98] },
+    { p: 0.2, foot: 90, thigh: 174, shin: 180, torso: 140, spine: 30, head: 10, Wt: [52, 98] },
     { p: 0.5, foot: 160, thigh: 254, shin: 254, torso: 74, Wt: [100, 98] },
-    { p: 0.8, foot: 90, thigh: 174, shin: 180, torso: 172, head: 0, Wt: [52, 98] },
+    { p: 0.8, foot: 90, thigh: 174, shin: 180, torso: 140, spine: 30, head: 10, Wt: [52, 98] },
     { p: 1, foot: 90, uarm: 180, farm: 180 },
   ],
   aids: [{ k: "arrow", of: "W", off: [0, -7] }],
 };
 const downDog = {
   mus: M(["hams", "calves", "delts"], ["lats", "lowerback"]),
-  base: { at: "wrist", x: 80, y: 96.6, hand: -90, At: [20, 91.4], kb: 1 },
+  base: { at: "wrist", x: 80, y: 96.6, hand: -90, At: [20, 91.4], kb: -1 },
   keys: [
     { p: 0, farm: 182, uarm: 180, torso: 74, foot: 160 },
     { p: 1, farm: 138, uarm: 138, torso: 138, foot: 104, head: -6 },
@@ -413,8 +431,8 @@ const benchPress = {
 const ohp = {
   mus: M(["delts", "triceps"], ["traps", "abs", "pecs"]),
   keys: [
-    { p: 0, ...stand({ torso: -2, Wt: [57, 32], luarm: 0.75, eb: -1, head: -4 }) },
-    { p: 1, ...stand({ torso: 0, Wt: [52, 6], luarm: 1, eb: -1, head: 0 }) },
+    { p: 0, ...stand({ torso: -2, Wt: [56, 32], luarm: 0.75, head: -4 }) },
+    { p: 1, ...stand({ torso: 0, Wt: [MIDFOOT, 6], luarm: 1, head: 0 }) },
   ],
   gear: [plate({ j: "W", dy: -1 }, 9)],
   aids: [{ k: "path", of: "W" }, { k: "arrow", of: "W", off: [10, 0] }],
@@ -490,20 +508,20 @@ const inclinePushup = {
 };
 const declinePushup = {
   mus: M(["pecs", "delts"], ["triceps", "abs"]),
-  base: { at: "toe", x: 22, y: 78, hand: -90 },
+  base: { at: "toe", x: 22, y: 64, hand: -90, Wt: [87, 98] },
   keys: [
-    { p: 0, thigh: 282, shin: 282, foot: 186, torso: 102, Wt: [86, 98] },
-    { p: 1, thigh: 287, shin: 287, foot: 191, torso: 107, Wt: [86, 98] },
+    { p: 0, thigh: 285, shin: 285, foot: 189, torso: 105 },
+    { p: 1, thigh: 302, shin: 302, foot: 206, torso: 122, luarm: 0.75 },
   ],
-  gear: [{ k: "box", x: 2, y: 78, w: 26, back: true }],
+  gear: [{ k: "box", x: 2, y: 64, w: 26, back: true }],
   aids: [{ k: "line", from: "S", to: "A", ext: 0.08 }, { k: "arrow", of: "S", off: [0, -9] }],
 };
 const pike = {
   mus: M(["delts", "triceps"], ["pecs", "traps"]),
-  base: { at: "wrist", x: 76, y: 97, hand: -90, At: [50, 92], kb: -1, foot: 125 },
+  base: { at: "toe", x: 40, y: 100, foot: 125, hand: -90, Wt: [76, 98] },
   keys: [
-    { p: 0, farm: 145, uarm: 145, torso: 145, head: 0 },
-    { p: 1, farm: 135, uarm: 216, torso: 150, head: -14 },
+    { p: 0, thigh: 200, shin: 200, torso: 146, head: 0 },
+    { p: 1, thigh: 214, shin: 214, torso: 172, head: -18 },
   ],
   aids: [{ k: "arrow", of: "C", off: [7, 0] }],
 };
@@ -511,7 +529,7 @@ const DB_SEAT = [{ k: "pad", x: 31, y: 84.6, len: 24, ang: 90, th: 3.6, legs: [[
 const dbPress = {
   mus: M(["delts", "triceps"], ["traps", "pecs"]),
   base: { ...SEATED, torso: 0, head: 0 },
-  keys: [{ p: 0, Wt: [55, 37], eb: -1, luarm: 0.65 }, { p: 1, Wt: [50, 9], eb: -1 }],
+  keys: [{ p: 0, Wt: [55, 37], luarm: 0.65 }, { p: 1, Wt: [50, 9] }],
   gear: [...DB_SEAT, db("W2", { back: true }), db("W")],
   aids: [{ k: "path", of: "W" }, { k: "arrow", of: "W", off: [9, 0] }],
 };
@@ -528,16 +546,16 @@ const arnold = {
 const shoulderMachine = {
   mus: M(["delts", "triceps"], ["traps"]),
   base: { ...SEATED, torso: 0, head: 0 },
-  keys: [{ p: 0, Wt: [56, 36], eb: -1, luarm: 0.7 }, { p: 1, Wt: [53, 12], eb: -1 }],
+  keys: [{ p: 0, Wt: [56, 36], luarm: 0.7 }, { p: 1, Wt: [53, 12] }],
   gear: [...DB_SEAT, { k: "line", from: [24, 22], to: "W", cls: "frame thick", back: true }, { k: "post", x: 24, y: 20, back: true }],
   aids: [{ k: "arrow", of: "W", off: [9, 0] }],
 };
-const smithOhp = { ...dbPress, keys: [{ p: 0, Wt: [53, 35], eb: -1, luarm: 0.65 }, { p: 1, Wt: [53, 9], eb: -1 }], gear: [...DB_SEAT, { k: "rail", x: 53, y: 2, back: true }, plate({ j: "W", dy: -1 })] };
+const smithOhp = { ...dbPress, keys: [{ p: 0, Wt: [53, 35], luarm: 0.65 }, { p: 1, Wt: [53, 9] }], gear: [...DB_SEAT, { k: "rail", x: 53, y: 2, back: true }, plate({ j: "W", dy: -1 })] };
 const kbPress = {
   mus: M(["delts", "triceps"], ["abs", "traps"]),
   keys: [
-    { p: 0, ...stand({ Wt: [57, 33], eb: -1, luarm: 0.8, uarm2: 180, farm2: 180 }) },
-    { p: 1, ...stand({ Wt: [52, 7], eb: -1, uarm2: 180, farm2: 180 }) },
+    { p: 0, ...stand({ Wt: [56, 33], luarm: 0.8, uarm2: 180, farm2: 180 }) },
+    { p: 1, ...stand({ Wt: [MIDFOOT, 7], uarm2: 180, farm2: 180 }) },
   ],
   gear: [{ k: "kb", at: "W", rel: 180 }],
   aids: [{ k: "path", of: "W" }, { k: "arrow", of: "W", off: [9, 0] }],
@@ -545,7 +563,7 @@ const kbPress = {
 const benchDips = {
   mus: M(["triceps"], ["pecs", "delts"]),
   base: { at: "wrist", x: 42, y: 77, hand: 180, At: [70, 95.4], kb: -1, foot: 70 },
-  keys: [{ p: 0, farm: 180, uarm: 180, torso: 2 }, { p: 1, farm: 174, uarm: 266, torso: 12, head: -4 }],
+  keys: [{ p: 0, farm: 180, uarm: 180, torso: 2 }, { p: 1, farm: 172, uarm: 250, torso: 10, head: -4 }],
   gear: [{ k: "pad", x: 14, y: 80.6, len: 30, ang: 90, th: 4, legs: [[0.15], [0.85]], back: true }],
   aids: [{ k: "angle", j: "E", a: "S", b: "W", at: 1 }, { k: "arrow", of: "H", off: [6, 0] }],
 };
@@ -561,8 +579,8 @@ const dipMachine = {
 const row = {
   mus: M(["lats", "traps"], ["biceps", "delts", "lowerback", "hams"]),
   keys: [
-    { p: 0, ...stand({ shin: 190, thigh: 158, torso: 64, Wt: [62, 76], eb: 1, head: -20 }) },
-    { p: 1, ...stand({ shin: 190, thigh: 158, torso: 64, Wt: [52, 63], eb: 1, head: -20 }) },
+    { p: 0, ...stand({ shin: 177, thigh: 152, torso: 55, Wt: [MIDFOOT, 72.6], head: -20 }) },
+    { p: 1, ...stand({ shin: 177, thigh: 152, torso: 55, Wt: [MIDFOOT, 58.4], head: -20 }) },
   ],
   gear: [plate({ j: "W", dy: 1.4 })],
   aids: [{ k: "line", from: "H", to: "S", ext: 0.25 }, { k: "arrow", of: "W", off: [7, 0] }],
@@ -581,8 +599,8 @@ const latPull = {
   mus: M(["lats", "biceps"], ["traps", "delts"]),
   base: { at: "hip", x: 46, y: 80, head: -8, At: [66, ANK], kb: -1 },
   keys: [
-    { p: 0, torso: -4, Wt: [55, 32], eb: -1 },
-    { p: 1, torso: -16, Wt: [58, 54], eb: -1, luarm: 0.78 },
+    { p: 0, torso: -4, Wt: [55, 32] },
+    { p: 1, torso: -16, Wt: [58, 54], luarm: 0.78 },
   ],
   gear: [{ k: "seat", x: 36, y: 84.6, len: 18, ang: 90, th: 4, legs: [[0.5]], back: true }, { k: "pad", x: 56, y: 70.4, len: 8, ang: 90, th: 3.4, back: true },
     { k: "cable", from: [58, 16], to: "W", post: [76, 12, 76, 100], back: true }],
@@ -619,8 +637,8 @@ const straightPulldown = {
 const tbarRow = {
   mus: M(["lats", "traps"], ["biceps", "lowerback", "hams", "delts"]),
   keys: [
-    { p: 0, ...stand({ shin: 192, thigh: 150, torso: 52, Wt: [66, 80], eb: 1, head: -18 }) },
-    { p: 1, ...stand({ shin: 192, thigh: 150, torso: 52, Wt: [58, 66], eb: 1, head: -18 }) },
+    { p: 0, ...stand({ shin: 178, thigh: 153, torso: 50, Wt: [MIDFOOT, 70.9], head: -18 }) },
+    { p: 1, ...stand({ shin: 178, thigh: 153, torso: 50, Wt: [MIDFOOT, 57.8], head: -18 }) },
   ],
   gear: [{ k: "line", from: [4, 99], to: { j: "W", dx: 7, dy: 1.6 }, cls: "frame thick", back: true }, plate({ j: "W", dx: 6, dy: 1.6 }, 7, { back: true })],
   aids: [{ k: "line", from: "H", to: "S", ext: 0.25 }, { k: "arrow", of: "W", off: [8, -4] }],
@@ -649,9 +667,9 @@ const chestRow = {
 };
 const invertedRow = {
   mus: M(["lats", "traps"], ["biceps", "delts", "abs"]),
-  base: { at: "ankle", x: 12, y: 95.8, foot: 350, Wt: [72, 60], eb: -1 },
-  keys: [{ p: 0, thigh: 262.2, shin: 262.2, torso: 82.2 }, { p: 1, thigh: 242.1, shin: 242.1, torso: 62.1, head: -6 }],
-  gear: [{ k: "post", x: 76, y: 30, back: true }, { k: "bar", x: 72, y: 60, r: 1.8, post: false }],
+  base: { at: "ankle", x: 84, y: 96.1, foot: 15, Wt: [37, 48] },
+  keys: [{ p: 0, thigh: 112, shin: 112, torso: 292, head: 4 }, { p: 1, thigh: 125, shin: 125, torso: 305, head: 8 }],
+  gear: [{ k: "post", x: 40, y: 36, back: true }, { k: "bar", x: 37, y: 48, r: 1.8, post: false }],
   aids: [{ k: "line", from: "A", to: "S", ext: 0.06 }, { k: "arrow", of: "S", off: [0, -8] }],
 };
 const bandRow = {
@@ -706,7 +724,7 @@ const bandPullApart = {
   gear: [{ k: "band", sag: 0.4 }],
 };
 const facePull = {
-  mus: M(["delts", "traps"], ["biceps"]),
+  mus: M(["delts", "traps"], ["biceps"]), xrot: true,
   keys: [
     { p: 0, ...stand({ torso: -4, Wt: [76, 34], eb: -1, A2t: [40, ANK], foot2: 110 }) },
     { p: 1, ...stand({ torso: -4, Wt: [58, 26], eb: -1, luarm: 0.75, A2t: [40, ANK], foot2: 110 }) },
@@ -733,7 +751,7 @@ const frontRaise = {
   aids: [{ k: "path", of: "W" }, { k: "arrow", of: "W", off: [6, 0] }],
 };
 const uprightRow = {
-  mus: M(["delts", "traps"], ["biceps"]),
+  mus: M(["delts", "traps"], ["biceps"]), xrot: true,
   keys: [{ p: 0, ...stand({ Wt: [54, 62], eb: -1 }) }, { p: 1, ...stand({ Wt: [56, 40], eb: -1, luarm: 0.8 }) }],
   gear: [plate({ j: "W", dy: 1.2 }, 5.6)],
   aids: [{ k: "path", of: "W" }, { k: "arrow", of: "W", off: [10, 0] }],
@@ -832,7 +850,7 @@ const wristCurl = {
 const cableOverhead = {
   mus: M(["triceps"], []),
   keys: [
-    { p: 0, ...stand({ torso: 22, uarm: 26, farm: -146, A2t: [36, ANK], foot2: 110, head: -6 }) },
+    { p: 0, ...stand({ torso: 22, uarm: 26, farm: -124, A2t: [36, ANK], foot2: 110, head: -6 }) },
     { p: 1, ...stand({ torso: 22, uarm: 26, farm: 30, A2t: [36, ANK], foot2: 110, head: -6 }) },
   ],
   gear: [{ k: "cable", from: [18, 34], to: "W", post: [14, 20, 14, 100], back: true }],
@@ -840,7 +858,7 @@ const cableOverhead = {
 };
 const overheadExt = {
   mus: M(["triceps"], []), base: { ...SEATED, torso: 0, head: 0 },
-  keys: [{ p: 0, uarm: 4, farm: 2 }, { p: 1, uarm: 4, farm: -166 }],
+  keys: [{ p: 0, uarm: 4, farm: 2 }, { p: 1, uarm: 4, farm: -146 }],
   gear: [...DB_SEAT, db("W", { r: 4.2 })],
   aids: [{ k: "pin", of: "E" }, { k: "arrow", of: "W", off: [7, 0] }],
 };
@@ -874,7 +892,7 @@ const crunch = {
 };
 const bicycle = {
   dur: 2000,
-  mus: M(["abs", "obliques"], ["hipflex"]), loop: true, linear: true,
+  mus: M(["abs", "obliques"], ["hipflex"]), loop: true, xrot: true,
   base: { at: "hip", x: 50, y: 93.4, torso: 296, spine: 30, head: 10, Wr: [1, -3], eb: 1 },
   keys: [
     { p: 0, thigh: -15, shin: 96, foot: 10, thigh2: 72, shin2: 74, foot2: -10 },
@@ -957,20 +975,21 @@ const birdDog = {
 
 /* ---------- Cardio ---------- */
 const burpee = {
-  dur: 4600,
+  dur: 4800,
   mus: M(["quads", "pecs"], ["glutes", "delts", "abs", "triceps"]), loop: true,
   base: { at: "hip", kb: -1, hand: -90 },
   keys: [
-    { p: 0, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, uarm: 180, farm: 180 },
-    { p: 0.14, x: 44, y: 82, torso: 58, At: [50, ANK], foot: 90, Wt: [66, 97] },
-    { p: 0.22, x: 47, y: 79, torso: 66, At: [30, 88], foot: 135, Wt: [70, 97] },
-    { p: 0.3, x: 49.4, y: 78.2, torso: 70, At: [13, 91.5], foot: 160, Wt: [72, 97] },
-    { p: 0.38, x: 47, y: 79, torso: 62, At: [33, 88], foot: 135, Wt: [71, 97] },
-    { p: 0.46, x: 46, y: 82, torso: 54, At: [52, ANK], foot: 90, Wt: [70, 97] },
-    { p: 0.6, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, Wt: [52, 12] },
-    { p: 0.72, x: 50, y: 48, torso: 0, At: [50, 88], foot: 140, Wt: [52, 2] },
-    { p: 0.86, x: 50, y: 59, torso: 6, At: [50, ANK], foot: 90, uarm: 180, farm: 180 },
-    { p: 1, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, uarm: 180, farm: 180 },
+    { p: 0, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, uarm: 180, farm: 180, head: 0 },
+    { p: 0.12, x: 43, y: 80, torso: 70, At: [50, ANK], foot: 90, Wt: [66, 98], head: -16 },
+    { p: 0.22, x: 48, y: 70, torso: 60, At: [26, 80], foot: 220, Wt: [66, 98], head: -10 },
+    { p: 0.32, x: 43, y: 79, torso: 73, At: [6, 90.7], foot: 163, Wt: [66, 98], head: -4 },
+    { p: 0.39, x: 47, y: 72, torso: 62, At: [32, 82], foot: 215, Wt: [66, 98], head: -10 },
+    { p: 0.46, x: 43, y: 80, torso: 70, At: [50, ANK], foot: 90, Wt: [66, 98], head: -16 },
+    { p: 0.58, x: 50, y: 56, torso: 4, At: [50, 89.5], foot: 150, uarm: 20, farm: 12, head: -2 },
+    { p: 0.68, x: 50, y: 47, torso: 0, At: [50, 84], foot: 150, uarm: 4, farm: 2, head: 0 },
+    { p: 0.8, x: 49, y: 63, torso: 14, At: [50, ANK], foot: 90, uarm: 120, farm: 100, head: -6 },
+    { p: 0.9, x: 50, y: 57.8, torso: 2, At: [50, ANK], foot: 90, uarm: 176, farm: 174, head: 0 },
+    { p: 1, x: 50, y: 57.8, torso: 0, At: [50, ANK], foot: 90, uarm: 180, farm: 180, head: 0 },
   ],
 };
 const jumpingJack = {
@@ -1056,11 +1075,11 @@ const rower = {
   mus: M(["lats", "quads"], ["glutes", "hams", "biceps", "abs"]), loop: true,
   base: { at: "hip", y: 87.6, kb: -1, At: [78, 86], foot: 40, eb: 1 },
   keys: [
-    { p: 0, x: 52, torso: 26, Wt: [86, 78], head: 0 },
+    { p: 0, x: 48, torso: 24, Wt: [84, 78], head: 0 },
     { p: 0.35, x: 36, torso: -8, Wt: [58, 74], head: 0, luarm: 0.9 },
     { p: 0.5, x: 36, torso: -8, Wt: [58, 74], head: 0, luarm: 0.9 },
-    { p: 0.75, x: 40, torso: 22, Wt: [80, 78], head: 0 },
-    { p: 1, x: 52, torso: 26, Wt: [86, 78], head: 0 },
+    { p: 0.75, x: 40, torso: 20, Wt: [80, 78], head: 0 },
+    { p: 1, x: 48, torso: 24, Wt: [84, 78], head: 0 },
   ],
   gear: [{ k: "post", x: 10, y: 95, x2: 96, y2: 95, back: true }, { k: "pad", at: { j: "H", dx: -6, dy: 6.2 }, ang: 90, len: 12, th: 3, back: true },
     { k: "pad", x: 82.6, y: 96, len: 13, ang: 310, th: 2.6, back: true }, { k: "cable", from: [96, 80], to: "W", back: true }],
@@ -1095,7 +1114,7 @@ const catCow = {
   aids: [{ k: "arrow", of: { j: "H", u: 12, n: -7 }, off: [0, -4] }],
 };
 const worldsGreatest = {
-  mus: M(["hipflex", "hams", "glutes"], ["obliques", "adductors"]),
+  mus: M(["hipflex", "hams", "glutes"], ["obliques", "adductors"]), xrot: true, // le buste tourne : le bras monte vers le plafond
   base: { at: "ankle", x: 66, y: ANK, shin: 200, thigh: 98, torso: 66, head: -10, A2t: [24, 91.4], kb2: -1, foot2: 160, W2t: [70, 98] },
   keys: [{ p: 0, Wt: [72, 98] }, { p: 1, uarm: 4, farm: 2, torso: 60, head: -40 }],
   gear: [MAT],
@@ -1110,8 +1129,8 @@ const hipFlexor = {
 };
 const pigeon = {
   mus: M(["glutes", "hipflex"], ["lowerback"]),
-  base: { at: "hip", x: 44, y: 88, thigh: 266, shin: 270, foot: 245, thigh2: 100, shin2: 250, foot2: 250 },
-  keys: [{ p: 0, torso: 4, Wt: [52, 98], W2t: [52, 98], eb: 1, head: 0 }, { p: 1, torso: 76, spine: 20, uarm: 88, farm: 90, uarm2: 88, farm2: 90, head: 6 }],
+  base: { at: "hip", x: 44, y: 90, thigh: 256, shin: 266, foot: 245, thigh2: 100, shin2: 250, foot2: 250 },
+  keys: [{ p: 0, torso: 36, spine: -32, Wt: [58, 97], W2t: [58, 97], head: -6 }, { p: 1, torso: 66, spine: 18, uarm: 82, farm: 84, uarm2: 82, farm2: 84, head: 6 }],
   gear: [MAT],
   aids: [{ k: "arrow", of: "S", off: [4, -6] }],
 };
@@ -1132,12 +1151,12 @@ const thoracic = {
 const childPose = {
   mus: M(["lowerback", "lats"], ["glutes"]),
   base: { at: "knee", x: 50, y: 96.2, shin: 270, foot: 270, hand: 0 },
-  keys: [{ p: 0, thigh: 180, torso: 0, head: 0, uarm: 180, farm: 180 }, { p: 1, thigh: 110, torso: 100, spine: 12, head: -14, uarm: 88, farm: 90 }],
+  keys: [{ p: 0, thigh: 180, torso: 0, head: 0, uarm: 180, farm: 180 }, { p: 1, thigh: 112, torso: 96, spine: 12, head: -14, uarm: 88, farm: 90 }],
   gear: [MAT],
   aids: [{ k: "arrow", of: "W", off: [6, 0] }],
 };
 const dislocates = {
-  mus: M(["delts", "pecs"], ["traps"]),
+  mus: M(["delts", "pecs"], ["traps"]), xrot: true, // prise large : les bras passent sur les côtés
   keys: [{ p: 0, ...stand({ uarm: 160, farm: 160 }) }, { p: 0.5, ...stand({ uarm: 0, farm: 0 }) }, { p: 1, ...stand({ uarm: -150, farm: -150 }) }],
   aids: [{ k: "path", of: "W" }],
 };
@@ -1153,7 +1172,7 @@ const neckRot = { view: "front", mus: M(["traps"], []), keys: [{ p: 0, turn: -0.
 const chinTuck = { mus: M(["traps"], []), keys: [{ p: 0, ...stand({ chin: -1.2 }) }, { p: 1, ...stand({ chin: 2.2, head: 4 }) }], aids: [{ k: "arrow", of: "C", off: [8, 0] }] };
 const doorwayPec = {
   mus: M(["pecs", "delts"], []),
-  base: { at: "hip", y: 57.8, At: [50, ANK], A2t: [64, ANK], kb: -1, kb2: -1, foot2: 90, torso: 6, Wt: [36, 31], eb: 1 },
+  base: { at: "hip", y: 57.8, At: [50, ANK], A2t: [64, ANK], kb: -1, kb2: -1, foot2: 90, torso: 6, Wt: [36, 31], eb: 1, luarm: 0.5 },
   keys: [{ p: 0, x: 48 }, { p: 1, x: 55, torso: 10 }],
   gear: [{ k: "post", x: 34, y: 4, back: true }],
   aids: [{ k: "arrow", of: "S", off: [7, 0] }],
@@ -1164,7 +1183,7 @@ const crossArm = {
 };
 const triStretch = {
   mus: M(["triceps", "lats"], []),
-  keys: [{ p: 0, ...stand({ uarm: 2, farm: 2, uarm2: 180, farm2: 180 }) }, { p: 1, ...stand({ uarm: -6, farm: 176, W2t: [46, 20], eb2: -1 }) }],
+  keys: [{ p: 0, ...stand({ uarm: 2, farm: 2, uarm2: 180, farm2: 180 }) }, { p: 1, ...stand({ uarm: -6, farm: -156, W2t: [47, 19] }) }],
   aids: [{ k: "pin", of: "E" }],
 };
 const latStretch = {
@@ -1179,7 +1198,7 @@ const forearmStretch = {
   keys: [{ p: 0, ...stand({ uarm: 92, farm: 90, hand: 0, uarm2: 180, farm2: 180 }) }, { p: 1, ...stand({ uarm: 92, farm: 90, hand: -78, W2t: [76, 35], eb2: 1 }) }],
 };
 const threadNeedle = {
-  mus: M(["traps", "lats"], ["obliques"]),
+  mus: M(["traps", "lats"], ["obliques"]), xrot: true, // le buste tourne : le bras s'ouvre vers le plafond
   base: { ...ALL4, W2t: [59, 98] },
   keys: [{ p: 0, Wt: [52, 96], luarm: 0.4, torso: 78, head: 10 }, { p: 1, uarm: 0, farm: 0, torso: 72, head: -30 }],
   gear: [MAT],
@@ -1195,7 +1214,7 @@ const cobra = {
 const kneeHug = {
   mus: M(["lowerback", "glutes"], []),
   base: { at: "hip", x: 52, y: 93.4, torso: 270, head: 0, kb: -1 },
-  keys: [{ p: 0, At: [72, ANK], foot: 90, uarm: 90, farm: 90, hand: 0 }, { p: 1, thigh: -30, shin: 160, foot: 70, Wt: [46, 80], eb: 1, head: 14 }],
+  keys: [{ p: 0, At: [72, ANK], foot: 90, uarm: 90, farm: 90, hand: 0 }, { p: 1, thigh: -30, shin: 125, foot: 40, Wt: [46, 80], eb: 1, head: 14 }],
   gear: [MAT],
   aids: [{ k: "arrow", of: "K", off: [-6, 0] }],
 };
@@ -1257,12 +1276,12 @@ const quadStretch = {
   mus: M(["quads", "hipflex"], []),
   base: { at: "hip", x: 50, y: 57.8, torso: 0, A2t: [51, ANK], kb2: -1, foot2: 90, W2t: [70, 40], eb2: 1 },
   keys: [{ p: 0, thigh: 180, shin: 180, foot: 90, uarm: 180, farm: 180 }, { p: 0.3, thigh: 182, shin: 230, foot: 120, uarm: 182, farm: 176 },
-    { p: 1, thigh: 184, shin: 356, foot: 268, Wt: [45, 58], eb: 1 }],
+    { p: 1, thigh: 184, shin: 340, foot: 262, Wt: [45, 58], eb: 1 }],
   gear: [{ k: "wall", x: 72, y: 12, back: true }],
 };
 const calfStretch = {
   mus: M(["calves"], ["hams"]),
-  base: { at: "hip", y: 58.6, At: [62, ANK], A2t: [28, ANK], kb: -1, kb2: -1, foot: 90, foot2: 90, Wt: [82, 40], W2t: [82, 40], eb: -1, eb2: -1 },
+  base: { at: "hip", y: 58.6, At: [62, ANK], A2t: [28, ANK], kb: -1, kb2: -1, foot: 90, foot2: 90, Wt: [82, 40], W2t: [82, 40] },
   keys: [{ p: 0, x: 44, torso: 16 }, { p: 1, x: 50, torso: 26 }],
   gear: [{ k: "wall", x: 84, y: 12, back: true }],
   aids: [{ k: "line", from: "A2", to: "S", ext: 0.04, at: 1 }],
@@ -1325,30 +1344,51 @@ export const moveOf = id => MOVES[id] || BY_PATTERN[patternOf(id)] || airSquat;
 export const hasMove = id => !!MOVES[id];
 export const viewLabel = m => m.label || (m.view === "front" ? (m.back ? "Vue de dos" : "Vue de face") : "");
 
+// Phase d'effort de chaque type de mouvement : celle où l'on pousse ou tire, où l'on souffle ; null : maintien, étirement.
+// Le mouvement dessiné va de la position clé 0 à 1 (« go ») puis revient (« back »).
+const EFFORT = { squat: "back", lunge: "back", legext: "go", legcurl: "go", hinge: "back", bridge: "go", press_h: "back", pushup: "back", dips: "back",
+  press_v: "go", raise: "go", fly: "back", pull_v: "go", row: "go", curl: "go", tri_ext: "go", shrug: "go", calf: "go", crunch: "go", plank: null, cardio: null, stretch: null };
+export const effortOf = id => (SAY[id] && "effort" in SAY[id] ? SAY[id].effort : EFFORT[patternOf(id)] ?? null);
+// Phase jouée plus vite dans la démo : l'effort, sauf mouvement volontairement freiné (fast dans les consignes)
+export const fastOf = id => (SAY[id] && "fast" in SAY[id] ? SAY[id].fast : effortOf(id));
+
 /* ---------- Consignes propres à un exercice (le reste vient de son type de mouvement) ---------- */
-// setup : mise en place · go / back : étapes 1 et 2 · effort : phase où l'on souffle · steps : étapes d'un mouvement en boucle [début, texte]
+// setup : mise en place · go / back : étapes 1 et 2 · effort : phase où l'on souffle · fast : phase rapide si ce n'est pas l'effort
+// steps : étapes d'un mouvement en boucle [début, texte]
 const press = { go: "Pousse les poignées devant toi.", back: "Reviens lentement, coudes vers l'arrière.", effort: "go" };
 const closeArms = { go: "Ramène les bras devant toi en serrant les pectoraux.", back: "Rouvre lentement jusqu'à sentir l'étirement.", effort: "go",
   mistakes: ["Bras complètement tendus : les coudes souffrent", "Épaules qui avancent"] };
+const lungeSay = { go: "Descends jusqu'à frôler le sol avec le genou arrière, buste droit.", back: "Remonte en poussant sur le talon avant." };
+const liftUp = { go: "Pousse dans le sol et redresse-toi, la barre glisse le long des jambes.", back: "Redescends la barre en poussant les fesses en arrière, dos plat.", effort: "go" };
+const dbPressSay = { go: "Descends les haltères de chaque côté de la poitrine, coudes à environ 45°.", back: "Pousse les haltères vers le haut en les rapprochant." };
 const SAY = {
+  deadlift: { ...liftUp },
+  sumo_deadlift: { setup: "Pieds très écartés, pointes ouvertes, mains entre les jambes, dos plat.", ...liftUp },
+  good_morning: { setup: "Barre sur le haut du dos, pieds largeur de hanches, genoux légèrement fléchis.", go: "Penche le buste en poussant les fesses loin derrière, dos bien plat.",
+    back: "Remonte en serrant les fessiers." },
+  lunge: { setup: "Un grand pas en avant, pied arrière sur la pointe, buste droit.", ...lungeSay },
+  db_lunge: { setup: "Un haltère dans chaque main, un grand pas en avant, pied arrière sur la pointe.", ...lungeSay },
+  walking_lunge: { setup: "Debout, un haltère dans chaque main.", go: "Fais un grand pas en avant et descends, genou arrière près du sol.",
+    back: "Pousse sur le pied avant et enchaîne avec l'autre jambe." },
+  db_bench: { setup: "Allongé, un haltère dans chaque main au-dessus de la poitrine, omoplates serrées, pieds au sol.", ...dbPressSay },
+  incline_db: { setup: "Sur le banc incliné, un haltère dans chaque main au-dessus du haut de la poitrine, omoplates serrées.", ...dbPressSay },
   hack_squat: { setup: "Dos et épaules contre les coussins, pieds au milieu de la plateforme.", go: "Descends en pliant les genoux jusqu'à environ 90°.", back: "Pousse dans la plateforme pour remonter, sans verrouiller les genoux." },
   leg_press: { setup: "Dos et fesses bien calés, pieds largeur de hanches sur la plateforme.", go: "Plie les genoux en amenant la plateforme vers toi.", back: "Pousse sans verrouiller les genoux en haut.",
     mistakes: ["Fesses qui décollent du siège en bas", "Genoux verrouillés en haut", "Genoux qui rentrent"] },
   jump_squat: { setup: "Pieds largeur d'épaules, bras prêts à lancer.", steps: [[0, "Descends en squat, bras en arrière"], [0.32, "Explose vers le haut et saute"], [0.62, "Réception souple, genoux fléchis"]] },
   wall_sit: { setup: "Dos plaqué au mur, pieds à environ 50 cm du mur.", go: "Glisse le long du mur jusqu'à avoir les cuisses parallèles au sol.", back: "Tiens la position, genoux au-dessus des chevilles.", effort: null,
     mistakes: ["Genoux qui dépassent les orteils", "Mains appuyées sur les cuisses", "Bloquer sa respiration"] },
-  box_jump: { setup: "Face à une box stable, pieds largeur de hanches.", steps: [[0, "Fléchis les jambes, bras en arrière"], [0.2, "Saute en lançant les bras"], [0.44, "Réception douce sur la box, genoux fléchis"], [0.58, "Redresse-toi sur la box"], [0.7, "Redescends en marchant, un pied après l'autre"]],
+  box_jump: { setup: "Face à une box stable, pieds largeur de hanches.", steps: [[0, "Fléchis les jambes, bras en arrière"], [0.18, "Saute en lançant les bras"], [0.42, "Réception douce sur la box, genoux fléchis"], [0.56, "Redresse-toi sur la box"], [0.68, "Redescends en marchant, un pied après l'autre"]],
     mistakes: ["Atterrir jambes tendues", "Redescendre en sautant en arrière", "Box trop haute"] },
   deep_squat: { go: "Descends le plus bas possible, talons au sol, coudes à l'intérieur des genoux.", back: "Remonte doucement." },
   bulgarian: { setup: "Pied arrière posé sur un banc, pied avant un grand pas devant.", go: "Descends en pliant le genou avant, buste droit.", back: "Remonte en poussant sur le talon avant." },
-  step_up: { setup: "Face à une box ou une marche, un pied posé dessus.", go: "Pousse sur le pied posé sur la box pour monter.", back: "Redescends en contrôlant, un pied après l'autre." },
+  step_up: { setup: "Face à une box ou une marche, un pied posé dessus.", go: "Pousse sur le pied posé sur la box pour monter.", back: "Redescends en contrôlant, un pied après l'autre.", effort: "go" },
   adductor: { setup: "Assis, dos au dossier, coussins contre l'intérieur des genoux.", go: "Serre les jambes l'une vers l'autre.", back: "Rouvre lentement en contrôlant.", mistakes: ["Lâcher la charge d'un coup", "Se pencher en avant"] },
   abductor: { setup: "Assis, dos au dossier, coussins contre l'extérieur des genoux.", go: "Écarte les genoux contre la résistance.", back: "Ramène lentement les jambes.", effort: "go", mistakes: ["Lâcher la charge d'un coup", "Se pencher en avant"] },
   tke: { setup: "Élastique derrière le genou, attaché devant toi.", go: "Tends complètement le genou en serrant la cuisse.", back: "Relâche doucement, le genou se plie un peu." },
   seated_leg_curl: { setup: "Assis, rouleau sous les mollets, cuisses bloquées par le coussin.", go: "Ramène les talons sous le siège.", back: "Tends les jambes lentement." },
-  nordic: { setup: "À genoux, chevilles bloquées, corps droit des genoux à la tête.", go: "Laisse-toi descendre vers l'avant le plus lentement possible.", back: "Rattrape-toi avec les mains, puis remonte.", effort: "go",
+  nordic: { setup: "À genoux, chevilles bloquées, corps droit des genoux à la tête.", go: "Laisse-toi descendre vers l'avant le plus lentement possible.", back: "Rattrape-toi avec les mains, puis remonte.", effort: "go", fast: "back",
     mistakes: ["Plier les hanches", "Tomber d'un coup"] },
-  sumo_deadlift: { setup: "Pieds très écartés, pointes ouvertes, mains entre les jambes, dos plat." },
   kb_swing: { setup: "Pieds un peu plus larges que les hanches, kettlebell devant toi.", steps: [[0, "Le kettlebell redescend entre les jambes"], [0.3, "Hanches en arrière, dos plat"], [0.5, "Claque les hanches vers l'avant"], [0.75, "Il monte à hauteur d'épaules, bras tendus"]] },
   back_ext: { setup: "Hanches sur le coussin, chevilles bloquées, bras croisés.", go: "Remonte jusqu'à aligner le buste avec les jambes.", back: "Redescends lentement, dos plat.", effort: "go" },
   superman: { setup: "Allongé sur le ventre, bras tendus devant.", go: "Décolle bras et jambes en serrant les fessiers.", back: "Repose doucement.", effort: "go" },
@@ -1406,7 +1446,7 @@ const SAY = {
   hollow: { setup: "Sur le dos, bras tendus derrière la tête.", go: "Décolle épaules et jambes, bas du dos plaqué au sol.", back: "Tiens la position en respirant." },
   pallof: { setup: "De profil à la poulie, poignée contre la poitrine.", go: "Pousse la poignée devant toi sans laisser le buste tourner.", back: "Ramène-la à la poitrine.", effort: "go" },
   bird_dog: { setup: "À quatre pattes, mains sous les épaules, genoux sous les hanches.", go: "Tends un bras devant et la jambe opposée derrière.", back: "Reviens et change de côté." },
-  burpee: { setup: "Debout, pieds largeur de hanches.", steps: [[0, "Accroupis-toi, mains au sol"], [0.18, "Saute les pieds en arrière, en planche"], [0.36, "Ramène les pieds vers les mains"], [0.55, "Saute bras en l'air"], [0.8, "Réception souple"]] },
+  burpee: { setup: "Debout, pieds largeur de hanches.", steps: [[0, "Accroupis-toi, mains au sol"], [0.14, "Saute les pieds en arrière, en planche"], [0.34, "Ramène les pieds vers les mains"], [0.48, "Saute bras en l'air"], [0.72, "Réception souple, puis redresse-toi"]] },
   jumping_jack: { steps: [[0, "Saute en écartant bras et jambes"], [0.5, "Reviens pieds joints, bras le long du corps"]] },
   high_knees: { setup: "Debout, sur l'avant des pieds.", steps: [[0, "Cours sur place en montant les genoux à hauteur de hanches"]] },
   mountain: { setup: "En planche, mains sous les épaules.", steps: [[0, "Ramène un genou vers la poitrine"], [0.5, "Puis l'autre, vite, hanches basses"]] },
