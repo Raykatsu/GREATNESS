@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-5";
+const VERSION = "coach-6";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -16,11 +16,13 @@ const env = (k: string) => (Deno.env.get(k) ?? "").trim();
 const KEY = env("GEMINI_API_KEY");
 const list = (v: string) => v.split(",").map(s => s.trim()).filter(Boolean);
 // Modèles, du meilleur au plus endurant. Les alias « latest » suivent le dernier Flash et Flash-Lite de
-// Google ; Gemini 2.5 Flash et Gemma ont leur propre quota gratuit et prennent le relais quand il le faut.
-const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest,gemini-2.5-flash,gemma-4-31b-it");
-// Recherche Google, pour les questions qui demandent une info récente (actualité, prix, études…) :
-// modèles dont le quota gratuit l'autorise, essayés dans l'ordre avant les modèles sans recherche.
-const SEARCH_MODELS = list(env("GEMINI_SEARCH_MODELS") || "gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest");
+// Google ; le Flash précédent et Gemma ont leur propre capacité et prennent le relais en cas de surcharge
+// ou de quota épuisé. Un modèle retiré (404) est simplement sauté.
+const MODELS = list(env("GEMINI_MODELS") || "gemini-flash-latest,gemini-3.7-flash,gemini-flash-lite-latest,gemma-4-26b-a4b-it");
+// Recherche Google, pour les questions qui demandent une info récente (actualité, prix, études…), essayée
+// avant les modèles sans recherche. Le quota gratuit de Google la refuse souvent : le refus est retenu
+// 15 min et la réponse vient alors sans recherche (elle marche dès que la facturation Google est activée).
+const SEARCH_MODELS = list(env("GEMINI_SEARCH_MODELS") || "gemini-flash-latest,gemini-flash-lite-latest");
 // Réflexion des modèles Gemini 3 et plus : « low » répond en quelques secondes au lieu d'une vingtaine.
 const THINKING = env("GEMINI_THINKING") || "low";
 const LIMIT = Number(env("AI_DAILY_LIMIT") || 80);
@@ -188,7 +190,7 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
   const skip = new Set<string>();
   const t0 = Date.now(), deadline = t0 + budgetMs;
   const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
-  const queue = plan(web);
+  const queue = plan(web), retried = new Set<string>();
   while (queue.length) {
     const a = queue.shift()!;
     if (skip.has(a.model)) continue;
@@ -219,6 +221,10 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
           searchBlocked.set(a.model, Date.now() + 15 * 60e3); // quota de la recherche : le modèle reste utilisable sans
         } else if ([401, 403, 404, 429].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t))) {
           skip.add(a.model);
+        } else if (res.status >= 500 && !retried.has(label) && deadline - Date.now() > 15_000) {
+          retried.add(label); // surcharge passagère chez Google (503) : un seul nouvel essai, 1 s plus tard
+          await new Promise(r => setTimeout(r, 1000));
+          queue.unshift(a);
         }
         continue;
       }
