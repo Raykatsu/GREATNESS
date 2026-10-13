@@ -3,6 +3,7 @@
 import { EXERCISES, EQUIP } from "./data.js";
 import { PATTERNS, patternOf } from "./motion.js";
 import { build } from "./anim.js";
+import { camFor, openCam } from "./cam.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
 // Pour chaque type de mouvement. Le mouvement va de la position A à la position B (« go ») puis revient (« back »).
@@ -92,6 +93,7 @@ export function openDemo(id) {
       <div class="seg" id="dm-speed" style="--n:2"><button data-s="0.5">Ralenti</button><button data-s="1" class="on">Normal</button></div></div>
     <div class="eyebrow mt">${esc(ex.muscle)} · ${esc(EQUIP[ex.equip] || "")}</div>
     <h2 class="h2" style="margin-top:2px">${esc(ex.name)}</h2>
+    ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
     <h3 class="demo-h">Mise en place</h3><p>${esc(g.setup)}</p>
     <h3 class="demo-h">Le mouvement</h3>
     <ol class="demo-steps">${steps.map(([k, t], i) => `<li data-step="${k}"><span class="tnum">${i + 1}</span>${esc(t)}</li>`).join("")}</ol>
@@ -129,6 +131,7 @@ export function openDemo(id) {
     raf = requestAnimationFrame(frame);
   };
   $("#dm-play", sh.el).onclick = () => setPlaying(!playing);
+  $("#dm-cam", sh.el)?.addEventListener("click", () => { setPlaying(false); openCam({ ...ex, id }, { practice: true }); });
   $$("#dm-speed button", sh.el).forEach(b => b.onclick = () => {
     const now = performance.now();
     offset += (now - t0) * speed; t0 = now; speed = +b.dataset.s;

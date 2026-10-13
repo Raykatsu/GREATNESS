@@ -15,7 +15,7 @@ import * as llm from "./llm.js";
 import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
-import { openCam, camSupported, camTrackable } from "./cam.js";
+import { openCam, camFor, summaryText } from "./cam.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { spidey } from "./spidey.js";
@@ -165,7 +165,7 @@ function render() {
     `<button class="tool" id="ask">${I.sparkle}<span>Coach</span></button>`,
     `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
     `<button class="tool" id="skip">${I.skip}<span>Passer</span></button>`,
-    camSupported() && ex.type !== "time" && camTrackable(ex.id) ? `<button class="tool" id="cam">${I.camera}<span>Compter</span></button>` : "",
+    camFor(ex) ? `<button class="tool" id="cam">${I.camera}<span>Caméra</span></button>` : "",
     `<button class="tool" id="note">${I.edit}<span>Note</span></button>`,
     S.history.length ? `<button class="tool" id="undo">${I.undo}<span>Annuler</span></button>` : "",
   ].join("");
@@ -325,9 +325,11 @@ function bind(ex) {
   $("#mic").onclick = toggleVoice;
   $("#cues-btn").onclick = () => { showCues = !showCues; render(); };
   mountAnims(overlay());
-  $("#cam")?.addEventListener("click", () => openCam(ex, { onDone: n => {
+  $("#cam")?.addEventListener("click", () => openCam(ex, { goal: ex.type === "time" ? ex.goal : 0, onDone: (n, form) => {
     ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n; const c = $("#v-reps"); if (c) c.firstChild.nodeValue = n;
-    toast(`${n} reps comptées : ajuste le ressenti puis valide.`);
+    const q = summaryText(form);
+    toast(ex.type === "time" ? `${n} s ${q ? `· ${q.replace(/^\d+ s tenues · /, "")}` : "mesurées"} : valide la série.` : `${n} reps comptées${q ? ` · ${q}` : ""}. Valide la série.`, q ? 5200 : 3000);
+    if (form?.tip && form.score != null && form.score < 80) setTimeout(() => spidey.say(form.tip, { mood: "alert" }), 600);
   } }));
   $$(".ex-tab").forEach(b => b.onclick = () => {
     const i = +b.dataset.i;

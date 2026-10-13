@@ -1,7 +1,7 @@
 name: Supabase (IA en ligne)
 
 # Installe la base de données et la fonction « coach » sur Supabase, puis vérifie de bout en bout
-# que Gemini répond. Se lance tout seul quand le dossier supabase/ change sur main, ou à la main
+# que Gemini répond. Active aussi les notifications (rappels de séance, défis entre amis). Se lance tout seul quand le dossier supabase/ change sur main, ou à la main
 # (onglet Actions → « Supabase (IA en ligne) » → Run workflow).
 # Prérequis : le secret GitHub SUPABASE_ACCESS_TOKEN (voir SUPABASE.md, « Déploiement automatique »).
 
@@ -23,6 +23,7 @@ permissions:
 env:
   PROJECT_REF: kahzhwslhstsnkcdciyt
   FUNCTION_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/coach
+  REMINDERS_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/reminders
   # Clé publique du projet (déjà dans js/config.js), envoyée comme le fait l'app
   PUBLISHABLE_KEY: sb_publishable_QXGwpXit7dx-N2xEkcx2Zw_3V30TXwU
 
@@ -56,7 +57,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         continue-on-error: true
         run: |
-          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql; do
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql; do
             code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
@@ -109,6 +110,49 @@ jobs:
             -H "Content-Type: application/json" -d '{}' | grep --line-buffered -v '^[[:space:]]*$' | tee diag.txt || true
           [ "$(tail -n 1 diag.txt | jq -r .ok 2>/dev/null)" = "true" ] || { echo "::error::Gemini ne répond pas : voir le diagnostic ci-dessus"; fail=1; }
           exit $fail
+
+      # Fonction « reminders » + planification toutes les 15 min (pg_cron, pg_net). Crée les clés VAPID si
+      # besoin. Une clé aléatoire (CRON_KEY) réserve l'envoi à la planification.
+      - name: Notifications (rappels et défis entre amis)
+        if: always() && steps.token.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          names=$(supabase secrets list --project-ref "$PROJECT_REF" -o json 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)
+          [ -n "$names" ] || names=$(supabase secrets list --project-ref "$PROJECT_REF" 2>/dev/null | awk -F'|' 'NR > 2 { gsub(/ /, "", $1); print $1 }')
+          has() { printf '%s\n' "$names" | grep -qx "$1"; }
+          if ! has VAPID_PUBLIC_KEY || ! has VAPID_PRIVATE_KEY; then
+            # pas encore de clés : on crée une paire ; la privée ne va que dans les secrets Supabase,
+            # l'app lit la publique auprès de la fonction (GET)
+            keys=$(node -e 'const c=require("crypto"),e=c.createECDH("prime256v1");e.generateKeys();const pad=(b,n)=>Buffer.concat([Buffer.alloc(Math.max(0,n-b.length)),b]);console.log(JSON.stringify({pub:pad(e.getPublicKey(),65).toString("base64url"),priv:pad(e.getPrivateKey(),32).toString("base64url")}))')
+            pub=$(printf '%s' "$keys" | jq -r .pub); priv=$(printf '%s' "$keys" | jq -r .priv)
+            echo "::add-mask::$priv"
+            supabase secrets set "VAPID_PUBLIC_KEY=$pub" "VAPID_PRIVATE_KEY=$priv" --project-ref "$PROJECT_REF" > /dev/null
+            echo "Nouvelle paire de clés VAPID créée. Clé publique : $pub"
+          fi
+          has VAPID_SUBJECT || supabase secrets set "VAPID_SUBJECT=https://raykatsu.github.io/GREATNESS/" --project-ref "$PROJECT_REF" > /dev/null
+          CRON=$(openssl rand -hex 24)
+          echo "::add-mask::$CRON"
+          supabase secrets set "CRON_KEY=$CRON" --project-ref "$PROJECT_REF" > /dev/null
+          supabase functions deploy reminders --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          sql="create extension if not exists pg_cron;
+          create extension if not exists pg_net with schema extensions;
+          select cron.schedule('greatness-reminders', '*/15 * * * *', \$job\$ select net.http_post(url := '$REMINDERS_URL', headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-key', '$CRON'), body := '{}'::jsonb, timeout_milliseconds := 25000) \$job\$);"
+          code=$(jq -n --arg q "$sql" '{query: $q}' | curl -sS -o cron.json -w '%{http_code}' -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+          echo "Planification toutes les 15 min : HTTP $code"
+          if [ "$code" -ge 300 ]; then head -c 600 cron.json; echo; echo "::error::planification impossible"; exit 1; fi
+          # essai : la fonction répond (et envoie ce qui serait dû à cet instant)
+          for i in 1 2 3 4 5 6; do
+            res=$(curl -sS --max-time 40 -X POST "$REMINDERS_URL" -H "x-cron-key: $CRON" -H "Content-Type: application/json" -d '{}' || true)
+            case "$res" in *'"due"'*) break ;; esac
+            sleep 5
+          done
+          echo "Essai de la fonction : $res"
+          refused=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -X POST "$REMINDERS_URL" -H "Content-Type: application/json" -d '{}' || true)
+          echo "Sans la clé de planification : HTTP $refused (403 attendu)"
+          echo "Clé publique servie à l'app : $(curl -sS --max-time 20 "$REMINDERS_URL" | jq -r '.publicKey // "absente"' | cut -c1-16)…"
+          case "$res" in *'"due"'*) ;; *) echo "::error::la fonction reminders ne répond pas"; exit 1 ;; esac
 
       - name: Retrait du secret de diagnostic
         if: always() && steps.token.outputs.ok == 'true'

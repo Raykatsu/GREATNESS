@@ -8,7 +8,7 @@ import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
-import { renderFriends, renderImport } from "./social.js";
+import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS } from "./cloud.js";
 import * as llm from "./llm.js";
@@ -16,6 +16,9 @@ import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
 import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
 import { mountAnims } from "./anim.js";
+import { chart } from "./chart.js";
+import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
+import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
@@ -87,6 +90,8 @@ function route() {
     window.scrollTo(0, 0);
   }
   setTimeout(() => spidey.settle(), 400);
+  setSocialBadge();
+  setTimeout(socialTick, 2500);
   const fresh = checkBadges();
   if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); spidey.react("party"); }, 600);
 }
@@ -246,6 +251,7 @@ function home() {
     </section>
 
     ${reviewCard(now)}
+    ${socialCard()}
     <div class="quick mt-s">
       <button class="card quick-tile" id="free"><span class="qi">${I.bolt}</span><span class="qt"><b>Séance libre</b><small>Au feeling</small></span></button>
       <a class="card quick-tile" href="#/create"><span class="qi qi-blue">${I.plus}</span><span class="qt"><b>Créer</b><small>Sur mesure</small></span></a>
@@ -290,6 +296,7 @@ function home() {
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
+  $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {
     (state.reviews ||= {})[wk] = { ...state.reviews[wk], hinted: Date.now() }; save({ silent: true });
@@ -303,6 +310,36 @@ function home() {
   $("#edit-week").onclick = () => editDay((now.getDay() + 6) % 7);
   animateRings(view);
   countUp(view);
+}
+
+// Actus des amis non lues (dépassé au classement, duel, record…) : carte sur l'accueil
+function socialCard() {
+  const feed = (state.social?.feed || []).filter(e => !e.read);
+  if (!feed.length) return "";
+  const e = feed[0];
+  return `<button class="card banner soc-card mt-s" id="soc-open"><span class="soc-ic" aria-hidden="true">${FEED_ICON[e.kind] || "⚔️"}</span>
+    <div class="grow"><b>${feed.length > 1 ? `${feed.length} actus de tes amis` : "Du nouveau chez tes amis"}</b><div class="small muted soc-t">${esc(e.text)}</div></div>${I.chev}</button>`;
+}
+// Pastille du nombre d'actus non lues sur l'onglet « Moi »
+function setSocialBadge(n = unreadCount()) {
+  const a = $('.tabbar a[data-tab="me"]');
+  if (!a) return;
+  let b = a.querySelector(".tab-badge");
+  if (!n) return void b?.remove();
+  if (!b) { b = document.createElement("i"); b.className = "tab-badge"; a.appendChild(b); }
+  b.textContent = n > 9 ? "9+" : n;
+}
+onSocial(n => setSocialBadge(n));
+// Actus des amis : mises à jour à l'ouverture et au retour sur l'app (au plus toutes les 10 min)
+let socialAt = 0;
+async function socialTick() {
+  if (!currentUser || !isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
+  socialAt = Date.now();
+  const ev = await syncSocial();
+  if (!ev.length || isLive()) return;
+  const top = ev.find(e => e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
+  toast(`${FEED_ICON[top.kind] || ""} ${top.text}`, 5000);
+  if (current === "home" && !document.querySelector(".sheet-wrap")) route();
 }
 
 function shortName(p) {
@@ -333,6 +370,8 @@ function editDay(i) {
    ========================================================= */
 let monthOffset = 0, progressTab = "me";
 function progress() {
+  // lien d'une notification « amis » : #/progress?t=friends
+  if (params.t === "friends" || params.t === "me") { progressTab = params.t; params = {}; history.replaceState(null, "", "#/progress"); }
   const p = state.profile;
   const head = `<header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>`;
   if (progressTab === "friends") {
@@ -383,12 +422,15 @@ function progress() {
         <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
     </div>
 
-    <div class="section"><h2>Records</h2>${lifts.length ? `<span class="xs muted">1RM estimé</span>` : ""}</div>
-    ${lifts.length ? `<div class="card card-list">${lifts.map(([id, l]) => recRow(id, l)).join("")}</div>`
+    ${curvesHtml()}
+
+    <div class="section"><h2>Mur des records</h2>${lifts.length ? `<button class="me-add" id="rec-all">Tout voir</button>` : ""}</div>
+    ${lifts.length ? recordsWallHtml(liftRecords())
       : `<div class="card empty">${I.trophy}<b>Aucun record pour l'instant</b>Ils apparaîtront après ta première séance.</div>`}
 
     <div class="section"><h2>Corps</h2><button class="me-add" id="body-add">${I.plus}Mesurer</button></div>
     ${bodyCard()}
+    ${photosSection()}
 
     <div class="section"><h2>Succès</h2><span class="xs muted"><b class="tnum" style="color:var(--text)">${got.length}</b> / ${BADGES.length}</span></div>
     <div class="badges few" id="badges">${badges.map((b, i) => `<div class="badge-card ${state.badges?.[b.id] ? "on" : ""}" style="--i:${i}" title="${esc(b.desc)}"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>
@@ -400,9 +442,17 @@ function progress() {
       : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
 
   bindReviews(view);
+  bindCurves(view);
+  mountAnims(view);
+  mountPhotos(view);
   animateRings(view);
   bindProgressSeg();
   $("#body-add").onclick = bodySheet;
+  $("#rec-all")?.addEventListener("click", () => {
+    const sh = sheet(`<h2 class="h2">Tous mes records</h2><p class="small muted" style="margin:6px 0 0">1RM estimé pour les charges, meilleure série sinon.</p>
+      <div class="card card-list mt">${lifts.map(([id, l]) => recRow(id, l)).join("")}</div>`);
+    $$("[data-ex]", sh.el).forEach(el => el.onclick = () => exerciseSheet(el.dataset.ex));
+  });
   $("#mp").onclick = () => { monthOffset--; route(); };
   $("#mn").onclick = () => { if (monthOffset < 0) { monthOffset++; route(); } };
   $$("[data-ex]").forEach(el => el.onclick = () => exerciseSheet(el.dataset.ex));
@@ -441,7 +491,7 @@ function sessRow(s) {
 
 // Onglet « Moi » : Stats, Amis & défis, Réglages
 const progressSeg = (on = current === "profile" ? "settings" : progressTab) => `<div class="seg mt" id="ptabs">
-  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis<span class="seg-x"> & défis</span></button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
+  <button data-t="me" class="${on === "me" ? "on" : ""}">Stats</button><button data-t="friends" class="${on === "friends" ? "on" : ""}">Amis<span class="seg-x"> & défis</span>${unreadCount() && on !== "friends" ? `<i class="seg-dot" aria-label="Nouvelles actus"></i>` : ""}</button><button data-t="settings" class="${on === "settings" ? "on" : ""}">Réglages</button></div>`;
 function bindProgressSeg() {
   $$("#ptabs button").forEach(b => b.onclick = () => {
     if (b.dataset.t === "settings") return void (location.hash = "#/profile");
@@ -541,52 +591,25 @@ function exerciseSheet(id) {
   const load = ex.type === "load";
   const pts = hist.map(h => ({ x: h.date, y: load ? h.e1rm : h.top.reps }));
   const unit = load ? "kg" : ex.type === "time" ? "s" : "reps";
+  const marks = [];
+  pts.reduce((m, p, i) => { if (p.y > m && i) marks.push(i); return Math.max(m, p.y); }, pts[0]?.y ?? 0);
+  const best = load ? state.lifts[id]?.best : state.lifts[id]?.bestReps;
+  const lvl = strengthLevel(id, best, { bw: +state.profile.bodyweight || 75, sex: state.profile.sex });
   const sh = sheet(`<div class="eyebrow">${esc(ex.muscle)}</div><h2 class="h2" style="margin-top:4px">${esc(ex.name)}</h2>
     <div class="grid2 mt">
       <div class="card stat"><div class="v">${load ? Math.round(state.lifts[id]?.best || 0) + "<small>kg</small>" : (state.lifts[id]?.bestReps || 0) + `<small>${unit}</small>`}</div><div class="l">${load ? "Meilleur 1RM estimé" : "Record"}</div></div>
       <div class="card stat"><div class="v">${hist.length}</div><div class="l">Séance${hist.length > 1 ? "s" : ""}</div></div>
     </div>
-    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit })}</div>
+    ${lvl ? `<div class="card mt lvl-card"><div class="row between"><div><div class="eyebrow">Niveau de force</div><b class="h3">${esc(lvl.name)}</b></div>${lvl.ratio ? `<span class="chip">${lvl.ratio.toFixed(2).replace(".", ",")}× ton poids</span>` : ""}</div>
+      <div class="lvl-steps">${["Débutant", "Novice", "Inter.", "Avancé", "Élite"].map((n, i) => `<span class="${i < lvl.level ? "done" : i === lvl.level ? "cur" : ""}">${n}</span>`).join("")}</div>
+      <div class="xs muted">${lvl.next ? `${lvl.nextName} : ${lvl.reps ? `${lvl.next} reps` : `${lvl.next.toLocaleString("fr-FR")} kg au 1RM estimé`}. Repères indicatifs selon ton poids de corps.` : "Niveau élite : chapeau."}</div></div>` : ""}
+    <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit, time: true, marks, trend: true })}</div>
     <div class="section"><h2>Technique</h2></div>
     <div class="cues" style="margin-top:0"><div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>${demoBtn(id, "demo-tile")}</div>
     <div class="section"><h2>Dernières séances</h2></div>
     <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
       <div class="sets-p">${h.sets.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}</span>`).join("")}</div></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
   mountAnims(sh.el);
-}
-
-// Courbe nette : grille légère, aire en dégradé de l'accent, dernier point mis en avant.
-let chartN = 0;
-function chart(pts, { unit = "", dec = 0 } = {}) {
-  if (pts.length < 2) return `<div class="empty" style="padding:20px">La courbe apparaîtra après 2 séances.</div>`;
-  const W = 320, H = 150, L = 30, R = 14, T = 22, B = 22;
-  const ys = pts.map(p => p.y);
-  const dMin = Math.min(...ys), dMax = Math.max(...ys);
-  let min = dMin, max = dMax;
-  const padY = (max - min) * 0.12 || Math.max(1, max * 0.05);
-  min -= padY; max += padY;
-  const span = max - min;
-  const X = i => L + (i / (pts.length - 1)) * (W - L - R);
-  const Y = v => T + (1 - (v - min) / span) * (H - T - B);
-  const xy = pts.map((p, i) => [X(i), Y(p.y)]);
-  const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const fmtD = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  const fmtV = v => (dec ? v.toFixed(dec).replace(".0", "").replace(".", ",") : Math.round(v));
-  const grid = dMax - dMin > 0 ? [dMin, (dMin + dMax) / 2, dMax] : [dMin];
-  const id = "cg" + ++chartN;
-  const [lx, ly] = xy[xy.length - 1], last = pts[pts.length - 1].y;
-  const lbl = `${fmtV(last)}${unit ? " " + unit : ""}`, lw = lbl.length * 6.4 + 14;
-  const bx = Math.min(W - lw, Math.max(L, lx - lw / 2)), by = ly - 30 < 0 ? ly + 10 : ly - 30;
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution : de ${fmtV(pts[0].y)} à ${fmtV(last)} ${unit}">
-    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s0"/><stop offset="1" class="s1"/></linearGradient></defs>
-    ${grid.map(v => `<line class="gl" x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${L - 8}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${fmtV(v)}</text>`).join("")}
-    <g class="plot"><path class="ar" fill="url(#${id})" d="${d} L${lx.toFixed(1)},${H - B} L${L},${H - B} Z"/>
-    <path class="ln" d="${d}"/>
-    ${pts.length <= 24 ? xy.slice(0, -1).map(([x, y]) => `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6"/>`).join("") : ""}</g>
-    <g class="last"><circle class="halo" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="9"/><circle class="pt now" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5"/>
-      <rect class="tag" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${lw.toFixed(1)}" height="20" rx="10"/><text class="tag-t" x="${(bx + lw / 2).toFixed(1)}" y="${(by + 13.8).toFixed(1)}" text-anchor="middle">${lbl}</text></g>
-    <text x="${L}" y="${H - 5}">${fmtD(pts[0].x)}</text><text x="${W - R}" y="${H - 5}" text-anchor="end">${fmtD(pts[pts.length - 1].x)}</text>
-  </svg>`;
 }
 
 // Pastilles d'icônes des Réglages (façon iOS)
@@ -920,7 +943,7 @@ document.addEventListener("visibilitychange", () => {
   // « Code à chaque ouverture » : verrou après 1 min ; sinon seulement après 12 h sans utiliser l'app
   const limit = state.profile.pinLock ? 60e3 : SESSION_MS;
   if (Date.now() - hiddenAt > limit) { logout(); document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()); route(); }
-  else touchSession();
+  else { touchSession(); setTimeout(socialTick, 1500); }
 });
 
 /* =========================================================
