@@ -1,5 +1,6 @@
 // Onglet Séances : liste des programmes, aperçu modifiable, check-in, création de séances.
 import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
+import { demoBtn } from "./demo.js";
 import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
 import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
@@ -98,7 +99,7 @@ function exList(list, host, onChange) {
     <li class="ex-row pv-ex">
       <span class="pv-n tnum">${i + 1}</span>
       <div class="pv-main">
-        <div class="pv-name">${esc(EXERCISES[e.id].name)}</div>
+        <div class="pv-name">${esc(EXERCISES[e.id].name)}${demoBtn(e.id, "demo-sm")}</div>
         <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight ? ` · ${e.weight} kg` : ""}</div>
       </div>
       <div class="tools">
@@ -272,7 +273,7 @@ export function pickExercises(onDone, { single = false, title = "Ajouter des exe
     itemsEl.innerHTML = muscles.map(m => `<section class="pk-group" data-grp="${esc(m)}"><h3 class="pk-gh">${esc(m)}</h3>${entries.filter(([, e]) => e.muscle === m).map(([id, e]) => `
       <button class="pick-item ${sel.has(id) ? "sel" : ""}" data-id="${id}" aria-pressed="${sel.has(id)}"><span class="grow"><span class="pk-name">${esc(e.name)}${e.custom ? ` <span class="pk-tag">perso</span>` : ""}</span>
         <span class="xs muted">${EQUIP[e.equip] || ""}${e.type === "time" ? " · chrono" : ""}</span></span>
-        <span class="add">${single ? I.swap : `${I.plus}${I.check}`}</span></button>`).join("")}</section>`).join("");
+        ${e.custom ? "" : `<span class="pk-demo" data-demo="${id}" aria-hidden="true">${I.play}</span>`}<span class="add">${single ? I.swap : `${I.plus}${I.check}`}</span></button>`).join("")}</section>`).join("");
     groups = $$(".pk-group", itemsEl);
     rows = $$(".pick-item", itemsEl).map(el => { const e = EXERCISES[el.dataset.id]; return { el, e, hay: fold(`${e.name} ${e.muscle} ${EQUIP[e.equip] || ""}`) }; });
   };

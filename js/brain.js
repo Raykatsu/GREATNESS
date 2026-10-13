@@ -5,6 +5,7 @@ import { getProgram, allPrograms } from "./store.js";
 import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } from "./store.js";
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
+import { nutritionContext } from "./nutrition.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -236,8 +237,9 @@ export function athleteContext({ full = false } = {}) {
     lifts.length ? `Performances :\n- ${lifts.join("\n- ")}` : "Pas encore de performances enregistrées.",
     recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
     `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
+    nutritionContext(state),
     ...(full ? fullExtras() : []),
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 // Compléments pour l'IA en ligne (plus de mémoire disponible que le modèle local).

@@ -15,7 +15,8 @@ import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
 import { openCam, camSupported, camTrackable } from "./cam.js";
-import { animSvg, mountAnims } from "./anim.js";
+import { mountAnims } from "./anim.js";
+import { demoBtn } from "./demo.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 
@@ -184,10 +185,11 @@ function render() {
 
     <div class="ex-head">
       <div class="grow"><div class="eyebrow">${esc(ex.muscle)}${ex.ss ? ` · Superset ${esc(ex.ss)}` : ""}</div><h2>${esc(ex.name)}</h2></div>
+      ${demoBtn(ex.id, "demo-live")}
       <button class="icon-btn cues-toggle ${showCues ? "sel" : ""}" id="cues-btn" aria-label="Technique" aria-expanded="${showCues}">${I.info}</button>
     </div>
     <div class="ex-chips"><span class="chip red">${I.flame}Objectif ${target(ex)}</span>${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}</div>
-    ${showCues ? `<div class="cues">${animSvg(ex.id, "cues-anim")}<ul class="grow">${ex.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+    ${showCues ? `<div class="cues"><ul class="grow">${ex.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
     <p class="ex-last">${I.clock}<span>${last ? `Dernière fois : <b>${last.map(s => fmtSet(s, ex)).join(" · ")}</b>` : "Première fois : je calibre dès la première série."}</span></p>
     ${note ? `<button class="note-line" id="note-show">${I.edit}<span>${esc(note)}</span></button>` : ""}
 

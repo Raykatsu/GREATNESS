@@ -52,6 +52,11 @@ globalThis.fetch = async (url, opts = {}) => {
   if (body.tools && (mode.noSearch || []).includes(model)) return fail(429, "Resource has been exhausted (e.g. check quota).");
   if (mode.all429 || (mode.flash429 && model === "gemini-flash-latest") || (mode.gemmaOnly && !model.startsWith("gemma"))) return fail(429, "quota");
   if (model === (mode.overloadModel || "gemini-flash-latest") && (mode.overload || (mode.overloadOnce && !mode.overloaded))) { mode.overloaded = true; return fail(503, "This model is currently experiencing high demand."); }
+  if (body.generationConfig?.responseMimeType === "application/json") { // analyse d'un repas
+    if (mode.foodBroken === model) return Response.json({ candidates: [{ content: { parts: [{ text: "pas du json" }] } }] });
+    const items = [{ name: "Blanc de poulet", grams: 200, kcal: 330, protein: 62, carbs: 0, fat: 7.2 }, { name: "Riz", grams: -5, kcal: 0, protein: 0, carbs: 0, fat: 0 }, { name: "x".repeat(90), grams: 99999, kcal: 1e9, protein: "12", carbs: 1, fat: 1 }];
+    return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ items, note: "Portion de riz estimée." }) }] } }], modelVersion: VERSIONS[model] });
+  }
   if (!url.includes("streamGenerateContent")) return Response.json({ candidates: [{ content: { parts: [{ text: "OK" }] } }], modelVersion: VERSIONS[model] });
   if (mode.hangFlash && model === "gemini-flash-latest") return hang(opts.signal);
   if (mode.emptyFlash && model === "gemini-flash-latest") return stream([{ candidates: [{ content: { parts: [] }, finishReason: "SAFETY" }] }], { signal: opts.signal });
@@ -231,6 +236,40 @@ test("modèle qui refuse le réglage de réflexion : réessayé sans, et retenu"
   assert.equal(gem()[0].body.generationConfig.thinkingConfig, undefined);
 });
 
+test("repas : analyse d'une description ou d'une photo, valeurs bornées", async () => {
+  await forget();
+  const call = async body => { calls.length = 0; const r = await handler(new Request("https://fn.test/coach", { method: "POST", body: JSON.stringify(body) })); return { r, j: await r.json() }; };
+  let { r, j } = await call({ token: "t", task: "food", text: "200 g de poulet et du riz" });
+  assert.match(r.headers.get("content-type"), /application\/json/);
+  assert.equal(r.headers.get("access-control-allow-origin"), "*");
+  assert.equal(j.model, "gemini-flash-lite-latest");
+  assert.equal(j.remaining, 41);
+  assert.equal(j.note, "Portion de riz estimée.");
+  assert.deepEqual(j.items[0], { name: "Blanc de poulet", grams: 200, kcal: 330, protein: 62, carbs: 0, fat: 7.2, fiber: 0 });
+  assert.equal(j.items.length, 2); // l'élément vide est retiré
+  assert.deepEqual([j.items[1].name.length, j.items[1].grams, j.items[1].kcal, j.items[1].protein], [60, 5000, 6000, 12]);
+  const g = gem()[0];
+  assert.equal(g.body.generationConfig.responseMimeType, "application/json");
+  assert.ok(g.body.generationConfig.responseSchema.properties.items);
+  assert.equal(g.body.contents[0].parts.at(-1).text, "200 g de poulet et du riz");
+  ({ j } = await call({ token: "t", task: "food", image: { mime: "image/jpeg", data: "AAAA" } }));
+  assert.equal(j.items.length, 2);
+  assert.deepEqual(gem()[0].body.contents[0].parts[0], { inline_data: { mime_type: "image/jpeg", data: "AAAA" } });
+  mode = { foodBroken: "gemini-flash-lite-latest" }; // réponse illisible : modèle suivant
+  ({ j } = await call({ token: "t", task: "food", text: "une pomme" }));
+  assert.equal(j.model, "gemini-flash-latest");
+  mode = { all429: true };
+  ({ j } = await call({ token: "t", task: "food", text: "une pomme" }));
+  assert.equal(j.error, "DOWN");
+  assert.match(j.detail, /HTTP 429/);
+  reset();
+  assert.equal((await call({ token: "t", task: "food" })).j.error, "BAD_REQUEST");
+  assert.equal((await call({ token: "t", task: "food", image: { mime: "text/html", data: "x" } })).j.error, "BAD_REQUEST");
+  assert.equal((await call({ task: "food", text: "pomme" })).j.error, "BAD_REQUEST");
+  quota = { error: "LIMIT" };
+  assert.equal((await call({ token: "t", task: "food", text: "pomme" })).j.error, "LIMIT");
+});
+
 test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => {
   reset();
   const get = await handler(new Request("https://fn.test/coach"));
@@ -257,6 +296,8 @@ test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => 
   const web = step("chat (actualité, recherche Google)");
   assert.equal(web.answered, true);
   assert.equal(web.sources, 1);
+  assert.equal(step("repas (IA)").answered, true);
+  assert.equal(step("repas (IA)").items, 2);
   assert.equal(lines.filter(l => /^essai /.test(l.step)).length, 7);
   assert.ok(step("essai gemini-flash-latest (réflexion par défaut)"));
   assert.equal(step("essai gemini-3.6-flash").status, 200);

@@ -100,3 +100,31 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
   if (end?.remaining != null) lastRemaining = end.remaining;
   return { text: text.trim(), sources: end?.sources || [], remaining: end?.remaining ?? null, blocked: !!end?.blocked, cut: cut || !end || !!end.cut };
 }
+
+// Analyse d'un repas par l'IA en ligne (description ou photo) → { items: [{ name, grams, kcal, protein, carbs, fat, fiber }], note }
+export async function foodAI({ text = "", image = null } = {}) {
+  if (!isOnlineMode() || !authToken()) throw new OnlineError("DOWN", "comptes en ligne non configurés");
+  if (navigator.onLine === false) throw new OnlineError("DOWN", "pas de connexion");
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 75000);
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/${AI_FUNCTION}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token: authToken(), task: "food", text, image }),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new OnlineError("DOWN", ctrl.signal.aborted ? "pas de réponse à temps" : `réseau : ${e?.message || e}`);
+  } finally { clearTimeout(timer); }
+  if (res.status === 404) throw new OnlineError("NOT_DEPLOYED", "HTTP 404");
+  const j = await res.json().catch(() => null);
+  if (!j) throw new OnlineError("DOWN", `HTTP ${res.status}`);
+  if (j.error) throw new OnlineError(j.error, j.detail);
+  if (j.remaining != null) lastRemaining = j.remaining;
+  return { items: Array.isArray(j.items) ? j.items : [], note: j.note || "" };
+}

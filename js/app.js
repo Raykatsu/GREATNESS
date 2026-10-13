@@ -15,22 +15,26 @@ import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
 import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
-import { animSvg, mountAnims } from "./anim.js";
+import { mountAnims } from "./anim.js";
+import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush } from "./push.js";
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 import { coachName } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
+import { renderFood, foodHomeCard, bindFoodCard } from "./food.js";
+import { pruneFood } from "./nutrition.js";
 
 const view = $("#view");
+wireDemos();
 let current = "home";
 
 /* =========================================================
    Router
    ========================================================= */
 let params = {};
-const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), import: () => renderImport(view, params.s), coach: () => renderCoach(view), progress, profile };
+const routes = { "": home, train: () => renderTrain(view, launch), create: () => renderCreate(view, launch, params), import: () => renderImport(view, params.s), coach: () => renderCoach(view), food: () => renderFood(view), progress, profile };
 // Position de chaque écran : sert au sens du glissement entre onglets (et entre Stats / Amis / Réglages).
-const TAB_POS = { home: 0, train: 1, create: 2, coach: 3, progress: 4, profile: 4, import: 4 };
+const TAB_POS = { home: 0, train: 1, create: 2, food: 3, coach: 4, progress: 5, profile: 5, import: 5 };
 let shown = null; // écran affiché : { key, tab, sub }
 function route() {
   const [key, qs] = location.hash.replace(/^#\/?/, "").split("?");
@@ -40,6 +44,7 @@ function route() {
   if (!currentUser && resumeSession()) { setTimeout(offerResume, 600); }
   if (!currentUser) { shown = null; return showAuth(view, () => { if (!isOnlineMode()) llm.autoload(); route(); offerResume(); }); }
   if (!state.profile.onboarded) { shown = null; return onboarding(); }
+  if (state.meta.prunedOn !== new Date().toDateString()) { pruneFood(state); state.meta.prunedOn = new Date().toDateString(); save({ silent: true }); }
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
   const next = { key: current, tab: TAB_POS[current] ?? 0, sub: current === "profile" ? 2 : current === "progress" && progressTab === "friends" ? 1 : 0 };
@@ -91,6 +96,7 @@ const TOUR = () => [
   ["home", `Salut, c'est ${coachName()} ! Ici, l'Accueil : ta mission du jour, ta semaine et tes stats. Touche un jour pour changer sa séance.`],
   ["train", "Séances : 40 programmes prêts, de la mobilité, des étirements et des séances anti-douleur, plus la séance libre où tu choisis tes exercices au fur et à mesure."],
   ["create", "Créer : compose tes propres séances, génère-en une en 2 touches, fais des superséries."],
+  ["food", "Repas : note ce que tu manges en scannant le code-barres, en cherchant l'aliment, ou en décrivant ton assiette (ou en la prenant en photo) : je calcule calories et protéines face à ton objectif."],
   ["coach", `Coach, c'est moi, ${coachName()} ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi.`],
   ["me", "Moi : tes progrès, tes amis et tes réglages. C'est aussi là que tu peux changer de coach. Allez, à toi de jouer !"],
 ];
@@ -240,6 +246,7 @@ function home() {
       <button class="card quick-tile" id="free"><span class="qi">${I.bolt}</span><span class="qt"><b>Séance libre</b><small>Au feeling</small></span></button>
       <a class="card quick-tile" href="#/create"><span class="qi qi-blue">${I.plus}</span><span class="qt"><b>Créer</b><small>Sur mesure</small></span></a>
     </div>
+    ${foodHomeCard()}
 
     <div class="section"><h2>${spider("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
     <div class="card week-card">
@@ -278,6 +285,7 @@ function home() {
 
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
+  bindFoodCard(view);
   $("#resume")?.addEventListener("click", () => resumeLive(saved, route));
   $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
   const daysOff = has ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
@@ -529,7 +537,7 @@ function exerciseSheet(id) {
     </div>
     <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit })}</div>
     <div class="section"><h2>Technique</h2></div>
-    <div class="cues" style="margin-top:0">${animSvg(id, "cues-anim")}<div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div></div>
+    <div class="cues" style="margin-top:0"><div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>${demoBtn(id, "demo-tile")}</div>
     <div class="section"><h2>Dernières séances</h2></div>
     <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
       <div class="sets-p">${h.sets.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}</span>`).join("")}</div></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);

@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-8";
+const VERSION = "coach-9";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -53,6 +53,7 @@ const enc = new TextEncoder();
 const sse = (o: unknown) => enc.encode(`data: ${JSON.stringify(o)}\n\n`);
 const clip = (t: unknown, n = 220) => String(t ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 const SSE_HEADERS = { ...CORS, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" };
+const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" } });
 function reply(events: unknown[]) {
   return new Response(new ReadableStream({ start(c) { events.forEach(e => c.enqueue(sse(e))); c.close(); } }), { headers: SSE_HEADERS });
 }
@@ -351,9 +352,17 @@ function diagnose() {
           line({ step: name, answered, model: run.model, version: run.version, first_text_ms: run.ttft, ms: Date.now() - s, chunks, chars: text.length, sources: run.sources.size, tries: run.tries, ...(answered ? { sample: clip(text, 200) } : { error: run.err }) });
           return answered;
         };
+        const meal = async () => {
+          const s = Date.now();
+          try {
+            const j = await (await food({ text: "200 g de blanc de poulet, 150 g de riz et une pomme" }, { remaining: null })).json();
+            line({ step: "repas (IA)", answered: !j.error, model: j.model, ms: Date.now() - s, items: j.items?.length ?? 0, ...(j.error ? { error: j.detail } : { sample: clip(JSON.stringify(j.items), 200) }) });
+          } catch (e) { line({ step: "repas (IA)", answered: false, error: clip((e as Error).message) }); }
+        };
         const [coach] = await Promise.all([
           probe("chat (entraînement)", "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?"),
           probe("chat (actualité, recherche Google)", "Quelles sont les dernières études sur la créatine ? Cite tes sources."),
+          meal(),
         ]);
         ok = coach;
         // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun ; plus deux candidats
@@ -385,6 +394,78 @@ function diagnose() {
   }), { headers: { ...CORS, "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" } });
 }
 
+/* ---------- Repas : estimation nutritionnelle d'une description ou d'une photo (réponse JSON) ---------- */
+const FOOD_MODELS = list(env("GEMINI_FOOD_MODELS") || "gemini-flash-lite-latest,gemini-flash-latest,gemini-3.7-flash");
+const FOOD_PROMPT = `Tu es nutritionniste. On te décrit un repas (texte) ou on te montre sa photo. Liste les aliments, estime leur quantité en grammes (millilitres pour les boissons) et leurs valeurs nutritionnelles POUR CETTE QUANTITÉ (pas pour 100 g).
+Règles : noms courts en français ; quantité non précisée → portion adulte standard ; plat classique → un seul élément (« Pizza margherita, 1/2 ») ; sinon ses composants principaux ; pense à l'huile de cuisson, aux sauces et aux boissons mentionnées ou visibles ; valeurs réalistes (tables CIQUAL ou USDA). Si ce n'est pas de la nourriture, renvoie une liste vide et explique-le dans la note. La note (facultative, une phrase) signale une incertitude utile.`;
+const FOOD_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" }, grams: { type: "NUMBER" }, kcal: { type: "NUMBER" },
+          protein: { type: "NUMBER" }, carbs: { type: "NUMBER" }, fat: { type: "NUMBER" }, fiber: { type: "NUMBER" },
+        },
+        required: ["name", "grams", "kcal", "protein", "carbs", "fat"],
+      },
+    },
+    note: { type: "STRING" },
+  },
+  required: ["items"],
+};
+const bound = (v: unknown, max: number) => { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(max, Math.round(n * 10) / 10)) : 0; };
+
+async function food(input: { text?: string; image?: { mime?: string; data?: string } }, quota: { remaining?: number | null }) {
+  const text = String(input.text || "").slice(0, 2000).trim();
+  const img = input.image;
+  const photo = img && typeof img.data === "string" && /^image\/(jpeg|png|webp)$/.test(String(img.mime)) ? img : null;
+  if (!text && !photo) return json({ error: "BAD_REQUEST", detail: "décris le repas ou ajoute une photo" });
+  if (photo && photo.data!.length > 3_000_000) return json({ error: "BAD_REQUEST", detail: "photo trop lourde" });
+  const parts = [
+    ...(photo ? [{ inline_data: { mime_type: photo.mime, data: photo.data } }] : []),
+    { text: text || "Analyse ce repas." },
+  ];
+  const tries: string[] = [];
+  let err = "";
+  const deadline = Date.now() + 100_000;
+  for (const model of [...FOOD_MODELS.filter(m => !isSlow(m)), ...FOOD_MODELS.filter(isSlow)]) {
+    if (deadline - Date.now() < 10_000) break;
+    const s = Date.now();
+    const body = {
+      systemInstruction: { parts: [{ text: FOOD_PROMPT }] },
+      contents: [{ role: "user", parts }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: FOOD_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
+    };
+    try {
+      const r = await gemini(model, body, false, AbortSignal.timeout(Math.min(30_000, deadline - Date.now())));
+      const t = await r.text();
+      if (!r.ok) {
+        err = `Gemini ${model} : HTTP ${r.status} ${clip(errMsg(t), 200)}`;
+        tries.push(`${model} → HTTP ${r.status}`);
+        if (r.status >= 500) slowUntil.set(model, Date.now() + 10 * 60e3);
+        continue;
+      }
+      const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
+      // deno-lint-ignore no-explicit-any
+      const items = (Array.isArray(out.items) ? out.items : []).slice(0, 30).map((x: any) => ({
+        name: clip(x?.name, 60) || "Aliment", grams: bound(x?.grams, 5000), kcal: bound(x?.kcal, 6000),
+        protein: bound(x?.protein, 500), carbs: bound(x?.carbs, 800), fat: bound(x?.fat, 500), fiber: bound(x?.fiber, 150),
+      })).filter((x: { grams: number; kcal: number }) => x.grams > 0 || x.kcal > 0);
+      return json({ items, note: clip(out.note, 240), model, remaining: quota.remaining ?? null, ms: Date.now() - s });
+    } catch (e) {
+      const timeout = (e as Error).name === "TimeoutError";
+      err = `Gemini ${model} : ${timeout ? "pas de réponse à temps" : clip((e as Error).message)}`;
+      tries.push(`${model} → ${timeout ? "délai dépassé" : "réponse illisible"}`);
+      if (timeout) slowUntil.set(model, Date.now() + 10 * 60e3);
+    }
+  }
+  console.error("repas", tries.join(" ; "));
+  return json({ error: "DOWN", detail: err || "aucun modèle n'a répondu" });
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
@@ -394,9 +475,17 @@ Deno.serve(async req => {
   const diag = env("DIAG_TOKEN");
   if (diag.length >= 16 && req.headers.get("x-diag-token") === diag) return diagnose();
 
-  let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean };
+  let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean; task?: string; text?: string; image?: { mime?: string; data?: string } };
   try { input = await req.json(); } catch { return reply([{ error: "BAD_REQUEST", detail: "JSON invalide" }]); }
   const token = String(input?.token || "").slice(0, 200);
+  if (input?.task === "food") {
+    if (!token) return json({ error: "BAD_REQUEST", detail: "jeton manquant" });
+    if (!KEY) return json({ error: "NO_KEY", detail: "secret GEMINI_API_KEY absent" });
+    let quota;
+    try { quota = await take(token); } catch (e) { return json({ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }); }
+    if (quota.error) return json({ error: quota.error });
+    return await food(input, quota);
+  }
   const system = String(input?.system || "").slice(0, 30000);
   const raw = input?.messages;
   const messages = (Array.isArray(raw) ? raw : []).slice(-24)

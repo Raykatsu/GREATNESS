@@ -28,8 +28,11 @@ function points(pat, t) {
   return pt;
 }
 
+// Segments mis en couleur dans la démo : ceux qui travaillent (selon l'articulation suivie)
+const FOCUS = { knee: ["p-k", "k-f", "p-k2", "k2-f2"], hip: ["n-p", "p-k"], elbow: ["s-e", "e-w"], shoulder: ["s-e", "e-w"] };
+
 // Construit les éléments une fois et renvoie une fonction qui pose une image (t de 0 à 1).
-function build(svg, pat, equip) {
+export function build(svg, pat, equip, { focus = false } = {}) {
   svg.textContent = "";
   const pt0 = points(pat, 0);
   setLine(el("line", "floor", svg), [4, 93], [96, 93]);
@@ -40,7 +43,8 @@ function build(svg, pat, equip) {
   else if (equip === "db" || equip === "kb") { plates = [el("circle", "plate", svg)]; plates[0].setAttribute("r", 3.6); }
   else if (equip === "cable" || equip === "band") cable = el("line", "cable", svg);
   const g = el("g", "body", svg);
-  const limbs = LIMBS.filter(([p, q]) => pt0[p] && pt0[q]).map(pair => [pair, el("line", "", g)]);
+  const hot = new Set(focus ? FOCUS[pat.joint] || [] : []);
+  const limbs = LIMBS.filter(([p, q]) => pt0[p] && pt0[q]).map(pair => [pair, el("line", hot.has(pair.join("-")) ? "hot" : "", g)]);
   const head = el("circle", "head", svg); head.setAttribute("r", 6);
   return t => {
     const pt = points(pat, t), w = pt.w;
