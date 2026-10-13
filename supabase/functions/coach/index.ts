@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-7";
+const VERSION = "coach-8";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -186,10 +186,10 @@ function chunkInfo(chunk: any) {
 
 // Le cœur : essaie les modèles dans l'ordre et relaie le texte au fil de l'eau.
 // Quota épuisé, modèle absent, panne, lenteur ou réponse vide : on passe à l'essai suivant.
-// Délais avant le premier mot : 12 s pour le meilleur modèle (sinon un plus rapide prend le relais), 25 s
+// Délais avant le premier mot : 7 s pour le meilleur modèle (sinon un plus rapide prend le relais), 25 s
 // pour les suivants ; puis 30 s sans nouvelles en cours de réponse, et une limite totale (la plateforme
 // coupe une requête au bout de 150 s).
-const PRIMARY_MS = Number(env("GEMINI_PRIMARY_MS") || 12_000), FIRST_MS = Number(env("GEMINI_FIRST_MS") || 25_000);
+const PRIMARY_MS = Number(env("GEMINI_PRIMARY_MS") || 7_000), FIRST_MS = Number(env("GEMINI_FIRST_MS") || 25_000);
 const STALL_MS = Number(env("GEMINI_STALL_MS") || 30_000);
 type Run = { model: string; version: string; err: string; cut: boolean; blocked: boolean; ttft: number; tries: string[]; sources: Map<string, string> };
 async function* converse(system: string, messages: Msg[], web: boolean, run: Run, budgetMs = 120_000) {
