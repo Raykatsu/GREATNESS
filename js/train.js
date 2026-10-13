@@ -6,6 +6,7 @@ import { shareProgram } from "./social.js";
 import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
+import { strainNote } from "./recovery-ui.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
@@ -142,6 +143,7 @@ export function openProgram(program, startLive, refresh) {
     </header>
     <div class="pv-stats tnum" id="meta"></div>
     ${program.cat === "care" ? `<div class="pv-note">${I.info}<span>Tout en douceur : arrête un mouvement s'il fait mal. Douleur vive, qui dure ou après un choc → kiné ou médecin.</span></div>` : ""}
+    ${strainNote(base) ? `<div class="pv-note pv-rec">${I.info}<span>${esc(strainNote(base))}</span></div>` : ""}
     <div class="section pv-section"><h2>Exercices</h2><button id="add" class="pv-add">${I.plus} Ajouter</button></div>
     <div id="list"></div>
     <div class="sheet-foot">

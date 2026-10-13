@@ -782,10 +782,13 @@ const MAP_BACK = {
   calves: ["M22.4 86c-1.4 2.6-1.4 6.4-.2 9l2.6.6c.8-3 .8-6.4-.2-9.6z", "M37.6 86c1.4 2.6 1.4 6.4.2 9l-2.6.6c-.8-3-.8-6.4.2-9.6z"],
 };
 const SIL = "M30 4.6c-3.6 0-5.8 2.8-5.8 6.4s2 6.8 5.8 6.8 5.8-3.2 5.8-6.8-2.2-6.4-5.8-6.4zM26.8 18.6c-.2 1.6-.8 3-2.4 3.8-2.8 1.4-6.4 1.6-8.6 3.2-2.6 1.8-3.4 5-3.8 8.6-.6 4.4-1.6 8.2-2.8 12.4-1 3.8-1.6 7.8-1.8 11.6l-.4 3.4c-.2 1.6 2.4 2 3 .4l.6-3.2c.8-3.6 2.4-7.4 3.4-11.2.8-3 1.2-6.2 1.6-9.4.2-.8 1-.8 1.2 0 .6 3.4 1.2 7 1 10.4-.2 3.8-1.2 7-1.6 10.6-.6 6.6-.2 13.6.6 20.2.6 5.4.6 10.6.4 16-.2 3.2.2 6.2 1 9.2.4 1.4 4.4 1.4 4.4 0 .2-3.8.6-7.6.8-11.4.4-5.4 1-10.8 1.6-16.2.2-1.6 1.4-1.6 1.6 0 .6 5.4 1.2 10.8 1.6 16.2.2 3.8.6 7.6.8 11.4 0 1.4 4 1.4 4.4 0 .8-3 1.2-6 1-9.2-.2-5.4-.2-10.6.4-16 .8-6.6 1.2-13.6.6-20.2-.4-3.6-1.4-6.8-1.6-10.6-.2-3.4.4-7 1-10.4.2-.8 1-.8 1.2 0 .4 3.2.8 6.4 1.6 9.4 1 3.8 2.6 7.6 3.4 11.2l.6 3.2c.6 1.6 3.2 1.2 3-.4l-.4-3.4c-.2-3.8-.8-7.8-1.8-11.6-1.2-4.2-2.2-8-2.8-12.4-.4-3.6-1.2-6.8-3.8-8.6-2.2-1.6-5.8-1.8-8.6-3.2-1.6-.8-2.2-2.2-2.4-3.8z";
-export function bodyMap(mus = {}) {
+// Silhouette de face et de dos, muscles en couleur : principaux (p) et secondaires (s) d'un exercice,
+// ou classe libre par muscle (cls : carte de récupération)
+export function bodyMap(mus = {}, { cls, label = "Muscles travaillés" } = {}) {
   const p = new Set(mus.p || []), s = new Set(mus.s || []);
-  const draw = map => Object.entries(map).map(([m, ds]) => ds.map(d => `<path class="${p.has(m) ? "mus p" : s.has(m) ? "mus s" : "mz"}" d="${d}"/>`).join("")).join("");
-  return `<svg class="body-map" viewBox="0 0 130 104" role="img" aria-label="Muscles travaillés">
+  const c = cls || (m => (p.has(m) ? "mus p" : s.has(m) ? "mus s" : "mz"));
+  const draw = map => Object.entries(map).map(([m, ds]) => ds.map(d => `<path class="${c(m)}" d="${d}"/>`).join("")).join("");
+  return `<svg class="body-map" viewBox="0 0 130 104" role="img" aria-label="${label}">
     <g><path class="sil" d="${SIL}"/>${draw(MAP_FRONT)}<text x="30" y="103">Face</text></g>
     <g transform="translate(70 0)"><path class="sil" d="${SIL}"/>${draw(MAP_BACK)}<text x="30" y="103">Dos</text></g></svg>`;
 }

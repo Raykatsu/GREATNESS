@@ -86,6 +86,14 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 - **des repères** : trajectoire de la barre, « cuisses parallèles », dos plat, angle du genou ou du coude, articulation qui reste fixe, flèche du mouvement ;
 - les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
 
+Des **mouvements humains et fidèles** : chaque articulation suit une courbe douce et plie toujours dans le bon sens (des tests vérifient les amplitudes d'un vrai corps sur tout le mouvement), le corps garde son **équilibre** (centre de gravité au-dessus du milieu du pied, barre de soulevé de terre sur une trajectoire verticale), et le **tempo** est celui d'une vraie répétition : la phase d'effort va plus vite que la phase freinée.
+
+## Récupération musculaire
+
+Une **carte du corps** (face et dos) sur l'accueil montre chaque muscle travaillé cette semaine, de rouge (à reposer) à vert (récupéré). Elle est calculée d'après tes séances : chaque série laisse une fatigue sur ses muscles (plus forte quand la série est dure), qui s'efface avec le temps, plus vite pour les petits muscles que pour les gros. Le détail donne, muscle par muscle, le pourcentage de récupération, le délai avant d'être prêt et les séries de la semaine (repère : 10 à 20).
+
+Le coach s'en sert : une séance qui tombe sur un muscle pas encore remis est **allégée automatiquement** (une série de moins, charge un peu réduite) et il te prévient ; le coach IA connaît aussi ta récupération.
+
 ## Personnages
 
 22 coachs à choisir (Héros, Manga, Mignons, Animaux), dont **Harley Quinn**. Pour une app sobre : **Moi → Réglages → Personnages** (ou « Aucun personnage » dans la galerie) masque la mascotte et les visages ; le choix est gardé sur le compte et sur l'appareil, même avant la connexion.
