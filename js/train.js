@@ -10,6 +10,7 @@ import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { goalFix } from "./goals.js";
+import { healthReadiness, HEART } from "./health-ui.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
@@ -203,7 +204,9 @@ export function openProgram(program, startLive, refresh) {
 /* ---------- Check-in de forme ---------- */
 const CI_IC = { sleep: I.moon, energy: I.bolt, soreness: I.flame };
 function checkIn(sh, program, startLive) {
-  const vals = { sleep: 4, energy: 3, soreness: 2 };
+  // Apple Santé relié : sommeil et énergie proposés d'après la nuit et le cœur (modifiables)
+  const hr = healthReadiness();
+  const vals = { sleep: hr?.sleep ?? 4, energy: hr?.energy ?? 3, soreness: 2 };
   const rows = [
     ["sleep", "Sommeil", ["Très mauvais", "Mauvais", "Correct", "Bon", "Excellent"], false],
     ["energy", "Énergie", ["À plat", "Faible", "Moyenne", "Bonne", "Au top"], false],
@@ -215,6 +218,7 @@ function checkIn(sh, program, startLive) {
       <div class="ci-top"><button class="icon-btn plain" id="back" aria-label="Retour">${I.back}</button><span class="eyebrow ellipsis">Check-in · ${esc(program.name)}</span></div>
       <h2 class="h2">Comment tu te sens ?</h2>
       <p class="muted small ci-lead">Ton coach adapte les charges et le volume à ta forme du jour.</p>
+      ${hr?.notes?.length ? `<div class="ci-health">${HEART}<span class="small">D'après Apple Santé : ${esc(hr.notes.join(" · "))}. Ajuste si besoin.</span></div>` : ""}
       ${rows.map(([k, lab]) => `<div class="check-row" data-row="${k}">
         <div class="lab"><span class="ci-ic">${CI_IC[k]}</span><span class="grow">${lab}</span><em id="l-${k}"></em></div>
         <div class="seg ci-seg" data-k="${k}">${[1, 2, 3, 4, 5].map(v => `<button data-v="${v}" aria-label="${lab} ${v} sur 5">${v}</button>`).join("")}</div></div>`).join("")}

@@ -136,10 +136,11 @@ export function sessionsOn(date) {
   return state.sessions.filter(s => dayKey(s.date) === k);
 }
 
-export function weekStats(offsetWeeks = 0) {
+// sessions : par défaut toutes ; pour les amis (classement, duels), sans les séances importées d'une autre app
+export function weekStats(offsetWeeks = 0, sessions = state.sessions) {
   const start = weekStart(); start.setDate(start.getDate() - 7 * offsetWeeks);
   const end = new Date(start); end.setDate(end.getDate() + 7);
-  const list = state.sessions.filter(s => s.date >= start && s.date < end);
+  const list = sessions.filter(s => s.date >= start && s.date < end);
   return {
     count: list.length,
     volume: list.reduce((a, s) => a + (s.volume || 0), 0),
@@ -213,9 +214,10 @@ export function reminderPlan() {
 }
 
 export function publicSummary() {
-  const w = weekStats(), r = rankInfo();
+  const own = state.sessions.filter(s => !s.imported);
+  const w = weekStats(0, own), r = rankInfo();
   const ws = weekStart().getTime();
-  const weekPrs = state.sessions.filter(s => s.date >= ws).reduce((a, s) => a + (s.prs?.length || 0), 0);
+  const weekPrs = own.filter(s => s.date >= ws).reduce((a, s) => a + (s.prs?.length || 0), 0);
   return {
     name: state.profile.name, goal: state.profile.goal, level: r.level, rank: r.rank.name, xp: r.xp, streak: streak(),
     week: { start: ws, count: w.count, volume: Math.round(w.volume), minutes: w.minutes, prs: weekPrs },
@@ -225,7 +227,7 @@ export function publicSummary() {
     recent: state.sessions.slice(-5).reverse().map(s => ({ d: s.date, n: s.name, v: s.volume, s: s.sets.length, pr: s.prs?.length || 0 })),
     badges: Object.keys(state.badges || {}).length,
     // pour les défis : semaine passée, duels en cours, derniers records datés
-    last: (() => { const l = weekStats(1); return { start: ws - 7 * 864e5, count: l.count, volume: Math.round(l.volume), minutes: l.minutes, prs: l.prs }; })(),
+    last: (() => { const l = weekStats(1, own); return { start: ws - 7 * 864e5, count: l.count, volume: Math.round(l.volume), minutes: l.minutes, prs: l.prs }; })(),
     duels: (state.duels || []).filter(d => d.w >= ws - 8 * 864e5).map(({ u, m, w, by }) => ({ u, m, w, by })),
     prs: recentPrs(5),
     league: leaguePublic(state), // ligue entre amis : saison, division, points (voir league.js)

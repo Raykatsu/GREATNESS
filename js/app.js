@@ -32,6 +32,8 @@ import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
+import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
+import { openImport, openExport } from "./import-ui.js";
 
 const view = $("#view");
 wireDemos();
@@ -280,6 +282,7 @@ function home() {
       </div>
     </section>
 
+    ${healthCard()}
     ${goalCard()}
     ${recoveryCard()}
     ${reviewCard(now)}
@@ -330,6 +333,7 @@ function home() {
   bindFoodCard(view);
   bindRecoveryCard(view);
   bindGoalCard(view, route);
+  bindHealthCard(view);
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {
@@ -371,6 +375,8 @@ async function socialTick() {
   if (!currentUser || !isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
   socialAt = Date.now();
   refreshPush();
+  // Apple Santé : nouvelles mesures → la carte « Forme du jour » et la courbe de poids se mettent à jour
+  syncHealth().then(r => { if (r?.changed && current === "home" && !isLive() && !document.querySelector(".sheet-wrap")) route(); });
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
   const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
@@ -680,6 +686,7 @@ const SIC = {
   out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/>',
   down: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
   up: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5.5 12h3l1.5-3 2.5 6 1.5-3h4.5"/>',
   trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
 };
 const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? spider() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
@@ -775,10 +782,11 @@ function profile() {
 
     <h2 class="set-title">Données</h2>
     <div class="card card-list set-list">
-      <button class="set-row set-act" id="exp">${sic("down", "#22c55e")}<b class="grow">Exporter une sauvegarde</b>${I.chev}</button>
-      <label class="set-row set-act">${sic("up", "#3b82f6")}<b class="grow">Importer une sauvegarde</b>${I.chev}<input type="file" id="imp" accept="application/json" hidden/></label>
+      <button class="set-row set-act" id="p-health">${sic("heart", "#ff375f")}<div class="grow"><b>Apple Santé</b><span class="xs muted">${state.health?.linked ? "Relié : sommeil, cœur, pas et poids" : "Sommeil, VFC, pas et poids dans ton bilan de forme"}</span></div>${I.chev}</button>
+      <button class="set-row set-act" id="imp">${sic("up", "#3b82f6")}<div class="grow"><b>Importer depuis une autre app</b><span class="xs muted">Strong, Hevy, Fitbod, MyFitnessPal, sauvegarde</span></div>${I.chev}</button>
+      <button class="set-row set-act" id="exp">${sic("down", "#22c55e")}<div class="grow"><b>Exporter mes données</b><span class="xs muted">Sauvegarde, séances et journal en CSV</span></div>${I.chev}</button>
     </div>
-    <p class="set-note">Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une copie.</p>
+    <p class="set-note">${isOnlineMode() ? "Tes données sont synchronisées sur ton compte en ligne. Exporte-les quand tu veux pour en garder une copie." : "Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une copie."}</p>
 
     <div class="set-title row between"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
     <div class="card" id="llm-box"></div>
@@ -841,22 +849,9 @@ function profile() {
     toast("Connexion…");
     try { const t = await testKey(); toast("✓ " + t, 5000); } catch (err) { toast("Échec : " + (err.message || err), 5000); }
   };
-  $("#exp").onclick = () => {
-    const data = { ...state, profile: { ...state.profile, aiKey: "" } };
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-    a.download = `greatness-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-  };
-  $("#imp").onchange = async e => {
-    try {
-      const data = JSON.parse(await e.target.files[0].text());
-      if (!Array.isArray(data.sessions)) throw new Error("format");
-      Object.assign(state, { sessions: data.sessions, lifts: data.lifts || {}, customPrograms: data.customPrograms || [], weekPlan: data.weekPlan || null });
-      state.profile = { ...state.profile, ...data.profile, aiKey: state.profile.aiKey };
-      save(); toast("Données importées"); route();
-    } catch { toast("Fichier invalide"); }
-  };
+  $("#p-health").onclick = () => openHealth();
+  $("#exp").onclick = () => openExport();
+  $("#imp").onclick = () => openImport(() => route());
 
   // Compte
   $("#acc-lock").onclick = () => { logout(); route(); };
