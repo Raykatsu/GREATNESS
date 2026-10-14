@@ -6,7 +6,7 @@ let handler;
 const env = { GEMINI_API_KEY: "AQ.cle-de-test", SUPABASE_URL: "https://sb.test", SUPABASE_SECRET_KEYS: JSON.stringify({ default: "sb_secret_abc" }), SUPABASE_SERVICE_ROLE_KEY: "eyJancienne", DIAG_TOKEN: "d".repeat(24), GEMINI_PRIMARY_MS: "300", GEMINI_FIRST_MS: "300", GEMINI_STALL_MS: "300" };
 globalThis.Deno = { env: { get: k => env[k] }, serve: h => { handler = h; } };
 
-const calls = [];
+const calls = [], marks = [];
 let mode = {}, quota = { ok: true, user: "alex", remaining: 41 };
 const enc = new TextEncoder();
 const chunks = (version, search) => [
@@ -44,6 +44,9 @@ globalThis.fetch = async (url, opts = {}) => {
     return opts.headers.apikey === "sb_secret_abc" ? Response.json(quota) : new Response("clé refusée", { status: 401 });
   }
   if (url.endsWith("/rpc/gt_user")) return new Response(body.p_token === "t" ? '"alex"' : "null");
+  // état des modèles partagé entre les instances (009_ai_models.sql)
+  if (url.endsWith("/rpc/gt_ai_models_get")) return mode.shared ? Response.json(mode.shared) : new Response('{"code":"PGRST202"}', { status: 404 });
+  if (url.endsWith("/rpc/gt_ai_models_mark")) { marks.push(body); return Response.json({ ok: true }); }
   const model = url.split("/models/")[1]?.split(":")[0];
   if (url.includes("/models?")) return Response.json({ models: [{ name: "models/gemini-flash-latest", supportedGenerationMethods: ["generateContent"] }, { name: "models/text-embedding-004", supportedGenerationMethods: ["embedContent"] }] });
   if (!VERSIONS[model]) return fail(404, `models/${model} is not found`);
@@ -356,4 +359,28 @@ test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => 
   assert.ok(step("essai gemini-flash-latest (réflexion par défaut)"));
   assert.equal(step("essai gemini-3.6-flash").status, 200);
   for (const secret of [env.GEMINI_API_KEY, "sb_secret_abc", "eyJancienne", env.DIAG_TOKEN]) assert.ok(!raw.includes(secret), "secret dans le diagnostic");
+});
+
+test("état des modèles partagé : un modèle saturé ailleurs est évité tout de suite, puis réhabilité", async () => {
+  await forget(); marks.length = 0;
+  mode = { shared: { "gemini-flash-latest": { slow: Date.now() + 60e3 } } };
+  const r1 = await ask(Q);
+  assert.deepEqual(tried(), ["gemini-flash-lite-latest"]); // pas 7 s perdues sur le modèle saturé
+  assert.equal(r1.ev.at(-1).model, "gemini-flash-lite-latest");
+  // une surcharge vue ici est partagée
+  await forget(); marks.length = 0; mode = { overload: true };
+  await ask(Q);
+  assert.deepEqual(marks.map(m => [m.p_model, m.p_kind]), [["gemini-flash-latest", "slow"]]);
+  // quota de recherche épuisé : partagé aussi
+  await forget(); marks.length = 0; mode = { noSearch: ["gemini-flash-latest", "gemini-flash-lite-latest"] };
+  await ask(WEBQ);
+  assert.deepEqual(marks.filter(m => m.p_kind === "search").map(m => m.p_model), ["gemini-flash-latest", "gemini-flash-lite-latest"]);
+  // le modèle signalé répond de nouveau (la période est finie ailleurs) : il est réhabilité pour tous
+  await forget(); marks.length = 0;
+  mode = { shared: { "gemma-4-26b-a4b-it": { slow: Date.now() + 60e3 } }, gemmaOnly: true };
+  assert.equal((await ask(Q)).ev.at(-1).model, "gemma-4-26b-a4b-it"); // essayé en dernier, il répond
+  assert.ok(marks.some(m => m.p_model === "gemma-4-26b-a4b-it" && m.p_kind === "ok"));
+  // base lente ou table absente : rien ne casse
+  await forget(); mode = {};
+  assert.equal((await ask(Q)).ev.at(-1).model, "gemini-flash-latest");
 });

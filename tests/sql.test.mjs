@@ -202,3 +202,66 @@ test("ligue entre amis : dépassé au classement de la saison, dernier jour (des
   assert.equal(up[0]?.body, "Plus que 31 pts pour passer devant Peter et monter de division !");
   await db.query("select gt_push_gone($1)", [["https://push.example/league"]]);
 });
+
+test("Apple Santé : clé à part, dépôt des mesures au jour, lecture par l'app, déconnexion", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/008_health.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  assert.equal((await call("gt_health_key", "faux")).error, "BAD_TOKEN");
+  const { key } = await call("gt_health_key", m);
+  assert.match(key, /^miles\.[0-9a-f]{36}$/);
+  await assert.rejects(call("gt_health_put", key, "2026-10-14", JSON.stringify({ steps: 1 }))); // réservé au serveur
+  const put = async (k, day, data) => (await db.query("select gt_health_put($1, $2, $3) as r", [k, day, JSON.stringify(data)])).rows[0].r;
+  const today = (await db.query("select current_date::text as d")).rows[0].d;
+  assert.equal((await put(key, today, { steps: 1200, sleep: 7.5 })).ok, true);
+  assert.equal((await put(key, today, { steps: 8432, hrv: 58 })).ok, true); // le soir : complète et remplace
+  assert.equal((await put("miles.mauvaise", today, { steps: 1 })).error, "BAD_KEY");
+  assert.equal((await put(key, "2020-01-01", { steps: 1 })).error, "BAD_DAY");
+  const r = await call("gt_health_pull", m);
+  assert.equal(r.linked, true);
+  assert.deepEqual(r.days.map(d => [d.day, d.data]), [[today, { steps: 8432, sleep: 7.5, hrv: 58 }]]);
+  // nouvelle clé : l'ancienne ne marche plus
+  const { key: key2 } = await call("gt_health_key", m);
+  assert.equal((await put(key, today, { steps: 1 })).error, "BAD_KEY");
+  assert.equal((await put(key2, today, { rhr: 52 })).ok, true);
+  // déconnecter : plus de clé, mesures effacées
+  assert.equal((await call("gt_health_key", m, true)).ok, true);
+  const after = await call("gt_health_pull", m);
+  assert.deepEqual([after.linked, after.days], [false, []]);
+  assert.equal((await put(key2, today, { rhr: 52 })).error, "BAD_KEY");
+  // pseudo avec des points : le secret suit le dernier point
+  const jd = (await call("gt_signup", "jean.d.", "2222")).token;
+  const { key: kj } = await call("gt_health_key", jd);
+  assert.match(kj, /^jean\.d\.\.[0-9a-f]{36}$/);
+  assert.equal((await put(kj, today, { steps: 50 })).ok, true);
+  assert.deepEqual((await call("gt_health_pull", jd)).days.map(d => d.data), [{ steps: 50 }]);
+  for (const k of ["", "jean.d.", ".abc", kj.replace(/.$/, "x"), "miles", null]) assert.equal((await put(k, today, { steps: 1 })).error, "BAD_KEY", String(k));
+  await db.exec("set role anon");
+  await assert.rejects(db.query("select * from gt_health"));
+  await db.exec("reset role");
+});
+
+test("état des modèles de l'IA partagé : saturé, quota de recherche, réhabilité ; réservé au serveur", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/009_ai_models.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  await assert.rejects(call("gt_ai_models_get"));
+  const get = async () => (await db.query("select gt_ai_models_get() as r")).rows[0].r;
+  const mark = async (m, k, ms = 0) => (await db.query("select gt_ai_models_mark($1, $2, $3) as r", [m, k, ms])).rows[0].r;
+  assert.deepEqual(await get(), {});
+  await mark("gemini-flash-latest", "slow");
+  const g1 = await get();
+  const now = Date.now(), slow = g1["gemini-flash-latest"].slow;
+  assert.ok(slow > now + 4 * 60e3 && slow < now + 6 * 60e3, "5 min la première fois");
+  await mark("gemini-flash-latest", "slow");
+  assert.ok((await get())["gemini-flash-latest"].slow > now + 9 * 60e3, "puis 10 min");
+  for (let i = 0; i < 6; i++) await mark("gemini-flash-latest", "slow");
+  assert.ok((await get())["gemini-flash-latest"].slow < now + 61 * 60e3, "1 h au plus");
+  await mark("gemini-flash-lite-latest", "search");
+  assert.ok((await get())["gemini-flash-lite-latest"].search > now + 29 * 60e3);
+  await mark("gemini-flash-latest", "ok", 900);
+  const g2 = await get();
+  assert.equal(g2["gemini-flash-latest"], undefined);
+  assert.equal((await db.query("select fails, ok_ms from gt_ai_models where model = 'gemini-flash-latest'")).rows[0].fails, 0);
+  assert.equal((await mark("", "slow")).error, "NO_MODEL");
+  assert.equal((await mark("x", "boum")).error, "BAD_KIND");
+});

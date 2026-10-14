@@ -110,6 +110,19 @@ Onglet Séances → **Objectif chiffré** : « Développé couché : 100 kg », 
 - **Test final** : montée en charge préparée (50, 70, 80, 90 %) puis la tentative, et un deuxième essai plus lourd si c'est réussi ; pour les répétitions ou le temps, une série d'échauffement puis le maximum. Résultat en fin de séance, succès « Objectif atteint ».
 - Suivi : carte sur l'accueil (semaine, prescription, avance ou retard), courbe prévue et niveau mesuré à chaque séance.
 
+## Apple Santé
+
+**Moi → Réglages → Données → Apple Santé** : un Raccourci iOS (créé en 5 minutes grâce au pas-à-pas de l'app, puis lancé tout seul chaque matin et chaque soir) envoie ton **sommeil**, ta **variabilité cardiaque (VFC)**, ta **fréquence cardiaque au repos**, tes **pas**, ton **poids** et ton **énergie active**.
+- Le **bilan de forme** avant chaque séance est prérempli : sommeil d'après la nuit, énergie d'après la VFC et la fréquence au repos comparées à **tes** valeurs habituelles (médiane des 30 derniers jours). Tu peux toujours ajuster.
+- Carte **« Forme du jour »** sur l'accueil ; tes pesées rejoignent la courbe de poids (les calories adaptatives deviennent plus justes) ; le coach IA en tient compte (« VFC basse, on allège »).
+- Adresse personnelle secrète (stockée hachée), à renouveler ou délier à tout moment ; délier efface les mesures reçues.
+
+## Importer et exporter
+
+**Moi → Réglages → Données** :
+- **Importer depuis une autre app** : exports CSV de **Strong**, **Hevy**, **Fitbod** (séances, séries, charges, RPE, durées), **MyFitnessPal** (repas et pesées) ou une sauvegarde GREATNESS. Les exercices anglais sont reconnus avec leur matériel (« Bench Press (Dumbbell) » → Développé haltères) ; un exercice inconnu devient un exercice perso. Livres converties en kilos, échauffements ignorés, records recalculés, et réimporter le même fichier ne crée aucun doublon. Les séances importées comptent pour ton historique, tes records et ton rang, pas pour la ligue ni les défis entre amis.
+- **Exporter mes données** : sauvegarde complète (.json, à réimporter), séances en CSV au format Strong (lisible par Hevy, Strong, Excel, Numbers) et journal alimentaire en CSV. Sur iPhone : « Enregistrer dans Fichiers », mail, AirDrop…
+
 ## Récupération musculaire
 
 Une **carte du corps** (face et dos) sur l'accueil montre chaque muscle travaillé cette semaine, de rouge (à reposer) à vert (récupéré). Elle est calculée d'après tes séances : chaque série laisse une fatigue sur ses muscles (plus forte quand la série est dure), qui s'efface avec le temps, plus vite pour les petits muscles que pour les gros. Le détail donne, muscle par muscle, le pourcentage de récupération, le délai avant d'être prêt et les séries de la semaine (repère : 10 à 20).
@@ -168,7 +181,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -222,6 +235,8 @@ js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)
 js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écrans)
 js/league.js      ligues et saisons entre amis
+js/health.js      Apple Santé : bilan de forme, pesées, contexte du coach (+ health-ui.js : liaison et carte)
+js/importer.js    import Strong / Hevy / Fitbod / MyFitnessPal et export CSV (+ import-ui.js : écrans)
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
@@ -231,6 +246,9 @@ supabase/004_ai.sql      limite de messages de l'IA en ligne
 supabase/functions/coach/      IA en ligne (Gemini + recherche Google), aliments, plans de repas
 supabase/006_water_push.sql    rappels pour boire
 supabase/007_league_push.sql   notifications de la ligue entre amis
+supabase/008_health.sql        mesures Apple Santé (clé personnelle hachée)
+supabase/functions/health/     fonction appelée par le Raccourci iOS
+supabase/009_ai_models.sql     état des modèles Gemini partagé (IA plus rapide)
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

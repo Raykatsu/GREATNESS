@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-11";
+const VERSION = "coach-12";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -60,13 +60,13 @@ function reply(events: unknown[]) {
 }
 
 // Appel d'une fonction SQL avec la clé serveur (on essaie la suivante si une clé est refusée).
-async function rpc(fn: string, args: unknown): Promise<Response> {
+async function rpc(fn: string, args: unknown, signal?: AbortSignal): Promise<Response> {
   let res: Response | null = null;
   for (const { key } of serverKeys()) {
     res = await fetch(`${SB}/rest/v1/rpc/${fn}`, {
       method: "POST",
       headers: { apikey: key, ...(key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {}), "Content-Type": "application/json" },
-      body: JSON.stringify(args),
+      body: JSON.stringify(args), signal,
     });
     if (res.status !== 401 && res.status !== 403) return res;
   }
@@ -110,6 +110,29 @@ const searchBlocked = new Map<string, number>();
 // Modèle surchargé (503) ou muet : passé en dernier pendant 10 min, pour ne pas le réattendre à chaque message.
 const slowUntil = new Map<string, number>();
 const isSlow = (model: string) => (slowUntil.get(model) ?? 0) > Date.now();
+// État des modèles partagé entre les instances (table gt_ai_models, 009_ai_models.sql) : lu au début de chaque
+// requête (en même temps que le compteur), mis à jour à chaque panne et quand un modèle signalé répond à nouveau.
+// Sans la table, chaque instance garde sa propre mémoire.
+const flagged = new Set<string>();
+async function loadModels() {
+  try {
+    const r = await rpc("gt_ai_models_get", {}, AbortSignal.timeout(1500));
+    if (!r.ok) return;
+    const now = Date.now();
+    for (const [m, v] of Object.entries((await r.json()) || {}) as [string, { slow?: number; search?: number }][]) {
+      if ((v?.slow ?? 0) > now) { slowUntil.set(m, Math.max(slowUntil.get(m) ?? 0, v.slow!)); flagged.add(m); }
+      if ((v?.search ?? 0) > now) searchBlocked.set(m, Math.max(searchBlocked.get(m) ?? 0, v.search!));
+    }
+  } catch { /* table absente ou base lente : mémoire locale seulement */ }
+}
+function remember(model: string, kind: "slow" | "search" | "ok", ms = 0) {
+  if (kind === "slow") { slowUntil.set(model, Date.now() + 10 * 60e3); flagged.add(model); }
+  else if (kind === "search") searchBlocked.set(model, Date.now() + 15 * 60e3);
+  else { slowUntil.delete(model); flagged.delete(model); }
+  const p = rpc("gt_ai_models_mark", { p_model: model, p_kind: kind, p_ms: Math.round(ms) }, AbortSignal.timeout(3000)).catch(() => {});
+  // deno-lint-ignore no-explicit-any
+  (globalThis as any).EdgeRuntime?.waitUntil?.(p); // la réponse peut partir avant la fin de l'écriture
+}
 const thinks = (model: string) => THINKING !== "default" && !noThinking.has(model) && !/lite|gemma|gemini-[12]\./i.test(model);
 
 // La question demande-t-elle une info récente ou introuvable dans les données de l'athlète ?
@@ -215,7 +238,7 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
         run.err = `${label} : ${ctrl.signal.aborted ? `pas de réponse en ${secs(Date.now() - s)}` : clip((e as Error).message)}`;
         run.tries.push(`${label} → ${ctrl.signal.aborted ? "délai dépassé" : "erreur réseau"} (${secs(Date.now() - s)})`);
         console.error(run.err);
-        if (ctrl.signal.aborted) { skip.add(a.model); slowUntil.set(a.model, Date.now() + 10 * 60e3); } // trop lent : modèle suivant
+        if (ctrl.signal.aborted) { skip.add(a.model); remember(a.model, "slow"); } // trop lent : modèle suivant
         continue;
       }
       if (!res.ok || !res.body) {
@@ -227,12 +250,12 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
           noThinking.add(a.model); // ce modèle ne connaît pas le réglage de réflexion : on réessaie sans
           queue.unshift(a);
         } else if (a.search && (res.status === 429 || (res.status === 400 && /search|grounding|tool/i.test(t)))) {
-          searchBlocked.set(a.model, Date.now() + 15 * 60e3); // quota de la recherche : le modèle reste utilisable sans
+          remember(a.model, "search"); // quota de la recherche : le modèle reste utilisable sans
         } else if ([401, 403, 404, 429].includes(res.status) || (res.status === 400 && /API[_ ]KEY/i.test(t))) {
           skip.add(a.model);
         } else if (res.status >= 500) {
           // surcharge chez Google (503) : on passe au modèle suivant ; s'il n'y en a plus, un nouvel essai 1 s plus tard
-          slowUntil.set(a.model, Date.now() + 10 * 60e3);
+          remember(a.model, "slow");
           if (!queue.some(x => !skip.has(x.model)) && !retried.has(label) && deadline - Date.now() > 15_000) {
             retried.add(label);
             await new Promise(r => setTimeout(r, 1000));
@@ -260,10 +283,10 @@ async function* converse(system: string, messages: Msg[], web: boolean, run: Run
         run.err = `${label} : ${got ? "flux interrompu" : "pas de réponse"} (${silent ? (got ? `plus rien pendant ${secs(STALL_MS)}` : `rien en ${secs(Date.now() - s)}`) : clip((e as Error).message)})`;
         console.error(run.err);
         if (got) run.cut = true;
-        else if (silent) { skip.add(a.model); slowUntil.set(a.model, Date.now() + 10 * 60e3); }
+        else if (silent) { skip.add(a.model); remember(a.model, "slow"); }
       }
       run.tries.push(`${label} → ${got ? `${got} caractères` : "réponse vide"}${run.cut ? " (coupée)" : ""} (${secs(Date.now() - s)})`);
-      if (got) { run.model = a.model; return; }
+      if (got) { run.model = a.model; if (flagged.has(a.model) && !run.cut) remember(a.model, "ok", Date.now() - s); return; }
       if (!run.err.startsWith(label)) run.err = `${label} : réponse vide${run.blocked ? " (bloquée par le filtre de sécurité)" : ""}`;
     } finally {
       clearTimeout(timer);
@@ -342,6 +365,7 @@ function diagnose() {
         searchBlocked.clear();
         noThinking.clear();
         slowUntil.clear();
+        flagged.clear();
         const probe = async (name: string, question: string) => {
           const s = Date.now(), run = newRun();
           let text = "", chunks = 0;
@@ -477,7 +501,7 @@ async function food(input: { text?: string; mode?: string; image?: { mime?: stri
       if (!r.ok) {
         err = `Gemini ${model} : HTTP ${r.status} ${clip(errMsg(t), 200)}`;
         tries.push(`${model} → HTTP ${r.status}`);
-        if (r.status >= 500) slowUntil.set(model, Date.now() + 10 * 60e3);
+        if (r.status >= 500) remember(model, "slow");
         continue;
       }
       const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
@@ -500,7 +524,7 @@ async function food(input: { text?: string; mode?: string; image?: { mime?: stri
       const timeout = (e as Error).name === "TimeoutError";
       err = `Gemini ${model} : ${timeout ? "pas de réponse à temps" : clip((e as Error).message)}`;
       tries.push(`${model} → ${timeout ? "délai dépassé" : "réponse illisible"}`);
-      if (timeout) slowUntil.set(model, Date.now() + 10 * 60e3);
+      if (timeout) remember(model, "slow");
     }
   }
   console.error("repas", tries.join(" ; "));
@@ -565,7 +589,7 @@ async function mealPlan(input: any, quota: { remaining?: number | null }) {
       if (!r.ok) {
         err = `Gemini ${model} : HTTP ${r.status} ${clip(errMsg(t), 200)}`;
         tries.push(`${model} → HTTP ${r.status}`);
-        if (r.status >= 500) slowUntil.set(model, Date.now() + 10 * 60e3);
+        if (r.status >= 500) remember(model, "slow");
         continue;
       }
       const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
@@ -589,7 +613,7 @@ async function mealPlan(input: any, quota: { remaining?: number | null }) {
       const timeout = (e as Error).name === "TimeoutError";
       err = `Gemini ${model} : ${timeout ? "pas de réponse à temps" : clip((e as Error).message)}`;
       tries.push(`${model} → ${timeout ? "délai dépassé" : "réponse illisible"}`);
-      if (timeout) slowUntil.set(model, Date.now() + 10 * 60e3);
+      if (timeout) remember(model, "slow");
     }
   }
   console.error("plan de repas", tries.join(" ; "));
@@ -613,7 +637,7 @@ Deno.serve(async req => {
     if (!token) return json({ error: "BAD_REQUEST", detail: "jeton manquant" });
     if (!KEY) return json({ error: "NO_KEY", detail: "secret GEMINI_API_KEY absent" });
     let quota;
-    try { quota = await take(token); } catch (e) { return json({ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }); }
+    try { [quota] = await Promise.all([take(token), loadModels()]); } catch (e) { return json({ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }); }
     if (quota.error) return json({ error: quota.error });
     return input.task === "mealplan" ? await mealPlan(input, quota) : await food(input, quota);
   }
@@ -626,7 +650,7 @@ Deno.serve(async req => {
   if (!KEY) return reply([{ error: "NO_KEY", detail: "secret GEMINI_API_KEY absent" }]);
 
   let quota;
-  try { quota = await take(token); } catch (e) { console.error(e); return reply([{ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }]); }
+  try { [quota] = await Promise.all([take(token), loadModels()]); } catch (e) { console.error(e); return reply([{ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }]); }
   if (quota.error) return reply([{ error: quota.error }]);
   // Recherche Google seulement si l'app l'autorise et si la question demande une info récente
   return chat(system, messages, input.search !== false && wantsWeb(messages[messages.length - 1].content), quota);

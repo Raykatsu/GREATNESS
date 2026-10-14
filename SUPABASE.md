@@ -43,7 +43,7 @@ Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recher
 1. **Clé gratuite** : va sur [aistudio.google.com](https://aistudio.google.com), connecte-toi avec un compte Google → **Get API key** → **Create API key**. Copie la clé.
 2. **Edge Functions → Secrets** → ajoute `GEMINI_API_KEY` = ta clé. Réglages facultatifs (les valeurs par défaut conviennent) :
    - `AI_DAILY_LIMIT` : messages par jour et par compte (80).
-   - `GEMINI_MODELS` : modèles dans l'ordre (`gemini-flash-latest,gemini-flash-lite-latest,gemini-3.7-flash,gemma-4-26b-a4b-it`). Le dernier Flash de Google répond ; s'il ne commence pas sa réponse en 7 s (`GEMINI_PRIMARY_MS`), s'il est surchargé ou si son quota gratuit est épuisé, les suivants prennent le relais, et un modèle surchargé est mis de côté 10 min (un modèle retiré par Google est simplement sauté).
+   - `GEMINI_MODELS` : modèles dans l'ordre (`gemini-flash-latest,gemini-flash-lite-latest,gemini-3.7-flash,gemma-4-26b-a4b-it`). Le dernier Flash de Google répond ; s'il ne commence pas sa réponse en 7 s (`GEMINI_PRIMARY_MS`), s'il est surchargé ou si son quota gratuit est épuisé, les suivants prennent le relais. Un modèle surchargé est essayé en dernier pendant 5 min, puis 10, 20, 40, jusqu'à 1 h s'il reste en panne, et il reprend sa place dès qu'il répond à nouveau ; cet état est **partagé par toutes les instances** de la fonction (table `gt_ai_models`, [`009_ai_models.sql`](supabase/009_ai_models.sql)) : plus personne n'attend 7 s sur un modèle déjà repéré comme saturé. Un modèle retiré par Google est simplement sauté.
    - `GEMINI_SEARCH_MODELS` : modèles utilisés avec la recherche Google, seulement pour les questions qui demandent une info récente (actualité, prix, études…) (`gemini-flash-latest,gemini-flash-lite-latest`). Le quota gratuit de Google refuse souvent la recherche : le coach répond alors sans, et elle marche dès que la facturation est activée sur le projet Google.
    - `GEMINI_THINKING` : réflexion des modèles Gemini 3 et plus (`low` : réponse en quelques secondes ; `medium` ou `high` : plus poussée mais plus lente).
 3. **Déploiement automatique** (une seule fois, ensuite tout est fait par GitHub) :
@@ -56,7 +56,25 @@ Le coach répond alors avec une vraie IA en ligne (Google Gemini, avec la recher
 
 > Sans GitHub : SQL Editor → colle [`supabase/004_ai.sql`](supabase/004_ai.sql) → Run ; puis Edge Functions → *Deploy a new function* → *Via Editor*, nom `coach`, remplace **tout** le code d'exemple par celui de [`supabase/functions/coach/index.ts`](supabase/functions/coach/index.ts) → Deploy, et désactive « Verify JWT ». L'adresse doit finir par `/functions/v1/coach` (sensible aux majuscules, voir `AI_FUNCTION` dans `js/config.js`). Ouvre cette adresse dans le navigateur : elle doit afficher « GREATNESS : fonction coach en ligne ».
 
-> Version gratuite : Google limite le nombre de requêtes par minute et par jour, et peut utiliser les échanges pour améliorer ses modèles. Pour plus de quota, active la facturation sur le projet Google (payant à l'usage) — rien à changer dans l'app.
+### Rendre l'IA plus rapide et plus fiable (facultatif, payant à l'usage)
+
+La version gratuite de Gemini passe après les comptes payants : aux heures de pointe, Google répond « surchargé » (erreurs 503 ou 429) ou lentement, refuse souvent la recherche Google, limite le nombre de requêtes par minute et par jour, et peut utiliser les échanges pour améliorer ses modèles. Le coach s'en accommode (modèles de secours, état partagé), mais c'est la facturation qui change vraiment la donne :
+
+1. Sur [aistudio.google.com](https://aistudio.google.com) → **Get API key** : à côté du projet de ta clé, **Set up billing** (activer la facturation) et ajoute une carte. Le projet passe au palier payant en quelques minutes.
+2. Fixe-toi une limite : [console.cloud.google.com](https://console.cloud.google.com) → **Facturation → Budgets et alertes** → un budget mensuel (par exemple 5 €) avec une alerte par mail à 50, 90 et 100 %.
+3. Rien à changer dans l'app ni dans Supabase : la même clé obtient aussitôt des limites bien plus hautes, la recherche Google marche, et tes échanges ne servent plus à entraîner les modèles.
+
+Ordre de grandeur (tarifs de Gemini Flash en 2025) : quelques dixièmes de centime par message du coach, soit quelques euros par mois pour un usage quotidien. Les tarifs à jour sont sur [ai.google.dev/pricing](https://ai.google.dev/pricing).
+
+## 2 quinquies. Apple Santé (sommeil, cœur, pas, poids)
+
+Avec le déploiement automatique, rien à faire : GitHub installe [`008_health.sql`](supabase/008_health.sql) et déploie la fonction `health` (sans « Verify JWT » : elle vérifie elle-même la clé personnelle). Pour vérifier : onglet **Actions** → « Supabase (IA en ligne) » → étape « Fonction Apple Santé » : « fonction santé en ligne », puis une clé inconnue refusée (`BAD_KEY`).
+
+Dans l'app (compte en ligne) : **Moi → Réglages → Données → Apple Santé → Relier Apple Santé**. L'app donne une adresse personnelle et le pas-à-pas pour créer un **Raccourci iOS** (5 minutes, une seule fois) qui envoie chaque matin le sommeil, la VFC, la fréquence au repos, les pas, le poids et l'énergie active. Aucune app à installer : Apple ne laisse pas une web-app lire Santé directement, le Raccourci fait le pont.
+
+Sécurité : la clé de l'adresse est stockée hachée (SHA-256) et ne permet que d'**envoyer** des mesures sur ce compte, jamais de les lire. « Nouvelle adresse » invalide l'ancienne ; « Délier » efface les mesures reçues. Les mesures de plus de 120 jours sont supprimées.
+
+> Sans GitHub : SQL Editor → colle [`supabase/008_health.sql`](supabase/008_health.sql) → Run ; puis déploie [`supabase/functions/health/index.ts`](supabase/functions/health/index.ts) sous le nom `health` en désactivant « Verify JWT ». L'adresse `…/functions/v1/health` doit afficher « GREATNESS : fonction santé en ligne ».
 
 ## 3. Récupérer les deux valeurs
 

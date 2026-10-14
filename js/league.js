@@ -28,9 +28,10 @@ export const seasonStart = s => plusDays(EPOCH(), (s - 1) * SEASON_WEEKS * 7);
 export const seasonEnd = s => seasonStart(s + 1);
 export const daysLeft = (now = Date.now()) => Math.max(1, Math.ceil((seasonEnd(seasonOf(new Date(now))) - now) / DAY));
 
-// Stats d'une semaine d'après les séances (comme le résumé public : séances, volume, minutes, records)
+// Stats d'une semaine d'après les séances (comme le résumé public : séances, volume, minutes, records).
+// Les séances importées d'une autre app ne comptent pas (sinon un fichier suffirait à gagner la ligue).
 export function weekStats(sessions = [], ws) {
-  const we = plusDays(ws, 7), list = sessions.filter(s => s.date >= ws && s.date < we);
+  const we = plusDays(ws, 7), list = sessions.filter(s => !s.imported && s.date >= ws && s.date < we);
   return { start: ws, count: list.length, volume: Math.round(list.reduce((a, s) => a + (s.volume || 0), 0)),
     minutes: Math.round(list.reduce((a, s) => a + (s.durationSec || 0), 0) / 60), prs: list.reduce((a, s) => a + (s.prs?.length || 0), 0) };
 }
