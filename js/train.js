@@ -7,6 +7,7 @@ import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } from "./planner.js";
 import { readinessScore, readinessVerdict } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
+import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
@@ -61,6 +62,7 @@ export function renderTrain(view, startLive) {
       <span class="grow"><b>Séance libre</b><span class="xs muted">Choisis tes exercices au fur et à mesure</span></span>
       <span class="chev">${I.chev}</span>
     </button>
+    ${intervalCard()}
     <div class="tr-list" id="tr-list"></div>
     <button class="fab" aria-label="Créer une séance">${I.plus}</button>`;
   const host = $("#tr-list", view);
@@ -92,6 +94,7 @@ export function renderTrain(view, startLive) {
   requestAnimationFrame(() => $(".tr-f.on", view)?.scrollIntoView({ block: "nearest", inline: "center" }));
   $(".fab", view).onclick = () => (location.hash = "#/create");
   $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
+  $("#iv-start", view).onclick = () => openIntervals();
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */

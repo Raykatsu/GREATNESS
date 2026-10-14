@@ -8,6 +8,7 @@ import { todaysMission } from "./planner.js";
 import { nutritionContext, foodFacts } from "./nutrition.js";
 import { memoryContext } from "./memory.js";
 import { recoveryContext, recoveryAnswer } from "./recovery.js";
+import { ivSummary } from "./intervals.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
@@ -234,7 +235,9 @@ export function athleteContext({ full = false } = {}) {
   const recent = state.sessions.slice(full ? -15 : -5).reverse().map(s => {
     const by = {};
     s.sets.forEach(x => (by[x.name] ||= []).push(x.weight ? `${x.weight}×${x.reps}@${x.rpe}` : `${x.reps}@${x.rpe}`));
-    return `- ${new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${s.volume} kg. ${Object.entries(by).map(([n, a]) => `${n} ${a.join(" ")}`).join(" ; ")}`;
+    const day = new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    if (s.iv) return `- ${day} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${ivSummary(s)}.`;
+    return `- ${day} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${s.volume} kg. ${Object.entries(by).map(([n, a]) => `${n} ${a.join(" ")}`).join(" ; ")}`;
   });
   return [
     `Aujourd'hui : ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,

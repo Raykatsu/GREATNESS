@@ -2230,6 +2230,71 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .sh-add { display: flex; gap: 8px; }
 .sh-add .input { flex: 1; min-width: 0; }
 .sh-add .btn svg { width: 18px; height: 18px; }
+/* Minuteur d'intervalles : réglages */
+.iv-card { margin-top: var(--s-3); }
+.iv-card .bi { background: linear-gradient(160deg, var(--amber), #e2861c); color: #1b1203; }
+.iv-desc { margin: 8px 0 4px; }
+.iv-presets { margin-top: 6px; }
+.iv-exs { display: grid; }
+.iv-row { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.iv-mini { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--card-2); }
+.iv-rn { font-weight: 600; font-size: 14.5px; line-height: 1.25; min-width: 0; }
+.iv-step { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 12px; background: var(--card-2); flex: none; }
+.iv-step button { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--text); }
+.iv-step button:active { background: var(--card-3); }
+.iv-step button svg { width: 15px; height: 15px; }
+.iv-step b { min-width: 60px; text-align: center; font-size: 14px; }
+.iv-srow { display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14.5px; }
+.iv-det { display: grid; gap: 4px; margin: 6px 0; font-size: 13.5px; }
+.iv-det div { display: flex; justify-content: space-between; gap: 10px; }
+/* Minuteur d'intervalles : écran plein écran (couleur selon la phase : préparation, effort, repos) */
+.ivx { position: fixed; inset: 0; z-index: 45; isolation: isolate; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+  padding: calc(var(--safe-t) + 10px) var(--gutter) calc(var(--safe-b) + 16px); --k: var(--amber); }
+.ivx[data-kind="work"] { --k: var(--red); }
+.ivx[data-kind="rest"], .ivx[data-kind="done"] { --k: var(--green); }
+.ivx::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--k) 24%, transparent), transparent 70%); }
+.iv-top { display: flex; align-items: center; gap: 10px; }
+.iv-title { flex: 1; min-width: 0; display: grid; text-align: center; line-height: 1.25; }
+.iv-title b { font-family: var(--display); font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.iv-ring { position: relative; width: min(64vw, 300px, 38vh); aspect-ratio: 1; flex: none; }
+.iv-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.iv-ring circle { fill: none; stroke-width: 6; }
+.iv-ring .bg { stroke: var(--card-3); }
+.iv-ring .fg { stroke: var(--k); stroke-linecap: round; transition: stroke .3s; }
+.ivx.paused .iv-ring .fg { opacity: .4; }
+.iv-c { position: absolute; inset: 0; display: grid; place-content: center; gap: 2px; text-align: center; }
+.iv-kind { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--k); }
+.iv-t { font-family: var(--display); font-weight: 800; font-size: clamp(56px, 19vw, 92px); line-height: 1; letter-spacing: -.03em; }
+.ivx.ending .iv-t { animation: ivPulse 1s ease-in-out infinite; }
+@keyframes ivPulse { 50% { transform: scale(1.06); color: var(--k); } }
+.iv-now { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 420px; }
+.iv-anim { width: 96px; height: 96px; flex: none; border-radius: 20px; background: var(--card); border: 1px solid var(--line); }
+@media (min-height: 760px) { .iv-anim { width: 124px; height: 124px; border-radius: 24px; } }
+.iv-exn { display: grid; gap: 4px; min-width: 0; }
+.iv-exn small { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.iv-exn b { font-family: var(--display); font-size: 24px; line-height: 1.15; }
+.iv-exn .chip { justify-self: start; }
+.iv-next { min-height: 1.4em; text-align: center; color: var(--muted); }
+.iv-next b { color: var(--text); }
+.iv-list { width: 100%; max-height: 30vh; overflow-y: auto; display: grid; gap: 6px; }
+.iv-li { display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-weight: 600; font-size: 14.5px; }
+.iv-amrap { display: flex; align-items: center; gap: 12px; width: 100%; }
+.iv-tour { flex: 1; height: 56px; font-size: 17px; }
+.iv-tour b { margin-left: 6px; font-family: var(--display); font-size: 22px; }
+.iv-bar { height: 4px; margin: 10px 0 14px; border-radius: 2px; background: var(--card-3); overflow: hidden; }
+.iv-bar i { display: block; height: 100%; background: var(--k); transform-origin: left; transform: scaleX(0); }
+.iv-ctl { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.iv-b { width: 56px; height: 56px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--card-2); border: 1px solid var(--line); color: var(--text); }
+.iv-b svg { width: 22px; height: 22px; }
+.iv-b:active { transform: scale(.92); }
+.iv-play { width: 78px; height: 78px; border: 0; background: var(--k); color: #fff; box-shadow: 0 10px 28px -12px var(--k); }
+.iv-play svg { width: 30px; height: 30px; }
+.iv-done { width: 100%; max-width: 420px; margin: auto; display: grid; justify-items: center; gap: 6px; text-align: center; }
+.iv-trophy { width: 84px; height: 84px; margin-bottom: 6px; border-radius: 50%; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+.iv-trophy svg { width: 40px; height: 40px; }
+.iv-done .grid2, .iv-done .badges { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .ivx.ending .iv-t { animation: none; } }
 .nut-hist { padding: var(--s-4); }
 .nh-chart { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; }
 .nh-b { height: 100%; display: flex; align-items: flex-end; justify-content: center; }

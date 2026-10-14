@@ -31,10 +31,13 @@ export function recovery(sessions = [], now = Date.now()) {
   for (const s of sessions) {
     if (!(s.date > since && s.date <= now)) continue;
     const age = (now - s.date) / H;
-    for (const set of s.sets || []) {
-      const k = kindOf(set.exId);
+    // séries de musculation, et efforts du minuteur d'intervalles (40 s d'effort à fond ≈ une série dure)
+    const work = [...(s.sets || []).map(set => [set.exId, effort(set.rpe)]),
+      ...(s.iv?.work || []).map(w => [w.exId, w.sec ? Math.min(1.2, Math.max(0.3, w.sec / 40)) : 0.8])];
+    for (const [exId, e0] of work) {
+      const k = kindOf(exId);
       if (!k) continue;
-      const { p, s: sec } = musclesOf(set.exId), e = effort(set.rpe) * k;
+      const { p, s: sec } = musclesOf(exId), e = e0 * k;
       for (const [list, w] of [[p, 1], [sec, 0.5]]) for (const m of list) {
         const r = out[m];
         if (!r) continue;
