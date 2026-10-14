@@ -2188,6 +2188,48 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .glass.full { color: #5b8cff; }
 .glass.full .w { opacity: .85; }
 .glass:active { transform: scale(.88); }
+.water .meal-head { align-items: center; }
+.water .meal-head .tnum { margin-left: auto; }
+.w-rem { width: 32px; height: 32px; color: var(--muted); }
+.w-rem svg { width: 17px; height: 17px; }
+.w-rem.on { color: #5b8cff; background: rgba(91, 140, 255, .14); }
+.w-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0 8px; margin-left: -10px; border-top: 1px solid var(--line); }
+.w-foot .btn svg { width: 16px; height: 16px; }
+.adapt .meal-head { align-items: center; }
+.ad-spark { width: 100%; height: 64px; display: block; margin: 2px 0 6px; }
+.ad-spark polyline { fill: none; stroke: var(--accent-ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ad-spark circle { fill: var(--muted); opacity: .55; }
+.ad-lines { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.ad-lines b { color: var(--text); }
+.ad-lines .link { padding: 0; font: inherit; font-weight: 700; color: var(--accent-ink); }
+.t-weight { display: grid; grid-template-columns: minmax(0, 110px) minmax(0, 1fr); gap: 10px; align-items: start; }
+.t-rates { flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.t-rates .chip { padding: 6px 10px; font-size: 12.5px; }
+.t-adapt { margin: 4px 0 6px; color: var(--muted); }
+.t-adapt b { color: var(--text); }
+/* Plan de repas et liste de courses */
+.plan-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.pc-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+.pc-ic svg { width: 21px; height: 21px; }
+.plan-card .chev { color: var(--muted); flex: none; display: grid; }
+.plan-card .chev svg { width: 18px; height: 18px; }
+.np-diet { flex-wrap: wrap; margin: 0; padding: 2px 0; }
+.pl-tot { margin: 12px 0 2px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--card-2); font-size: 13px; font-weight: 650; text-align: center; }
+.pl-meal { padding: 10px 0 4px; border-bottom: 1px solid var(--line); }
+.pl-meal:last-child { border-bottom: 0; }
+.pl-mh { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pl-name { display: block; margin: 2px 0 4px; font-size: var(--fs-base); line-height: 1.3; }
+.pl-items { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 3px; font-size: 13.5px; }
+.pl-items li { display: flex; gap: 8px; }
+.pl-meal .btn { margin-left: -10px; }
+.pl-tips { display: flex; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--blue-soft); color: var(--blue-ink); line-height: 1.4; }
+.pl-tips svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.sh-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.sh-row input { width: 20px; height: 20px; flex: none; accent-color: var(--green); }
+.sh-row.done .grow { text-decoration: line-through; color: var(--dim); }
+.sh-add { display: flex; gap: 8px; }
+.sh-add .input { flex: 1; min-width: 0; }
+.sh-add .btn svg { width: 18px; height: 18px; }
 .nut-hist { padding: var(--s-4); }
 .nh-chart { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; }
 .nh-b { height: 100%; display: flex; align-items: flex-end; justify-content: center; }

@@ -24,23 +24,28 @@ const clip = (s, n) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 // Objectifs du jour : métabolisme de base (Mifflin-St Jeor) × activité + entraînement, ajusté à l'objectif.
+// Calories adaptatives (adaptive.js) : l'objectif recalculé chaque semaine d'après ta vraie dépense remplace la formule.
+export function bmrOf(p = {}) {
+  const w = +p.bodyweight || 75, female = p.sex === "f", h = +p.height || (female ? 165 : 177), a = +p.age || 28;
+  return 10 * w + 6.25 * h - 5 * a + (female ? -161 : 5);
+}
+export const tdeeOf = (p = {}) => Math.round(bmrOf(p) * (ACTIVITY[p.activity] || ACTIVITY.light).f + ((+p.days || 3) * 250) / 7);
 export function targets(p = {}) {
-  const w = +p.bodyweight || 75, female = p.sex === "f";
-  const h = +p.height || (female ? 165 : 177), a = +p.age || 28, days = +p.days || 3;
-  const bmr = 10 * w + 6.25 * h - 5 * a + (female ? -161 : 5);
-  const tdee = bmr * (ACTIVITY[p.activity] || ACTIVITY.light).f + (days * 250) / 7;
+  const w = +p.bodyweight || 75, female = p.sex === "f", days = +p.days || 3;
+  const bmr = bmrOf(p), tdee = bmr * (ACTIVITY[p.activity] || ACTIVITY.light).f + (days * 250) / 7;
   const goal = GOAL_ADJ[p.goal] != null ? p.goal : "forme";
-  const kcal = Math.round(Math.max(tdee * (1 + GOAL_ADJ[goal]), bmr * 1.05, female ? 1300 : 1500) / 10) * 10;
+  const ad = p.nutri?.adaptive && p.nutri.adapt?.kcal > 0 ? p.nutri.adapt : null;
+  const kcal = ad ? ad.kcal : Math.round(Math.max(tdee * (1 + GOAL_ADJ[goal]), bmr * 1.05, female ? 1300 : 1500) / 10) * 10;
   const prot = Math.round(w * PROTEIN[goal]);
   const fat = Math.round(Math.max(w * 0.7, (kcal * 0.27) / 9));
   const auto = {
     kcal, p: prot, f: fat, c: Math.max(50, Math.round((kcal - prot * 4 - fat * 9) / 4)),
     fi: Math.round((kcal / 1000) * 14), water: Math.round((w * 35 + (days * 500) / 7) / 250) * 250,
-    bmr: Math.round(bmr), tdee: Math.round(tdee), custom: false,
+    bmr: Math.round(bmr), tdee: ad ? ad.tdee : Math.round(tdee), custom: false, adaptive: !!ad,
   };
   const n = p.nutri;
   if (!n?.custom) return auto;
-  return { ...auto, custom: true, kcal: +n.kcal || auto.kcal, p: +n.p || auto.p, c: +n.c || auto.c, f: +n.f || auto.f };
+  return { ...auto, custom: true, adaptive: false, kcal: +n.kcal || auto.kcal, p: +n.p || auto.p, c: +n.c || auto.c, f: +n.f || auto.f };
 }
 
 /* ---------- Journal ---------- */
@@ -112,6 +117,17 @@ export function setWater(state, key, n) {
   const day = ensureDay(state, key);
   day.water = Math.max(0, Math.min(20, Math.round(n)));
   day.at = Date.now();
+}
+
+// Hydratation : objectif du jour en verres de 250 ml (+ 0,5 L un jour d'entraînement)
+export const waterGoal = (t, trained = false) => Math.round(((t?.water || 2000) + (trained ? 500 : 0)) / 250);
+// Rappels d'eau : entre « from » et « to », on attend un rythme régulier ; null si l'on est dans les temps
+export function waterBehind(n, goal, now = new Date(), { from = "09:00", to = "21:00" } = {}) {
+  const mins = s => { const [h, m] = String(s).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const cur = now.getHours() * 60 + now.getMinutes(), a = mins(from), b = mins(to);
+  if (b <= a || cur < a || cur > b || n >= goal) return null;
+  const expected = Math.floor((goal * (cur - a)) / (b - a));
+  return n < expected ? { n, goal, expected } : null;
 }
 
 // Aliments récents (ajout rapide), du plus récent au plus ancien

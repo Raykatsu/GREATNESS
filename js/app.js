@@ -24,8 +24,8 @@ import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "
 import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
-import { renderFood, foodHomeCard, bindFoodCard } from "./food.js";
-import { pruneFood } from "./nutrition.js";
+import { renderFood, foodHomeCard, bindFoodCard, ensureAdaptive } from "./food.js";
+import { pruneFood, waterBehind, waterGoal, targets, dayOf, dayKey } from "./nutrition.js";
 import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
 import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
@@ -198,7 +198,20 @@ function countUp(root) {
   els.forEach(el => io.observe(el));
 }
 
+// Rappel pour boire quand l'app est ouverte (les notifications s'en chargent quand elle est fermée)
+function waterNudge() {
+  const w = state.profile.waterRemind;
+  if (!w?.on) return;
+  const goal = waterGoal(targets(state.profile), sessionsOn(new Date()).length > 0), late = waterBehind(dayOf(state, dayKey()).water || 0, goal, new Date(), w);
+  let last = 0;
+  try { last = +localStorage.getItem("greatness.waterNudge") || 0; } catch { /* mode privé */ }
+  if (!late || Date.now() - last < (w.every || 2) * 36e5) return;
+  try { localStorage.setItem("greatness.waterNudge", String(Date.now())); } catch { /* mode privé */ }
+  setTimeout(() => { if (!document.querySelector(".sheet-wrap")) spidey.say(`💧 Pense à boire : ${String(late.n / 4).replace(".", ",")} L sur ${String(goal / 4).replace(".", ",")} L pour l'instant.`, { action: { label: "Noter un verre", fn: () => (location.hash = "#/food") } }); }, 2200);
+}
+
 function home() {
+  ensureAdaptive();
   const p = state.profile;
   const r = rankInfo();
   const m = todaysMission();
@@ -321,6 +334,7 @@ function home() {
   $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
   const daysOff = has ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
   if (daysOff >= 3) setTimeout(() => spidey.sleep?.(`Zzz… ${Math.floor(daysOff)} jours sans séance. Réveille-moi avec une mission !`), 1500);
+  else waterNudge();
   $$(".day").forEach(d => d.onclick = () => editDay(+d.dataset.d));
   $("#edit-week").onclick = () => editDay((now.getDay() + 6) % 7);
   animateRings(view);

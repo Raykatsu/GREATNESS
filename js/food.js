@@ -1,15 +1,18 @@
 // Onglet Repas : journal alimentaire façon MyFitnessPal. Calories et macros du jour face à l'objectif,
 // repas, eau, recherche (aliments courants + Open Food Facts), scanner de code-barres, analyse d'un repas
 // par l'IA (description ou photo), repas enregistrés, historique sur 7 jours.
-import { state, save } from "./store.js";
+import { state, save, sessionsOn } from "./store.js";
 import { GOALS } from "./data.js";
 import {
   MEALS, ACTIVITY, targets, dayKey, keyDate, shiftKey, dayOf, itemTotals, sumItems, addItem, updateItem, removeItem,
-  setWater, copyMeal, lastDays, weekNutrition, searchLocal, parseMeal, template, r1, newId, aiInfoFood, learnFood, refFood,
+  setWater, copyMeal, lastDays, weekNutrition, searchLocal, parseMeal, template, r1, newId, aiInfoFood, learnFood, refFood, waterGoal,
 } from "./nutrition.js";
+import { pushBlocker, pushEnabled, enablePush } from "./push.js";
 import { lookupBarcode, searchOff } from "./off.js";
 import { openScanner, askCode } from "./scan.js";
 import { foodAI, foodInfoAI, OnlineError } from "./online.js";
+import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, trendRate, goalProgress } from "./adaptive.js";
+import { planCard, bindPlanCard } from "./mealplan-ui.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings } from "./ui.js";
 
@@ -20,6 +23,7 @@ export const IC = {
   glass: svg('<path d="M6 4h12l-1.5 16h-9z"/><path class="w" d="M7 11h10l-.9 9H7.9z" fill="currentColor" stroke="none"/>'),
   apple: svg('<path d="M12 7c-1-2-4-2.5-5.5-.5S5 12 7 16s4 4.5 5 3.5c1 1 3 .5 5-3.5s1.5-7.5 0-9.5S13 5 12 7z"/><path d="M12 7c0-2 1-3.5 3-4"/>'),
   save: svg('<path d="M6 3h12v18l-6-4-6 4z"/>'),
+  bell: svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
 };
 
 let viewKey = null, host = null;
@@ -72,6 +76,7 @@ const macroBar = (name, v, goal, k) => `<div class="mb mb-${k}"><div class="mb-l
 
 export function renderFood(view) {
   host = view;
+  ensureAdaptive();
   const p = state.profile, t = targets(p), today = dayKey();
   if (!viewKey || viewKey > today) viewKey = today;
   const day = dayOf(state, viewKey), tot = sumItems(day.items), isToday = viewKey === today;
@@ -99,8 +104,10 @@ export function renderFood(view) {
       <button class="card nut-act" data-act="photo">${I.camera}<span>Photo</span></button>
       <button class="card nut-act" data-act="text">${I.sparkle}<span>Décrire</span></button>
     </div>
+    ${planCard()}
     ${MEALS.map(m => mealCard(m, day)).join("")}
     ${waterCard(day, t)}
+    ${adaptCard(t)}
     ${historyCard(t)}`;
 
   $("#f-set").onclick = () => openTargets();
@@ -123,6 +130,11 @@ export function renderFood(view) {
     setWater(state, viewKey, i < n ? i : i + 1); save(); renderFood(view);
     if (i >= n) navigator.vibrate?.(8);
   });
+  $("#w-bottle")?.addEventListener("click", () => { setWater(state, viewKey, (dayOf(state, viewKey).water || 0) + 2); save(); renderFood(view); navigator.vibrate?.(8); });
+  $("#w-rem")?.addEventListener("click", waterReminders);
+  $("#ad-weigh")?.addEventListener("click", weighIn);
+  $("#ad-set")?.addEventListener("click", () => openTargets());
+  bindPlanCard(view, refresh);
   $$(".nh-b", view).forEach(b => b.onclick = () => { viewKey = b.dataset.day; renderFood(view); window.scrollTo({ top: 0, behavior: "smooth" }); });
   animateRings(view);
 }
@@ -142,9 +154,89 @@ function mealCard(m, day) {
 }
 
 function waterCard(day, t) {
-  const goal = Math.round(t.water / 250), n = day.water || 0;
-  return `<section class="card meal water"><div class="meal-head"><b>Eau</b><span class="tnum muted small">${nice(n * 0.25)} L / ${nice(t.water / 1000)} L</span></div>
-    <div class="glasses">${Array.from({ length: Math.max(goal, n + 1) }, (_, i) => `<button class="glass ${i < n ? "full" : ""}" data-g="${i}" aria-label="${i < n ? "Retirer" : "Ajouter"} un verre (${i + 1})">${IC.glass}</button>`).join("")}</div></section>`;
+  const trained = sessionsOn(keyDate(viewKey)).length > 0, goal = waterGoal(t, trained), n = day.water || 0, rem = state.profile.waterRemind?.on;
+  return `<section class="card meal water"><div class="meal-head"><b>Eau</b><span class="tnum muted small">${nice(n * 0.25)} L / ${nice(goal / 4)} L</span>
+      <button class="icon-btn sm w-rem ${rem ? "on" : ""}" id="w-rem" aria-label="Rappels pour boire">${IC.bell}</button></div>
+    <div class="glasses">${Array.from({ length: Math.max(goal, n + 1) }, (_, i) => `<button class="glass ${i < n ? "full" : ""}" data-g="${i}" aria-label="${i < n ? "Retirer" : "Ajouter"} un verre (${i + 1})">${IC.glass}</button>`).join("")}</div>
+    <div class="w-foot"><button class="btn btn-ghost btn-sm" id="w-bottle">${I.plus} Bouteille 0,5 L</button>
+      <span class="xs muted">${trained ? "Jour d'entraînement : +0,5 L" : n >= goal ? "Objectif atteint, bravo !" : `Encore ${nice((goal - n) / 4)} L`}</span></div></section>`;
+}
+
+// Poids et dépense : tendance lissée, vraie dépense, objectif de poids, pesée du jour
+function adaptCard(t) {
+  const n = state.profile.nutri || {}, tr = weightTrend(state.body), last = tr.at(-1), rate = trendRate(tr), g = goalProgress(state);
+  const kg = v => nice(Math.round(v * 10) / 10);
+  const lines = [];
+  if (last) lines.push(`Tendance <b class="tnum">${kg(last.trend)} kg</b>${rate != null ? ` · ${rate > 0.04 ? "+" : rate < -0.04 ? "−" : "±"}${kg(Math.abs(rate))} kg / semaine` : ""}`);
+  else lines.push("Pèse-toi 2 à 3 fois par semaine, le matin à jeun : la tendance lisse les variations d'eau.");
+  if (t.adaptive) lines.push(`Ta dépense réelle : <b class="tnum">${fmtNum(t.tdee)} kcal</b> · objectif ${fmtNum(t.kcal)} kcal${n.rate ? ` pour ${n.rate > 0 ? "+" : "−"}${kg(Math.abs(n.rate))} kg / semaine` : ""}, recalculé chaque lundi`);
+  else if (!t.custom) lines.push(`<button class="link" id="ad-set">Active les calories adaptatives</button> : un objectif calculé sur ta vraie dépense, d'après tes repas et tes pesées.`);
+  if (g) lines.push(g.reached ? `Objectif ${kg(g.goal)} kg atteint, bravo !` : `Objectif ${kg(g.goal)} kg : encore ${kg(Math.abs(g.left))} kg${g.weeks ? `, environ ${g.weeks} semaine${g.weeks > 1 ? "s" : ""} au rythme actuel` : ""}`);
+  return `<section class="card meal adapt"><div class="meal-head"><b>Poids et dépense</b><button class="btn btn-soft btn-sm" id="ad-weigh">${I.plus} Pesée</button></div>
+    ${tr.length >= 2 ? spark(tr) : ""}
+    <ul class="ad-lines">${lines.map(l => `<li>${l}</li>`).join("")}</ul></section>`;
+}
+// Petite courbe des 30 derniers jours : pesées (points) et tendance (trait)
+function spark(tr) {
+  const now = Date.now(), pts = tr.filter(p => p.t >= now - 30 * 864e5);
+  if (pts.length < 2) return "";
+  const ys = pts.flatMap(p => [p.w, p.trend]), lo = Math.min(...ys) - 0.3, hi = Math.max(...ys) + 0.3, t0 = pts[0].t, span = Math.max(1, now - t0);
+  const X = t => 4 + ((t - t0) / span) * 292, Y = v => 6 + (1 - (v - lo) / (hi - lo)) * 52;
+  return `<svg class="ad-spark" viewBox="0 0 300 64" aria-hidden="true"><polyline points="${pts.map(p => `${X(p.t).toFixed(1)},${Y(p.trend).toFixed(1)}`).join(" ")}"/>
+    ${pts.map(p => `<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="2.2"/>`).join("")}</svg>`;
+}
+
+// Recalcul des calories adaptatives le lundi (ou dès qu'on ouvre l'app dans la nouvelle semaine)
+export function ensureAdaptive() {
+  const r = weeklyUpdate(state);
+  if (!r) return;
+  save();
+  if (r.before && r.before !== r.kcal) toast(`Calories ajustées à ta vraie dépense : ${fmtNum(r.before)} → ${fmtNum(r.kcal)} kcal`, 4000);
+}
+
+function weighIn() {
+  const last = weightTrend(state.body).at(-1);
+  const sh = sheet(`<h2 class="h2">Pesée du jour</h2><p class="muted small">Le matin à jeun, après les toilettes. C'est la tendance qui compte, pas le chiffre d'un jour.</p>
+    <label class="field mt"><span>Poids <i class="dim">(kg)</i></span><input class="input" id="wi-w" type="number" inputmode="decimal" step="0.1" min="30" max="250" value="${last?.w ?? state.profile.bodyweight ?? ""}"/></label>
+    <button class="btn btn-primary btn-block mt" id="wi-ok">${I.check} Enregistrer</button>`, { z: 90 });
+  const input = $("#wi-w", sh.el);
+  setTimeout(() => input.select?.(), 300);
+  $("#wi-ok", sh.el).onclick = () => {
+    const w = Math.round(parseFloat(String(input.value).replace(",", ".")) * 10) / 10;
+    if (!(w >= 30 && w <= 250)) { input.focus(); return toast("Entre un poids entre 30 et 250 kg."); }
+    state.body ||= [];
+    const today = dayKey(), same = state.body.find(b => b.weight && dayKey(new Date(b.date)) === today);
+    if (same) same.weight = w; else state.body.push({ date: Date.now(), weight: w });
+    state.profile.bodyweight = w;
+    if (state.profile.nutri?.adaptive && !state.profile.nutri.adapt) weeklyUpdate(state, new Date(), { force: true });
+    save(); sh.close(); refresh(); toast("Pesée enregistrée ✓");
+  };
+}
+
+// Rappels pour boire (notifications) : plage horaire et fréquence
+function waterReminders() {
+  const r = { on: false, from: "09:00", to: "21:00", every: 2, ...(state.profile.waterRemind || {}) };
+  const why = pushBlocker();
+  const sh = sheet(`<h2 class="h2">Rappels pour boire</h2><p class="muted small">Une notification si tu es en retard sur ton objectif d'eau, jamais la nuit. Elle se tait quand l'objectif est atteint.</p>
+    <label class="toggle set-row mt"><div class="grow"><b>Rappels d'hydratation</b><span class="xs muted" id="wr-st"></span></div><input type="checkbox" id="wr-on" ${r.on ? "checked" : ""}/></label>
+    <div class="grid2 mt"><label class="field"><span>À partir de</span><input class="input" id="wr-from" type="time" value="${r.from}"/></label>
+      <label class="field"><span>Jusqu'à</span><input class="input" id="wr-to" type="time" value="${r.to}"/></label></div>
+    <div class="eyebrow mt">Au plus</div>
+    <div class="seg" id="wr-every" style="--n:3">${[1.5, 2, 3].map(h => `<button data-h="${h}" class="${r.every === h ? "on" : ""}">toutes les ${String(h).replace(".5", " h 30").replace(/^(\d)$/, "$1 h")}</button>`).join("")}</div>
+    <button class="btn btn-primary btn-block mt" id="wr-ok">${I.check} Enregistrer</button>`, { z: 90 });
+  const st = $("#wr-st", sh.el);
+  st.textContent = why || "Sur ce téléphone, via les notifications de l'app";
+  pushEnabled().then(on => { if (!why && !on) st.textContent = "Les notifications seront activées à l'enregistrement"; }).catch(() => {});
+  $$("#wr-every button", sh.el).forEach(b => b.onclick = () => { r.every = +b.dataset.h; $$("#wr-every button", sh.el).forEach(x => x.classList.toggle("on", x === b)); });
+  $("#wr-ok", sh.el).onclick = async () => {
+    r.on = $("#wr-on", sh.el).checked; r.from = $("#wr-from", sh.el).value || "09:00"; r.to = $("#wr-to", sh.el).value || "21:00";
+    if (r.on && why) { toast(why, 4500); return; }
+    if (r.on && !(await pushEnabled().catch(() => false))) {
+      try { await enablePush(); } catch (e) { toast(e.message || "Notifications refusées", 4000); return; }
+    }
+    state.profile.waterRemind = r;
+    save(); sh.close(); refresh(); toast(r.on ? "Rappels d'hydratation activés ✓" : "Rappels d'hydratation coupés");
+  };
 }
 
 function historyCard(t) {
@@ -485,6 +577,7 @@ function saveMeal(meal) {
 export function openTargets() {
   const p = state.profile;
   const draft = { sex: p.sex || "h", age: p.age || "", height: p.height || "", bodyweight: p.bodyweight, activity: p.activity || "light", goal: p.goal, nutri: { custom: false, ...(p.nutri || {}) } };
+  draft.nutri.rate ??= DEFAULT_RATE[draft.goal] ?? 0;
   const sh = sheet(`<h2 class="h2">Mes objectifs</h2><p class="muted small">Calcul : métabolisme de base (Mifflin-St Jeor) × activité + tes séances, ajusté à ton objectif.</p>
     <div class="seg mt" id="t-sex" style="--n:2"><button data-v="h">Homme</button><button data-v="f">Femme</button></div>
     <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
@@ -495,6 +588,10 @@ export function openTargets() {
     <div class="t-acts">${Object.entries(ACTIVITY).map(([k, a]) => `<button class="chip t-act" data-a="${k}"><b>${a.name}</b><small>${a.hint}</small></button>`).join("")}</div>
     <div class="eyebrow mt">Objectif</div>
     <div class="chips" id="t-goal">${Object.entries(GOALS).map(([k, g]) => `<button class="chip" data-g="${k}">${g.name}</button>`).join("")}</div>
+    <div class="eyebrow mt">Objectif de poids</div>
+    <div class="t-weight"><label class="field"><span>Poids visé <i class="dim">(kg)</i></span><input class="input" id="t-gw" type="number" inputmode="decimal" step="0.5" min="30" max="250" placeholder="facultatif" value="${draft.nutri.goalWeight || ""}"/></label>
+      <div class="field"><span>Rythme par semaine</span><div class="chips t-rates" id="t-rate">${RATES.map(r => `<button class="chip" data-r="${r}">${r ? `${r > 0 ? "+" : "−"}${String(Math.abs(r)).replace(".", ",")} kg` : "Stable"}</button>`).join("")}</div></div></div>
+    <label class="toggle set-row mt"><div class="grow"><b>Calories adaptatives</b><span class="xs muted">Recalculées chaque lundi d'après tes repas notés et tes pesées : ta vraie dépense, pas une formule</span></div><input type="checkbox" id="t-adapt" ${draft.nutri.adaptive ? "checked" : ""}/></label>
     <div class="card t-res mt" id="t-res"></div>
     <label class="toggle set-row mt"><div class="grow"><b>Objectifs personnalisés</b><span class="xs muted">Fixe toi-même calories et macros (avis d'un diététicien…)</span></div><input type="checkbox" id="t-custom" ${draft.nutri.custom ? "checked" : ""}/></label>
     <div class="grid2" id="t-man"></div>
@@ -502,14 +599,20 @@ export function openTargets() {
   const el = sh.el;
   const read = () => {
     draft.age = +$("#t-age", el).value || ""; draft.height = +$("#t-h", el).value || ""; draft.bodyweight = +$("#t-w", el).value || draft.bodyweight;
+    const gw = parseFloat(String($("#t-gw", el).value).replace(",", "."));
+    if (gw > 0) draft.nutri.goalWeight = gw; else delete draft.nutri.goalWeight;
     if (draft.nutri.custom) for (const k of ["kcal", "p", "c", "f"]) { const v = +$(`#tm-${k}`, el)?.value; if (v > 0) draft.nutri[k] = v; }
   };
   const draw = () => {
     $$("#t-sex button", el).forEach(b => b.classList.toggle("on", b.dataset.v === draft.sex));
     $$(".t-act", el).forEach(b => b.classList.toggle("on", b.dataset.a === draft.activity));
     $$("#t-goal .chip", el).forEach(b => b.classList.toggle("on", b.dataset.g === draft.goal));
-    const t = targets({ ...p, ...draft });
+    $$("#t-rate .chip", el).forEach(b => b.classList.toggle("on", +b.dataset.r === draft.nutri.rate));
+    // aperçu des calories adaptatives : vraie dépense (si assez de données) au rythme choisi
+    const prof = { ...p, ...draft }, e = draft.nutri.adaptive && !draft.nutri.custom ? expenditure({ ...state, profile: prof }) : null;
+    const t = targets(e ? { ...prof, nutri: { ...draft.nutri, adapt: { kcal: rateKcal(e.tdee, draft.nutri.rate, { bmr: e.bmr, sex: draft.sex }), tdee: e.tdee } } } : prof);
     $("#t-res", el).innerHTML = `<div class="t-big"><b class="tnum">${fmtNum(t.kcal)}</b> kcal / jour</div>
+      ${e ? `<div class="xs t-adapt">${e.confidence > 0 ? `Ta dépense réelle : <b>${fmtNum(e.tdee)} kcal</b> (${e.days} jours notés, ${e.weighs} pesées)` : `Pas encore assez de données (7 jours notés et 3 pesées) : en attendant, la formule`}${draft.nutri.rate ? ` · ${draft.nutri.rate > 0 ? "+" : "−"}${nice(Math.abs(draft.nutri.rate))} kg / semaine` : " · poids stable"}</div>` : ""}
       <div class="t-mac tnum"><span><b>${t.p} g</b>protéines</span><span><b>${t.c} g</b>glucides</span><span><b>${t.f} g</b>lipides</span><span><b>${nice(t.water / 1000)} L</b>d'eau</span></div>
       <div class="xs muted">Métabolisme de base ${fmtNum(t.bmr)} kcal · dépense estimée ${fmtNum(t.tdee)} kcal${t.custom ? " · objectifs personnalisés" : ""}</div>`;
     $("#t-man", el).innerHTML = draft.nutri.custom ? [["kcal", "Calories", t.kcal], ["p", "Protéines (g)", t.p], ["c", "Glucides (g)", t.c], ["f", "Lipides (g)", t.f]]
@@ -518,13 +621,17 @@ export function openTargets() {
   };
   $$("#t-sex button", el).forEach(b => b.onclick = () => { draft.sex = b.dataset.v; read(); draw(); });
   $$(".t-act", el).forEach(b => b.onclick = () => { draft.activity = b.dataset.a; read(); draw(); });
-  $$("#t-goal .chip", el).forEach(b => b.onclick = () => { draft.goal = b.dataset.g; read(); draw(); });
+  $$("#t-goal .chip", el).forEach(b => b.onclick = () => { draft.goal = b.dataset.g; draft.nutri.rate = DEFAULT_RATE[draft.goal] ?? 0; read(); draw(); });
+  $$("#t-rate .chip", el).forEach(b => b.onclick = () => { draft.nutri.rate = +b.dataset.r; read(); draw(); });
+  $("#t-adapt", el).onchange = e => { read(); draft.nutri.adaptive = e.target.checked; draw(); };
+  $("#t-gw", el).oninput = () => { read(); draw(); };
   ["#t-age", "#t-h", "#t-w"].forEach(id => $(id, el).oninput = () => { read(); draw(); });
   $("#t-custom", el).onchange = e => { read(); draft.nutri.custom = e.target.checked; draw(); };
   $("#t-ok", el).onclick = () => {
     read();
     const goalChanged = draft.goal !== p.goal;
-    Object.assign(p, { sex: draft.sex, age: draft.age, height: draft.height, bodyweight: draft.bodyweight, activity: draft.activity, goal: draft.goal, nutri: draft.nutri.custom ? draft.nutri : null });
+    Object.assign(p, { sex: draft.sex, age: draft.age, height: draft.height, bodyweight: draft.bodyweight, activity: draft.activity, goal: draft.goal, nutri: { ...draft.nutri } });
+    if (p.nutri.adaptive) weeklyUpdate(state, new Date(), { force: true }); // nouveau rythme : objectif recalculé tout de suite
     save(); sh.close(); refresh();
     toast(goalChanged ? `Objectif : ${GOALS[p.goal].name}. Séances et nutrition adaptées.` : "Objectifs enregistrés ✓");
   };

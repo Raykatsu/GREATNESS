@@ -54,6 +54,13 @@ globalThis.fetch = async (url, opts = {}) => {
   if (model === (mode.overloadModel || "gemini-flash-latest") && (mode.overload || (mode.overloadOnce && !mode.overloaded))) { mode.overloaded = true; return fail(503, "This model is currently experiencing high demand."); }
   if (body.generationConfig?.responseMimeType === "application/json") { // analyse d'un repas
     if (mode.foodBroken === model) return Response.json({ candidates: [{ content: { parts: [{ text: "pas du json" }] } }] });
+    if (body.generationConfig.responseSchema?.properties?.days) { // plan de repas
+      if (mode.emptyPlan) return Response.json({ candidates: [{ content: { parts: [{ text: '{"days":[],"shopping":[]}' }] } }] });
+      const meal = (m, n) => ({ meal: m, name: n, items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }, { name: "Riz blanc cuit", grams: 0, kcal: 0, protein: 0, carbs: 0, fat: 0 }] });
+      const days = Array.from({ length: 9 }, () => ({ meals: [meal("breakfast", "Porridge"), meal("brunch", "x".repeat(80)), meal("dinner", "Saumon")] }));
+      const shopping = [{ name: "Riz", qty: "500 g", aisle: "Épicerie" }, { name: "Poulet", qty: "600 g", aisle: "Rayon inconnu" }, { name: "", qty: "1", aisle: "Pain" }];
+      return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ days, shopping, tips: "Prépare le riz à l'avance." }) }] } }], modelVersion: VERSIONS[model] });
+    }
     if (body.generationConfig.responseSchema?.properties?.foods) { // un aliment cherché par son nom
       const foods = [{ name: "Phở au bœuf", kcal: 62, protein: 5, carbs: 7, fat: 1.5, fiber: 0.4, portion_label: "bol", portion_grams: 550, liquid: false },
         { name: "Phở au poulet", brand: "", kcal: 58, protein: 5.5, carbs: 7, fat: 1, portion_label: "bol", portion_grams: 550 },
@@ -294,6 +301,27 @@ test("aliment cherché par son nom : valeurs pour 100 g, variantes, bornes", asy
   await call({ token: "t", task: "food", mode: "info", text: "x".repeat(500) });
   assert.equal(gem()[0].body.contents[0].parts[0].text.length, 120);
   assert.equal((await call({ token: "t", task: "food", mode: "info", text: "" })).error, "BAD_REQUEST");
+});
+
+test("plan de repas : jours bornés, repas nettoyés, liste de courses par rayon", async () => {
+  await forget();
+  const call = async body => { calls.length = 0; const r = await handler(new Request("https://fn.test/coach", { method: "POST", body: JSON.stringify(body) })); return await r.json(); };
+  const j = await call({ token: "t", task: "mealplan", days: 3, kcal: 2400, protein: 160, diet: ["Végétarien", "x".repeat(90)], prefs: "Pas de champignons" });
+  assert.equal(j.days.length, 3); // jamais plus que demandé
+  assert.equal(j.days[0].meals.length, 3);
+  assert.deepEqual(j.days[0].meals[0], { meal: "breakfast", name: "Porridge", items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }] }); // aliment vide retiré
+  assert.equal(j.days[0].meals[1].meal, "snack"); assert.equal(j.days[0].meals[1].name.length, 60);
+  assert.deepEqual(j.shopping, [{ name: "Riz", qty: "500 g", aisle: "Épicerie" }, { name: "Poulet", qty: "600 g", aisle: "Épicerie" }]);
+  assert.equal(j.tips, "Prépare le riz à l'avance.");
+  const ask = gem()[0].body.contents[0].parts[0].text;
+  assert.match(ask, /Plan de 3 jour\(s\)\. Chaque jour : environ 2400 kcal et au moins 160 g de protéines\. Régime : Végétarien, x{40}\. Goûts et contraintes : Pas de champignons\./);
+  assert.ok(gem()[0].body.generationConfig.responseSchema.properties.shopping);
+  await call({ token: "t", task: "mealplan", days: 99, kcal: 99999, protein: -5 });
+  assert.match(gem()[0].body.contents[0].parts[0].text, /Plan de 7 jour\(s\)\. Chaque jour : environ 5000 kcal et au moins 40 g/);
+  mode = { emptyPlan: true };
+  assert.equal((await call({ token: "t", task: "mealplan", days: 2 })).error, "DOWN"); // plan vide partout : erreur
+  reset();
+  assert.equal((await call({ task: "mealplan", days: 2 })).error, "BAD_REQUEST");
 });
 
 test("GET, CORS et diagnostic (sans aucun secret dans le rapport)", async () => {

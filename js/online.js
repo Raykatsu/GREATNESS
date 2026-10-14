@@ -135,6 +135,12 @@ export async function foodAI({ text = "", image = null } = {}) {
   return { items: Array.isArray(j.items) ? j.items : [], note: j.note || "" };
 }
 
+// Plan de repas sur mesure → { days: [{ meals: [{ meal, name, items: [{ name, grams, kcal, protein, carbs, fat }] }] }], shopping, tips }
+export async function mealPlanAI({ days = 3, kcal, protein, diet = [], prefs = "" } = {}) {
+  const j = await foodTask({ task: "mealplan", days, kcal, protein, diet, prefs }, 120000);
+  return { days: Array.isArray(j.days) ? j.days : [], shopping: Array.isArray(j.shopping) ? j.shopping : [], tips: j.tips || "" };
+}
+
 // Un aliment, un plat ou un produit cherché par son nom → { foods: [{ name, brand, kcal, protein… pour 100 g, portion_label, portion_grams, liquid }], note }
 export async function foodInfoAI(q) {
   const j = await foodTask({ mode: "info", text: String(q || "").slice(0, 120) }, 45000);

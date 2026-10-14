@@ -135,3 +135,30 @@ test("notifications des défis entre amis : dépassé, duel, fin de duel, jamais
   assert.equal((await run("2026-10-18T17:30:00Z")).length, 0);
   await db.query("select gt_push_gone($1)", [["https://push.example/miles"]]);
 });
+
+test("rappels pour boire : en retard sur le rythme, dans la plage horaire, au plus toutes les 2 h", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/006_water_push.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  await call("gt_push_subscribe", m, { endpoint: "https://push.example/water", keys: { p256dh: "x", auth: "y" } }, "Europe/Paris");
+  await assert.rejects(call("gt_push_water", "2026-10-14T10:00:00Z")); // réservé au serveur
+  const run = async iso => (await db.query("select * from gt_push_water($1)", [iso])).rows;
+  const data = (water, sessions = []) => JSON.stringify({ sessions, food: { "2026-10-14": { items: [], water } },
+    reminders: { at: "18:00", days: {}, water: { from: "09:00", to: "21:00", every: 2, goal: 10 } } });
+  await call("gt_push", m, data(0));
+  assert.equal((await run("2026-10-14T05:00:00Z")).length, 0); // 7 h à Paris : avant la plage
+  const r = await run("2026-10-14T09:00:00Z");                  // 11 h : 0 verre, on en attendait 1
+  assert.equal(r.length, 1);
+  assert.equal(r[0].title, "Pense à boire 💧");
+  assert.equal(r[0].body, "Tu en es à 0 L sur 2,5 L aujourd'hui. Un grand verre ?");
+  assert.equal((await run("2026-10-14T10:00:00Z")).length, 0); // 1 h plus tard : trop tôt pour un autre rappel
+  await call("gt_push", m, data(6));
+  assert.equal((await run("2026-10-14T11:30:00Z")).length, 0); // 13 h 30 : 6 verres sur 10, dans les temps
+  await call("gt_push", m, data(3, [{ date: Date.parse("2026-10-14T06:00:00Z") }]));
+  const t = await run("2026-10-14T15:00:00Z");                  // 17 h, jour d'entraînement : objectif 12 verres
+  assert.equal(t[0].body, "Tu en es à 0,75 L sur 3 L aujourd'hui. Un grand verre ?");
+  assert.equal((await run("2026-10-14T20:00:00Z")).length, 0); // 22 h : jamais la nuit
+  await call("gt_push", m, data(12));
+  assert.equal((await run("2026-10-14T18:00:00Z")).length, 0); // objectif atteint : silence
+  await db.query("select gt_push_gone($1)", [["https://push.example/water"]]);
+});
