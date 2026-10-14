@@ -6,6 +6,7 @@ import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, d
 import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
+import { storeText } from "./native.js";
 
 export { weeklyChallenge };
 // Les stats "semaine" d'un ami ne comptent que si elles datent de cette semaine.
@@ -321,7 +322,7 @@ async function shareText(text, url) {
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Lien copié ✓ Colle-le dans un message."); }
   catch { prompt("Copie ce lien :", url); }
 }
-export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec un coach animé (Spider-Man, Kitty, ninja…) ! Mon pseudo : @${currentUser}`, appUrl());
+export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec un coach animé (${storeText("Spider-Man")}, Kitty, ninja…) ! Mon pseudo : @${currentUser}`, appUrl());
 
 /* ---------- Partage de séance par lien ---------- */
 const b64 = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

@@ -5,6 +5,7 @@
 // Le format d'un personnage est décrit en tête de ./spider.js.
 import spider from "./spider.js";
 import { state, save } from "../store.js";
+import { storeSafe, storeHidden } from "../native.js";
 
 export const GROUPS = ["Héros", "Manga", "Mignons", "Animaux"];
 const FILES = { "Héros": "./heroes.js", "Manga": "./manga.js", "Mignons": "./cute.js", "Animaux": "./animals.js" };
@@ -46,7 +47,7 @@ function validate(c, group) {
 
 /* ---------- Catalogue ---------- */
 const byId = new Map();
-const base = validate(spider, "Héros");
+const base = validate(storeSafe(spider), "Héros");
 byId.set(base.id, base);
 
 // « Aucun personnage » : coach neutre (un simple badge) quand on masque les personnages.
@@ -81,7 +82,7 @@ export function loadGroup(g) {
     .then(m => {
       const raw = Array.isArray(m.default) ? m.default : m.default ? [m.default] : [];
       const added = [];
-      for (const c of raw) { const v = validate(c, g); if (v) { byId.set(v.id, v); list.push(v); added.push(v); } }
+      for (const c of raw) { if (storeHidden(c?.id)) continue; const v = validate(storeSafe(c), g); if (v) { byId.set(v.id, v); list.push(v); added.push(v); } }
       sortList();
       status[g] = "ok";
       return added;

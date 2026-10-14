@@ -141,6 +141,12 @@ export async function mealPlanAI({ days = 3, kcal, protein, diet = [], prefs = "
   return { days: Array.isArray(j.days) ? j.days : [], shopping: Array.isArray(j.shopping) ? j.shopping : [], tips: j.tips || "" };
 }
 
+// Coach vidéo : technique d'après des images d'une vidéo → { score, verdict, good, fix: [{ issue, why, cue, frame }], safety, drill, view }
+export async function formAI({ exercise, cues = [], note = "", frames = [] } = {}) {
+  const j = await foodTask({ task: "form", exercise, cues, note, frames }, 120000);
+  return { score: +j.score || 0, verdict: j.verdict || "", good: Array.isArray(j.good) ? j.good : [], fix: Array.isArray(j.fix) ? j.fix : [], safety: j.safety || "", drill: j.drill || "", view: j.view || "" };
+}
+
 // Un aliment, un plat ou un produit cherché par son nom → { foods: [{ name, brand, kcal, protein… pour 100 g, portion_label, portion_grams, liquid }], note }
 export async function foodInfoAI(q) {
   const j = await foodTask({ mode: "info", text: String(q || "").slice(0, 120) }, 45000);

@@ -22,6 +22,7 @@ export const MESSAGES = {
   NOT_FOUND: "Aucun compte avec ce pseudo sur cet appareil.",
   OFFLINE: "Pas de connexion internet. Connecte-toi une première fois en ligne sur cet appareil.",
   SERVER: "Le serveur ne répond pas. Réessaie dans un instant.",
+  BAD_PIN: "Code incorrect.",
 };
 const fail = code => Object.assign(new Error(MESSAGES[code] || code), { code });
 
@@ -235,6 +236,17 @@ addEventListener("online", () => { if (dirty) push(); else pull(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); else if (currentUser) pull(); });
 
 // Changer de code (en ligne : sur le serveur aussi).
+// Supprime définitivement le compte en ligne (le code est redemandé), puis l'efface de cet appareil
+export async function deleteAccount(pin) {
+  const u = currentUser;
+  if (!u) throw fail("BAD_TOKEN");
+  if (isOnlineMode()) {
+    const r = await rpc("gt_delete_account", { p_token: token(), p_pin: pin });
+    if (r?.error) throw fail(r.error);
+  } else if (!(await checkLocalPin(u, pin))) throw fail("BAD_PIN");
+  logout(); forget(u);
+}
+
 export async function changePin(oldPin, newPin) {
   if (!PIN_RE.test(newPin)) throw fail("PIN_INVALID");
   if (!(await checkLocalPin(currentUser, oldPin))) throw fail("BAD_CREDENTIALS");

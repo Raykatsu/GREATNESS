@@ -2,6 +2,8 @@
 // les défis entre amis (dépassé au classement, duel…), même app fermée.
 import { VAPID_PUBLIC_KEY, SUPABASE_URL } from "./config.js";
 import { isOnlineMode, friendCall } from "./cloud.js";
+import { reminderPlan } from "./store.js";
+import { isNative, nativeReminders, nativeRemindersOff, nativeRemindersOn } from "./native.js";
 
 const b64 = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), c => c.charCodeAt(0));
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -10,6 +12,7 @@ const standalone = () => matchMedia("(display-mode: standalone)").matches || nav
 
 // null si possible, sinon la raison
 export function pushBlocker() {
+  if (isNative()) return null; // app App Store : rappels en notifications locales, sans serveur
   if (!VAPID_PUBLIC_KEY || !isOnlineMode()) return "Les notifications nécessitent les comptes en ligne.";
   if (isIOS() && !standalone()) return "Sur iPhone : ajoute d'abord l'app à l'écran d'accueil (Partager → Sur l'écran d'accueil), puis ouvre-la depuis l'icône.";
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "Ton navigateur ne gère pas les notifications.";
@@ -30,6 +33,7 @@ async function currentSub() {
 }
 
 export async function pushEnabled() {
+  if (isNative()) return nativeRemindersOn();
   if (pushBlocker() || Notification.permission !== "granted") return false;
   return !!(await currentSub().catch(() => null));
 }
@@ -46,6 +50,7 @@ async function subscribe() {
 }
 
 export async function enablePush() {
+  if (isNative()) { if (!(await nativeReminders(reminderPlan(), true))) throw new Error("Notifications refusées : autorise-les dans Réglages → GREATNESS."); return; }
   const why = pushBlocker();
   if (why) throw new Error(why);
   if ((await Notification.requestPermission()) !== "granted") throw new Error("Notifications refusées : autorise-les dans les réglages du téléphone.");
@@ -55,6 +60,7 @@ export async function enablePush() {
 // Au lancement : si les notifications sont actives, on revérifie la clé et on renouvelle l'inscription
 // auprès du serveur une fois par jour (fuseau horaire à jour, abonnement jamais perdu).
 export async function refreshPush() {
+  if (isNative()) { if (await nativeRemindersOn()) await nativeReminders(reminderPlan()).catch(() => {}); return; }
   try {
     if (pushBlocker() || Notification.permission !== "granted" || !(await currentSub())) return;
     const at = +localStorage.getItem("greatness.pushAt") || 0, sub = await currentSub(), key = await serverKey();
@@ -64,6 +70,7 @@ export async function refreshPush() {
 }
 
 export async function disablePush() {
+  if (isNative()) return nativeRemindersOff();
   const sub = await currentSub().catch(() => null);
   if (!sub) return;
   await friendCall("gt_push_unsubscribe", { p_endpoint: sub.endpoint }).catch(() => {});

@@ -6,6 +6,7 @@ import { figure, bodyMap, muscleNames } from "./body.js";
 import { moveOf, sayOf, viewLabel, effortOf, fastOf } from "./moves.js";
 import { phaseAt, stageAt } from "./anim.js";
 import { camFor, openCam } from "./cam.js";
+import { openVideoCoach, VIDEO } from "./videocoach.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
 // Pour chaque type de mouvement. Le mouvement va de la position A à la position B (« go ») puis revient (« back ») ;
@@ -68,6 +69,8 @@ function breathing(g, id) {
   return g.effort === "go" ? "Souffle pendant que tu pousses ou tires (étape 1), inspire en revenant (étape 2)." : "Inspire en descendant (étape 1), souffle en remontant (étape 2).";
 }
 const names = ids => esc(muscleNames(ids).join(", "));
+// Analyse vidéo : exercices de force et au poids du corps (pas le cardio ni les étirements)
+const videoFor = ex => !["cardio", "stretch"].includes(patternOf(ex.id)) && ex.muscle !== "Cardio" && ex.muscle !== "Mobilité";
 
 // Petit bouton à placer à côté d'un exercice
 export const demoBtn = (id, cls = "") => (EXERCISES[id] && !EXERCISES[id].custom
@@ -104,6 +107,7 @@ export function openDemo(id) {
       <div><i class="lg p"></i><span><b>Travaille surtout</b>${names(mus.p)}</span></div>
       ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>` : ""}
     ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
+    ${videoFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-video">${VIDEO}<span><b>Analyse vidéo par l'IA</b><small>Filme une série : l'IA te dit quoi corriger, image à l'appui</small></span>${I.chev}</button>` : ""}
     <h3 class="demo-h">Mise en place</h3><p>${esc(g.setup)}</p>
     <h3 class="demo-h">Le mouvement</h3>
     <ol class="demo-steps">${steps.map(([k, t], i) => `<li data-step="${k}"><span class="tnum">${i + 1}</span>${esc(t)}</li>`).join("")}</ol>
@@ -147,6 +151,7 @@ export function openDemo(id) {
   };
   $("#dm-play", sh.el).onclick = () => setPlaying(!playing);
   $("#dm-cam", sh.el)?.addEventListener("click", () => { setPlaying(false); openCam({ ...ex, id }, { practice: true }); });
+  $("#dm-video", sh.el)?.addEventListener("click", () => { setPlaying(false); openVideoCoach({ ...ex, id }); });
   $$("#dm-speed button", sh.el).forEach(b => b.onclick = () => {
     const now = performance.now();
     offset += (now - t0) * speed; t0 = now; speed = +b.dataset.s;

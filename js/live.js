@@ -15,7 +15,9 @@ import * as llm from "./llm.js";
 import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
-import { openCam, camFor, summaryText } from "./cam.js";
+import { openCam, camFor, summaryText, velText } from "./cam.js";
+import { openVideoCoach, VIDEO } from "./videocoach.js";
+import { watchRest, unwatchRest } from "./resttimer.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
@@ -107,6 +109,9 @@ function begin(exit) {
   mounted = false; prevProg = 0; lastMsgKey = ""; lastIdx = -1;
   document.body.classList.add("hide-tabs");
   navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
+  // téléphone verrouillé pendant un repos : « Repos terminé » arrive en notification à la fin du repos
+  watchRest(() => rest && S?.current ? { end: rest.end, title: "Repos terminé : c'est reparti !",
+    body: `${S.current.name} · série ${S.current.done.length + 1}${S.current.type === "load" ? ` · ${fmtKg(S.current.weight)} kg` : ""} × ${S.current.goal}${S.current.type === "time" ? " s" : ""}` } : null);
   if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
   resetInputs();
   render();
@@ -168,6 +173,7 @@ function render() {
     `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
     `<button class="tool" id="skip">${I.skip}<span>Passer</span></button>`,
     camFor(ex) ? `<button class="tool" id="cam">${I.camera}<span>Caméra</span></button>` : "",
+    ex.type !== "time" ? `<button class="tool" id="vid">${VIDEO}<span>Vidéo IA</span></button>` : "",
     `<button class="tool" id="note">${I.edit}<span>Note</span></button>`,
     S.history.length ? `<button class="tool" id="undo">${I.undo}<span>Annuler</span></button>` : "",
   ].join("");
@@ -327,9 +333,17 @@ function bind(ex) {
   $("#mic").onclick = toggleVoice;
   $("#cues-btn").onclick = () => { showCues = !showCues; render(); };
   mountAnims(overlay());
+  $("#vid")?.addEventListener("click", () => openVideoCoach(ex));
   $("#cam")?.addEventListener("click", () => openCam(ex, { goal: ex.type === "time" ? ex.goal : 0, onDone: (n, form) => {
     ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n; const c = $("#v-reps"); if (c) c.firstChild.nodeValue = n;
-    const q = summaryText(form);
+    // ressenti estimé d'après la perte de vitesse : proposé, modifiable
+    const est = form?.vbt?.rpe, rpe = est ? Math.max(6, Math.min(10, Math.round(est))) : null;
+    if (rpe && !S.program.simple) {
+      ui.rpe = rpe;
+      $$("[data-rpe]").forEach(x => { const on = +x.dataset.rpe === rpe; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+      const h = $("#rpe-hint"); if (h) h.textContent = rpeHint(rpe);
+    }
+    const q = [summaryText(form), velText(form?.vbt), rpe ? `ressenti ${rpe} proposé` : ""].filter(Boolean).join(" · ");
     toast(ex.type === "time" ? `${n} s ${q ? `· ${q.replace(/^\d+ s tenues · /, "")}` : "mesurées"} : valide la série.` : `${n} reps comptées${q ? ` · ${q}` : ""}. Valide la série.`, q ? 5200 : 3000);
     if (form?.tip && form.score != null && form.score < 80) setTimeout(() => spidey.say(form.tip, { mood: "alert" }), 600);
   } }));
@@ -577,6 +591,7 @@ async function quit() {
 /* ---------- Fin ---------- */
 function finish() {
   if (!S) return;
+  unwatchRest();
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   spidey.hang(false);
@@ -698,6 +713,7 @@ function countUp(root) {
 }
 
 function close() {
+  unwatchRest();
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   clearSaved();

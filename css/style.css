@@ -2809,3 +2809,51 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .imp-done svg { width: 20px; height: 20px; flex: none; color: var(--green-ink); }
 .imp-done .grow { display: grid; gap: 3px; }
 .set-act:disabled { opacity: .45; cursor: default; }
+
+/* ---------- Vitesse de barre (caméra) ---------- */
+.cam-vbt { margin-top: 8px; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: var(--r-pill); background: rgba(0, 0, 0, .55); color: #fff; }
+.cam-vbt[hidden] { display: none; }
+.cam-vbt b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cam-vbt.mid b { color: #ffd166; } .cam-vbt.slow b { color: #ff6b78; }
+.cam-vbars { display: flex; align-items: flex-end; gap: 3px; height: 20px; font-size: 0; }
+
+.cam-vbars i { display: block; width: 5px; height: calc(var(--h) * 100%); border-radius: 2px; background: #35d07f; }
+.cam-vbt.mid .cam-vbars i:last-child { background: #ffd166; } .cam-vbt.slow .cam-vbars i:last-child { background: #ff6b78; }
+.cam-vsum { margin: 0 0 14px; padding: 12px; border-radius: var(--r-sm); background: var(--card-2); }
+.cam-vrow { display: flex; align-items: flex-end; gap: 6px; height: 64px; margin: 8px 0 6px; }
+.cam-vrow span { flex: 1; max-width: 26px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+.cam-vrow i { display: block; width: 100%; height: calc(var(--h) * 48px); border-radius: 4px; background: linear-gradient(180deg, var(--green), color-mix(in srgb, var(--green) 60%, transparent)); }
+.cam-vrow small { font-size: 10.5px; color: var(--muted); }
+
+/* ---------- Coach vidéo IA ---------- */
+.vc-tips { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.4; }
+.vc-tips li { display: flex; gap: 8px; align-items: flex-start; }
+.vc-tips svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--green-ink); }
+.vc-past { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.vc-past svg { width: 14px; height: 14px; }
+.vc-pick { cursor: pointer; }
+.vc-pick svg { width: 20px; height: 20px; }
+.vc-pick.busy { opacity: .55; pointer-events: none; }
+.vc-wait { display: grid; gap: 10px; justify-items: center; padding: 18px 8px; text-align: center; color: var(--muted); font-size: 14px; }
+.vc-bar { width: 100%; height: 6px; border-radius: 3px; background: var(--card-3); overflow: hidden; }
+.vc-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease-out); }
+.vc-head { display: flex; align-items: center; gap: 14px; padding: 14px; }
+.vc-head .grow { display: grid; gap: 4px; }
+.vc-head b { font-size: var(--fs-base); line-height: 1.35; }
+.vc-head.hi .ring .b { stroke: var(--green); } .vc-head.mid .ring .b { stroke: var(--amber); } .vc-head.lo .ring .b { stroke: var(--danger); }
+.vc-up { color: var(--green-ink); font-weight: 650; }
+.vc-fix { display: flex; gap: 12px; padding: 12px; margin-top: 8px; align-items: flex-start; }
+.vc-fix img { width: 84px; height: 112px; flex: none; object-fit: cover; border-radius: var(--r-xs); background: var(--card-3); }
+.vc-fix .grow { display: grid; gap: 4px; min-width: 0; }
+.vc-fix b { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.vc-n { width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--amber-soft); color: var(--amber-ink); }
+.vc-cue { display: flex; gap: 6px; align-items: flex-start; margin: 2px 0 0; font-size: 14px; font-weight: 650; color: var(--accent-ink); }
+.vc-cue svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+.vc-safe, .vc-err { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-top: 10px; font-size: 14px; line-height: 1.4; }
+.vc-safe { background: var(--danger-soft); color: var(--danger-ink); }
+.vc-safe svg, .vc-err svg { width: 19px; height: 19px; flex: none; }
+.vc-err svg { color: var(--amber-ink); }
+.vc-strip { display: flex; gap: 6px; overflow-x: auto; margin: 12px 0 4px; padding-bottom: 4px; scrollbar-width: none; }
+.vc-strip img { height: 72px; border-radius: 8px; flex: none; }
+.set-foot { flex-wrap: wrap; }
+.set-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }

@@ -265,3 +265,60 @@ test("état des modèles de l'IA partagé : saturé, quota de recherche, réhabi
   assert.equal((await mark("", "slow")).error, "NO_MODEL");
   assert.equal((await mark("x", "boum")).error, "BAD_KIND");
 });
+
+test("alerte de fin de repos : programmée pour un téléphone du compte, annulable, envoyée une seule fois", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/010_rest_timer.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  const ep = "https://push.example/rest-miles";
+  await call("gt_push_subscribe", m, { endpoint: ep, keys: { p256dh: "x", auth: "y" } }, "Europe/Paris");
+  const set = async (id, endpoint = ep, ms = 90000, token = m) => (await db.query("select gt_timer_set($1, $2, $3, $4, $5, $6) as r", [token, id, endpoint, ms, "Repos terminé", "Série 3 · Squat"])).rows[0].r;
+  const q = async (f, ...a) => (await db.query(`select ${f}(${a.map((_, i) => `$${i + 1}`).join(", ")}) as r`, a)).rows[0].r;
+  assert.equal((await set("rest-abc123", ep, 90000, "faux")).error, "BAD_TOKEN");
+  assert.equal((await set("x")).error, "BAD_ID");
+  assert.equal((await set("rest-abc123", ep, 2e6)).error, "BAD_DELAY");
+  assert.equal((await set("rest-abc123", "https://push.example/pas-a-moi")).error, "NO_SUB");
+  const r = await set("rest-abc123");
+  assert.equal(r.ok, true);
+  assert.ok(Math.abs(r.fire_at - (Date.now() + 90000)) < 5000);
+  assert.ok((await q("gt_timer_get", "rest-abc123")).fire_at);
+  // un nouveau repos sur le même téléphone remplace l'ancien
+  assert.equal((await set("rest-def456", ep, 1000)).ok, true);
+  assert.equal(await q("gt_timer_get", "rest-abc123"), null);
+  const take = await q("gt_timer_take", "rest-def456");
+  assert.deepEqual([take.endpoint, take.title, take.body], [ep, "Repos terminé", "Série 3 · Squat"]);
+  assert.equal(await q("gt_timer_take", "rest-def456"), null); // une seule fois
+  // annulé (retour dans l'app) : rien à envoyer ; un autre compte ne peut pas annuler ni reprendre l'identifiant
+  await set("rest-ghi789");
+  const g = (await call("gt_login", "gwen", "4321")).token;
+  assert.ok((await call("gt_timer_cancel", g, "rest-ghi789")).ok);
+  assert.ok(await q("gt_timer_get", "rest-ghi789"));
+  assert.equal((await set("rest-ghi789", ep, 1000, g)).error, "NO_SUB");
+  assert.ok((await call("gt_timer_cancel", m, "rest-ghi789")).ok);
+  assert.equal(await q("gt_timer_take", "rest-ghi789"), null);
+  // réservé au serveur, sauf l'annulation
+  await db.exec("set role anon");
+  await assert.rejects(db.query("select gt_timer_take('rest-ghi789')"));
+  await assert.rejects(db.query("select * from gt_timers"));
+  await db.exec("reset role");
+});
+
+test("suppression définitive du compte : code exigé, tout est effacé", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/011_account_delete.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const t = (await call("gt_signup", "efface.moi", "2468")).token;
+  const g = (await call("gt_login", "gwen", "4321")).token;
+  await call("gt_friend_request", g, "efface.moi").catch(() => {});
+  await call("gt_push_subscribe", t, { endpoint: "https://push.example/efface", keys: { p256dh: "x", auth: "y" } }, "Europe/Paris");
+  assert.equal((await call("gt_delete_account", "faux", "2468")).error, "BAD_TOKEN");
+  assert.equal((await call("gt_delete_account", t, "0000")).error, "BAD_PIN");
+  assert.equal((await call("gt_delete_account", t, "2468")).ok, true);
+  const left = async (tbl, col) => +(await db.query(`select count(*) as n from ${tbl} where ${col} = 'efface.moi'`)).rows[0].n;
+  assert.equal(await left("gt_accounts", "username"), 0);
+  assert.equal(await left("gt_tokens", "username"), 0);
+  assert.equal(await left("gt_push_subs", "username"), 0);
+  assert.equal(await left("gt_friends", "b"), 0);
+  assert.equal((await call("gt_login", "efface.moi", "2468")).error, "BAD_CREDENTIALS");
+  // le pseudo redevient libre
+  assert.ok((await call("gt_signup", "efface.moi", "1111")).token);
+});

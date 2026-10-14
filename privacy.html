@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GREATNESS · Confidentialité</title>
+<meta name="description" content="Politique de confidentialité de l'app GREATNESS : quelles données, où elles vont, comment les effacer.">
+<style>
+  :root { --bg: #09090d; --card: #13131a; --text: #f3f3f6; --muted: #a3a3b2; --line: #26262f; --accent: #ff4d5e; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f6f6f8; --card: #fff; --text: #14141a; --muted: #5c5c6b; --line: #e3e3ea; --accent: #d6152b; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 18px 48px; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 8px 0 4px; letter-spacing: -.02em; }
+  h2 { font-size: 19px; margin: 28px 0 8px; }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 12px 0; }
+  ul { padding-left: 20px; }
+  li { margin: 6px 0; }
+  a { color: var(--accent); }
+  .eyebrow { text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">GREATNESS</div>
+  <h1>Confidentialité</h1>
+  <p class="muted">Dernière mise à jour : 14 octobre 2026</p>
+
+  <div class="card">En bref : tes données servent seulement à te coacher. Rien n'est vendu, rien n'est utilisé pour de la publicité, et tu peux tout exporter ou tout effacer depuis l'app.</div>
+
+  <h2>Ce que l'app enregistre</h2>
+  <ul>
+    <li><b>Ton compte</b> : un pseudo et un code secret (stocké sous forme d'empreinte, illisible même pour nous).</li>
+    <li><b>Ton entraînement</b> : profil (prénom, poids, objectif, taille et âge si tu les donnes), séances, records, journal alimentaire, mensurations, notes, objectifs.</li>
+    <li><b>Apple Santé</b> (si tu le relies) : sommeil, variabilité cardiaque, fréquence cardiaque au repos, pas, poids, énergie active. L'app ne fait que lire ces mesures ; elle n'écrit rien dans Santé.</li>
+    <li><b>Photos de progrès</b> : elles restent sur ton téléphone.</li>
+  </ul>
+
+  <h2>Où vont ces données</h2>
+  <ul>
+    <li><b>Sur ton téléphone</b> d'abord. Avec un compte local, rien ne quitte l'appareil.</li>
+    <li><b>Compte en ligne</b> : une copie est synchronisée sur notre serveur (Supabase) pour la retrouver sur un autre téléphone. Tes amis ne voient que le résumé public (prénom, rang, séances et volume de la semaine, records principaux, points de ligue).</li>
+    <li><b>Coach IA en ligne</b> : quand tu lui parles, ta question et le contexte utile (profil, séances récentes, mesures) sont envoyés à Google Gemini pour générer la réponse. L'analyse vidéo envoie une douzaine d'images de ta vidéo, jamais la vidéo entière ; l'analyse de repas, la photo du repas.</li>
+    <li><b>Caméra</b> : le comptage des répétitions, la vitesse de barre et la correction de posture se font entièrement sur le téléphone ; aucune image n'est envoyée.</li>
+    <li><b>Notifications</b> : l'abonnement de ton téléphone est enregistré pour t'envoyer les rappels que tu as choisis.</li>
+  </ul>
+
+  <h2>Ce que nous ne faisons pas</h2>
+  <ul>
+    <li>Pas de publicité, pas de revente de données, pas de traçage entre apps.</li>
+    <li>Les données d'Apple Santé ne servent qu'à ton coaching et ne sont jamais partagées avec des tiers à des fins commerciales.</li>
+  </ul>
+
+  <h2>Tes droits</h2>
+  <ul>
+    <li><b>Exporter</b> : Moi → Réglages → Données → Exporter mes données.</li>
+    <li><b>Effacer</b> : Moi → Réglages → Compte → Supprimer définitivement mon compte. Tout est effacé du serveur et du téléphone. Délier Apple Santé efface aussi les mesures reçues.</li>
+    <li>Pour toute question : ouvre une demande sur <a href="https://github.com/Raykatsu/GREATNESS/issues">la page du projet</a>.</li>
+  </ul>
+
+  <p class="muted">GREATNESS n'est pas un dispositif médical. Les conseils sont donnés à titre indicatif ; en cas de douleur ou de problème de santé, consulte un professionnel.</p>
+</main>
+</body>
+</html>
