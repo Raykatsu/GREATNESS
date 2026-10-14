@@ -8,7 +8,7 @@ import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
-import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON } from "./social.js";
+import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON, ensureLeague } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS } from "./cloud.js";
 import * as llm from "./llm.js";
@@ -25,11 +25,13 @@ import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, rin
 import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard, ensureAdaptive } from "./food.js";
+import { ivSummary } from "./intervals.js";
 import { pruneFood, waterBehind, waterGoal, targets, dayOf, dayKey } from "./nutrition.js";
 import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
 import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
+import { goalCard, bindGoalCard } from "./goals-ui.js";
 
 const view = $("#view");
 wireDemos();
@@ -141,6 +143,7 @@ export const startFree = () => launch({ id: "free", name: "Séance libre", tag: 
 // Actions déclenchées par le coach
 addEventListener("greatness:start", e => {
   if (e.detail === "free") return startFree();
+  if (e.detail && typeof e.detail === "object") return openProgram(e.detail, launch); // séance construite (objectif chiffré…)
   const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
   if (p) openProgram(p, launch);
 });
@@ -212,6 +215,7 @@ function waterNudge() {
 
 function home() {
   ensureAdaptive();
+  ensureLeague(); // sans comptes en ligne : fin de saison de la ligue réglée ici
   const p = state.profile;
   const r = rankInfo();
   const m = todaysMission();
@@ -276,6 +280,7 @@ function home() {
       </div>
     </section>
 
+    ${goalCard()}
     ${recoveryCard()}
     ${reviewCard(now)}
     ${socialCard()}
@@ -324,6 +329,7 @@ function home() {
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
   bindRecoveryCard(view);
+  bindGoalCard(view, route);
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {
@@ -367,7 +373,8 @@ async function socialTick() {
   refreshPush();
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
-  const top = ev.find(e => e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
+  const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
+  if (top.kind === "league" && top.move > 0) setTimeout(() => spidey.react?.("party"), 600);
   toast(`${FEED_ICON[top.kind] || ""} ${top.text}`, 5000);
   if (current === "home" && !document.querySelector(".sheet-wrap")) route();
 }
@@ -514,8 +521,9 @@ function sessRow(s) {
     <div class="sess-top"><span class="sess-ic">${esc((s.name || "?").charAt(0).toUpperCase())}</span>
       <div class="grow"><b class="ellipsis">${esc(s.name)}</b><span class="ellipsis">${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span></div>
       <span class="chip green">+${s.xp} XP</span></div>
-    <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span><span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
-    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
+    <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span>${s.iv ? `<span>${esc(ivSummary(s).replace(/^[^·]+· /, ""))}</span>`
+      : `<span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>`}${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
+    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${s.iv ? ivSets(s) : groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
   </article>`;
 }
 
@@ -609,6 +617,12 @@ function calendar() {
     <div class="cal-foot"><span><i class="lg on"></i>${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span>${monthOffset === 0 ? `<span><i class="lg plan"></i>Prévu</span>` : ""}${monthOffset === 0 && st ? `<span class="hot">${I.flame}${st} j d'affilée</span>` : ""}</div>`;
 }
 
+// Séance d'intervalles : le travail par exercice (« Burpees : 8 × 20 s », « Pompes : 6 × 10 reps »)
+function ivSets(s) {
+  const by = new Map();
+  for (const w of s.iv.work || []) { const k = w.exId, cur = by.get(k) || { n: 0, sec: 0, reps: 0 }; cur.n++; cur.sec += w.sec || 0; cur.reps += w.reps || 0; by.set(k, cur); }
+  return `<div class="iv-det">${[...by].map(([id, v]) => `<div><span>${esc(EXERCISES[id]?.name || id)}</span><span class="tnum muted">${v.reps ? `${v.reps} reps` : `${v.n} × ${Math.round(v.sec / v.n)} s`}</span></div>`).join("")}</div>`;
+}
 function groupSets(sets) {
   const g = {};
   sets.forEach(s => (g[s.name] ||= []).push(s));

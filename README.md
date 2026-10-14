@@ -77,6 +77,7 @@ Moi → **Amis & défis** :
 - **Duels 1 contre 1** à la semaine : volume, séances, minutes ou records. Ton ami reçoit l'invitation, la relève, et vous suivez le score en direct jusqu'au dimanche soir ; ton palmarès (victoires, défaites) se remplit.
 - **Fil d'actus** : un ami te dépasse au classement, bat un record, te défie, accepte ton duel ; résultats de ton duel et du défi de la semaine passée. Pastille sur l'onglet Moi et carte sur l'accueil.
 - **Notifications**, même app fermée : « Léo te défie en duel », « Léo t'a dépassé », « Dernières heures du duel » (jamais la nuit, 3 par jour au plus). À activer dans Moi → Réglages → Notifications.
+- **Ligues et saisons** : une saison dure 4 semaines. Chaque semaine rapporte des points, les mêmes pour tous quel que soit l'entraînement (20 par séance, 1 par tranche de 2 minutes, 15 par record, 25 pour le défi de la semaine réussi). En fin de saison, le premier tiers du classement entre amis monte d'une division (Bronze, Argent, Or, Platine, Diamant, Légende), le dernier tiers descend, sauf avec un minimum d'activité. Seul, on monte en atteignant le palier de sa division. Notifications : « Léo te passe devant en ligue », et le dernier jour de la saison si tu es en zone de descente ou juste derrière la montée.
 
 ## Démos des exercices
 
@@ -91,6 +92,23 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 - les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
 
 Des **mouvements humains et fidèles** : chaque articulation suit une courbe douce et plie toujours dans le bon sens (des tests vérifient les amplitudes d'un vrai corps sur tout le mouvement), le corps garde son **équilibre** (centre de gravité au-dessus du milieu du pied, barre de soulevé de terre sur une trajectoire verticale), et le **tempo** est celui d'une vraie répétition : la phase d'effort va plus vite que la phase freinée.
+
+## Minuteur d'intervalles
+
+Onglet Séances → **Minuteur d'intervalles** : **Tabata** (20 s / 10 s × 8), **EMOM** (tes répétitions au début de chaque minute), **AMRAP** (le plus de tours possible dans le temps donné) et **circuits** (chaque exercice en temps, repos entre les tours), avec des préréglages et tes propres exercices.
+- Écran plein écran : grand compte à rebours, couleur selon la phase (préparation, effort, repos), **démo animée** de l'exercice en cours, exercice suivant, compteur de tours en AMRAP.
+- **Guidé à la voix** : annonce de chaque exercice et du repos, bips 3-2-1, mi-temps et dernière minute ; vibrations.
+- Le temps se lit sur l'horloge : rien ne dérive si le téléphone se met en veille. Pause, passer (le temps passé ne compte pas comme du travail fait), recommencer le segment.
+- La séance rejoint l'historique (temps d'effort, XP, succès) sans fausser tes records ; la carte de récupération et le coach en tiennent compte.
+
+## Objectifs chiffrés (8 à 12 semaines)
+
+Onglet Séances → **Objectif chiffré** : « Développé couché : 100 kg », « Tractions : 15 reps », « Gainage : 3 min ».
+- Ton niveau actuel est mesuré d'après tes séances (1RM estimé avec le ressenti), et l'app te conseille un objectif **réaliste** pour la durée choisie (8, 10 ou 12 semaines) ; ambitieux ou très ambitieux, elle te le dit.
+- Le programme se construit semaine par semaine : volume, force, intensité, une semaine allégée toutes les 4, affûtage, puis le **test final**.
+- Les charges prescrites s'appliquent **dans tes séances habituelles** dès que l'exercice y figure, ou dans la séance de la semaine proposée par l'objectif (avec des exercices d'appoint adaptés à ton matériel). Elles se recalent toutes seules : séries manquées, elles baissent un peu ; réussies avec de la marge, elles montent.
+- **Test final** : montée en charge préparée (50, 70, 80, 90 %) puis la tentative, et un deuxième essai plus lourd si c'est réussi ; pour les répétitions ou le temps, une série d'échauffement puis le maximum. Résultat en fin de séance, succès « Objectif atteint ».
+- Suivi : carte sur l'accueil (semaine, prescription, avance ou retard), courbe prévue et niveau mesuré à chaque séance.
 
 ## Récupération musculaire
 
@@ -122,7 +140,7 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
 - **Notes** par exercice (réglages de machine…) et par séance.
 - **Corps** : poids et mensurations avec courbe (onglet Progrès).
 - **Cycles** : semaine allégée automatique toutes les 7 semaines ; plateau détecté après 3 séances sans progrès → recul de 10 % pour relancer.
-- **Succès** : 18 badges à débloquer.
+- **Succès** : 20 badges à débloquer.
 - **Rappels** : vraies notifications les jours de séance et pour les défis entre amis (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
 - **Mains libres** : touche le micro en séance et dis « 8 reps, difficile », « 10 à 60 kilos », « annule », « passe », « go ».
 - **Caméra** : compte tes reps et corrige ta posture (voir plus haut).
@@ -150,7 +168,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, planning, nutrition, plans de repas, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -201,6 +219,9 @@ js/nutrition.js   objectifs, journal, recherche tolérante, aliments appris de l
 js/foods.js       les 365 aliments courants
 js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
+js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)
+js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écrans)
+js/league.js      ligues et saisons entre amis
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
@@ -209,6 +230,7 @@ supabase/functions/reminders/  fonction qui envoie les rappels
 supabase/004_ai.sql      limite de messages de l'IA en ligne
 supabase/functions/coach/      IA en ligne (Gemini + recherche Google), aliments, plans de repas
 supabase/006_water_push.sql    rappels pour boire
+supabase/007_league_push.sql   notifications de la ligue entre amis
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

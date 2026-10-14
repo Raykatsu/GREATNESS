@@ -18,6 +18,7 @@ import { Listener, voiceSupported } from "./voice.js";
 import { openCam, camFor, summaryText } from "./cam.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
+import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, md, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 
@@ -588,6 +589,7 @@ function finish() {
   Object.values(best).forEach(s => recordLift(s.exId, s.weight, s.reps));
   if (sum.sets.length) state.sessions.push(sum);
   if (sum.sets.length && !state.cycleStart) state.cycleStart = sum.date;
+  const goals = sum.sets.length ? goalAfterSession(sum) : []; // objectifs chiffrés : test final, ou programme recalé
   save();
   clearSaved();
   const after = rankInfo();
@@ -626,6 +628,7 @@ function finish() {
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
+    ${goals.map(goalResultHtml).join("")}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
     ${sum.sets.length ? `<label class="field fin-note"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…"></textarea></label>` : ""}
     <div class="fin-actions">${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
@@ -667,6 +670,16 @@ function finish() {
       .then(t => { if (t) speak(t, { interrupt: true }); })
       .catch(() => { const d = $("#debrief"); if (d) d.textContent = local; });
   }
+}
+
+// Objectif chiffré : résultat du test final, ou ce que la séance change au programme
+function goalResultHtml(r) {
+  const g = r.g;
+  if (r.test) return `<div class="card goal-res ${r.success ? "ok" : ""}"><span class="gr-ic">${r.success ? I.trophy : I.flame}</span><div class="grow">
+    <b>${r.success ? "Objectif atteint !" : "Test final terminé"}</b><span>${r.success ? `${esc(goalTitle(g))} : tu l'as fait.` : `${esc(fmtValue(g.kind, r.value))} sur ${esc(fmtValue(g.kind, g.target))} visés. Un nouveau cycle partira de là.`}</span></div></div>`;
+  if (Math.abs(r.change) < 0.001) return "";
+  return `<div class="card goal-res"><span class="gr-ic">${r.change > 0 ? I.up : I.down}</span><div class="grow"><b>Objectif « ${esc(goalTitle(g))} »</b>
+    <span>${r.change > 0 ? "Séries réussies avec de la marge : les prochaines charges montent un peu." : "Quelques séries manquées : les prochaines charges baissent un peu pour rester dans la cible."}</span></div></div>`;
 }
 
 // Les chiffres de la fin de séance défilent jusqu'à leur valeur (texte seulement, ~1 s).

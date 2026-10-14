@@ -57,7 +57,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         continue-on-error: true
         run: |
-          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql; do
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql; do
             code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)

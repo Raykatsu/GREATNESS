@@ -1,6 +1,6 @@
 // GREATNESS : envoie les notifications (Web Push), appelée toutes les 15 min par la planification Supabase :
-// rappels de séance (gt_push_due), défis entre amis (gt_push_social : dépassé au classement, duel…) et rappels
-// pour boire (gt_push_water).
+// rappels de séance (gt_push_due), défis entre amis (gt_push_social : dépassé au classement, duel…), rappels
+// pour boire (gt_push_water) et ligue entre amis (gt_push_league).
 // Secrets : VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT ; CRON_KEY (posé par le déploiement GitHub)
 // pour que seule la planification puisse l'appeler. Les clés serveur Supabase sont fournies automatiquement.
 import webpush from "npm:web-push@3.6.7";
@@ -55,6 +55,12 @@ Deno.serve(async req => {
       water = w.length;
       due.push(...w.map(d => ({ ...d, url: "./#/food" })));
     } catch (e) { console.error("water", (e as Error).message); } // 006_water_push.sql pas encore installé
+    let league = 0;
+    try {
+      const l = (await rpc("gt_push_league", {})) as Due[];
+      league = l.length;
+      due.push(...l.map(d => ({ ...d, url: "./#/progress?t=friends" })));
+    } catch (e) { console.error("league", (e as Error).message); } // 007_league_push.sql pas encore installé
     const gone: string[] = [];
     let sent = 0;
     await Promise.all(due.map(async d => {
@@ -68,7 +74,7 @@ Deno.serve(async req => {
       }
     }));
     if (gone.length) await rpc("gt_push_gone", { p_endpoints: gone });
-    return Response.json({ due: due.length - social - water, social, water, sent, gone: gone.length });
+    return Response.json({ due: due.length - social - water - league, social, water, league, sent, gone: gone.length });
   } catch (e) {
     console.error(e);
     return Response.json({ error: String(e) }, { status: 500 });

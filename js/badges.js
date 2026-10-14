@@ -26,6 +26,8 @@ export const BADGES = [
   { id: "body", icon: "📏", name: "Mesuré", desc: "Enregistrer ton poids ou tes mensurations", test: () => (state.body || []).length >= 1 },
   { id: "friend", icon: "🤝", name: "Équipe", desc: "Avoir un ami dans l'app", test: () => (state.friendsCount || 0) >= 1 },
   { id: "chat", icon: "🧠", name: "Curieux", desc: "Poser 10 questions au coach", test: () => state.chat.filter(m => m.role === "user").length >= 10 },
+  { id: "goal", icon: "🥇", name: "Objectif atteint", desc: "Réussir le test final d'un objectif chiffré", test: () => (state.goals || []).some(g => g.result?.success) },
+  { id: "interval", icon: "⏱️", name: "Chrono", desc: "Terminer une séance au minuteur d'intervalles", test: () => S().some(s => s.kind === "interval") },
 ];
 
 // Vérifie et enregistre les nouveaux succès. Renvoie ceux qui viennent d'être débloqués.

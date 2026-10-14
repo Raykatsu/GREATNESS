@@ -162,3 +162,43 @@ test("rappels pour boire : en retard sur le rythme, dans la plage horaire, au pl
   assert.equal((await run("2026-10-14T18:00:00Z")).length, 0); // objectif atteint : silence
   await db.query("select gt_push_gone($1)", [["https://push.example/water"]]);
 });
+
+test("ligue entre amis : dépassé au classement de la saison, dernier jour (descente, juste derrière la montée)", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/007_league_push.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token;
+  const g = (await call("gt_login", "gwen", "4321")).token;
+  const p = (await call("gt_signup", "peter", "1111")).token;
+  await call("gt_friend_request", m, "peter"); await call("gt_friend_respond", p, "miles", true);
+  await call("gt_push_subscribe", m, { endpoint: "https://push.example/league", keys: { p256dh: "x", auth: "y" } }, "Europe/Paris");
+  await assert.rejects(call("gt_push_league", "2026-10-14T10:00:00Z")); // réservé au serveur
+  const run = async iso => (await db.query("select * from gt_push_league($1)", [iso])).rows;
+  const end10 = Date.parse("2026-11-29T23:00:00Z"); // lundi 30 novembre, 0 h à Paris (après les essais des défis)
+  const pushAs = (t, name, pts, s = 10, end = end10) => call("gt_push", t, JSON.stringify({ public: { name, league: { s, end, div: 1, pts, last: { s: s - 1, pts: 300 } } } }));
+  await pushAs(m, "Miles", 200); await pushAs(g, "Gwen", 150); await pushAs(p, "Peter", 0, 9, Date.parse("2026-11-01T23:00:00Z")); // Peter : saison d'avant
+  assert.equal((await run("2026-11-25T10:00:00Z")).length, 0); // Miles devant
+  await pushAs(g, "Gwen", 260);
+  const over = await run("2026-11-25T10:15:00Z");
+  assert.equal(over.length, 1);
+  assert.equal(over[0].endpoint, "https://push.example/league");
+  assert.equal(over[0].title, "🎖️ Gwen te passe devant en ligue");
+  assert.equal(over[0].body, "Gwen : 260 pts cette saison, toi 200 pts. Une séance pour reprendre ta place ?");
+  assert.equal((await run("2026-11-25T10:30:00Z")).length, 0); // une fois par ami et par saison
+  // dernier jour : Miles en zone de descente (3e sur 3, sous 160 points)
+  await pushAs(m, "Miles", 120); await pushAs(p, "Peter", 300);
+  const peter = await run("2026-11-29T13:00:00Z"); // dimanche 14 h : Peter passe devant (Miles menait au début)
+  assert.equal(peter[0]?.title, "🎖️ Peter te passe devant en ligue");
+  assert.equal((await run("2026-11-29T15:00:00Z")).length, 0); // 16 h : trop tôt pour le dernier jour
+  assert.equal((await run("2026-11-29T21:00:00Z")).length, 0); // 22 h : jamais la nuit
+  const down = await run("2026-11-29T16:30:00Z");
+  assert.equal(down[0]?.title, "⏳ Dernier jour de la saison");
+  assert.equal(down[0].body, "Tu es en zone de descente : 40 pts pour assurer ton maintien. Une séance ce soir ?");
+  assert.equal((await run("2026-11-29T17:00:00Z")).length, 0); // une fois par saison
+  assert.equal((await run("2026-11-30T08:00:00Z")).length, 0); // saison finie : plus rien
+  // saison suivante : Miles 2e, juste derrière la zone de montée
+  const end11 = Date.parse("2026-12-27T23:00:00Z");
+  await pushAs(m, "Miles", 270, 11, end11); await pushAs(g, "Gwen", 260, 11, end11); await pushAs(p, "Peter", 300, 11, end11);
+  const up = await run("2026-12-27T16:30:00Z");
+  assert.equal(up[0]?.body, "Plus que 31 pts pour passer devant Peter et monter de division !");
+  await db.query("select gt_push_gone($1)", [["https://push.example/league"]]);
+});

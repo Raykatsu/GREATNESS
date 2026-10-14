@@ -3,6 +3,7 @@ import { EXERCISES } from "./data.js";
 import { state, save, publicSummary, currentUser, weekStart, syncCustomExercises } from "./store.js";
 import { isOnlineMode, friendCall, push } from "./cloud.js";
 import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, duelRecord, sameWeek, weekOf } from "./rivals.js";
+import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
 import { spidey } from "./spidey.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
 
@@ -34,7 +35,7 @@ function challengeCard(people) {
 
 /* ---------- Fil d'actus et duels ---------- */
 const DAY = 864e5;
-export const FEED_ICON = { over: "⚡", pass: "🚀", pr: "🏅", inv: "⚔️", acc: "🤝", duel: "🏆", weekly: "👑" };
+export const FEED_ICON = { over: "⚡", pass: "🚀", pr: "🏅", inv: "⚔️", acc: "🤝", duel: "🏆", weekly: "👑", league: "🎖️" };
 let syncing = null;
 const listeners = new Set();
 export const onSocial = fn => (listeners.add(fn), () => listeners.delete(fn));
@@ -57,12 +58,57 @@ function applyFriends(list) {
   const friends = list.filter(f => f.status === "accepted");
   const out = computeEvents(state.social || {}, { me: currentUser, mine: publicSummary(), myDuels: state.duels, friends });
   state.social = { ...out.social, at: Date.now() };
+  const lg = leagueEvent(settleLeague(state, friends)); // nouvelle saison : montée, maintien ou descente
+  if (lg) out.events.unshift(lg);
   const fresh = out.log.filter(l => !(state.duelLog || []).some(x => x.id === l.id));
   if (fresh.length) { state.duelLog = [...(state.duelLog || []), ...fresh]; save(); }
   else save({ silent: true });
   emit();
   return out.events;
 }
+// Fin de saison → une actu (et le palmarès de la ligue est dans state.league.history)
+function leagueEvent(res) {
+  if (!res) return null;
+  const e = { id: `league:${res.s}`, kind: "league", u: currentUser, text: resultText(res), at: Date.now(), read: false, move: res.move };
+  state.social ||= {};
+  state.social.feed = [e, ...(state.social.feed || []).filter(x => x.id !== e.id)].slice(0, 30);
+  return e;
+}
+// Sans comptes en ligne : la saison se règle avec les paliers, à l'ouverture de l'app
+export function ensureLeague() {
+  if (isOnlineMode() || !currentUser) return null;
+  const e = leagueEvent(settleLeague(state, []));
+  if (e) { save(); emit(); }
+  return e;
+}
+
+/* ---------- Ligue de la saison ---------- */
+function leagueHtml(friends = []) {
+  const s = seasonOf(), div = state.league?.div || 0, D = DIVS[div], pts = seasonPoints(state.sessions, s).total;
+  const table = standings({ username: currentUser, name: state.profile.name || "Toi", pts, div }, friends, s), left = seasonDaysLeft();
+  return `<div class="section"><h2>Ligue</h2><button class="lg-rules-btn" id="lg-rules">${I.info} Règles</button></div>
+    <div class="card lg-card lg-${D.id}">
+      <div class="lg-head"><span class="lg-badge" aria-hidden="true">${D.icon}</span><div class="grow"><b>Ligue ${D.name}</b><span class="xs muted">Saison ${s} · ${left === 1 ? "dernier jour" : `encore ${left} jours`}</span></div>
+        <b class="lg-pts tnum">${fmtNum(pts)}<small> pts</small></b></div>
+      ${table.length > 1 ? `<ol class="lg-table">${table.map(r => `<li class="${r.me ? "me" : ""} ${r.up ? "up" : r.down ? "down" : ""}"><span class="pos tnum">${r.rank}</span>
+        <span class="grow ellipsis">${esc(r.me ? "Toi" : r.name)}</span><span class="lg-div" title="${DIVS[r.div].name}">${DIVS[r.div].icon}</span><b class="tnum">${fmtNum(r.pts)}</b></li>`).join("")}</ol>` : ""}
+      <p class="xs lg-next">${esc(nextStep(table, div))}</p>
+    </div>`;
+}
+function leagueRules() {
+  const div = state.league?.div || 0, hist = (state.league?.history || []).slice(-6).reverse();
+  sheet(`<div class="eyebrow">Ligue entre amis</div><h2 class="h2">Règles de la saison</h2>
+    <p class="muted small">Une saison dure ${SEASON_WEEKS} semaines. Les points sont les mêmes pour tous, quel que soit ton entraînement : le poids du corps vaut la fonte.</p>
+    <div class="card card-list mt lg-rules">
+      <div><span>Séance (6 par semaine au plus)</span><b>+${PTS.session}</b></div>
+      <div><span>2 minutes d'entraînement</span><b>+1</b></div>
+      <div><span>Record personnel</span><b>+${PTS.pr}</b></div>
+      <div><span>Défi de la semaine réussi</span><b>+${PTS.challenge}</b></div></div>
+    <p class="small mt">En fin de saison, le premier tiers du classement entre amis monte d'une division (avec au moins ${MIN_UP} points), le dernier tiers descend (sauf à partir de ${SAFE} points). À moins de 3, tu montes en atteignant le palier de ta division.</p>
+    <div class="lg-ladder mt">${DIVS.map((d, i) => `<div class="${i === div ? "on" : ""}"><span>${d.icon}</span><b>${d.name}</b><small class="muted">${i === div ? "ta division" : Number.isFinite(SOLO_UP[i]) ? `palier ${SOLO_UP[i]} pts` : "le sommet"}</small></div>`).join("")}</div>
+    ${hist.length ? `<div class="eyebrow mt">Tes saisons</div><div class="card card-list">${hist.map(h => `<div class="lg-h"><span>Saison ${h.s}</span><span class="grow muted small">${h.n >= 3 ? `${h.rank === 1 ? "1er" : `${h.rank}e`} sur ${h.n} · ` : ""}${h.pts} pts</span><b>${h.move > 0 ? "⬆️" : h.move < 0 ? "⬇️" : "＝"} ${DIVS[h.to].icon}</b></div>`).join("")}</div>` : ""}`, { z: 70 });
+}
+
 export function markSocialRead() {
   if (!unread(state.social)) return;
   state.social.feed = state.social.feed.map(e => ({ ...e, read: true }));
@@ -152,10 +198,12 @@ function duelPicker(friends, preset, done) {
 export async function renderFriends(box) {
   if (!isOnlineMode()) {
     const me = { username: currentUser, status: "me", p: fresh(publicSummary()) };
-    box.innerHTML = `<div class="section"><h2>Défi de la semaine</h2></div>${challengeCard([me])}
+    box.innerHTML = `${leagueHtml([])}<div class="section"><h2>Défi de la semaine</h2></div>${challengeCard([me])}
       <div class="card empty mt">${I.heart}<b>Entraîne-toi entre amis</b>Le classement et les défis entre amis demandent les comptes en ligne. En attendant, invite tes amis à installer l'app.</div>
       <button class="btn btn-soft btn-block mt-s" id="invite">${I.send} Inviter un ami</button>`;
     $("#invite", box).onclick = () => invite();
+    $("#lg-rules", box).onclick = leagueRules;
+    if (unread(state.social)) setTimeout(markSocialRead, 1500);
     return;
   }
   const me = { username: currentUser, status: "me", public: publicSummary() };
@@ -179,6 +227,7 @@ export async function renderFriends(box) {
         <div class="friend-row">${avatar(f.public?.name || f.username)}<div class="grow"><b class="ellipsis">${esc(f.public?.name || f.username)}</b><span class="ellipsis">@${esc(f.username)}</span></div>
           <button class="icon-btn fr-ok" data-acc="${esc(f.username)}" aria-label="Accepter">${I.check}</button><button class="icon-btn" data-ref="${esc(f.username)}" aria-label="Refuser">${I.x}</button></div>`).join("")}</div>` : ""}
 
+      ${leagueHtml(friends)}
       ${feedHtml()}
       ${friends.length ? duelsHtml(friends) : ""}
 
@@ -209,6 +258,7 @@ export async function renderFriends(box) {
       } catch (err) { toast(err.message); }
     };
     $("#invite", box).onclick = () => invite();
+    $("#lg-rules", box).onclick = leagueRules;
     $$("#boards button", box).forEach(b => b.onclick = () => { board = b.dataset.b; draw(list, error); });
     $$("[data-acc]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.acc, p_accept: true }).catch(e => toast(e.message)); spidey.react("party"); load(); });
     $$("[data-ref]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.ref, p_accept: false }).catch(e => toast(e.message)); load(); });

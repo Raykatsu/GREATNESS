@@ -26,7 +26,7 @@ Même chose avec le fichier [`supabase/002_social.sql`](supabase/002_social.sql)
 
 ## 2 ter. Notifications (rappels de séance et défis entre amis)
 
-Avec le déploiement automatique (secret GitHub `SUPABASE_ACCESS_TOKEN`, voir « Déploiement automatique »), il n'y a rien à faire : à chaque modification de `supabase/`, GitHub installe [`003_push.sql`](supabase/003_push.sql) et [`005_social_push.sql`](supabase/005_social_push.sql), crée les clés VAPID si elles manquent (la privée reste dans les secrets Supabase), déploie la fonction `reminders` et la planifie toutes les 15 minutes (pg_cron + pg_net). L'app lit la clé publique auprès de la fonction : pas de clé à recopier.
+Avec le déploiement automatique (secret GitHub `SUPABASE_ACCESS_TOKEN`, voir « Déploiement automatique »), il n'y a rien à faire : à chaque modification de `supabase/`, GitHub installe [`003_push.sql`](supabase/003_push.sql), [`005_social_push.sql`](supabase/005_social_push.sql), [`006_water_push.sql`](supabase/006_water_push.sql) (rappels pour boire) et [`007_league_push.sql`](supabase/007_league_push.sql) (ligue entre amis), crée les clés VAPID si elles manquent (la privée reste dans les secrets Supabase), déploie la fonction `reminders` et la planifie toutes les 15 minutes (pg_cron + pg_net). L'app lit la clé publique auprès de la fonction : pas de clé à recopier.
 
 Ce que la fonction envoie : le rappel les jours de séance (sauf si elle est déjà faite), et les défis entre amis (invitation à un duel, ami qui te dépasse au classement, dernières heures d'un duel le dimanche soir), jamais la nuit et 3 par jour au plus.
 

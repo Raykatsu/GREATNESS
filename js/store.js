@@ -2,6 +2,7 @@
 // elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
 import { targets, waterGoal } from "./nutrition.js";
+import { leaguePublic } from "./league.js";
 
 export const LEGACY_KEY = "greatness.v2"; // ancienne version à compte unique
 const dataKey = user => `greatness.data.${user}`;
@@ -30,7 +31,8 @@ const DEFAULT = {
   duels: [],         // duels entre amis : [{ id, u, m, w, by, at }] (voir rivals.js)
   duelLog: [],       // palmarès : [{ id, u, m, w, me, them, res }]
   social: {},        // ce qu'on a déjà vu des amis + fil d'actus
-  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [] }, // pour que la synchro ne ressuscite rien
+  goals: [],          // objectifs chiffrés sur 8 à 12 semaines (voir goals.js)
+  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [], goals: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };
@@ -226,6 +228,7 @@ export function publicSummary() {
     last: (() => { const l = weekStats(1); return { start: ws - 7 * 864e5, count: l.count, volume: Math.round(l.volume), minutes: l.minutes, prs: l.prs }; })(),
     duels: (state.duels || []).filter(d => d.w >= ws - 8 * 864e5).map(({ u, m, w, by }) => ({ u, m, w, by })),
     prs: recentPrs(5),
+    league: leaguePublic(state), // ligue entre amis : saison, division, points (voir league.js)
     updatedAt: Date.now(),
   };
 }
