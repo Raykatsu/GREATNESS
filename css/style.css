@@ -2295,6 +2295,57 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .iv-trophy svg { width: 40px; height: 40px; }
 .iv-done .grid2, .iv-done .badges { width: 100%; }
 @media (prefers-reduced-motion: reduce) { .ivx.ending .iv-t { animation: none; } }
+/* Objectifs chiffrés */
+.goal-card { margin-top: var(--s-3); padding: 14px 14px 12px 16px; }
+.gc-invite .bi { background: linear-gradient(160deg, var(--blue), #2a52c9); color: #fff; }
+.gc-top { display: flex; align-items: center; gap: 12px; }
+.gc-top .grow { display: grid; gap: 1px; min-width: 0; }
+.gc-top b { font-family: var(--display); font-size: var(--fs-md); line-height: 1.25; }
+.gc-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue-ink); }
+.gc-ic svg { width: 21px; height: 21px; }
+.goal-card .chev { color: var(--muted); flex: none; display: grid; }
+.goal-card .chev svg { width: 18px; height: 18px; }
+.gc-bar { height: 8px; margin: 12px 0 5px; border-radius: 4px; background: var(--card-3); overflow: hidden; }
+.gc-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--blue), var(--green)); }
+.gc-ends { display: flex; justify-content: space-between; gap: 8px; }
+.gc-week { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.gc-st.st-ahead, .gc-st.st-done { color: var(--green-ink); } .gc-st.st-behind { color: var(--amber-ink); }
+.chip.gc-st.st-ahead, .chip.gc-st.st-done { background: var(--green-soft); } .chip.gc-st.st-behind { background: var(--amber-soft); } .chip.gc-st.st-on { background: var(--blue-soft); color: var(--blue-ink); }
+.gc-res.ok .gc-ic { background: var(--green-soft); color: var(--green-ink); }
+.gn-ex { flex-wrap: wrap; margin: 0; padding: 2px 0; }
+.gn-hint { margin: 6px 0 0; line-height: 1.6; }
+.gn-hint .chip { height: 24px; padding: 0 9px; font-size: 12px; font-weight: 700; }
+.chip.amb-1 { background: var(--green-soft); color: var(--green-ink); border-color: transparent; }
+.chip.amb-2 { background: var(--amber-soft); color: var(--amber-ink); border-color: transparent; }
+.chip.amb-3 { background: var(--red-soft); color: var(--accent-ink); border-color: transparent; }
+.gd-weeks { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.gd-weeks li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--card-2); }
+.gd-weeks li .grow { display: grid; gap: 1px; min-width: 0; }
+.gd-weeks li b { font-size: 14px; }
+.gd-weeks .w { width: 44px; flex: none; font-weight: 800; font-size: 13px; color: var(--muted); }
+.gd-weeks li.on { background: var(--blue-soft); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.gd-weeks li.past { opacity: .62; }
+.gd-weeks li.ph-allege .w, .gd-weeks li.ph-affute .w { color: var(--green-ink); }
+.gd-weeks li.ph-test { background: var(--amber-soft); } .gd-weeks li.ph-test .w { color: var(--amber-ink); }
+.gd-ok { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--green); color: #04150c; flex: none; }
+.gd-ok svg { width: 14px; height: 14px; }
+.gd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.gd-stats div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--card-2); }
+.gd-stats small { font-size: 11.5px; color: var(--muted); }
+.gd-stats b { font-family: var(--display); font-size: 18px; }
+.gd-chart { width: 100%; height: auto; display: block; margin: 12px 0 4px; }
+.gd-chart .ex { fill: none; stroke: var(--blue); stroke-width: 2; stroke-dasharray: 5 4; }
+.gd-chart .tg { stroke: var(--line-2, var(--line)); stroke-width: 1; }
+.gd-chart .now { stroke: var(--muted); stroke-width: 1; opacity: .5; }
+.gd-chart .pt { fill: var(--accent-ink); }
+.gd-chart .res { fill: var(--green); stroke: var(--bg); stroke-width: 2; }
+.gd-chart text { fill: var(--muted); font: 600 9px var(--font); }
+.goal-res { display: flex; align-items: center; gap: 12px; margin-top: var(--s-3); padding: 12px 14px; text-align: left; }
+.goal-res .grow { display: grid; gap: 2px; }
+.goal-res span:not(.gr-ic) { font-size: 13.5px; color: var(--muted); }
+.gr-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue-ink); }
+.goal-res.ok .gr-ic { background: var(--green-soft); color: var(--green-ink); }
+.gr-ic svg { width: 20px; height: 20px; }
 .nut-hist { padding: var(--s-4); }
 .nh-chart { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; }
 .nh-b { height: 100%; display: flex; align-items: flex-end; justify-content: center; }

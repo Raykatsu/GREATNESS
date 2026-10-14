@@ -4,6 +4,7 @@
 import { EXERCISES } from "./data.js";
 import { state, e1rm, lastPerformance, exerciseHistory } from "./store.js";
 import { recovery, exerciseReady, programStrain } from "./recovery.js";
+import { goalFix } from "./goals.js";
 
 const round = (v, step) => Math.max(0, Math.round(v / step) * step);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -50,8 +51,12 @@ function startingTarget(item) {
 
 // rec : récupération des muscles (recovery.js) ; un exercice dont les muscles principaux ne sont pas remis
 // (sous 50 %) perd une série et 5 % de charge : on ne recharge pas un muscle encore fatigué.
-function makeItem(item, verdict, isMain, rec) {
+// Charge imposée (`item.fixed` : test final, séance d'objectif ; sinon la prescription d'un objectif chiffré en cours) :
+// on la suit, allégée seulement un jour sans ou sur un muscle pas remis.
+function makeItem(item, verdict, isMain, rec, goals = true) {
   const meta = EXERCISES[item.id];
+  const fix = item.fixed || (goals ? goalFix(item.id) : null);
+  if (fix) return fixedItem(item, meta, fix, verdict, rec);
   const t = startingTarget(item);
   const sore = rec ? exerciseReady(item.id, rec) < 0.5 : false;
   const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0) - (verdict.deload ? 1 : 0) - (sore ? 1 : 0));
@@ -62,6 +67,18 @@ function makeItem(item, verdict, isMain, rec) {
     sets, reps: item.reps, rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau, sore,
     weight: meta.type === "load" ? round(t.weight * verdict.factor * (plateau ? 0.9 : 1) * (sore ? 0.95 : 1), meta.step) : 0,
     goal: meta.type === "load" ? t.goal : Math.max(item.reps[0], round(t.goal * (verdict.factor < 1 ? 0.9 : 1), meta.step)),
+    done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
+  };
+}
+
+function fixedItem(item, meta, fix, verdict, rec) {
+  const sore = rec ? exerciseReady(item.id, rec) < 0.5 : false;
+  const sets = Math.max(1, (item.fixed ? item.sets : fix.sets) - (sore ? 1 : 0) - (verdict.factor < 0.9 && !item.ramp ? 1 : 0));
+  const weight = meta.type === "load" ? round(fix.weight * Math.min(1, verdict.factor) * (sore && !item.ramp ? 0.95 : 1), meta.step) : 0;
+  return {
+    id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
+    sets, reps: item.ramp ? item.reps : [fix.goal, fix.goal], rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau: false, sore,
+    weight, goal: fix.goal, ramp: item.ramp || null, goalNote: fix.note || null,
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
   };
 }
@@ -96,7 +113,9 @@ export class Session {
     this.log = [];
     this.history = []; // pour annuler
     this.recovery = recovery(state.sessions, this.startedAt);
-    this.plan = program.exercises.map((item, i) => makeItem(item, this.verdict, i < 2, this.recovery));
+    // échauffements, étirements, soins : pas de prescription d'objectif chiffré
+    this.goals = !program.simple && !["mobility", "stretch", "care"].includes(program.cat);
+    this.plan = program.exercises.map((item, i) => makeItem(item, this.verdict, i < 2, this.recovery, this.goals));
     this.idx = 0;
   }
 
@@ -135,9 +154,15 @@ export class Session {
     const target = ex.type === "load" ? `${ex.weight} kilos, ${ex.goal} répétitions` : `${ex.goal} ${ex.type === "time" ? "secondes" : "répétitions"}`;
     const cue = pick(ex.cues);
     let warm = "";
+    if (ex.ramp) {
+      this.flags.warmup = true;
+      const steps = ex.ramp.filter(r => !r.attempt), tgt = ex.ramp.find(r => r.attempt);
+      warm = ex.type === "load" ? ` Test final : montée en charge ${steps.map(r => `${r.reps} × ${String(r.weight).replace(".", ",")} kg`).join(", ")}, puis la tentative à ${String(tgt.weight).replace(".", ",")} kg.`
+        : ` Test final : une série facile pour te chauffer, puis le maximum : objectif ${tgt.reps}${ex.type === "time" ? " secondes" : " répétitions"}.`;
+    } else if (ex.goalNote) warm = ` ${ex.goalNote}`;
     if (!this.flags.warmup && ex.type === "load" && ex.weight >= 30) {
       this.flags.warmup = true;
-      warm = ` Échauffement : 8 reps à ${round(ex.weight * 0.5, ex.step)} kg puis 4 reps à ${round(ex.weight * 0.75, ex.step)} kg.`;
+      warm += ` Échauffement : 8 reps à ${round(ex.weight * 0.5, ex.step)} kg puis 4 reps à ${round(ex.weight * 0.75, ex.step)} kg.`;
     }
     const ssMates = ex.ss ? this.plan.filter(e => e.ss === ex.ss && e !== ex).map(e => e.name) : [];
     if (ssMates.length) warm += ` Superset avec ${ssMates.join(" et ")} : enchaîne sans repos.`;
@@ -187,7 +212,8 @@ export class Session {
       return { events, rest: Math.min(rest, 90) };
     }
 
-    if (ex.type === "load") {
+    if (ex.ramp) this.rampNext(ex, reps, w, events);
+    else if (ex.type === "load") {
       let next = w;
       if (reps < min) {
         next = round(w * (reps < min - 2 ? 0.88 : 0.94), ex.step);
@@ -257,6 +283,20 @@ export class Session {
       rest = Math.max(rest, Math.min(90, ex.rest));
     }
     return { events, rest };
+  }
+
+  // Test final : montée en charge fixée d'avance, puis la tentative ; le 2e essai monte si elle est réussie, redescend sinon
+  rampNext(ex, reps, w, events) {
+    const k = ex.done.length, nx = ex.ramp[k], prev = ex.ramp[k - 1];
+    if (!nx) return;
+    const ok = reps >= (prev?.reps || 1), load = ex.type === "load";
+    if (load) ex.weight = nx.retry ? round(ok ? w + ex.step : w - 2 * ex.step, ex.step) : nx.weight;
+    ex.goal = nx.retry && !load ? Math.max(nx.reps, reps + 1) : nx.reps;
+    const what = load ? `${String(ex.weight).replace(".", ",")} kg × ${ex.goal}` : `${ex.goal}${ex.type === "time" ? " s" : " reps"}`;
+    const title = nx.retry ? (ok ? "Réussi ! Un essai plus lourd ?" : "Deuxième essai") : nx.attempt ? "La tentative" : "Montée en charge";
+    events.push(this.push({ kind: nx.attempt ? "up" : "info", mood: nx.retry && ok ? "party" : undefined, title,
+      text: `${what}${nx.attempt ? " : récupère 3 à 5 minutes, concentre-toi, et donne tout." : "."}`,
+      say: nx.attempt ? `${title}. ${load ? `${ex.weight} kilos` : `${ex.goal} ${ex.type === "time" ? "secondes" : "répétitions"}`}. Prends ton temps.` : `Série suivante : ${what.replace(" kg × ", " kilos, ")}.` }));
   }
 
   advance(events) {

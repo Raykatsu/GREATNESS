@@ -30,7 +30,8 @@ const DEFAULT = {
   duels: [],         // duels entre amis : [{ id, u, m, w, by, at }] (voir rivals.js)
   duelLog: [],       // palmarès : [{ id, u, m, w, me, them, res }]
   social: {},        // ce qu'on a déjà vu des amis + fil d'actus
-  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [] }, // pour que la synchro ne ressuscite rien
+  goals: [],          // objectifs chiffrés sur 8 à 12 semaines (voir goals.js)
+  deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [], goals: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
   meta: { updatedAt: 0 },
 };

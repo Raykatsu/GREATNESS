@@ -31,6 +31,7 @@ import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from
 import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
+import { goalCard, bindGoalCard } from "./goals-ui.js";
 
 const view = $("#view");
 wireDemos();
@@ -142,6 +143,7 @@ export const startFree = () => launch({ id: "free", name: "Séance libre", tag: 
 // Actions déclenchées par le coach
 addEventListener("greatness:start", e => {
   if (e.detail === "free") return startFree();
+  if (e.detail && typeof e.detail === "object") return openProgram(e.detail, launch); // séance construite (objectif chiffré…)
   const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
   if (p) openProgram(p, launch);
 });
@@ -277,6 +279,7 @@ function home() {
       </div>
     </section>
 
+    ${goalCard()}
     ${recoveryCard()}
     ${reviewCard(now)}
     ${socialCard()}
@@ -325,6 +328,7 @@ function home() {
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
   bindRecoveryCard(view);
+  bindGoalCard(view, route);
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {

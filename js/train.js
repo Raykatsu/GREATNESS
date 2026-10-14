@@ -8,10 +8,15 @@ import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } fro
 import { readinessScore, readinessVerdict } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
+import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
-const fmtReps = e => (EXERCISES[e.id].type === "time" ? `${e.reps[0]}–${e.reps[1]} s` : `${e.reps[0]}–${e.reps[1]} reps`);
+const fmtReps = e => {
+  const u = EXERCISES[e.id].type === "time" ? "s" : "reps";
+  if (e.ramp) { const t = e.ramp.find(r => r.attempt); return t.weight ? `montée en charge puis tentative à ${String(t.weight).replace(".", ",")} kg` : `échauffement puis le maximum (objectif ${t.reps} ${u})`; }
+  return e.reps[0] === e.reps[1] ? `${e.reps[0]} ${u}` : `${e.reps[0]}–${e.reps[1]} ${u}`;
+};
 const fold = s => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 
@@ -63,6 +68,7 @@ export function renderTrain(view, startLive) {
       <span class="chev">${I.chev}</span>
     </button>
     ${intervalCard()}
+    ${goalCard({ invite: true })}
     <div class="tr-list" id="tr-list"></div>
     <button class="fab" aria-label="Créer une séance">${I.plus}</button>`;
   const host = $("#tr-list", view);
@@ -95,6 +101,7 @@ export function renderTrain(view, startLive) {
   $(".fab", view).onclick = () => (location.hash = "#/create");
   $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
   $("#iv-start", view).onclick = () => openIntervals();
+  bindGoalCard(view, () => { if (location.hash.startsWith("#/train")) renderTrain(view, startLive); });
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */
@@ -104,7 +111,7 @@ function exList(list, host, onChange) {
       <span class="pv-n tnum">${i + 1}</span>
       <div class="pv-main">
         <div class="pv-name">${esc(EXERCISES[e.id].name)}${demoBtn(e.id, "demo-sm")}</div>
-        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight ? ` · ${e.weight} kg` : ""}</div>
+        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}</div>
       </div>
       <div class="tools">
         <button class="icon-btn plain" data-a="up" data-i="${i}" aria-label="Monter" ${i === 0 ? "disabled" : ""}>${I.up}</button>
@@ -156,7 +163,7 @@ export function openProgram(program, startLive, refresh) {
   const meta = () => {
     const p = { ...base, exercises: work };
     const sets = work.reduce((a, e) => a + e.sets, 0);
-    const goal = program.simple || program.cat === "cardio" || custom ? "" : GOALS[state.profile.goal].name;
+    const goal = program.simple || program.cat === "cardio" || custom || program.goalId ? "" : GOALS[state.profile.goal].name;
     $("#meta", sh.el).innerHTML = `
       <div><b>~${estimateMinutes(p)}</b><em>min</em><small>Durée</small></div>
       <div><b>${work.length}</b><small>exercice${work.length > 1 ? "s" : ""}</small></div>
@@ -164,7 +171,7 @@ export function openProgram(program, startLive, refresh) {
       ${goal ? `<p class="pv-goal">${I.sparkle}<span>Adapté à ton objectif : <b>${esc(goal)}</b></span></p>` : ""}`;
     $("#extra", sh.el).innerHTML = custom
       ? `<button class="btn btn-soft btn-sm" id="edit-c">${I.edit} Modifier</button><button class="btn btn-soft btn-sm" id="share-c">${I.send} Partager</button>`
-      : edited ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
+      : edited && !program.goalId ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
     $("#extra", sh.el).hidden = !$("#extra", sh.el).children.length;
     $("#share-c", sh.el)?.addEventListener("click", () => shareProgram(program));
     $("#edit-c", sh.el)?.addEventListener("click", () => { sh.close(); location.hash = `#/create?edit=${program.id}`; });

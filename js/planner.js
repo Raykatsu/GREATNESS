@@ -81,7 +81,7 @@ export function adaptToGoal(program, goal = state.profile.goal) {
   return {
     ...program,
     exercises: program.exercises.map(e => {
-      if (e.reps[0] >= 20) return e; // exercices en secondes / endurance : on garde
+      if (e.reps[0] >= 20 || e.fixed) return e; // exercices en secondes / endurance, charge imposée (objectif chiffré) : on garde
       const main = mains < 2 && e.weight > 0 && (mains++, true);
       return {
         ...e,

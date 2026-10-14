@@ -13,7 +13,7 @@ export function mergeData(a = {}, b = {}) {
   const [older, newer] = aAt >= bAt ? [b, a] : [a, b];
 
   const deleted = {};
-  for (const k of ["sessions", "programs", "exercises", "food", "memory", "duels"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])].slice(-1000);
+  for (const k of ["sessions", "programs", "exercises", "food", "memory", "duels", "goals"]) deleted[k] = [...new Set([...(a.deleted?.[k] || []), ...(b.deleted?.[k] || [])])].slice(-1000);
   const gone = k => new Set(deleted[k]);
 
   const unionById = (x, y, kind) => {
@@ -53,11 +53,15 @@ export function mergeData(a = {}, b = {}) {
   const recent = Date.now() - 35 * 864e5;
   const duels = unionById(older.duels, newer.duels, "duels").filter(d => d.w > recent);
   const duelLog = unionById(older.duelLog, newer.duelLog, "duelLog").sort((x, y) => x.w - y.w).slice(-100);
+  // objectifs chiffrés : réunis ; pour un même objectif, la version modifiée en dernier
+  const goals = [...byId(older.goals)].reduce((m, [id, g]) => { const o = m.get(id); if (!o || (g.at || 0) > (o.at || 0)) m.set(id, g); return m; }, byId(newer.goals));
+  const gg = gone("goals");
 
   return {
     ...older, ...newer,
     sessions, customPrograms, customExercises, lifts, badges, deleted,
     food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom }, memory, reviews, duels, duelLog,
+    goals: [...goals.values()].filter(g => !gg.has(g.id)).sort((x, y) => x.start - y.start),
     body: [...bodyMap.values()].sort((p, q) => p.date - q.date),
     exNotes: { ...older.exNotes, ...newer.exNotes },
     cycleStart: Math.min(...[a.cycleStart, b.cycleStart].filter(Boolean)) || null,
@@ -71,6 +75,6 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals], clean);
   return pick(merged) !== pick(base);
 }

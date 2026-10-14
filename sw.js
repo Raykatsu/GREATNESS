@@ -2,7 +2,7 @@
 const CACHE = "greatness-v20";
 const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
   "assets/fonts/inter-latin-wght.woff2", "assets/fonts/outfit-latin-wght.woff2",
-  ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice", "coach-picker", "chars/index", "chars/spider", "online", "foods", "nutrition", "off", "scan", "food", "demo", "memory", "aiact", "weekly", "review", "form", "chart", "records", "photos", "rivals", "body", "moves", "recovery", "recovery-ui", "adaptive", "mealplan", "mealplan-ui", "intervals", "intervals-ui"].map(f => `js/${f}.js`)];
+  ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "spidey", "store", "train", "ui", "voice", "coach-picker", "chars/index", "chars/spider", "online", "foods", "nutrition", "off", "scan", "food", "demo", "memory", "aiact", "weekly", "review", "form", "chart", "records", "photos", "rivals", "body", "moves", "recovery", "recovery-ui", "adaptive", "mealplan", "mealplan-ui", "intervals", "intervals-ui", "goals", "goals-ui"].map(f => `js/${f}.js`)];
 // Univers de coachs chargés à la demande : mis en cache s'ils existent, sans bloquer l'installation.
 const OPTIONAL = ["heroes", "manga", "cute", "animals"].map(f => `js/chars/${f}.js`);
 

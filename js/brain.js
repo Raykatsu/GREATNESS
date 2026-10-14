@@ -9,6 +9,7 @@ import { nutritionContext, foodFacts } from "./nutrition.js";
 import { memoryContext } from "./memory.js";
 import { recoveryContext, recoveryAnswer } from "./recovery.js";
 import { ivSummary } from "./intervals.js";
+import { goalsContext } from "./goals.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 
@@ -248,6 +249,7 @@ export function athleteContext({ full = false } = {}) {
     recent.length ? `Dernières séances :\n${recent.join("\n")}` : "Aucune séance enregistrée pour l'instant.",
     `Séances disponibles dans l'app : ${allPrograms().map(x => x.name).join(", ")}.`,
     recoveryContext(state.sessions),
+    goalsContext(state),
     nutritionContext(state),
     memoryContext(state),
     ...(full ? fullExtras() : []),
