@@ -59,7 +59,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         continue-on-error: true
         run: |
-          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql; do
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql 010_rest_timer.sql 011_account_delete.sql; do
             code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
@@ -155,6 +155,11 @@ jobs:
           echo "Sans la clé de planification : HTTP $refused (403 attendu)"
           echo "Clé publique servie à l'app : $(curl -sS --max-time 20 "$REMINDERS_URL" | jq -r '.publicKey // "absente"' | cut -c1-16)…"
           case "$res" in *'"due"'*) ;; *) echo "::error::la fonction reminders ne répond pas"; exit 1 ;; esac
+          # alerte de fin de repos (écran verrouillé) : un faux jeton doit être refusé par la base (010_rest_timer.sql)
+          timer=$(curl -sS --max-time 20 -X POST "$REMINDERS_URL" -H "Content-Type: text/plain" \
+            -d '{"token":"x","timer":{"id":"rest-verif1","endpoint":"https://push.invalid/x","in":5000}}' || true)
+          echo "Alerte de fin de repos (faux jeton) : $timer"
+          case "$timer" in *BAD_TOKEN*) ;; *) echo "::error::alerte de fin de repos : réponse inattendue"; exit 1 ;; esac
 
       # Fonction « health » : reçoit les mesures Apple Santé du Raccourci iOS (clé à part, voir 008_health.sql)
       - name: Fonction Apple Santé

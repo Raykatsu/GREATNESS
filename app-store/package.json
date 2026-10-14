@@ -1,0 +1,23 @@
+{
+  "name": "greatness-ios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "GREATNESS pour l'App Store (Capacitor) : mêmes écrans que le site, avec notifications locales, vibrations et Apple Santé.",
+  "type": "module",
+  "scripts": {
+    "web": "node build-web.mjs",
+    "ios": "node build-web.mjs && (test -d ios || npx cap add ios) && node ios-setup.mjs && npx cap sync ios",
+    "icons": "npx @capacitor/assets generate --ios --iconBackgroundColor '#06060b' --splashBackgroundColor '#09090d' --splashBackgroundColorDark '#09090d'"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/local-notifications": "8.3.1",
+    "@capgo/capacitor-health": "8.11.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/assets": "3.0.5"
+  }
+}

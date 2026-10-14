@@ -3,6 +3,8 @@
 // repère les défauts du mouvement (dos rond, bassin, coudes, élan, amplitude, vitesse) et le coach le dit.
 import { PATTERNS, patternOf, angle, JOINTS, RepCounter } from "./motion.js";
 import { FormCoach, formHold, formConfig, ISSUES, summaryText } from "./form.js";
+import { VelocityTracker, lossLimit, fmtV } from "./vbt.js";
+import { state } from "./store.js";
 import { beep, vibrate, speak } from "./fx.js";
 import { $, esc, I, toast } from "./ui.js";
 
@@ -11,6 +13,10 @@ const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/p
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 const DOTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 const GOOD = "#35d07f", BAD = "#ff3b4e";
+// Points du côté filmé (gauche, droite) pour la vitesse de barre
+const SIDE = [{ sh: 11, el: 13, wr: 15, hip: 23, kn: 25, an: 27 }, { sh: 12, el: 14, wr: 16, hip: 24, kn: 26, an: 28 }];
+// Taille de l'athlète (m) : celle du profil, sinon une taille moyenne
+const athleteHeight = () => { const h = +state.profile?.height; return h >= 120 && h <= 230 ? h / 100 : state.profile?.sex === "f" ? 1.65 : 1.77; };
 
 let landmarker = null;
 async function loadLandmarker() {
@@ -40,7 +46,8 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
       <div class="cam-title"><b>${esc(ex.name)}</b><small>${face ? "Place-toi face à la caméra" : "Place-toi de profil"}, tout le corps visible, téléphone à 2-3 m</small></div>
       <button class="icon-btn" data-flip aria-label="Changer de caméra">${I.refresh}</button></div>
     <div class="cam-form" id="cam-form" aria-live="assertive" hidden></div>
-    <div class="cam-count" aria-live="polite"><span id="cam-n">0</span><small id="cam-msg">Chargement de la détection…</small><em id="cam-q"></em></div>
+    <div class="cam-count" aria-live="polite"><span id="cam-n">0</span><small id="cam-msg">Chargement de la détection…</small><em id="cam-q"></em>
+      <div class="cam-vbt" id="cam-vbt" hidden><b id="cam-v"></b><div class="cam-vbars" id="cam-vbars" aria-hidden="true"></div></div></div>
     <div class="cam-bottom"><button class="btn btn-soft" data-reset>${I.undo} Remettre à 0</button>
       <button class="btn btn-primary" data-use>${practice ? `${I.check} Terminer` : `${I.check} Garder ce ${hold ? "temps" : "compte"}`}</button></div>
     <div class="cam-sum" id="cam-sum" hidden></div>`;
@@ -49,6 +56,9 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
   const msg = t => { const m = $("#cam-msg", wrap); if (m && m.textContent !== t) m.textContent = t; };
   let stream = null, raf = null, closed = false, facing = "user", lastSeen = 0, side = null;
   let counter = new RepCounter(pat), coach = new FormCoach(ex.id), event = null, sticky = null, shown = null, said = {}, lastSay = 0, lastSec = 0;
+  // vitesse de barre : mesurée sur les exercices en répétitions (pas les positions tenues)
+  const newVel = () => (hold ? null : new VelocityTracker(patternOf(ex.id), { height: athleteHeight() }));
+  let vel = newVel(), slowSaid = false;
 
   const stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); stream = null; };
   const close = () => { if (closed) return; closed = true; stop(); wrap.remove(); };
@@ -63,6 +73,20 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
     const s = coach.summary(), q = $("#cam-q", wrap);
     q.textContent = hold ? (s.seconds ? `${s.score} % du temps en bonne position` : "") : s.reps ? `Technique : ${s.clean}/${s.reps} reps propres` : "";
   };
+
+  // Vitesse de la dernière rep, barres de la série, perte de vitesse (et alerte quand il vaut mieux s'arrêter)
+  function showVel(rep) {
+    if (!vel?.ok || !rep) return;
+    const s = vel.summary(), box = $("#cam-vbt", wrap), limit = lossLimit(state.profile?.goal);
+    box.hidden = false;
+    box.className = `cam-vbt ${s.loss >= limit ? "slow" : s.loss >= limit * 0.6 ? "mid" : ""}`;
+    $("#cam-v", wrap).textContent = `${fmtV(rep.v)}${s.reps.length > 1 ? ` · ${s.loss ? `−${s.loss} %` : "vitesse tenue"}` : ""}`;
+    $("#cam-vbars", wrap).innerHTML = s.reps.slice(-12).map(v => `<i style="--h:${Math.max(0.12, v / s.best).toFixed(2)}"></i>`).join("");
+    if (s.loss >= limit && !slowSaid && s.reps.length >= 2) {
+      slowSaid = true; vibrate([60, 60, 60]);
+      if (voice) speak(`Vitesse en baisse de ${s.loss} pour cent : arrête-toi bientôt pour garder des reps de qualité.`, { interrupt: true });
+    }
+  }
 
   // Bandeau de correction : rouge avec le conseil, vert quand tout va bien
   const issueText = id => (id === "partial" ? coach.msg("partial") : ISSUES[id]?.msg || "");
@@ -158,8 +182,13 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
     if (side == null || vis(best) - vis(side) > 0.6) side = best;
     const [a, b, c] = JOINTS[pat.joint][side];
     if (vis(side) < 1.5) { msg("Articulation mal visible : tourne-toi de profil."); return null; }
-    const r = counter.update(angle(P(a), P(b), P(c)));
+    const ang = angle(P(a), P(b), P(c)), r = counter.update(ang);
     const f = coach.frame(lm, now, ar, counter.start != null);
+    if (vel?.ok) {
+      const pts = Object.fromEntries(Object.entries(SIDE[side]).map(([k, i]) => [k, { ...P(i), v: lm[i].visibility ?? 1 }]));
+      if (r === "rep") showVel(vel.rep(now));
+      showVel(vel.frame(now, ang, pts));
+    }
     if (r) {
       const e = coach.event(r, now);
       if (e) event = { id: e, until: now + 2600 };
@@ -191,12 +220,14 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
         : `<p class="small muted">${hold ? "Aucun temps mesuré : mets-toi en position, de profil." : "Aucune rep comptée : place-toi de profil, tout le corps visible."}</p>`}
       ${s.issues.length ? `<ul class="cam-issues">${s.issues.map(i => `<li><span>${esc(i.label)}</span><b class="tnum">${hold ? `${i.n} s` : `× ${i.n}`}</b></li>`).join("")}</ul>
         <p class="cam-tip">${I.sparkle}<span>${esc(s.tip)}</span></p>` : n ? `<p class="cam-tip ok">${I.check}<span>Rien à corriger : belle technique !</span></p>` : ""}
+      ${velHtml(vel?.ok ? vel.summary() : null)}
       <div class="cam-sum-acts"><button class="btn btn-soft" data-again>${I.undo} Recommencer</button><button class="btn btn-primary" data-close>Fermer</button></div></div>`;
     box.querySelector("[data-close]").onclick = close;
     box.querySelector("[data-again]").onclick = () => { box.hidden = true; reset(); startCam(); };
   }
   function reset() {
     counter = new RepCounter(pat); coach = new FormCoach(ex.id); event = sticky = null; lastSec = 0;
+    vel = newVel(); slowSaid = false; $("#cam-vbt", wrap).hidden = true;
     setN(false); quality(); showForm(null, false); msg("Compteur remis à zéro.");
   }
 
@@ -205,12 +236,25 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
   wrap.querySelector("[data-reset]").onclick = reset;
   wrap.querySelector("[data-use]").onclick = () => {
     if (practice) return showSummary();
-    const n = value(), s = coach.summary();
+    const n = value(), s = { ...coach.summary(), vbt: vel?.ok ? vel.summary() : null };
     close();
     if (n) onDone?.(n, s);
   };
   startCam();
   return { close };
+}
+
+// Bilan de vitesse (essai libre et fin de série)
+function velHtml(v) {
+  if (!v?.reps?.length) return "";
+  return `<div class="cam-vsum"><div class="eyebrow">Vitesse de barre (estimée)</div>
+    <div class="cam-vrow">${v.reps.map((x, i) => `<span><i style="--h:${Math.max(0.12, x / v.best).toFixed(2)}"></i><small>${i + 1}</small></span>`).join("")}</div>
+    <p class="small">${fmtV(v.first)} → ${fmtV(v.last)}${v.reps.length > 1 ? ` · perte ${v.loss} %` : ""}${v.rpe ? ` · ressenti estimé ${String(v.rpe).replace(".", ",")}/10` : ""}</p></div>`;
+}
+// « vitesse 0,52 → 0,41 m/s (−21 %) »
+export function velText(v) {
+  if (!v?.reps?.length) return "";
+  return v.reps.length > 1 ? `vitesse ${fmtV(v.first).replace(" m/s", "")} → ${fmtV(v.last)} (−${v.loss} %)` : `vitesse ${fmtV(v.first)}`;
 }
 
 export { summaryText };

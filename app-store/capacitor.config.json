@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.raykatsu.greatness",
+  "appName": "GREATNESS",
+  "webDir": "www",
+  "backgroundColor": "#09090d",
+  "ios": {
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "LocalNotifications": { "presentationOptions": ["banner", "sound"] }
+  }
+}

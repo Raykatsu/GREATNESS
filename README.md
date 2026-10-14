@@ -123,6 +123,19 @@ Onglet Séances → **Objectif chiffré** : « Développé couché : 100 kg », 
 - **Importer depuis une autre app** : exports CSV de **Strong**, **Hevy**, **Fitbod** (séances, séries, charges, RPE, durées), **MyFitnessPal** (repas et pesées) ou une sauvegarde GREATNESS. Les exercices anglais sont reconnus avec leur matériel (« Bench Press (Dumbbell) » → Développé haltères) ; un exercice inconnu devient un exercice perso. Livres converties en kilos, échauffements ignorés, records recalculés, et réimporter le même fichier ne crée aucun doublon. Les séances importées comptent pour ton historique, tes records et ton rang, pas pour la ligue ni les défis entre amis.
 - **Exporter mes données** : sauvegarde complète (.json, à réimporter), séances en CSV au format Strong (lisible par Hevy, Strong, Excel, Numbers) et journal alimentaire en CSV. Sur iPhone : « Enregistrer dans Fichiers », mail, AirDrop…
 
+## Caméra : vitesse de barre et coach vidéo IA
+
+- **Vitesse de barre** : en comptant tes reps à la caméra, l'app mesure la vitesse de chaque poussée (en m/s, comme les capteurs des salles de force), à partir de ta taille et des longueurs de tes segments. Elle affiche la **perte de vitesse** dans la série, te prévient quand il vaut mieux t'arrêter (20 % en force, 35 % en prise de muscle) et **propose ton ressenti (RPE)** d'après la vitesse de la dernière rep. Tout reste sur le téléphone.
+- **Coach vidéo IA** (fiche Démo ou bouton « Vidéo IA » en séance) : filme une série ou choisis une vidéo. L'app en extrait une douzaine d'images et l'IA en ligne te donne une note de technique, ce qui est bien, les corrections avec l'image où ça se voit, la consigne à te dire et un exercice correctif. Seules ces images partent à l'analyse ; l'historique des notes est gardé par exercice.
+
+## Fin du repos sur l'écran verrouillé
+
+Tu verrouilles le téléphone pendant un repos : à la seconde où il finit, une notification « Repos terminé : c'est reparti ! » te dit la série suivante (charge et reps). Si tu reviens avant, elle est annulée. Réglage : Moi → Réglages → Rappels. Avec les notifications activées (iPhone : app ajoutée à l'écran d'accueil) ; dans l'app App Store, c'est une notification locale, même sans réseau.
+
+## Version App Store
+
+Le dossier [`app-store/`](app-store/) emballe l'app avec Capacitor et ajoute le natif : Apple Santé lu directement (sans Raccourci), notifications locales (fin du repos, rappels de séance), vibrations. GitHub la construit sur un Mac et l'envoie sur TestFlight, sans Mac chez toi : voir **[APPSTORE.md](APPSTORE.md)**. Suppression définitive du compte dans Moi → Réglages → Compte ; politique de confidentialité : [`privacy.html`](privacy.html).
+
 ## Récupération musculaire
 
 Une **carte du corps** (face et dos) sur l'accueil montre chaque muscle travaillé cette semaine, de rouge (à reposer) à vert (récupéré). Elle est calculée d'après tes séances : chaque série laisse une fatigue sur ses muscles (plus forte quand la série est dure), qui s'efface avec le temps, plus vite pour les petits muscles que pour les gros. Le détail donne, muscle par muscle, le pourcentage de récupération, le délai avant d'être prêt et les séries de la semaine (repère : 10 à 20).
@@ -181,7 +194,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -237,6 +250,11 @@ js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écr
 js/league.js      ligues et saisons entre amis
 js/health.js      Apple Santé : bilan de forme, pesées, contexte du coach (+ health-ui.js : liaison et carte)
 js/importer.js    import Strong / Hevy / Fitbod / MyFitnessPal et export CSV (+ import-ui.js : écrans)
+js/vbt.js         vitesse de barre à la caméra : vitesse de chaque poussée, perte de vitesse, RPE estimé
+js/videocoach.js  coach vidéo IA : images d'une vidéo, analyse de technique, corrections
+js/resttimer.js   fin du repos sur l'écran verrouillé (Web Push ou notification locale)
+js/native.js      app App Store (Capacitor) : notifications locales, vibrations, Apple Santé direct
+app-store/        projet Capacitor (copie du site, réglages iPhone, icônes) ; APPSTORE.md pour publier
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
@@ -249,6 +267,8 @@ supabase/007_league_push.sql   notifications de la ligue entre amis
 supabase/008_health.sql        mesures Apple Santé (clé personnelle hachée)
 supabase/functions/health/     fonction appelée par le Raccourci iOS
 supabase/009_ai_models.sql     état des modèles Gemini partagé (IA plus rapide)
+supabase/010_rest_timer.sql    alertes de fin de repos (écran verrouillé)
+supabase/011_account_delete.sql  suppression définitive du compte depuis l'app
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

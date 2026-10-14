@@ -32,7 +32,7 @@ function stream(list, { cutAfter = 0, stallAfter = 0, signal } = {}) {
 }
 // Gemini qui ne répond jamais (jusqu'à l'annulation)
 const hang = signal => new Promise((_, rej) => signal?.addEventListener("abort", () => rej(new DOMException("annulé", "AbortError"))));
-const VERSIONS = { "gemini-flash-latest": "gemini-3.8-flash", "gemini-flash-lite-latest": "gemini-3.5-flash-lite", "gemini-3.7-flash": "gemini-3.7-flash", "gemma-4-26b-a4b-it": "gemma-4-26b-a4b-it", "gemini-3.5-flash": "gemini-3.5-flash", "gemini-3.6-flash": "gemini-3.6-flash" };
+const VERSIONS = { "gemini-flash-latest": "gemini-3.8-flash", "gemini-flash-lite-latest": "gemini-3.5-flash-lite", "gemini-3.7-flash": "gemini-3.7-flash", "gemma-4-26b-a4b-it": "gemma-4-26b-a4b-it", "gemini-3.5-flash": "gemini-3.5-flash", "gemini-3.6-flash": "gemini-3.6-flash", "gemini-3.8-flash": "gemini-3.8-flash" };
 const fail = (status, message) => Response.json({ error: { code: status, message } }, { status });
 
 globalThis.fetch = async (url, opts = {}) => {
@@ -63,6 +63,13 @@ globalThis.fetch = async (url, opts = {}) => {
       const days = Array.from({ length: 9 }, () => ({ meals: [meal("breakfast", "Porridge"), meal("brunch", "x".repeat(80)), meal("dinner", "Saumon")] }));
       const shopping = [{ name: "Riz", qty: "500 g", aisle: "Épicerie" }, { name: "Poulet", qty: "600 g", aisle: "Rayon inconnu" }, { name: "", qty: "1", aisle: "Pain" }];
       return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ days, shopping, tips: "Prépare le riz à l'avance." }) }] } }], modelVersion: VERSIONS[model] });
+    }
+    if (body.generationConfig.responseSchema?.properties?.fix) { // technique d'après une vidéo
+      const out = { score: 104.6, verdict: "Bonne base, le dos s'arrondit en bas.", good: ["Pieds bien ancrés", "Descente contrôlée", "Regard neutre", "En trop"],
+        fix: [{ frame: 4, issue: "Dos qui s'arrondit", why: "Le bas du dos encaisse la charge.", cue: "Poitrine fière, dos plat" }, { frame: 99, issue: "Genoux qui rentrent", why: "Stress sur les ligaments.", cue: "Genoux vers les orteils" },
+          { issue: "", why: "", cue: "" }, { frame: 2, issue: "Talons", why: "x", cue: "y" }, { frame: 1, issue: "En trop", why: "x", cue: "y" }],
+        safety: "Allège tant que le dos s'arrondit.", drill: "Squat goblet tempo 3 s.", view: "" };
+      return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }], modelVersion: VERSIONS[model] });
     }
     if (body.generationConfig.responseSchema?.properties?.foods) { // un aliment cherché par son nom
       const foods = [{ name: "Phở au bœuf", kcal: 62, protein: 5, carbs: 7, fat: 1.5, fiber: 0.4, portion_label: "bol", portion_grams: 550, liquid: false },
@@ -286,6 +293,34 @@ test("repas : analyse d'une description ou d'une photo, valeurs bornées", async
   assert.equal((await call({ task: "food", text: "pomme" })).j.error, "BAD_REQUEST");
   quota = { error: "LIMIT" };
   assert.equal((await call({ token: "t", task: "food", text: "pomme" })).j.error, "LIMIT");
+});
+
+test("coach vidéo : images numérotées, corrections nettoyées, modèle de secours, requêtes refusées", async () => {
+  await forget();
+  const call = async body => { calls.length = 0; const r = await handler(new Request("https://fn.test/coach", { method: "POST", body: JSON.stringify(body) })); return await r.json(); };
+  const frames = Array.from({ length: 20 }, (_, i) => ({ mime: "image/jpeg", data: `IMG${i}` }));
+  let j = await call({ token: "t", task: "form", exercise: "Squat", cues: ["Dos plat.", "Genoux vers l'extérieur."], note: "Mon dos ?", frames: [{ mime: "text/html", data: "x" }, ...frames] });
+  assert.equal(j.model, "gemini-flash-latest");
+  assert.equal(j.remaining, 41);
+  assert.equal(j.score, 100);
+  assert.equal(j.verdict, "Bonne base, le dos s'arrondit en bas.");
+  assert.equal(j.good.length, 3);
+  assert.deepEqual(j.fix, [{ issue: "Dos qui s'arrondit", why: "Le bas du dos encaisse la charge.", cue: "Poitrine fière, dos plat", frame: 4 },
+    { issue: "Genoux qui rentrent", why: "Stress sur les ligaments.", cue: "Genoux vers les orteils", frame: null }]); // image inexistante : null ; vide retiré ; 3 au plus
+  assert.equal(j.safety, "Allège tant que le dos s'arrondit.");
+  const g = gem()[0], parts = g.body.contents[0].parts;
+  assert.ok(g.body.generationConfig.responseSchema.properties.fix);
+  assert.match(g.body.systemInstruction.parts[0].text, /technique/);
+  assert.equal(parts.filter(p => p.inline_data).length, 16); // 16 images au plus, l'image au mauvais format est ignorée
+  assert.deepEqual(parts.slice(0, 2), [{ text: "Image 1" }, { inline_data: { mime_type: "image/jpeg", data: "IMG0" } }]);
+  assert.match(parts.at(-1).text, /^Exercice : Squat\.\nPoints techniques de référence : Dos plat\. Genoux vers l'extérieur\.\nQuestion de l'athlète : Mon dos \?/);
+  mode = { overload: true }; // Flash saturé : le suivant répond
+  j = await call({ token: "t", task: "form", exercise: "Squat", frames: frames.slice(0, 3) });
+  assert.equal(j.model, "gemini-3.8-flash");
+  reset();
+  assert.equal((await call({ token: "t", task: "form", exercise: "Squat", frames: frames.slice(0, 1) })).error, "BAD_REQUEST");
+  assert.equal((await call({ token: "t", task: "form", exercise: "Squat", frames: [{ mime: "image/jpeg", data: "x".repeat(3_000_000) }, { mime: "image/jpeg", data: "x".repeat(3_000_000) }] })).error, "BAD_REQUEST");
+  assert.equal((await call({ task: "form", frames })).error, "BAD_REQUEST");
 });
 
 test("aliment cherché par son nom : valeurs pour 100 g, variantes, bornes", async () => {

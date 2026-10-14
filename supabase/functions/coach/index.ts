@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-12";
+const VERSION = "coach-13";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -531,6 +531,91 @@ async function food(input: { text?: string; mode?: string; image?: { mime?: stri
   return json({ error: "DOWN", detail: err || "aucun modèle n'a répondu" });
 }
 
+/* ---------- Coach vidéo : technique d'après des images d'une vidéo (réponse JSON) ---------- */
+const FORM_MODELS = list(env("GEMINI_FORM_MODELS") || "gemini-flash-latest,gemini-3.8-flash,gemini-3.7-flash,gemini-flash-lite-latest");
+const FORM_PROMPT = `Tu es coach de musculation diplômé, spécialiste de la technique. On te montre des images extraites d'une vidéo, dans l'ordre chronologique (environ une par seconde), d'une personne qui fait l'exercice indiqué.
+Analyse sa technique : posture, amplitude, alignements (dos, tête, genoux, hanches, coudes, poignets), trajectoire de la charge, stabilité et tempo apparent. Juge seulement ce que tu vois ; si l'angle de vue ne permet pas de juger un point, dis-le dans « view ».
+Si les images ne montrent personne ou un autre exercice, dis-le dans « verdict », mets score à 0 et laisse good et fix vides.
+Réponds en français, tutoie, phrases courtes et concrètes, sans jargon inutile.
+- score : note de technique de 0 à 100 (90+ : excellente ; 70-89 : bonne, détails à soigner ; 50-69 : défauts nets ; moins de 50 : risqué).
+- verdict : une phrase de bilan.
+- good : 1 à 3 points positifs.
+- fix : 0 à 3 corrections, de la plus importante à la moins importante : frame (numéro de l'image où le défaut se voit le mieux, à partir de 1), issue (le défaut, 2 à 6 mots), why (pourquoi c'est important, une phrase), cue (consigne à se dire pendant le mouvement, 3 à 8 mots).
+- safety : un risque de blessure net s'il y en a un (une phrase), sinon vide.
+- drill : un exercice ou un réglage pour corriger le défaut principal (une phrase), sinon vide.
+- view : conseil pour mieux filmer la prochaine fois si l'angle ou le cadrage gêne l'analyse, sinon vide.`;
+const FORM_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    score: { type: "NUMBER" }, verdict: { type: "STRING" },
+    good: { type: "ARRAY", items: { type: "STRING" } },
+    fix: { type: "ARRAY", items: { type: "OBJECT", properties: { frame: { type: "NUMBER" }, issue: { type: "STRING" }, why: { type: "STRING" }, cue: { type: "STRING" } }, required: ["issue", "why", "cue"] } },
+    safety: { type: "STRING" }, drill: { type: "STRING" }, view: { type: "STRING" },
+  },
+  required: ["score", "verdict", "good", "fix"],
+};
+
+// deno-lint-ignore no-explicit-any
+async function formCheck(input: any, quota: { remaining?: number | null }) {
+  const raw = Array.isArray(input.frames) ? input.frames.slice(0, 40) : [];
+  // deno-lint-ignore no-explicit-any
+  const frames = raw.filter((f: any) => f && typeof f.data === "string" && /^image\/(jpeg|png|webp)$/.test(String(f.mime))).slice(0, 16);
+  if (frames.length < 2) return json({ error: "BAD_REQUEST", detail: "il faut au moins 2 images de la vidéo" });
+  // deno-lint-ignore no-explicit-any
+  if (frames.reduce((a: number, f: any) => a + f.data.length, 0) > 5_000_000) return json({ error: "BAD_REQUEST", detail: "images trop lourdes" });
+  const ex = clip(input.exercise, 80) || "exercice de musculation";
+  const cues = (Array.isArray(input.cues) ? input.cues : []).slice(0, 5).map((c: unknown) => clip(c, 140)).filter(Boolean);
+  const note = clip(input.note, 300);
+  const parts = [
+    // deno-lint-ignore no-explicit-any
+    ...frames.flatMap((f: any, i: number) => [{ text: `Image ${i + 1}` }, { inline_data: { mime_type: f.mime, data: f.data } }]),
+    { text: `Exercice : ${ex}.${cues.length ? `\nPoints techniques de référence : ${cues.join(" ")}` : ""}${note ? `\nQuestion de l'athlète : ${note}` : ""}\nAnalyse sa technique.` },
+  ];
+  const tries: string[] = [];
+  let err = "";
+  const deadline = Date.now() + 110_000;
+  for (const model of [...FORM_MODELS.filter(m => !isSlow(m)), ...FORM_MODELS.filter(isSlow)]) {
+    if (deadline - Date.now() < 12_000) break;
+    const s = Date.now();
+    const body = {
+      systemInstruction: { parts: [{ text: FORM_PROMPT }] },
+      contents: [{ role: "user", parts }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: FORM_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
+    };
+    try {
+      const r = await gemini(model, body, false, AbortSignal.timeout(Math.min(45_000, deadline - Date.now())));
+      const t = await r.text();
+      if (!r.ok) {
+        err = `Gemini ${model} : HTTP ${r.status} ${clip(errMsg(t), 200)}`;
+        tries.push(`${model} → HTTP ${r.status}`);
+        if (r.status >= 500 || r.status === 429) remember(model, "slow");
+        continue;
+      }
+      const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
+      const n = frames.length;
+      // deno-lint-ignore no-explicit-any
+      const fix = (Array.isArray(out.fix) ? out.fix : []).slice(0, 3).map((x: any) => ({
+        issue: clip(x?.issue, 60), why: clip(x?.why, 220), cue: clip(x?.cue, 80),
+        frame: Number.isFinite(+x?.frame) && +x.frame >= 1 && +x.frame <= n ? Math.round(+x.frame) : null,
+      })).filter((x: { issue: string }) => x.issue);
+      if (flagged.has(model)) remember(model, "ok", Date.now() - s);
+      return json({
+        score: Math.max(0, Math.min(100, Math.round(+out.score || 0))), verdict: clip(out.verdict, 240),
+        good: (Array.isArray(out.good) ? out.good : []).slice(0, 3).map((g: unknown) => clip(g, 160)).filter(Boolean), fix,
+        safety: clip(out.safety, 240), drill: clip(out.drill, 240), view: clip(out.view, 200),
+        model, remaining: quota.remaining ?? null, ms: Date.now() - s,
+      });
+    } catch (e) {
+      const timeout = (e as Error).name === "TimeoutError";
+      err = `Gemini ${model} : ${timeout ? "pas de réponse à temps" : clip((e as Error).message)}`;
+      tries.push(`${model} → ${timeout ? "délai dépassé" : "réponse illisible"}`);
+      if (timeout) remember(model, "slow");
+    }
+  }
+  console.error("vidéo", tries.join(" ; "));
+  return json({ error: "DOWN", detail: err || "aucun modèle n'a répondu" });
+}
+
 /* ---------- Plan de repas sur mesure (réponse JSON) ---------- */
 const AISLES = ["Fruits et légumes", "Viandes et poissons", "Crèmerie et œufs", "Pain", "Épicerie", "Surgelés", "Boissons"];
 const PLAN_PROMPT = `Tu es diététicien du sport. Compose un plan de repas en français pour un sportif.
@@ -633,13 +718,13 @@ Deno.serve(async req => {
   let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean; task?: string; mode?: string; text?: string; image?: { mime?: string; data?: string }; [k: string]: any };
   try { input = await req.json(); } catch { return reply([{ error: "BAD_REQUEST", detail: "JSON invalide" }]); }
   const token = String(input?.token || "").slice(0, 200);
-  if (input?.task === "food" || input?.task === "mealplan") {
+  if (input?.task === "food" || input?.task === "mealplan" || input?.task === "form") {
     if (!token) return json({ error: "BAD_REQUEST", detail: "jeton manquant" });
     if (!KEY) return json({ error: "NO_KEY", detail: "secret GEMINI_API_KEY absent" });
     let quota;
     try { [quota] = await Promise.all([take(token), loadModels()]); } catch (e) { return json({ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }); }
     if (quota.error) return json({ error: quota.error });
-    return input.task === "mealplan" ? await mealPlan(input, quota) : await food(input, quota);
+    return input.task === "mealplan" ? await mealPlan(input, quota) : input.task === "form" ? await formCheck(input, quota) : await food(input, quota);
   }
   const system = String(input?.system || "").slice(0, 30000);
   const raw = input?.messages;

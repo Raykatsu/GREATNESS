@@ -1,4 +1,5 @@
-import { EXERCISES, GOALS, QUOTES } from "./data.js";
+import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
+import { isNative, storeText } from "./native.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
@@ -10,7 +11,7 @@ import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSa
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON, ensureLeague } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
-import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS } from "./cloud.js";
+import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS, deleteAccount } from "./cloud.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
@@ -36,6 +37,8 @@ import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.
 import { openImport, openExport } from "./import-ui.js";
 
 const view = $("#view");
+// app App Store : classe pour les réglages propres au natif, et aucun nom sous licence
+if (isNative()) { document.documentElement.classList.add("native"); for (const r of RANKS) r.name = storeText(r.name); }
 wireDemos();
 let current = "home";
 
@@ -767,6 +770,7 @@ function profile() {
       <label class="set-row">${sic("clock", "#3b82f6")}<b class="grow">Heure de la séance</b><input class="set-in" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
       <label class="set-row">${sic("bell", "#f59e0b")}<b class="grow">Alerte</b><select class="set-in" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="toggle set-row">${sic("notif", "#ef4444")}<div class="grow"><b>Notifications</b><span class="xs muted" id="push-why">${esc(pushBlocker() || "Rappels les jours de séance, et défis de tes amis (duel, dépassé au classement)")}</span></div><input type="checkbox" id="p-push" ${pushBlocker() ? "disabled" : ""}/></label>
+      <label class="toggle set-row">${sic("clock", "#ff9f0a")}<div class="grow"><b>Fin du repos écran verrouillé</b><span class="xs muted">Une notification « Repos terminé » si tu verrouilles le téléphone pendant un repos (avec les notifications activées)</span></div><input type="checkbox" id="p-restalert" ${p.restAlert !== false ? "checked" : ""}/></label>
       <button class="set-row set-act" id="rem-ics">${sic("calplus", "#22c55e")}<b class="grow">Ajouter à mon calendrier</b>${I.chev}</button>
     </div>
     <p class="set-note">Une notification avant chaque séance prévue, même app fermée. Ou ajoute-les à ton calendrier.</p>
@@ -778,6 +782,7 @@ function profile() {
       <button class="set-row set-act" id="acc-pin">${sic("key", "#f59e0b")}<b class="grow">Changer mon code</b>${I.chev}</button>
       <button class="set-row set-act" id="acc-lock">${sic("lock", "#3b82f6")}<b class="grow">Verrouiller / changer de compte</b>${I.chev}</button>
       <button class="set-row set-act danger" id="acc-forget">${sic("out", "var(--danger)")}<div class="grow"><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
+      ${isOnlineMode() ? `<button class="set-row set-act danger" id="acc-delete">${sic("trash", "var(--danger)")}<div class="grow"><b>Supprimer définitivement mon compte</b><span class="xs muted">Efface le compte en ligne et toutes ses données</span></div>${I.chev}</button>` : ""}
     </div>
 
     <h2 class="set-title">Données</h2>
@@ -802,7 +807,7 @@ function profile() {
       <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${spider()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
       <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
     </div>
-    <p class="set-foot">${spider()}GREATNESS · ton sympathique coach de quartier</p>`;
+    <p class="set-foot">${spider()}GREATNESS · ton sympathique coach de quartier · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
   animateRings(view);
   bindProgressSeg();
   coachCard($("#coach-card"), { open: params.coach === "1" });
@@ -841,6 +846,7 @@ function profile() {
   $("#p-memory").onclick = () => memorySheet();
   $("#p-nutri").onclick = () => openTargets();
   bind("#p-pinlock", t => (p.pinLock = t.checked));
+  bind("#p-restalert", t => (p.restAlert = t.checked));
   bind("#p-ai", t => { p.aiEnabled = t.checked; });
   bind("#p-key", t => { p.aiKey = t.value.trim(); resetClient(); });
   $("#p-test").onclick = async () => {
@@ -856,6 +862,7 @@ function profile() {
   // Compte
   $("#acc-lock").onclick = () => { logout(); route(); };
   $("#acc-pin").onclick = () => pinSheet();
+  $("#acc-delete")?.addEventListener("click", () => deleteSheet());
   $("#acc-forget").onclick = async () => {
     const online = isOnlineMode();
     if (!(await confirmSheet("Retirer ce compte ?", online ? "Il disparaîtra de ce téléphone mais restera en ligne : tu pourras te reconnecter avec ton pseudo et ton code." : "Le compte, ses séances et ses stats seront supprimés de ce téléphone. Irréversible.", "Retirer", true))) return;
@@ -974,6 +981,19 @@ function pinSheet() {
   };
 }
 
+// Suppression définitive du compte en ligne : le code est redemandé, puis tout est effacé
+function deleteSheet() {
+  const sh = sheet(`<h2 class="h2">Supprimer mon compte ?</h2>
+    <p class="small muted">Ton compte <b>@${esc(currentUser)}</b> et tout ce qu'il contient seront effacés du serveur et de cet appareil : séances, records, journal, amis, ligue, mesures Apple Santé. C'est définitif. Pense à <b>exporter tes données</b> avant si tu veux les garder.</p>
+    <label class="field"><span>Ton code pour confirmer</span><input class="input" id="del-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password"/></label>
+    <p class="err" id="err"></p><button class="btn btn-danger btn-block mt" id="del-ok">${I.trash} Supprimer définitivement</button>`);
+  $("#del-ok", sh.el).onclick = async () => {
+    const b = $("#del-ok", sh.el); b.disabled = true;
+    try { await deleteAccount($("#del-pin", sh.el).value); sh.close(); toast("Compte supprimé. À bientôt !", 4000); route(); }
+    catch (e) { $("#err", sh.el).textContent = e.message; b.disabled = false; }
+  };
+}
+
 // Verrouille l'app si elle est restée en arrière-plan plus de 10 minutes.
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
@@ -1000,3 +1020,5 @@ spidey.onTap = () => {
 spidey.init();
 route();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+// app App Store : rappels de séance reprogrammés à chaque ouverture (le programme de la semaine a pu changer)
+if (isNative()) setTimeout(() => refreshPush(), 3000);

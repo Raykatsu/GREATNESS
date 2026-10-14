@@ -5,6 +5,7 @@ import { isOnlineMode, friendCall, authToken } from "./cloud.js";
 import { SUPABASE_URL } from "./config.js";
 import { mergeHealth, applyWeights, readinessFromHealth, formLabel, healthLine, dayKeyOf, shiftDay } from "./health.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
+import { isNative, nativeHealthAvailable, nativeHealthAuthorize, nativeHealthRead } from "./native.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const HEART = svg('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5.5 12h3l1.5-3 2.5 6 1.5-3h4.5"/>');
@@ -12,12 +13,15 @@ const today = () => dayKeyOf(new Date());
 let syncing = null, lastSync = 0;
 
 // Mesures du serveur → state.health ; renvoie { added: pesées ajoutées à la courbe, changed } (null sans compte en ligne)
+// App App Store : lue directement dans Apple Santé (HealthKit), sans compte en ligne ni Raccourci
+const nativeOn = () => isNative() && !!state.health?.native;
 export function syncHealth({ force = false } = {}) {
-  if (!isOnlineMode() || !authToken()) return Promise.resolve(null);
+  if (!nativeOn() && (!isOnlineMode() || !authToken())) return Promise.resolve(null);
   if (!force && Date.now() - lastSync < 10 * 60e3) return Promise.resolve(null);
   return (syncing ||= (async () => {
     try {
-      const r = await friendCall("gt_health_pull", { p_since: shiftDay(today(), -60) });
+      const native = nativeOn();
+      const r = native ? { linked: true, days: await nativeHealthRead(35) } : await friendCall("gt_health_pull", { p_since: shiftDay(today(), -60) });
       lastSync = Date.now();
       const h = state.health || {};
       const days = mergeHealth(h.days, r.days);
@@ -58,7 +62,38 @@ const STEPS = `<ol class="hl-steps">
   <li>Onglet <b>Automatisation</b> → <b>+</b> → Heure de la journée → 7:30, tous les jours → <b>Exécuter immédiatement</b> → « GREATNESS Santé ». Ajoute-en une deuxième à 21:30 pour les pas de la journée.</li>
 </ol>`;
 
+// App App Store : une autorisation, et c'est tout
+async function openNativeHealth() {
+  const sh = sheet(`<div class="eyebrow">${HEART} Apple Santé</div><h2 class="h2">Ton sommeil et ton cœur dans l'app</h2>
+    <p class="muted small">GREATNESS lit ton sommeil, ta variabilité cardiaque (VFC), ta fréquence au repos, tes pas, ton poids et ton énergie active. Ton bilan de forme est prérempli avant chaque séance, tes pesées rejoignent ta courbe et le coach en tient compte. Rien n'est écrit dans Santé.</p>
+    <div id="hl-body" class="mt"></div>`, { z: 60 });
+  const body = $("#hl-body", sh.el);
+  const draw = () => {
+    const h = state.health || {}, days = h.days || {}, last = Object.keys(days).sort().at(-1);
+    body.innerHTML = h.native
+      ? `<div class="card hl-status ${last ? "ok" : ""}">${last ? `${I.check}<div><b>Lu ${esc(fmtDay(last))}</b><span class="xs muted">${esc(healthLine(days, last) || "—")}</span></div>`
+          : `${I.clock}<div><b>Autorisé, aucune mesure pour l'instant</b><span class="xs muted">Vérifie dans Réglages → Santé → Accès aux données que GREATNESS peut tout lire.</span></div>`}</div>
+        <div class="grid2 mt-s"><button class="btn btn-soft" id="hl-check">${I.refresh} Actualiser</button><button class="btn btn-ghost danger" id="hl-off">${I.x} Ne plus lire</button></div>`
+      : `<button class="btn btn-primary btn-block" id="hl-allow">${HEART} Autoriser l'accès à Santé</button>`;
+    $("#hl-allow", body)?.addEventListener("click", async () => {
+      try {
+        if (!(await nativeHealthAvailable())) return toast("Apple Santé n'est pas disponible sur cet appareil.");
+        await nativeHealthAuthorize();
+        state.health = { ...(state.health || {}), native: true };
+        save();
+        const r = await syncHealth({ force: true });
+        draw();
+        toast(Object.keys(state.health?.days || {}).length ? `Apple Santé relié ✓${r?.added ? ` · ${r.added} pesée${r.added > 1 ? "s" : ""} ajoutée${r.added > 1 ? "s" : ""}` : ""}` : "Autorisé : les mesures arriveront ici.");
+      } catch (e) { toast(e?.message || "Accès refusé"); }
+    });
+    $("#hl-check", body)?.addEventListener("click", async () => { await syncHealth({ force: true }); draw(); toast("Mesures à jour ✓"); });
+    $("#hl-off", body)?.addEventListener("click", () => { state.health = { linked: false, days: {} }; save(); draw(); toast("Apple Santé n'est plus lu (tes pesées restent dans ta courbe)."); });
+  };
+  draw();
+}
+
 export async function openHealth() {
+  if (isNative()) return openNativeHealth();
   if (!isOnlineMode() || !authToken()) {
     sheet(`<div class="eyebrow">Apple Santé</div><h2 class="h2">Ton sommeil et ton cœur dans l'app</h2>
       <p class="muted small">La liaison avec Apple Santé passe par ton compte en ligne : connecte-toi avec un compte en ligne pour l'activer.</p>`, { z: 60 });

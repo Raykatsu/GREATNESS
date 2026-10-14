@@ -32,7 +32,9 @@ Ce que la fonction envoie : le rappel les jours de séance (sauf si elle est dé
 
 Dans l'app : **Moi → Réglages → Notifications**. Sur iPhone (iOS 16.4 ou plus), il faut d'abord ajouter l'app à l'écran d'accueil et l'ouvrir depuis l'icône.
 
-Pour vérifier : onglet **Actions** → « Supabase (IA en ligne) » → étape « Notifications » : `Essai de la fonction : {"due":0,"social":0,"sent":0,"gone":0}` (rien de dû à cet instant) et « Sans la clé de planification : HTTP 403 ».
+La même fonction envoie aussi la **fin du repos sur l'écran verrouillé** ([`010_rest_timer.sql`](supabase/010_rest_timer.sql)) : quand le téléphone se verrouille pendant un repos, l'app lui confie l'alerte ; elle attend la fin du repos (en se relayant au-delà de 2 minutes, la limite d'une exécution) puis l'envoie à ce seul téléphone, sauf si l'app l'a annulée entre-temps.
+
+Pour vérifier : onglet **Actions** → « Supabase (IA en ligne) » → étape « Notifications » : `Essai de la fonction : {"due":0,"social":0,"sent":0,"gone":0}` (rien de dû à cet instant), « Sans la clé de planification : HTTP 403 » et « Alerte de fin de repos (faux jeton) : … BAD_TOKEN ».
 
 > Pour changer de paire de clés VAPID : supprime les secrets `VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY` dans Supabase puis relance le déploiement ; les téléphones se réabonnent tout seuls à la prochaine ouverture.
 
@@ -95,6 +97,10 @@ export const SUPABASE_ANON_KEY = "eyJ...";
 ```
 
 La clé *anon* est **faite pour être publique** : elle ne donne accès qu'aux fonctions de connexion. Les tables elles-mêmes sont fermées.
+
+## 2 sexies. Suppression du compte
+
+[`011_account_delete.sql`](supabase/011_account_delete.sql) (installé automatiquement) : dans l'app, **Moi → Réglages → Compte → Supprimer définitivement mon compte**. Le code est redemandé, puis le compte et tout ce qui en dépend sont effacés (données, amis, notifications, mesures Apple Santé, alertes). Exigé par l'App Store, et ton droit selon le RGPD.
 
 ## Sécurité
 
