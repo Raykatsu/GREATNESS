@@ -23,7 +23,7 @@ let onChange = () => {};
 export function planCard() {
   const p = state.mealPlan, n = p?.shopping?.length || 0, done = p?.shopping?.filter(x => x.done).length || 0;
   return `<section class="card plan-card tap" id="plan-open" role="button" tabindex="0">
-    <span class="pc-ic">${IC.plan}</span>
+    <span class="plan-ic">${IC.plan}</span>
     <div class="grow"><b>Plan de repas et courses</b><div class="small muted">${p ? `${p.days.length} jour${p.days.length > 1 ? "s" : ""} · ${n ? `courses : ${done}/${n} cochées` : "liste de courses"}` : "Des repas pour tes objectifs, et la liste de courses qui va avec"}</div></div>
     <span class="chev">${I.chev}</span></section>`;
 }

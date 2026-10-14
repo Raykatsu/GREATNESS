@@ -2209,8 +2209,8 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .t-adapt b { color: var(--text); }
 /* Plan de repas et liste de courses */
 .plan-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-.pc-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
-.pc-ic svg { width: 21px; height: 21px; }
+.plan-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+.plan-ic svg { width: 21px; height: 21px; }
 .plan-card .chev { color: var(--muted); flex: none; display: grid; }
 .plan-card .chev svg { width: 18px; height: 18px; }
 .np-diet { flex-wrap: wrap; margin: 0; padding: 2px 0; }
