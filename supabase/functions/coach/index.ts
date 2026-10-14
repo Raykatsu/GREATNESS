@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-10";
+const VERSION = "coach-11";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -360,10 +360,18 @@ function diagnose() {
             line({ step: "repas (IA)", answered: !j.error, model: j.model, ms: Date.now() - s, items: j.items?.length ?? 0, ...(j.error ? { error: j.detail } : { sample: clip(JSON.stringify(j.items), 200) }) });
           } catch (e) { line({ step: "repas (IA)", answered: false, error: clip((e as Error).message) }); }
         };
+        const lookup = async () => {
+          const s = Date.now();
+          try {
+            const j = await (await food({ text: "pho", mode: "info" }, { remaining: null })).json();
+            line({ step: "aliment (IA)", answered: !j.error, model: j.model, ms: Date.now() - s, foods: j.foods?.length ?? 0, ...(j.error ? { error: j.detail } : { sample: clip(JSON.stringify(j.foods), 200) }) });
+          } catch (e) { line({ step: "aliment (IA)", answered: false, error: clip((e as Error).message) }); }
+        };
         const [coach] = await Promise.all([
           probe("chat (entraînement)", "J'ai fait 4×5 au développé couché à 100 kg, la dernière série à l'échec. Je mets combien la prochaine fois ?"),
           probe("chat (actualité, recherche Google)", "Quelles sont les dernières études sur la créatine ? Cite tes sources."),
           meal(),
+          lookup(),
         ]);
         ok = coach;
         // Un essai court par modèle (sans recherche), en parallèle, 35 s maximum chacun ; plus deux candidats
@@ -398,7 +406,29 @@ function diagnose() {
 /* ---------- Repas : estimation nutritionnelle d'une description ou d'une photo (réponse JSON) ---------- */
 const FOOD_MODELS = list(env("GEMINI_FOOD_MODELS") || "gemini-flash-lite-latest,gemini-flash-latest,gemini-3.7-flash,gemini-3.6-flash");
 const FOOD_PROMPT = `Tu es nutritionniste. On te décrit un repas (texte) ou on te montre sa photo. Liste les aliments, estime leur quantité en grammes (millilitres pour les boissons) et leurs valeurs nutritionnelles POUR CETTE QUANTITÉ (pas pour 100 g).
-Règles : noms courts en français ; quantité non précisée → portion adulte standard ; plat classique → un seul élément (« Pizza margherita, 1/2 ») ; sinon ses composants principaux ; pense à l'huile de cuisson, aux sauces et aux boissons mentionnées ou visibles ; valeurs réalistes (tables CIQUAL ou USDA). Si ce n'est pas de la nourriture, renvoie une liste vide et explique-le dans la note. La note (facultative, une phrase) signale une incertitude utile.`;
+Règles : noms courts et génériques en français, comme dans la table CIQUAL (« Riz blanc cuit », « Blanc de poulet », « Huile d'olive ») ; quantité non précisée → portion adulte standard ; plat classique → un seul élément (« Pizza margherita, 1/2 ») ; sinon ses composants principaux ; pense à l'huile de cuisson, aux sauces et aux boissons mentionnées ou visibles ; sur une photo, estime les quantités d'après la taille de l'assiette et des couverts ; valeurs réalistes (tables CIQUAL ou USDA). Si ce n'est pas de la nourriture, renvoie une liste vide et explique-le dans la note. La note (facultative, une phrase) signale une incertitude utile.`;
+// Un aliment, un plat ou un produit cherché par son nom : valeurs pour 100 g et portion habituelle
+const INFO_PROMPT = `Tu es nutritionniste. On te donne le nom d'un aliment, d'un plat (de n'importe quel pays) ou d'un produit de marque, parfois mal orthographié ou dans une autre langue. Donne ses valeurs nutritionnelles moyennes POUR 100 g (100 ml pour une boisson), d'après les tables CIQUAL ou USDA, ou l'emballage pour un produit de marque connu, et sa portion habituelle (nom de la portion et grammes).
+Règles : nom court et clair en français (corrige l'orthographe) ; marque seulement pour un produit de marque ; aliment tel qu'on le mange (cuit pour les féculents, viandes et poissons, sauf si « cru » ou « sec » est précisé) ; nom ambigu → 2 à 4 variantes courantes (ex. « pho » : au bœuf, au poulet), sinon une seule ; liquid = vrai pour une boisson ; valeurs cohérentes (kcal ≈ 4 × protéines + 4 × glucides + 9 × lipides, sauf alcool). Si ce n'est pas un aliment, renvoie une liste vide et explique-le dans la note.`;
+const INFO_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    foods: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" }, brand: { type: "STRING" }, kcal: { type: "NUMBER" }, protein: { type: "NUMBER" }, carbs: { type: "NUMBER" },
+          fat: { type: "NUMBER" }, fiber: { type: "NUMBER" }, sugars: { type: "NUMBER" }, salt: { type: "NUMBER" },
+          portion_label: { type: "STRING" }, portion_grams: { type: "NUMBER" }, liquid: { type: "BOOLEAN" },
+        },
+        required: ["name", "kcal", "protein", "carbs", "fat", "portion_label", "portion_grams"],
+      },
+    },
+    note: { type: "STRING" },
+  },
+  required: ["foods"],
+};
 const FOOD_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -419,9 +449,10 @@ const FOOD_SCHEMA = {
 };
 const bound = (v: unknown, max: number) => { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(max, Math.round(n * 10) / 10)) : 0; };
 
-async function food(input: { text?: string; image?: { mime?: string; data?: string } }, quota: { remaining?: number | null }) {
-  const text = String(input.text || "").slice(0, 2000).trim();
-  const img = input.image;
+async function food(input: { text?: string; mode?: string; image?: { mime?: string; data?: string } }, quota: { remaining?: number | null }) {
+  const info = input.mode === "info";
+  const text = String(input.text || "").slice(0, info ? 120 : 2000).trim();
+  const img = info ? null : input.image;
   const photo = img && typeof img.data === "string" && /^image\/(jpeg|png|webp)$/.test(String(img.mime)) ? img : null;
   if (!text && !photo) return json({ error: "BAD_REQUEST", detail: "décris le repas ou ajoute une photo" });
   if (photo && photo.data!.length > 3_000_000) return json({ error: "BAD_REQUEST", detail: "photo trop lourde" });
@@ -436,9 +467,9 @@ async function food(input: { text?: string; image?: { mime?: string; data?: stri
     if (deadline - Date.now() < 10_000) break;
     const s = Date.now();
     const body = {
-      systemInstruction: { parts: [{ text: FOOD_PROMPT }] },
+      systemInstruction: { parts: [{ text: info ? INFO_PROMPT : FOOD_PROMPT }] },
       contents: [{ role: "user", parts }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: FOOD_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
+      generationConfig: { responseMimeType: "application/json", responseSchema: info ? INFO_SCHEMA : FOOD_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
     };
     try {
       const r = await gemini(model, body, false, AbortSignal.timeout(Math.min(30_000, deadline - Date.now())));
@@ -450,6 +481,15 @@ async function food(input: { text?: string; image?: { mime?: string; data?: stri
         continue;
       }
       const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
+      if (info) {
+        // deno-lint-ignore no-explicit-any
+        const foods = (Array.isArray(out.foods) ? out.foods : []).slice(0, 4).map((x: any) => ({
+          name: clip(x?.name, 60) || "Aliment", brand: clip(x?.brand, 40), kcal: bound(x?.kcal, 900), protein: bound(x?.protein, 100), carbs: bound(x?.carbs, 100),
+          fat: bound(x?.fat, 100), fiber: bound(x?.fiber, 100), sugars: bound(x?.sugars, 100), salt: bound(x?.salt, 100),
+          portion_label: clip(x?.portion_label, 30) || "portion", portion_grams: bound(x?.portion_grams, 2000), liquid: !!x?.liquid,
+        })).filter((x: { kcal: number; protein: number; carbs: number; fat: number }) => x.kcal > 0 || x.protein + x.carbs + x.fat > 0);
+        return json({ foods, note: clip(out.note, 240), model, remaining: quota.remaining ?? null, ms: Date.now() - s });
+      }
       // deno-lint-ignore no-explicit-any
       const items = (Array.isArray(out.items) ? out.items : []).slice(0, 30).map((x: any) => ({
         name: clip(x?.name, 60) || "Aliment", grams: bound(x?.grams, 5000), kcal: bound(x?.kcal, 6000),
@@ -467,6 +507,95 @@ async function food(input: { text?: string; image?: { mime?: string; data?: stri
   return json({ error: "DOWN", detail: err || "aucun modèle n'a répondu" });
 }
 
+/* ---------- Plan de repas sur mesure (réponse JSON) ---------- */
+const AISLES = ["Fruits et légumes", "Viandes et poissons", "Crèmerie et œufs", "Pain", "Épicerie", "Surgelés", "Boissons"];
+const PLAN_PROMPT = `Tu es diététicien du sport. Compose un plan de repas en français pour un sportif.
+Chaque jour : petit-déjeuner, déjeuner, dîner et une collation (meal = breakfast, lunch, dinner, snack), des repas différents d'un jour à l'autre, avec des aliments simples et courants en France, faciles à acheter ; recettes en moins de 20 minutes sauf indication contraire. Respecte strictement le régime et les contraintes (allergies, aliments refusés).
+Pour chaque aliment : nom générique comme dans la table CIQUAL (« Riz blanc cuit », « Blanc de poulet », « Huile d'olive »), poids tel qu'on le mange (cuit pour les féculents, viandes et poissons) et valeurs nutritionnelles pour ce poids (tables CIQUAL ou USDA). Les totaux de chaque jour doivent être proches des objectifs (±5 %).
+Liste de courses : tout le plan additionné, en quantités à acheter (crues, en unités pratiques : « 6 œufs », « 500 g de riz », « 1 L de lait »), avec le rayon. Conseils : 1 à 3 phrases utiles (préparer à l'avance, conserver, varier).`;
+const PLAN_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    days: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          meals: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                meal: { type: "STRING", enum: ["breakfast", "lunch", "dinner", "snack"] }, name: { type: "STRING" },
+                items: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, grams: { type: "NUMBER" }, kcal: { type: "NUMBER" }, protein: { type: "NUMBER" }, carbs: { type: "NUMBER" }, fat: { type: "NUMBER" } }, required: ["name", "grams", "kcal", "protein", "carbs", "fat"] } },
+              },
+              required: ["meal", "name", "items"],
+            },
+          },
+        },
+        required: ["meals"],
+      },
+    },
+    shopping: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, qty: { type: "STRING" }, aisle: { type: "STRING", enum: AISLES } }, required: ["name", "qty", "aisle"] } },
+    tips: { type: "STRING" },
+  },
+  required: ["days", "shopping"],
+};
+const int = (v: unknown, a: number, b: number, d: number) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.max(a, Math.min(b, n)) : d; };
+
+// deno-lint-ignore no-explicit-any
+async function mealPlan(input: any, quota: { remaining?: number | null }) {
+  const days = int(input.days, 1, 7, 3), kcal = int(input.kcal, 1000, 5000, 2200), protein = int(input.protein, 40, 350, 130);
+  const diet = (Array.isArray(input.diet) ? input.diet : []).map((x: unknown) => clip(x, 40)).filter(Boolean).slice(0, 8).join(", ") || "aucun";
+  const ask = `Plan de ${days} jour(s). Chaque jour : environ ${kcal} kcal et au moins ${protein} g de protéines. Régime : ${diet}. Goûts et contraintes : ${clip(input.prefs, 500) || "aucune"}.`;
+  const tries: string[] = [];
+  let err = "";
+  const deadline = Date.now() + 110_000;
+  for (const model of [...FOOD_MODELS.filter(m => !isSlow(m)), ...FOOD_MODELS.filter(isSlow)]) {
+    if (deadline - Date.now() < 15_000) break;
+    const s = Date.now();
+    const body = {
+      systemInstruction: { parts: [{ text: PLAN_PROMPT }] },
+      contents: [{ role: "user", parts: [{ text: ask }] }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: PLAN_SCHEMA, maxOutputTokens: 16384, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
+    };
+    try {
+      const r = await gemini(model, body, false, AbortSignal.timeout(Math.min(70_000, deadline - Date.now())));
+      const t = await r.text();
+      if (!r.ok) {
+        err = `Gemini ${model} : HTTP ${r.status} ${clip(errMsg(t), 200)}`;
+        tries.push(`${model} → HTTP ${r.status}`);
+        if (r.status >= 500) slowUntil.set(model, Date.now() + 10 * 60e3);
+        continue;
+      }
+      const out = JSON.parse(chunkInfo(JSON.parse(t)).text || "{}");
+      // deno-lint-ignore no-explicit-any
+      const plan = (Array.isArray(out.days) ? out.days : []).slice(0, days).map((d: any) => ({
+        // deno-lint-ignore no-explicit-any
+        meals: (Array.isArray(d?.meals) ? d.meals : []).slice(0, 5).map((m: any) => ({
+          meal: ["breakfast", "lunch", "dinner", "snack"].includes(m?.meal) ? m.meal : "snack", name: clip(m?.name, 60) || "Repas",
+          // deno-lint-ignore no-explicit-any
+          items: (Array.isArray(m?.items) ? m.items : []).slice(0, 8).map((x: any) => ({
+            name: clip(x?.name, 60) || "Aliment", grams: bound(x?.grams, 2000), kcal: bound(x?.kcal, 3000), protein: bound(x?.protein, 300), carbs: bound(x?.carbs, 500), fat: bound(x?.fat, 300),
+          })).filter((x: { grams: number }) => x.grams > 0),
+        })).filter((m: { items: unknown[] }) => m.items.length),
+      })).filter((d: { meals: unknown[] }) => d.meals.length);
+      if (!plan.length) { err = `Gemini ${model} : plan vide`; tries.push(`${model} → plan vide`); continue; }
+      // deno-lint-ignore no-explicit-any
+      const shopping = (Array.isArray(out.shopping) ? out.shopping : []).slice(0, 80).map((x: any) => ({ name: clip(x?.name, 60), qty: clip(x?.qty, 30), aisle: AISLES.includes(x?.aisle) ? x.aisle : "Épicerie" }))
+        .filter((x: { name: string }) => x.name);
+      return json({ days: plan, shopping, tips: clip(out.tips, 400), model, remaining: quota.remaining ?? null, ms: Date.now() - s });
+    } catch (e) {
+      const timeout = (e as Error).name === "TimeoutError";
+      err = `Gemini ${model} : ${timeout ? "pas de réponse à temps" : clip((e as Error).message)}`;
+      tries.push(`${model} → ${timeout ? "délai dépassé" : "réponse illisible"}`);
+      if (timeout) slowUntil.set(model, Date.now() + 10 * 60e3);
+    }
+  }
+  console.error("plan de repas", tries.join(" ; "));
+  return json({ error: "DOWN", detail: err || "aucun modèle n'a répondu" });
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
@@ -476,16 +605,17 @@ Deno.serve(async req => {
   const diag = env("DIAG_TOKEN");
   if (diag.length >= 16 && req.headers.get("x-diag-token") === diag) return diagnose();
 
-  let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean; task?: string; text?: string; image?: { mime?: string; data?: string } };
+  // deno-lint-ignore no-explicit-any
+  let input: { token?: string; system?: string; messages?: Msg[]; search?: boolean; task?: string; mode?: string; text?: string; image?: { mime?: string; data?: string }; [k: string]: any };
   try { input = await req.json(); } catch { return reply([{ error: "BAD_REQUEST", detail: "JSON invalide" }]); }
   const token = String(input?.token || "").slice(0, 200);
-  if (input?.task === "food") {
+  if (input?.task === "food" || input?.task === "mealplan") {
     if (!token) return json({ error: "BAD_REQUEST", detail: "jeton manquant" });
     if (!KEY) return json({ error: "NO_KEY", detail: "secret GEMINI_API_KEY absent" });
     let quota;
     try { quota = await take(token); } catch (e) { return json({ error: "DOWN", detail: `compteur : ${clip((e as Error).message)}` }); }
     if (quota.error) return json({ error: quota.error });
-    return await food(input, quota);
+    return input.task === "mealplan" ? await mealPlan(input, quota) : await food(input, quota);
   }
   const system = String(input?.system || "").slice(0, 30000);
   const raw = input?.messages;

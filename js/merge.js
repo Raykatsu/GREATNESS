@@ -71,6 +71,6 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan], clean);
   return pick(merged) !== pick(base);
 }

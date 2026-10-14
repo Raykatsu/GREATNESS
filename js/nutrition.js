@@ -24,23 +24,28 @@ const clip = (s, n) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 // Objectifs du jour : métabolisme de base (Mifflin-St Jeor) × activité + entraînement, ajusté à l'objectif.
+// Calories adaptatives (adaptive.js) : l'objectif recalculé chaque semaine d'après ta vraie dépense remplace la formule.
+export function bmrOf(p = {}) {
+  const w = +p.bodyweight || 75, female = p.sex === "f", h = +p.height || (female ? 165 : 177), a = +p.age || 28;
+  return 10 * w + 6.25 * h - 5 * a + (female ? -161 : 5);
+}
+export const tdeeOf = (p = {}) => Math.round(bmrOf(p) * (ACTIVITY[p.activity] || ACTIVITY.light).f + ((+p.days || 3) * 250) / 7);
 export function targets(p = {}) {
-  const w = +p.bodyweight || 75, female = p.sex === "f";
-  const h = +p.height || (female ? 165 : 177), a = +p.age || 28, days = +p.days || 3;
-  const bmr = 10 * w + 6.25 * h - 5 * a + (female ? -161 : 5);
-  const tdee = bmr * (ACTIVITY[p.activity] || ACTIVITY.light).f + (days * 250) / 7;
+  const w = +p.bodyweight || 75, female = p.sex === "f", days = +p.days || 3;
+  const bmr = bmrOf(p), tdee = bmr * (ACTIVITY[p.activity] || ACTIVITY.light).f + (days * 250) / 7;
   const goal = GOAL_ADJ[p.goal] != null ? p.goal : "forme";
-  const kcal = Math.round(Math.max(tdee * (1 + GOAL_ADJ[goal]), bmr * 1.05, female ? 1300 : 1500) / 10) * 10;
+  const ad = p.nutri?.adaptive && p.nutri.adapt?.kcal > 0 ? p.nutri.adapt : null;
+  const kcal = ad ? ad.kcal : Math.round(Math.max(tdee * (1 + GOAL_ADJ[goal]), bmr * 1.05, female ? 1300 : 1500) / 10) * 10;
   const prot = Math.round(w * PROTEIN[goal]);
   const fat = Math.round(Math.max(w * 0.7, (kcal * 0.27) / 9));
   const auto = {
     kcal, p: prot, f: fat, c: Math.max(50, Math.round((kcal - prot * 4 - fat * 9) / 4)),
     fi: Math.round((kcal / 1000) * 14), water: Math.round((w * 35 + (days * 500) / 7) / 250) * 250,
-    bmr: Math.round(bmr), tdee: Math.round(tdee), custom: false,
+    bmr: Math.round(bmr), tdee: ad ? ad.tdee : Math.round(tdee), custom: false, adaptive: !!ad,
   };
   const n = p.nutri;
   if (!n?.custom) return auto;
-  return { ...auto, custom: true, kcal: +n.kcal || auto.kcal, p: +n.p || auto.p, c: +n.c || auto.c, f: +n.f || auto.f };
+  return { ...auto, custom: true, adaptive: false, kcal: +n.kcal || auto.kcal, p: +n.p || auto.p, c: +n.c || auto.c, f: +n.f || auto.f };
 }
 
 /* ---------- Journal ---------- */
@@ -79,6 +84,7 @@ export function template(f) {
   if (f.unit?.g > 0) t.unit = { label: clip(f.unit.label, 30) || "portion", g: r1(f.unit.g) };
   if (f.code) t.code = String(f.code);
   if (f.nutri) t.nutri = f.nutri;
+  if (f.liquid) t.liquid = true;
   return t;
 }
 export const foodKey = f => (f.code ? `#${f.code}` : `${norm(f.name)}|${norm(f.brand)}`);
@@ -111,6 +117,17 @@ export function setWater(state, key, n) {
   const day = ensureDay(state, key);
   day.water = Math.max(0, Math.min(20, Math.round(n)));
   day.at = Date.now();
+}
+
+// Hydratation : objectif du jour en verres de 250 ml (+ 0,5 L un jour d'entraînement)
+export const waterGoal = (t, trained = false) => Math.round(((t?.water || 2000) + (trained ? 500 : 0)) / 250);
+// Rappels d'eau : entre « from » et « to », on attend un rythme régulier ; null si l'on est dans les temps
+export function waterBehind(n, goal, now = new Date(), { from = "09:00", to = "21:00" } = {}) {
+  const mins = s => { const [h, m] = String(s).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const cur = now.getHours() * 60 + now.getMinutes(), a = mins(from), b = mins(to);
+  if (b <= a || cur < a || cur > b || n >= goal) return null;
+  const expected = Math.floor((goal * (cur - a)) / (b - a));
+  return n < expected ? { n, goal, expected } : null;
 }
 
 // Aliments récents (ajout rapide), du plus récent au plus ancien
@@ -167,15 +184,13 @@ export function nutritionContext(state, now = new Date()) {
 }
 
 /* ---------- Recherche dans les aliments connus ---------- */
+// Tolère les fautes de frappe (« bananne », « poulé »), les pluriels et l'ordre des mots.
 export function searchLocal(q, state = {}, limit = 12) {
   const n = norm(q);
   if (!n) return [];
-  const words = n.split(" ");
-  const pool = [
-    ...Object.values(state.foodCustom || {}).map(f => ({ ...f, keys: [norm(f.name), norm(`${f.name} ${f.brand || ""}`)] })),
-    ...(state.foodRecent || []).map(f => ({ ...f, keys: [norm(f.name), norm(`${f.name} ${f.brand || ""}`)] })),
-    ...FOODS,
-  ];
+  const qw = n.split(" ").filter(Boolean);
+  const own = f => ({ ...f, keys: [norm(f.name), norm(`${f.name} ${f.brand || ""}`), ...(f.aka || [])] });
+  const pool = [...Object.values(state.foodCustom || {}).map(own), ...(state.foodRecent || []).map(own), ...FOODS];
   const scored = [];
   for (const f of pool) {
     let best = 0;
@@ -183,12 +198,67 @@ export function searchLocal(q, state = {}, limit = 12) {
       if (key === n) best = Math.max(best, 100);
       else if (key.startsWith(n)) best = Math.max(best, 80 - key.length / 10);
       else if (key.includes(n)) best = Math.max(best, 60 - key.length / 10);
-      else if (words.every(w => key.includes(w))) best = Math.max(best, 40 - key.length / 10);
+      else if (qw.every(w => key.includes(w))) best = Math.max(best, 40 - key.length / 10);
+      else if (best < 30) { const z = fuzzy(qw, key); if (z) best = Math.max(best, z - key.length / 10); }
     }
     if (best) scored.push([best + (f.src === "db" ? 0 : 25), f]); // tes produits et tes récents d'abord
   }
   const seen = new Set();
   return scored.sort((a, b) => b[0] - a[0]).map(([, f]) => f).filter(f => { const k = foodKey(f); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, limit);
+}
+const sing = w => (w.length > 3 ? w.replace(/(s|x)$/, "") : w);
+// Distance d'édition bornée (au-delà de max, on arrête de compter)
+function editDist(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let low = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      low = Math.min(low, cur[j]);
+    }
+    if (low > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// Chaque mot cherché retrouve un mot du nom (pluriel, début de mot, ou une ou deux fautes) → score, sinon 0
+function fuzzy(qw, key) {
+  const kw = key.split(" ");
+  let exact = 0;
+  for (const w of qw) {
+    if (w.length < 3) { if (!kw.includes(w)) return 0; exact++; continue; }
+    const s = sing(w), max = w.length >= 8 ? 2 : w.length >= 4 ? 1 : 0;
+    let hit = false;
+    for (const k of kw) {
+      if (sing(k) === s || k.startsWith(w)) { hit = true; exact++; break; }
+      if (max && (editDist(s, sing(k), max) <= max || (w.length >= 5 && k.length > w.length && editDist(w, k.slice(0, w.length), 1) <= 1))) { hit = true; break; }
+    }
+    if (!hit) return 0;
+  }
+  return 30 + exact;
+}
+
+/* ---------- Aliments estimés par l'IA (cherchés par leur nom) ---------- */
+// Réponse de l'IA (valeurs pour 100 g, portion habituelle) → modèle d'aliment
+export function aiInfoFood(x = {}) {
+  const per = { k: +x.kcal || 0, p: +x.protein || 0, c: +x.carbs || 0, f: +x.fat || 0 };
+  if (x.fiber > 0) per.fi = +x.fiber;
+  if (x.sugars > 0) per.su = +x.sugars;
+  if (x.salt > 0) per.sa = +x.salt;
+  return { name: clip(x.name, 80) || "Aliment", ...(x.brand ? { brand: clip(x.brand, 40) } : {}), per, src: "ai",
+    unit: x.portion_grams > 0 ? { label: clip(x.portion_label, 30) || "portion", g: r1(x.portion_grams) } : null, ...(x.liquid ? { liquid: true } : {}) };
+}
+// L'app retient un aliment trouvé par l'IA : il est reconnu ensuite, même hors ligne, aussi sous le nom cherché
+export function learnFood(state, food, query = "") {
+  state.foodCustom ||= {};
+  const id = `ai:${norm(food.name)}`, prev = state.foodCustom[id];
+  const aka = [...new Set([...(prev?.aka || []), norm(query)])].filter(k => k && k !== norm(food.name)).slice(-5);
+  state.foodCustom[id] = { ...template({ ...food, src: "ai" }), ...(aka.length ? { aka } : {}), used: Date.now() };
+  const ai = Object.keys(state.foodCustom).filter(k => k.startsWith("ai:"));
+  if (ai.length > 200) ai.sort((a, b) => (state.foodCustom[a].used || 0) - (state.foodCustom[b].used || 0)).slice(0, ai.length - 200).forEach(k => delete state.foodCustom[k]);
+  return state.foodCustom[id];
 }
 
 /* ---------- Lecture d'un repas écrit (« 200 g de poulet, du riz et 2 œufs ») ---------- */
@@ -248,6 +318,36 @@ export function parseMeal(text) {
     items.push({ food, g: r1(grams) });
   }
   return { items, unknown };
+}
+
+// Aliment de la base portant exactement ce nom (ou un de ses autres noms, au pluriel près) : sert à fiabiliser
+// une estimation de l'IA avec des valeurs de référence
+export function refFood(name) {
+  const n = singular(words(name));
+  if (!n) return null;
+  for (const [f, keys] of KEYS) if (keys.some(([k, ks]) => k === n || ks === n)) return f;
+  return null;
+}
+
+// « Combien de calories dans une banane ? » : les valeurs d'un aliment connu (null si ce n'est pas la question)
+const ASK = /\b(calories?|kcal|proteines?|glucides?|lipides?|macros?|valeurs? nutritionnelles?|apports?)\b/;
+const FILLER = /\b(combien|y a t il|ya t il|il y a|est ce que|quelles?|quels?|sont|est|les|le|la|l|un|une|des|du|de|d|dans|pour|par|en|a|t|il|y|ce|que|qu|apporte|apportent|contient|contiennent|calories?|kcal|proteines?|glucides?|lipides?|macros?|valeurs?|nutritionnelles?|apports?|portion|grammes?|g|100|c|quoi|moyenne)\b/g;
+export function foodFacts(q, state = {}) {
+  const t = norm(q);
+  if (!ASK.test(t) || /\b(mal|douleur|blesse)/.test(t)) return null;
+  const rest = words(t).replace(FILLER, " ").replace(/\s+/g, " ").trim();
+  if (rest.length < 3) return null;
+  // mots entiers seulement (pas de rapprochement approximatif dans une phrase) : la base, puis tes aliments à toi
+  const own = Object.values(state.foodCustom || {}).find(f => [norm(f.name), ...(f.aka || [])].some(k => k && ` ${rest} `.includes(` ${words(k)} `)));
+  const f = matchFood(rest) || own;
+  if (!f) return null;
+  const nb = v => String(r1(v)).replace(".", ","), u = /verre|canette|tasse|demi|bouteille|coupe/.test(f.unit?.label || "") || f.liquid ? "ml" : "g";
+  const lines = [`**${f.name}**${f.brand ? ` (${f.brand})` : ""} : ${Math.round(f.per.k)} kcal pour 100 ${u}, protéines ${nb(f.per.p || 0)} g, glucides ${nb(f.per.c || 0)} g, lipides ${nb(f.per.f || 0)} g${f.per.fi ? `, fibres ${nb(f.per.fi)} g` : ""}.`];
+  const qty = parseMeal(rest).items.find(x => x.food === f); // « 2 œufs », « 200 g de riz »
+  if (qty && Math.abs(qty.g - (f.unit?.g || 0)) > 0.5) lines.push(`• Pour ${nb(qty.g)} ${u} : ${Math.round((f.per.k * qty.g) / 100)} kcal et ${nb(((f.per.p || 0) * qty.g) / 100)} g de protéines.`);
+  if (f.unit?.g) { const m = f.unit.g / 100; lines.push(`• 1 ${f.unit.label} (${nb(f.unit.g)} ${u}) ≈ ${Math.round(f.per.k * m)} kcal et ${nb((f.per.p || 0) * m)} g de protéines.`); }
+  lines.push("Ajoute-le dans l'onglet Repas pour qu'il compte dans ta journée.");
+  return lines.join("\n");
 }
 
 /* ---------- Open Food Facts ---------- */

@@ -40,10 +40,14 @@ Dans l'onglet Coach (ou Profil), **« Activer l'IA »** télécharge une fois un
 Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Objectifs du jour calculés** pour toi (métabolisme de base Mifflin-St Jeor × activité + tes séances, ajusté à ton objectif : sèche, prise de muscle…), ou fixés à la main ; calories, protéines, glucides, lipides, fibres et eau.
 - **Scanner de code-barres** : la caméra lit le code (détecteur natif, ou la bibliothèque libre ZXing sur iPhone) et va chercher le produit dans **Open Food Facts** (plus de 3 millions de produits, Nutri-Score compris). Produit inconnu : on recopie l'étiquette une fois, il est reconnu ensuite.
-- **Recherche** : 160 aliments courants disponibles hors ligne, plus les produits de marque d'Open Food Facts ; portions intelligentes (« 2 œufs », « 1 bol »).
+- **Recherche** : 365 aliments courants disponibles hors ligne (plats du monde compris), tolérante aux fautes de frappe et aux pluriels (« bananne », « yogourt »), plus les produits de marque d'Open Food Facts ; portions intelligentes (« 2 œufs », « 1 bol »).
+- **N'importe quel aliment avec l'IA** : « Demander à l'IA » donne les valeurs pour 100 g d'un aliment, d'un plat ou d'une boisson introuvable (et ses variantes) ; l'app le retient pour la prochaine fois. Les estimations de repas (texte, photo) s'appuient sur les valeurs de référence de la base quand l'aliment y est.
 - **Décrire ou photographier son assiette** : l'IA en ligne estime les aliments, les quantités et les calories ; tu vérifies avant d'ajouter. Hors ligne, la description est lue par l'app (« 200 g de poulet, du riz et 2 œufs »).
 - Repas du jour, eau, « comme hier », repas enregistrés, ajout rapide, historique sur 7 jours, carte sur l'accueil.
-- Le coach connaît ta nutrition (objectifs, aujourd'hui, moyenne de la semaine) et peut en tenir compte dans ses conseils.
+- Le coach connaît ta nutrition (objectifs, aujourd'hui, moyenne de la semaine) et peut en tenir compte dans ses conseils ; « combien de calories dans… » répond même hors ligne.
+- **Calories adaptatives** : un poids visé et un rythme (−1 à +0,5 kg par semaine). La tendance du poids est lissée (les variations d'eau ne comptent pas) ; avec tes repas notés, l'app en déduit ta **vraie dépense** (1 kg ≈ 7 700 kcal) et recalcule ton objectif chaque lundi, avec des garde-fous (jamais sous le métabolisme de base). Carte « Poids et dépense » : courbe, pesée du jour, semaines restantes.
+- **Hydratation** : objectif d'eau selon ton poids (+0,5 L les jours d'entraînement), verres et bouteille d'un geste, **rappels pour boire** en notification si tu es en retard (plage horaire et fréquence au choix, silencieux une fois l'objectif atteint).
+- **Plan de repas et liste de courses** : de 1 à 7 jours, à tes calories et protéines, selon ton régime (végétarien, sans porc, sans lactose, sans gluten, petit budget, rapide) et tes goûts. L'IA en ligne compose des repas variés ; hors ligne, l'app assemble des repas simples ajustés au gramme près. Chaque repas s'ajoute au journal d'un geste ; la liste de courses (quantités crues, par rayon) se coche, se complète et se partage.
 
 ## Le coach IA agit, retient et fait le bilan
 
@@ -146,7 +150,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, planning, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, records, duels, planning, nutrition, plans de repas, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -191,13 +195,20 @@ js/anim.js        petites démos animées (vignettes)
 js/demo.js        fiche Démo des exercices
 js/cam.js         compteur de reps à la caméra (MediaPipe)
 js/push.js        abonnement aux notifications de rappel
+js/recovery.js    récupération musculaire (+ recovery-ui.js : carte et fiche)
+js/food.js        onglet Repas (journal, recherche, scanner, eau, poids)
+js/nutrition.js   objectifs, journal, recherche tolérante, aliments appris de l'IA
+js/foods.js       les 365 aliments courants
+js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
+js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
 supabase/003_push.sql    notifications de rappel
 supabase/functions/reminders/  fonction qui envoie les rappels
 supabase/004_ai.sql      limite de messages de l'IA en ligne
-supabase/functions/coach/      IA en ligne (Gemini + recherche Google)
+supabase/functions/coach/      IA en ligne (Gemini + recherche Google), aliments, plans de repas
+supabase/006_water_push.sql    rappels pour boire
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

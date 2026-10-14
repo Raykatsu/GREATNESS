@@ -1,6 +1,7 @@
 // Données de l'utilisateur connecté. Chaque compte a ses propres données ;
 // elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
+import { targets, waterGoal } from "./nutrition.js";
 
 export const LEGACY_KEY = "greatness.v2"; // ancienne version à compte unique
 const dataKey = user => `greatness.data.${user}`;
@@ -204,7 +205,9 @@ export function reminderPlan() {
     const p = id && id !== "mobility" ? getProgram(id) : null;
     if (p) days[d] = p.name;
   }
-  return { at: state.profile.remindAt || "18:00", before: state.profile.remindBefore ?? 15, days };
+  const w = state.profile.waterRemind; // rappels pour boire : le serveur lit l'eau du jour dans le journal
+  return { at: state.profile.remindAt || "18:00", before: state.profile.remindBefore ?? 15, days,
+    ...(w?.on ? { water: { from: w.from || "09:00", to: w.to || "21:00", every: w.every || 2, goal: waterGoal(targets(state.profile)) } } : {}) };
 }
 
 export function publicSummary() {

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   targets, dayKey, shiftKey, addItem, updateItem, removeItem, setWater, sumItems, itemTotals, dayOf, copyMeal, lastDays,
   weekNutrition, pruneFood, searchLocal, parseMeal, offFood, cleanBarcode, mergeFood, nutritionContext, template,
+  aiInfoFood, learnFood, refFood, foodFacts,
 } from "../js/nutrition.js";
 import { FOODS, norm } from "../js/foods.js";
 import { mergeData } from "../js/merge.js";
@@ -158,7 +159,51 @@ test("la base d'aliments est cohérente (calories ≈ macros, portions, noms uni
     assert.ok(!names.has(f.name), `doublon ${f.name}`); names.add(f.name);
     assert.ok(f.unit.g > 0 && f.unit.label, f.name);
     const { k, p, c, f: fat, fi } = f.per, est = p * 4 + c * 4 + fat * 9 + fi * 2; // fibres : 2 kcal/g (étiquetage européen)
-    // l'alcool (bière, vin) explique leur écart
-    if (!/Bière|Vin/.test(f.name)) assert.ok(Math.abs(est - k) <= Math.max(25, k * 0.2), `${f.name} : ${k} kcal annoncées, ${Math.round(est)} d'après les macros`);
+    // l'alcool (bière, vin, cidre…) explique leur écart
+    if (!/Bière|Vin|Cidre|Champagne|Alcool|Cocktail/.test(f.name)) assert.ok(Math.abs(est - k) <= Math.max(25, k * 0.2), `${f.name} : ${k} kcal annoncées, ${Math.round(est)} d'après les macros`);
   }
+  // un nom ou un autre nom ne désigne qu'un seul aliment
+  const owner = new Map();
+  for (const f of FOODS) for (const key of f.keys) { assert.ok(!owner.has(key) || owner.get(key) === f, `« ${key} » : ${owner.get(key)?.name} et ${f.name}`); owner.set(key, f); }
+  assert.ok(FOODS.length >= 350, `${FOODS.length} aliments`);
+});
+
+test("recherche tolérante : fautes de frappe, pluriels, plats du monde", () => {
+  const first = q => searchLocal(q, {})[0]?.name;
+  assert.equal(first("bananne"), "Banane");
+  assert.equal(first("croisant"), "Croissant");
+  assert.equal(first("tiramissu"), "Tiramisu");
+  assert.equal(first("yogourt grec"), "Yaourt grec");
+  assert.equal(first("pho"), "Phở");
+  assert.equal(first("thieb"), "Thiéboudienne");
+  assert.equal(first("attieke"), "Attiéké");
+  assert.equal(first("bo bun"), "Bo bun");
+  assert.deepEqual(searchLocal("zzzqx", {}), []);
+});
+
+test("aliment trouvé par l'IA : converti, retenu et retrouvé ensuite hors ligne", () => {
+  const f = aiInfoFood({ name: "Bún chả", kcal: 150, protein: 9, carbs: 15, fat: 6, fiber: 1, sugars: 0, salt: 1.2, portion_label: "bol", portion_grams: 400, liquid: false });
+  assert.deepEqual(f, { name: "Bún chả", per: { k: 150, p: 9, c: 15, f: 6, fi: 1, sa: 1.2 }, src: "ai", unit: { label: "bol", g: 400 } });
+  assert.equal(aiInfoFood({ name: "Bubble tea", kcal: 70, protein: 0.5, carbs: 15, fat: 1, portion_label: "verre", portion_grams: 500, liquid: true }).liquid, true);
+  const state = {};
+  learnFood(state, f, "bun cha hanoi");
+  const saved = state.foodCustom["ai:bun cha"];
+  assert.equal(saved.src, "ai"); assert.deepEqual(saved.aka, ["bun cha hanoi"]); assert.ok(saved.used > 0);
+  assert.equal(searchLocal("bun cha hanoi", state)[0].name, "Bún chả"); // retrouvé sous le nom cherché
+  assert.equal(searchLocal("bún chả", state)[0].name, "Bún chả");
+  for (let i = 0; i < 210; i++) learnFood(state, { ...f, name: `Plat ${i}` });
+  assert.equal(Object.keys(state.foodCustom).filter(k => k.startsWith("ai:")).length, 200); // les plus anciens partent
+});
+
+test("valeurs de référence pour fiabiliser l'IA ; réponses « combien de calories »", () => {
+  assert.equal(refFood("Riz blanc cuit").name, "Riz blanc cuit");
+  assert.equal(refFood("Bananes").name, "Banane");
+  assert.equal(refFood("Poulet grillé au curry, sauce maison"), null); // pas d'à-peu-près
+  assert.match(foodFacts("Combien de calories dans une banane ?"), /\*\*Banane\*\* : 90 kcal pour 100 g/);
+  assert.match(foodFacts("combien de kcal dans 2 oeufs"), /Pour 110 g : 160 kcal/);
+  assert.match(foodFacts("proteines du skyr"), /1 pot \(150 g\) ≈ 95 kcal/);
+  assert.equal(foodFacts("combien de calories par jour pour secher"), null);
+  assert.equal(foodFacts("j'ai mal au ventre, combien de calories ?"), null);
+  const state = { foodCustom: { "ai:bun cha": { name: "Bún chả", aka: ["bun cha hanoi"], per: { k: 150, p: 9, c: 15, f: 6 }, unit: { label: "bol", g: 400 }, src: "ai" } } };
+  assert.match(foodFacts("combien de calories dans un bun cha", state), /Bún chả/);
 });
