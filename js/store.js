@@ -2,6 +2,7 @@
 // elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
 import { targets, waterGoal } from "./nutrition.js";
+import { leaguePublic } from "./league.js";
 
 export const LEGACY_KEY = "greatness.v2"; // ancienne version à compte unique
 const dataKey = user => `greatness.data.${user}`;
@@ -227,6 +228,7 @@ export function publicSummary() {
     last: (() => { const l = weekStats(1); return { start: ws - 7 * 864e5, count: l.count, volume: Math.round(l.volume), minutes: l.minutes, prs: l.prs }; })(),
     duels: (state.duels || []).filter(d => d.w >= ws - 8 * 864e5).map(({ u, m, w, by }) => ({ u, m, w, by })),
     prs: recentPrs(5),
+    league: leaguePublic(state), // ligue entre amis : saison, division, points (voir league.js)
     updatedAt: Date.now(),
   };
 }

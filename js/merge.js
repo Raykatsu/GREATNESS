@@ -56,12 +56,16 @@ export function mergeData(a = {}, b = {}) {
   // objectifs chiffrés : réunis ; pour un même objectif, la version modifiée en dernier
   const goals = [...byId(older.goals)].reduce((m, [id, g]) => { const o = m.get(id); if (!o || (g.at || 0) > (o.at || 0)) m.set(id, g); return m; }, byId(newer.goals));
   const gg = gone("goals");
+  // ligue : la fin de saison la plus récente (et, à égalité, la dernière modifiée), historique réuni
+  const lg = [older.league, newer.league].filter(Boolean).sort((x, y) => (x.season || 0) - (y.season || 0) || (x.at || 0) - (y.at || 0)).at(-1);
+  const league = lg && { ...lg, history: [...new Map([...(older.league?.history || []), ...(newer.league?.history || []), ...(lg.history || [])].map(h => [h.s, h])).values()].sort((x, y) => x.s - y.s).slice(-24) };
 
   return {
     ...older, ...newer,
     sessions, customPrograms, customExercises, lifts, badges, deleted,
     food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom }, memory, reviews, duels, duelLog,
     goals: [...goals.values()].filter(g => !gg.has(g.id)).sort((x, y) => x.start - y.start),
+    ...(league ? { league } : {}),
     body: [...bodyMap.values()].sort((p, q) => p.date - q.date),
     exNotes: { ...older.exNotes, ...newer.exNotes },
     cycleStart: Math.min(...[a.cycleStart, b.cycleStart].filter(Boolean)) || null,
@@ -75,6 +79,6 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league], clean);
   return pick(merged) !== pick(base);
 }

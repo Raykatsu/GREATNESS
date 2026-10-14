@@ -9,6 +9,7 @@ import { readinessScore, readinessVerdict } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
+import { goalFix } from "./goals.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
@@ -111,7 +112,7 @@ function exList(list, host, onChange) {
       <span class="pv-n tnum">${i + 1}</span>
       <div class="pv-main">
         <div class="pv-name">${esc(EXERCISES[e.id].name)}${demoBtn(e.id, "demo-sm")}</div>
-        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}</div>
+        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}${e.fixed?.note ? ` · <span class="pv-goal-tag">🎯 objectif</span>` : ""}</div>
       </div>
       <div class="tools">
         <button class="icon-btn plain" data-a="up" data-i="${i}" aria-label="Monter" ${i === 0 ? "disabled" : ""}>${I.up}</button>
@@ -140,7 +141,12 @@ function exList(list, host, onChange) {
 /* ---------- Aperçu d'un programme ---------- */
 export function openProgram(program, startLive, refresh) {
   const base = adaptToGoal(program);
-  const work = structuredClone(base.exercises);
+  // objectif chiffré en cours sur un exercice de la séance : l'aperçu montre déjà la prescription de la semaine
+  const goals = !program.simple && !["mobility", "stretch", "care"].includes(program.cat);
+  const work = structuredClone(base.exercises).map(e => {
+    const fix = goals && !e.fixed ? goalFix(e.id) : null;
+    return fix ? { ...e, sets: fix.sets, reps: [fix.goal, fix.goal], weight: fix.weight, fixed: { weight: fix.weight, goal: fix.goal, sets: fix.sets, note: fix.note } } : e;
+  });
   let edited = false;
   const custom = program.cat === "custom";
   const c = custom ? "custom" : catOf(program);
@@ -180,7 +186,7 @@ export function openProgram(program, startLive, refresh) {
       state.customPrograms = state.customPrograms.filter(x => x.id !== program.id); tombstone("programs", program.id); save(); sh.close(); refresh?.(); toast("Séance supprimée");
     });
     $("#save-new", sh.el)?.addEventListener("click", () => {
-      state.customPrograms.push({ id: "c" + Date.now(), name: program.name + " (perso)", tag: "Version modifiée", accent: program.accent, exercises: structuredClone(work) });
+      state.customPrograms.push({ id: "c" + Date.now(), name: program.name + " (perso)", tag: "Version modifiée", accent: program.accent, exercises: structuredClone(work).map(({ fixed, ...e }) => e) });
       save(); toast("Ajoutée à « Mes séances »"); edited = false; meta();
     });
   };

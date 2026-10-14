@@ -8,7 +8,7 @@ import { spidey } from "./spidey.js";
 import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
-import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON } from "./social.js";
+import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON, ensureLeague } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
 import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS } from "./cloud.js";
 import * as llm from "./llm.js";
@@ -215,6 +215,7 @@ function waterNudge() {
 
 function home() {
   ensureAdaptive();
+  ensureLeague(); // sans comptes en ligne : fin de saison de la ligue réglée ici
   const p = state.profile;
   const r = rankInfo();
   const m = todaysMission();
@@ -372,7 +373,8 @@ async function socialTick() {
   refreshPush();
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
-  const top = ev.find(e => e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
+  const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
+  if (top.kind === "league" && top.move > 0) setTimeout(() => spidey.react?.("party"), 600);
   toast(`${FEED_ICON[top.kind] || ""} ${top.text}`, 5000);
   if (current === "home" && !document.querySelector(".sheet-wrap")) route();
 }

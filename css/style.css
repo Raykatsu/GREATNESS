@@ -2346,6 +2346,33 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .gr-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue-ink); }
 .goal-res.ok .gr-ic { background: var(--green-soft); color: var(--green-ink); }
 .gr-ic svg { width: 20px; height: 20px; }
+.pv-goal-tag { color: var(--blue-ink); font-weight: 700; }
+/* Ligue entre amis */
+.lg-rules-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.lg-rules-btn svg { width: 15px; height: 15px; }
+.lg-card { padding: 14px 16px 12px; background: linear-gradient(160deg, color-mix(in srgb, var(--lg) 16%, transparent), transparent 60%), var(--card); --lg: #c98a4b; }
+.lg-argent { --lg: #b9c2d0; } .lg-or { --lg: #f5c542; } .lg-platine { --lg: #5ad1d6; } .lg-diamant { --lg: #7aa2ff; } .lg-legende { --lg: #ff6b78; }
+.lg-head { display: flex; align-items: center; gap: 12px; }
+.lg-head .grow { display: grid; gap: 1px; }
+.lg-head b { font-family: var(--display); font-size: var(--fs-md); }
+.lg-badge { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: color-mix(in srgb, var(--lg) 22%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lg) 55%, transparent); }
+.lg-pts { font-family: var(--display); font-size: 24px; line-height: 1; }
+.lg-pts small { font-size: 12px; color: var(--muted); font-weight: 600; }
+.lg-table { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 3px; }
+.lg-table li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 11px; font-size: 14px; border-left: 3px solid transparent; }
+.lg-table li.up { border-left-color: var(--green); } .lg-table li.down { border-left-color: var(--red); }
+.lg-table li.me { background: var(--card-2); font-weight: 700; }
+.lg-table .pos { width: 20px; text-align: center; font-weight: 800; color: var(--muted); }
+.lg-table .lg-div { font-size: 15px; }
+.lg-next { margin: 10px 2px 2px; color: var(--muted); }
+.lg-rules > div, .lg-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; font-size: 14px; border-bottom: 1px solid var(--line); }
+.lg-rules > div:last-child, .lg-h:last-child { border-bottom: 0; }
+.lg-rules b { color: var(--green-ink); }
+.lg-ladder { display: grid; gap: 4px; }
+.lg-ladder div { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--card-2); }
+.lg-ladder div span { font-size: 20px; }
+.lg-ladder div b { flex: 1; font-size: 14px; }
+.lg-ladder div.on { box-shadow: inset 0 0 0 1.5px var(--blue); background: var(--blue-soft); }
 .nut-hist { padding: var(--s-4); }
 .nh-chart { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; }
 .nh-b { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
