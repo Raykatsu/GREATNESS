@@ -2,6 +2,7 @@
 
 L'app iPhone est la même que le site, emballée avec [Capacitor](https://capacitorjs.com) (dossier [`app-store/`](app-store/)). Elle ajoute ce que seul le natif permet :
 - **Apple Santé lu directement** (sommeil, VFC, fréquence au repos, pas, poids, énergie active), sans Raccourci.
+- **Face ID / Touch ID** pour déverrouiller l'app à la place du code secret.
 - **Fin du repos en notification locale**, même sans réseau, et **rappels de séance** programmés sur le téléphone.
 - **Vibrations** natives.
 
@@ -91,7 +92,7 @@ Apple répond en général en 24 à 48 h.
 - **Personnages sous licence** (règle 5.2) : dans l'app App Store, Spider-Man devient « Tisseur » (rangs compris) et Harley Quinn n'est pas proposée. Les dessins restent inspirés des héros : si Apple refuse pour cette raison, mets « Aucun personnage » par défaut ou redessine ce coach.
 - **Suppression du compte** (règle 5.1.1) : Moi → Réglages → Compte → *Supprimer définitivement mon compte*.
 - **Apple Santé** : l'app lit seulement, et l'explique avant de demander l'accès. Les mesures ne servent qu'au coaching (règle 5.1.3).
-- **Plus qu'un site** (règle 4.2) : Santé natif, notifications locales, vibrations, caméra (compteur, vitesse de barre), coach IA.
+- **Plus qu'un site** (règle 4.2) : Santé natif, Face ID, notifications locales, vibrations, caméra (compteur, vitesse de barre), coach IA.
 - **Notifications des amis** (duel, ligue) : dans l'app App Store, seuls les rappels de séance et la fin du repos arrivent en notification ; le reste s'affiche à l'ouverture.
 
 ## En local, avec un Mac (facultatif)

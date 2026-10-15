@@ -1,9 +1,10 @@
 // Écran de connexion : choix du compte, pavé numérique, création de compte.
-import { knownAccounts, lastUser, login, createAccount, isOnlineMode, normalize, USERNAME_RE, PIN_RE, forget } from "./cloud.js";
+import { knownAccounts, lastUser, login, createAccount, isOnlineMode, normalize, USERNAME_RE, PIN_RE, forget, bioOf, setBio, bioAsked, unlockKnown } from "./cloud.js";
+import { bioName, bioEnroll, bioVerify } from "./bio.js";
 import { legacyData, LEGACY_KEY } from "./store.js";
 import { spidey } from "./spidey.js";
 import { webSvg } from "./fx.js";
-import { $, $$, esc, I, spider, toast, confirmSheet } from "./ui.js";
+import { $, $$, esc, I, spider, toast, confirmSheet, sheet } from "./ui.js";
 
 let view, done, mode, ctx, sayTimer;
 // Petite phrase de Spider-Man, annulée si on change d'écran entre-temps.
@@ -116,14 +117,31 @@ async function attempt(fn) {
 }
 
 function pinScreen() {
-  const u = ctx.user;
-  const kp = keypad({ len: u.len, onDone: pin => attempt(async () => { await login(u.username, pin); finish(); }) });
+  const u = ctx.user, bio = bioOf(u.username);
+  const kp = keypad({ len: u.len, onDone: pin => attempt(async () => { await login(u.username, pin); finish(false, u); }) });
   view.innerHTML = `<div class="onb lock">${avatar(u.name, true)}<h1 class="h2 center auth-title">Salut ${esc(u.name)} !</h1>
     <p class="muted center small auth-sub">Tape ton code secret</p>${kp.html}
     <p class="err center" id="err"></p><div class="center auth-busy"><span class="spinner hidden" id="busy"></span></div>
+    ${bio ? `<button class="btn btn-soft btn-block bio-btn hidden" id="bio">${I.face}<span>Déverrouiller avec <b id="bio-name">Face ID</b></span></button>` : ""}
     <div class="auth-links"><button class="btn btn-ghost btn-sm" id="switch">Changer de compte</button><button class="btn btn-ghost btn-sm" id="forgot">Code oublié ?</button></div></div>`;
   kp.bind();
   $("#switch").onclick = () => go(knownAccounts().length > 1 ? "pick" : "welcome");
+  // Face ID / Touch ID : proposé tout de suite (sans geste, le navigateur peut refuser : on attend alors le bouton)
+  if (bio) bioName().then(name => {
+    const b = $("#bio");
+    if (!name || !b || mode !== "pin" || ctx.user !== u) return;
+    $("#bio-name").textContent = name;
+    b.classList.remove("hidden");
+    const unlock = auto => bioVerify(bio)
+      .then(async ok => { if (!ok) throw new Error("refusé"); await unlockKnown(u.username); if (mode === "pin") finish(); })
+      .catch(e => {
+        if (mode !== "pin") return;
+        if (e?.code === "BAD_CREDENTIALS") shake("Tape ton code une fois pour te reconnecter.");
+        else if (!auto) shake(`${name} n'a pas marché : tape ton code.`);
+      });
+    b.onclick = () => unlock(false);
+    unlock(true);
+  });
   $("#forgot").onclick = async () => {
     if (isOnlineMode()) return toast("Demande à l'administrateur de l'app de réinitialiser ton code.", 4500);
     if (await confirmSheet("Code oublié ?", "Sur cet appareil, le seul moyen est de supprimer ce compte et ses données, puis d'en recréer un.", "Supprimer ce compte", true)) {
@@ -137,7 +155,7 @@ function loginScreen() {
   const submit = pin => attempt(async () => {
     const u = $("#user").value;
     if (!u.trim()) throw new Error("Entre ton pseudo.");
-    await login(u, pin); finish();
+    await login(u, pin); finish(false, { username: normalize(u), name: u.trim() });
   });
   view.innerHTML = `<div class="onb lock compact">${header("Connexion", isOnlineMode() ? "Ton pseudo et ton code, depuis n'importe quel téléphone." : "Compte enregistré sur cet appareil.")}
     <label class="field mt"><span>Pseudo</span><input class="input" id="user" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(ctx.prefill || "")}"/></label>
@@ -199,10 +217,28 @@ function confirmPin() {
   $("#back").onclick = () => go("choose", { username, importLegacy });
 }
 
-function finish(created) {
+function finish(created, pinUser) {
   onkeydown = null;
   view.classList.remove("auth");
   spidey.react("party");
   if (created) toast("Compte créé ✓");
   done?.(created);
+  if (pinUser) setTimeout(() => offerBio(pinUser), 1400);
+}
+
+// Après un code tapé : proposer Face ID / Touch ID une fois par compte et par appareil
+async function offerBio(u) {
+  if (bioOf(u.username) || bioAsked(u.username) || document.querySelector(".sheet-wrap, .live")) return;
+  const name = await bioName();
+  if (!name) return;
+  const sh = sheet(`<div class="bio-offer"><span class="bio-ic" aria-hidden="true">${I.face}</span>
+    <h2 class="h2">Déverrouiller avec ${esc(name)} ?</h2>
+    <p class="muted small">La prochaine fois, un regard suffit : plus besoin de taper ton code. Rien ne quitte ton téléphone, et ton code marche toujours.</p>
+    <button class="btn btn-primary btn-lg btn-block mt" id="bio-yes">Activer ${esc(name)}</button>
+    <button class="btn btn-ghost btn-block mt-s" id="bio-no">Plus tard</button></div>`, { z: 70 });
+  $("#bio-no", sh.el).onclick = () => { setBio(u.username, null); sh.close(); };
+  // la demande part dans le geste (sinon Safari la refuse)
+  $("#bio-yes", sh.el).onclick = () => bioEnroll(u.username, u.name)
+    .then(b => { setBio(u.username, b); sh.close(); toast(`${name} activé ✓`); })
+    .catch(() => toast(`${name} n'a pas pu être activé. Réessaie dans Moi → Réglages → Compte.`, 4500));
 }

@@ -69,6 +69,18 @@ export function nativeHaptic(kind = "light") {
   return true;
 }
 
+/* ---------- Face ID / Touch ID (déverrouillage, bio.js) ---------- */
+export async function nativeBio() {
+  const B = isNative() && plugin("NativeBiometric");
+  if (!B) return null;
+  try { const r = await B.isAvailable(); return r.isAvailable ? (r.biometryType === 1 ? "Touch ID" : "Face ID") : null; } catch { return null; }
+}
+export async function nativeBioVerify(reason) {
+  const B = isNative() && plugin("NativeBiometric");
+  if (!B) return false;
+  try { await B.verifyIdentity({ reason, title: "GREATNESS" }); return true; } catch { return false; }
+}
+
 /* ---------- Apple Santé (HealthKit) ---------- */
 const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories"];
 const iso = t => new Date(t).toISOString();

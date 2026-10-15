@@ -150,7 +150,20 @@ En séance, bouton **Duo** (compte en ligne) : crée un duo et envoie le code de
 
 - **Ouverture plus rapide** : les modules de démarrage sont annoncés au navigateur dès la première ligne de la page (`scripts/preload.mjs` tient la liste à jour, un test vérifie qu'elle l'est) ; les écrans rares (import, coach vidéo) ne se chargent qu'à l'ouverture.
 - **Accessibilité** : chaque écran passe l'audit axe-core (WCAG 2.1 AA) en thème sombre, noir et clair : contrastes, noms des boutons et des barres de progression, feuilles utilisables au clavier et au lecteur d'écran, animations coupées avec « Réduire les animations ».
-- **Plantages signalés** : une erreur JavaScript sur un téléphone remonte, anonyme (message, fichier et ligne, version, type de navigateur ; aucune donnée d'entraînement), au plus 10 par jour et une seule fois chacune. Elles s'affichent dans le déploiement Supabase (étape « Erreurs signalées par l'app »).
+- **Plantages signalés** : une erreur JavaScript sur un téléphone remonte, anonyme (message, fichier et ligne, version, type de navigateur ; aucune donnée d'entraînement), au plus 10 par jour et une seule fois chacune. Elles s'affichent dans le déploiement Supabase (étape « Erreurs signalées par l'app ») et dans l'app pour l'administrateur.
+- **Tests dans un iPhone simulé** : à chaque modification, GitHub ouvre l'app dans un iPhone simulé (Chromium) et refait un parcours complet (compte, tous les onglets, une séance jusqu'à la carte à partager, Face ID), le compte en ligne (retours, administrateur, plantages) et l'audit d'accessibilité de chaque écran en thème sombre et clair (`tests/browser/`, `npm run test:browser`).
+
+## Face ID
+
+**Moi → Réglages → Compte → Déverrouiller avec Face ID** (ou Touch ID), proposé aussi après avoir tapé ton code : l'app s'ouvre d'un regard, plus besoin de retaper ton code. Sur le site, c'est une clé d'accès (WebAuthn) créée pour ton compte sur ce téléphone ; dans l'app App Store, la biométrie de l'iPhone. Rien ne quitte le téléphone et le code marche toujours. Avec « Code à chaque ouverture », c'est Face ID qui est demandé à chaque retour dans l'app.
+
+## Carte de séance à partager
+
+À la fin d'une séance (ou depuis l'historique), **Partager ma séance** crée une image au format story : ton coach avec son costume, la séance, la durée, le volume, les séries, tes records et ton XP. Aperçu, puis la feuille de partage de l'iPhone (Instagram, WhatsApp, Messages, Photos…).
+
+## Une idée ? Un souci ?
+
+**Moi → Réglages → Une idée ? Un souci ?** : idée, souci ou autre, envoyé directement depuis l'app avec la version et l'écran ouvert, signé de ton pseudo si tu veux une réponse. Hors réseau, il part tout seul au retour de la connexion. L'administrateur de l'app lit les messages **et les plantages** dans **Moi → Réglages → Retours reçus** (voir SUPABASE.md pour devenir administrateur) ; le dépôt étant public, GitHub n'en affiche que le nombre.
 
 ## Récupération musculaire
 
@@ -210,7 +223,9 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, SQL (PGlite)
+npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
+npx playwright install chromium
+npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -275,6 +290,9 @@ js/costumes.js    les costumes du coach (teintes et accessoires)
 js/duo.js         duo à distance : salle, code, état de l'autre, encouragements
 js/errors.js      remontée anonyme des plantages
 js/version.js     version de l'app (la même que le cache de sw.js)
+js/bio.js         Face ID / Touch ID : clé d'accès (WebAuthn) ou biométrie native
+js/sharecard.js   carte de séance à partager (image au format story)
+js/feedback.js    « Une idée ? Un souci ? » et boîte « Retours reçus » de l'administrateur
 app-store/        projet Capacitor (copie du site, réglages iPhone, icônes) ; APPSTORE.md pour publier
 scripts/preload.mjs  liste des modules préchargés dans index.html (--check pour vérifier)
 sw.js             cache hors ligne + réception des notifications
@@ -293,6 +311,8 @@ supabase/010_rest_timer.sql    alertes de fin de repos (écran verrouillé)
 supabase/011_account_delete.sql  suppression définitive du compte depuis l'app
 supabase/012_duo.sql           salles du duo à distance
 supabase/013_errors.sql        plantages signalés par l'app
+supabase/014_feedback.sql      retours des utilisateurs, administrateurs de l'app
+tests/browser/           tests dans un iPhone simulé (Playwright)
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

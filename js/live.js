@@ -162,7 +162,7 @@ function render() {
     const d = ex.done[i];
     const prev = last?.[i] ? fmtSet(last[i], ex) : "—";
     if (d) return `<div class="set done ${i === justDone ? "just" : ""}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
-      ${load ? `<span class="val">${fmtKg(d.weight)}</span>` : ""}<span class="val">${d.reps}<small>${unit(ex)}</small>${simple ? "" : `<span class="rpe-b">@${d.rpe}</span>`}</span><span class="ok" aria-label="Série faite">${TICK}</span></div>`;
+      ${load ? `<span class="val">${fmtKg(d.weight)}</span>` : ""}<span class="val">${d.reps}<small>${unit(ex)}</small>${simple ? "" : `<span class="rpe-b">@${d.rpe}</span>`}</span><span class="ok" role="img" aria-label="Série faite">${TICK}</span></div>`;
     const cur = i === ex.done.length;
     return `<div class="set ${cur ? "cur" : "todo"}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
       ${load ? `<span class="val" ${cur ? 'id="v-weight"' : ""}>${fmtKg(cur ? ui.weight : ex.weight)}</span>` : ""}
@@ -663,7 +663,7 @@ function finish() {
     ${goals.map(goalResultHtml).join("")}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
     ${sum.sets.length ? `<label class="field fin-note"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…"></textarea></label>` : ""}
-    <div class="fin-actions">${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
+    <div class="fin-actions">${sum.sets.length ? `<button class="btn btn-soft btn-block" id="share-sess">${I.share} Partager ma séance</button>` : ""}${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
       : isWorkout(done.program) ? `<button class="btn btn-soft btn-block cool-btn" id="cool">${I.heart} Retour au calme · 8 min</button>` : ""}</div>
     <div class="fin-foot">${next ? `<button class="btn btn-primary btn-lg btn-block" id="next">${I.play} Échauffé ! Enchaîner : ${esc(next.program.name)}</button>`
       : `<button class="btn btn-primary btn-lg btn-block" id="home">Retour à l'accueil</button>`}</div>
@@ -672,6 +672,7 @@ function finish() {
   const relaunch = (program, readiness) => { const exit = onExit; onExit = null; close(); startLive(program, readiness, exit); };
   $("#next")?.addEventListener("click", () => relaunch(next.program, next.readiness));
   $("#cool")?.addEventListener("click", () => relaunch(getProgram("cooldown"), done.readiness));
+  $("#share-sess")?.addEventListener("click", () => import("./sharecard.js").then(m => m.openShare(sum)));
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   spidey.setContext("app");

@@ -18,3 +18,20 @@ jobs:
         run: for f in js/*.js sw.js; do node --check "$f"; done
       - name: Tests (moteur, coach, planning, SQL des comptes et des amis)
         run: npm test
+
+  # L'app dans un iPhone simulé (Chromium) : parcours complet (séance, carte à partager, Face ID), compte en ligne
+  # (retours des utilisateurs, administrateur, plantages) et accessibilité de chaque écran en thème sombre et clair
+  navigateur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Navigateur Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Tests dans un iPhone simulé
+        run: npm run test:browser
