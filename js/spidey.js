@@ -118,9 +118,9 @@ class Coach {
 
   // Changement de coach : petit nuage « pouf », puis le nouveau tombe en place et dit bonjour.
   async swap(c, why) {
-    if (!this.el || c === this.char) return;
+    if (!this.el || (c === this.char && why !== "costume")) return;
     this.setTab(c);
-    const quiet = !this.enabled || why !== "set" || reduced() || this.dragging || this.hanging || document.hidden;
+    const quiet = !this.enabled || (why !== "set" && why !== "costume") || reduced() || this.dragging || this.hanging || document.hidden;
     if (quiet) {
       this.build(c);
       if (!this.peeker) this.unpeek();

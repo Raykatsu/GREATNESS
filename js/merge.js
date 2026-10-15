@@ -60,8 +60,20 @@ export function mergeData(a = {}, b = {}) {
   const lg = [older.league, newer.league].filter(Boolean).sort((x, y) => (x.season || 0) - (y.season || 0) || (x.at || 0) - (y.at || 0)).at(-1);
   const league = lg && { ...lg, history: [...new Map([...(older.league?.history || []), ...(newer.league?.history || []), ...(lg.history || [])].map(h => [h.s, h])).values()].sort((x, y) => x.s - y.s).slice(-24) };
 
+  // mode histoire : chapitres réussis réunis (première date), on garde le chapitre le plus avancé
+  const ss = [older.story, newer.story].filter(Boolean);
+  const story = ss.length ? (() => {
+    const done = {};
+    for (const x of ss) for (const [k, t] of Object.entries(x.done || {})) done[k] = done[k] ? Math.min(done[k], t) : t;
+    const best = ss.slice().sort((x, y) => (x.chapter || 0) - (y.chapter || 0) || (y.started || 0) - (x.started || 0)).at(-1);
+    return { ...best, done };
+  })() : null;
+
   return {
     ...older, ...newer,
+    ...(story ? { story } : {}),
+    // analyses vidéo de la technique : réunies
+    ...(older.formChecks || newer.formChecks ? { formChecks: unionById(older.formChecks, newer.formChecks, "formChecks").sort((x, y) => x.at - y.at).slice(-40) } : {}),
     sessions, customPrograms, customExercises, lifts, badges, deleted,
     food, foodRecent, foodMeals, foodCustom: { ...older.foodCustom, ...newer.foodCustom }, memory, reviews, duels, duelLog,
     goals: [...goals.values()].filter(g => !gg.has(g.id)).sort((x, y) => x.start - y.start),
@@ -79,6 +91,6 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league, d.story, d.formChecks?.length], clean);
   return pick(merged) !== pick(base);
 }

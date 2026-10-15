@@ -24,6 +24,10 @@ jobs:
   ios:
     runs-on: macos-15
     timeout-minutes: 75
+    # bash avec pipefail : une erreur de xcodebuild n'est pas masquée par « | tail »
+    defaults:
+      run:
+        shell: bash
     env:
       BUNDLE_ID: io.github.raykatsu.greatness
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

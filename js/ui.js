@@ -46,6 +46,7 @@ export const I = {
   mic: ic('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
   camera: ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   eye: ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  video: ic('<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 5-3v9l-5-3z"/>'),
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
 };
 // Visage du coach choisi (avatar utilisé partout dans l'app).
@@ -76,7 +77,7 @@ export function sheet(html, { onClose, z } = {}) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
   if (z) wrap.style.zIndex = z;
-  wrap.innerHTML = `<div class="sheet-bd"></div><div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="grab"></div>${html}</div>`;
+  wrap.innerHTML = `<div class="sheet-bd"></div><div class="sheet" role="dialog" aria-modal="true" tabindex="0"><div class="grab"></div>${html}</div>`;
   document.body.appendChild(wrap);
   const bd = wrap.firstElementChild, s = wrap.lastElementChild;
   let closed = false;

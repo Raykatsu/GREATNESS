@@ -85,7 +85,7 @@ export function coachGallery(el, { compact = false, onPick } = {}) {
   };
 
   const tile = (c, i, on) => `<button class="cg-tile${on ? " on" : ""}" data-coach="${c.id}" style="${look(c)};--i:${Math.min(i, 14)}" aria-pressed="${on}" aria-label="${esc(c.name)} · ${esc(c.group)} · ${esc(travelLabel(c))}">
-      <span class="cg-fig">${figure(c, { pose: "idle" })}</span>
+      <span class="cg-fig">${figure(c, { pose: "idle", costume: null })}</span>
       <b class="cg-name">${esc(c.name)}</b>
       <span class="cg-meta">${compact ? "" : `<span>${esc(c.group)}</span>`}<span class="cg-tr" title="${esc(travelLabel(c))}">${TRAVEL_ICON[c.travel]}</span></span>
       <i class="cg-check" aria-hidden="true">${I.check}</i></button>`;

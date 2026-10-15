@@ -6,7 +6,6 @@ import { figure, bodyMap, muscleNames } from "./body.js";
 import { moveOf, sayOf, viewLabel, effortOf, fastOf } from "./moves.js";
 import { phaseAt, stageAt } from "./anim.js";
 import { camFor, openCam } from "./cam.js";
-import { openVideoCoach, VIDEO } from "./videocoach.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
 // Pour chaque type de mouvement. Le mouvement va de la position A à la position B (« go ») puis revient (« back ») ;
@@ -107,7 +106,7 @@ export function openDemo(id) {
       <div><i class="lg p"></i><span><b>Travaille surtout</b>${names(mus.p)}</span></div>
       ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>` : ""}
     ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
-    ${videoFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-video">${VIDEO}<span><b>Analyse vidéo par l'IA</b><small>Filme une série : l'IA te dit quoi corriger, image à l'appui</small></span>${I.chev}</button>` : ""}
+    ${videoFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-video">${I.video}<span><b>Analyse vidéo par l'IA</b><small>Filme une série : l'IA te dit quoi corriger, image à l'appui</small></span>${I.chev}</button>` : ""}
     <h3 class="demo-h">Mise en place</h3><p>${esc(g.setup)}</p>
     <h3 class="demo-h">Le mouvement</h3>
     <ol class="demo-steps">${steps.map(([k, t], i) => `<li data-step="${k}"><span class="tnum">${i + 1}</span>${esc(t)}</li>`).join("")}</ol>
@@ -151,7 +150,8 @@ export function openDemo(id) {
   };
   $("#dm-play", sh.el).onclick = () => setPlaying(!playing);
   $("#dm-cam", sh.el)?.addEventListener("click", () => { setPlaying(false); openCam({ ...ex, id }, { practice: true }); });
-  $("#dm-video", sh.el)?.addEventListener("click", () => { setPlaying(false); openVideoCoach({ ...ex, id }); });
+  // coach vidéo : chargé seulement quand on s'en sert
+  $("#dm-video", sh.el)?.addEventListener("click", () => { setPlaying(false); import("./videocoach.js").then(m => m.openVideoCoach({ ...ex, id })); });
   $$("#dm-speed button", sh.el).forEach(b => b.onclick = () => {
     const now = performance.now();
     offset += (now - t0) * speed; t0 = now; speed = +b.dataset.s;
