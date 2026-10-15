@@ -1,6 +1,7 @@
 // Planification : programme de la semaine et adaptation à l'objectif.
 import { GOALS, EXERCISES } from "./data.js";
 import { state, save, getProgram, todayIndex, sessionsOn, weekStart } from "./store.js";
+import { CLASSICS, CLASSIC_DAYS } from "./classics.js";
 
 // Jours (0 = lundi) et séances selon le nombre de jours et le matériel.
 const LAYOUTS = {
@@ -28,6 +29,12 @@ const LAYOUTS = {
 };
 
 export function generateWeekPlan({ days = state.profile.days, equipment = state.profile.equipment, goal = state.profile.goal } = {}) {
+  // programme célèbre en cours : ses jours d'entraînement (la séance suivante du programme), mobilité le dimanche
+  if (state.classic && CLASSICS[state.classic.id]) {
+    const plan = { 6: "mobility" };
+    CLASSIC_DAYS[CLASSICS[state.classic.id].days].forEach(d => (plan[d] = "classic"));
+    return plan;
+  }
   const layout = (LAYOUTS[equipment] || LAYOUTS.gym)[Math.min(6, Math.max(2, days))];
   const plan = {};
   layout.forEach(([d, id]) => (plan[d] = id));
@@ -76,7 +83,7 @@ export function weekStrip() {
 // Adapte reps / repos / RPE à l'objectif. Les 2 premiers exercices "charge" sont les mouvements principaux.
 export function adaptToGoal(program, goal = state.profile.goal) {
   const g = GOALS[goal];
-  if (!g || program.simple || program.cat === "cardio" || program.cat === "custom") return program;
+  if (!g || program.simple || program.cat === "cardio" || program.cat === "custom" || program.classic) return program; // programme célèbre : ses propres séries
   let mains = 0;
   return {
     ...program,

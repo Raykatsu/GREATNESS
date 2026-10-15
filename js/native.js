@@ -69,6 +69,19 @@ export function nativeHaptic(kind = "light") {
   return true;
 }
 
+/* ---------- Dynamic Island et écran verrouillé : le repos qui défile (Live Activity, GreatnessPlugin.swift) ---------- */
+// r : { start, end (ms), title : l'exercice qui suit, detail : « Série 2/4 · 80 kg × 5 » } ; null : fin du repos
+export function nativeRestLive(r) {
+  const G = isNative() && plugin("Greatness");
+  if (!G) return;
+  (r ? G.restStart({ start: r.start, end: r.end, title: r.title, detail: r.detail || "", session: "GREATNESS" }) : G.restEnd()).catch(() => {});
+}
+/* ---------- Widget « Séance du jour » (données partagées avec l'extension) ---------- */
+export function nativeWidget(data) {
+  const G = isNative() && plugin("Greatness");
+  if (G) G.widgetSet({ json: JSON.stringify(data) }).catch(() => {});
+}
+
 /* ---------- Face ID / Touch ID (déverrouillage, bio.js) ---------- */
 export async function nativeBio() {
   const B = isNative() && plugin("NativeBiometric");

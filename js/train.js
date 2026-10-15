@@ -9,6 +9,8 @@ import { readinessScore, readinessVerdict } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
+import { schemeText } from "./classics.js";
+import { classicsSection, bindClassics } from "./classics-ui.js";
 import { goalFix } from "./goals.js";
 import { healthReadiness, HEART } from "./health-ui.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
@@ -17,6 +19,7 @@ let filter = "all";
 const fmtReps = e => {
   const u = EXERCISES[e.id].type === "time" ? "s" : "reps";
   if (e.ramp) { const t = e.ramp.find(r => r.attempt); return t.weight ? `montée en charge puis tentative à ${String(t.weight).replace(".", ",")} kg` : `échauffement puis le maximum (objectif ${t.reps} ${u})`; }
+  if (e.scheme) return schemeText(e);
   return e.reps[0] === e.reps[1] ? `${e.reps[0]} ${u}` : `${e.reps[0]}–${e.reps[1]} ${u}`;
 };
 const fold = s => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -71,6 +74,7 @@ export function renderTrain(view, startLive) {
     </button>
     ${intervalCard()}
     ${goalCard({ invite: true })}
+    ${classicsSection()}
     <div class="tr-list" id="tr-list"></div>
     <button class="fab" aria-label="Créer une séance">${I.plus}</button>`;
   const host = $("#tr-list", view);
@@ -104,6 +108,7 @@ export function renderTrain(view, startLive) {
   $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
   $("#iv-start", view).onclick = () => openIntervals();
   bindGoalCard(view, () => { if (location.hash.startsWith("#/train")) renderTrain(view, startLive); });
+  bindClassics(view, () => { if (location.hash.startsWith("#/train")) renderTrain(view, startLive); });
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */
@@ -113,17 +118,17 @@ function exList(list, host, onChange) {
       <span class="pv-n tnum">${i + 1}</span>
       <div class="pv-main">
         <div class="pv-name">${esc(EXERCISES[e.id].name)}${demoBtn(e.id, "demo-sm")}</div>
-        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}${e.fixed?.note ? ` · <span class="pv-goal-tag">🎯 objectif</span>` : ""}</div>
+        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp && !e.scheme ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}${e.fixed?.note ? ` · <span class="pv-goal-tag">🎯 objectif</span>` : ""}</div>
       </div>
       <div class="tools">
         <button class="icon-btn plain" data-a="up" data-i="${i}" aria-label="Monter" ${i === 0 ? "disabled" : ""}>${I.up}</button>
         <button class="icon-btn plain" data-a="del" data-i="${i}" aria-label="Retirer">${I.trash}</button>
       </div>
-      <div class="pv-step" role="group" aria-label="Séries">
+      ${e.scheme ? `<div class="pv-step"><span class="tnum"><b>${e.sets}</b> série${e.sets > 1 ? "s" : ""} imposée${e.sets > 1 ? "s" : ""}</span></div>` : `<div class="pv-step" role="group" aria-label="Séries">
         <button data-a="minus" data-i="${i}" aria-label="Moins de séries" ${e.sets <= 1 ? "disabled" : ""}>${I.minus}</button>
         <span class="tnum"><b>${e.sets}</b> série${e.sets > 1 ? "s" : ""}</span>
         <button data-a="plus" data-i="${i}" aria-label="Plus de séries" ${e.sets >= 8 ? "disabled" : ""}>${I.plus}</button>
-      </div>
+      </div>`}
     </li>`).join("")}</ol>` : `<div class="empty">${I.plus}<b>Séance vide</b>Ajoute des exercices pour composer ta séance.</div>`;
   $$("[data-a]", host).forEach(b => b.onclick = () => {
     const i = +b.dataset.i, a = b.dataset.a;
@@ -145,7 +150,7 @@ export function openProgram(program, startLive, refresh) {
   // objectif chiffré en cours sur un exercice de la séance : l'aperçu montre déjà la prescription de la semaine
   const goals = !program.simple && !["mobility", "stretch", "care"].includes(program.cat);
   const work = structuredClone(base.exercises).map(e => {
-    const fix = goals && !e.fixed ? goalFix(e.id) : null;
+    const fix = goals && !e.fixed && !e.scheme ? goalFix(e.id) : null;
     return fix ? { ...e, sets: fix.sets, reps: [fix.goal, fix.goal], weight: fix.weight, fixed: { weight: fix.weight, goal: fix.goal, sets: fix.sets, note: fix.note } } : e;
   });
   let edited = false;
@@ -170,7 +175,7 @@ export function openProgram(program, startLive, refresh) {
   const meta = () => {
     const p = { ...base, exercises: work };
     const sets = work.reduce((a, e) => a + e.sets, 0);
-    const goal = program.simple || program.cat === "cardio" || custom || program.goalId ? "" : GOALS[state.profile.goal].name;
+    const goal = program.simple || program.cat === "cardio" || custom || program.goalId || program.classic ? "" : GOALS[state.profile.goal].name;
     $("#meta", sh.el).innerHTML = `
       <div><b>~${estimateMinutes(p)}</b><em>min</em><small>Durée</small></div>
       <div><b>${work.length}</b><small>exercice${work.length > 1 ? "s" : ""}</small></div>
@@ -178,7 +183,7 @@ export function openProgram(program, startLive, refresh) {
       ${goal ? `<p class="pv-goal">${I.sparkle}<span>Adapté à ton objectif : <b>${esc(goal)}</b></span></p>` : ""}`;
     $("#extra", sh.el).innerHTML = custom
       ? `<button class="btn btn-soft btn-sm" id="edit-c">${I.edit} Modifier</button><button class="btn btn-soft btn-sm" id="share-c">${I.send} Partager</button>`
-      : edited && !program.goalId ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
+      : edited && !program.goalId && !program.classic ? `<button class="btn btn-soft btn-sm" id="save-new" style="grid-column:span 2">Enregistrer comme ma séance</button>` : "";
     $("#extra", sh.el).hidden = !$("#extra", sh.el).children.length;
     $("#share-c", sh.el)?.addEventListener("click", () => shareProgram(program));
     $("#edit-c", sh.el)?.addEventListener("click", () => { sh.close(); location.hash = `#/create?edit=${program.id}`; });

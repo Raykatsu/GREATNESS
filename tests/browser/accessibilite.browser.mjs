@@ -8,6 +8,8 @@ import { openApp, signup, seed, go, closeSheets, sleep, ROOT } from "./kit.mjs";
 const AXE = path.join(ROOT, "node_modules/axe-core/axe.min.js");
 
 async function audit(page, name, found) {
+  // les bulles de notification passent en fondu : on audite l'écran une fois qu'elles sont parties
+  await page.waitForFunction(() => !document.querySelector(".toast.show"), null, { timeout: 8000 }).catch(() => {});
   await page.addScriptTag({ path: AXE }).catch(() => {});
   const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] }, resultTypes: ["violations"] }))
     .violations.map(v => `${v.id} (${v.nodes.length}) : ${v.help} → ${v.nodes.slice(0, 3).map(n => n.target.join(" ")).join(" | ")}`));
@@ -34,6 +36,7 @@ for (const mode of ["dark", "light"]) {
         ["une idée ? un souci ?", async () => (await import("/js/feedback.js")).openFeedback()],
         ["retours reçus", async () => (await import("/js/feedback.js")).openInbox()],
         ["carte à partager", async () => { const { state } = await import("/js/store.js"); return (await import("/js/sharecard.js")).openShare(state.sessions.at(-1)); }],
+        ["programme célèbre", async () => (await import("/js/classics-ui.js")).openClassic("gzclp")],
       ];
       for (const [name, fn] of sheets) {
         await go(page, "#/");
@@ -49,6 +52,9 @@ for (const mode of ["dark", "light"]) {
       await audit(page, "bilan de forme", found);
       await page.click("#ci-go"); await page.waitForSelector("#log", { timeout: 10000 });
       await audit(page, "séance en direct", found);
+      await page.click("#ask"); await sleep(500);
+      await audit(page, "demander au coach", found);
+      await closeSheets(page);
       await page.click("#log"); await sleep(700);
       await audit(page, "repos", found);
       assert.deepEqual(found, [], `\n${found.join("\n")}`);

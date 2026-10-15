@@ -1,5 +1,6 @@
 // Mode mains libres : on parle au coach pendant la séance.
 // « 8 reps, difficile », « 10 à 60 kilos », « valide », « passe », « annule », « go ».
+// Et les questions : « Coach, j'ai mal à l'épaule, je remplace par quoi ? », « Combien de repos ? »
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’'-]/g, " ").replace(/\s+/g, " ").trim();
 
@@ -37,10 +38,21 @@ const RPE_WORDS = [
   [/\b(facile|tranquille|leger|easy|trop simple)\b/, 6],
 ];
 
+// Une question pour le coach : commence par « coach » ou par un mot interrogatif → { action: "ask", q }
+const ASK = /^(coach\b|est ce que|est ce qu|comment|pourquoi|combien|quel|quelle|quels|quelles|qu est ce|je peux|je dois|on peut|c est normal|dois je|faut il|tu peux|tu penses|tu crois|ca sert)/;
+export function parseQuestion(text) {
+  const t = norm(text).replace(/^(dis|eh|he|hey|ok|bon)\s+/, "");
+  if (!ASK.test(t)) return null;
+  const q = String(text).trim().replace(/^\s*(?:(?:dis|eh|hé|hey|ok|bon)[\s,]+)?coach\b[\s,!:.]*/i, "").trim();
+  return q.replace(/[\s?.!]+$/, "").length >= 4 ? { action: "ask", q } : null;
+}
+
 export function parseVoice(text) {
   const t = wordsToNumbers(norm(text));
   if (!t) return null;
   if (/\b(stop micro|coupe le micro|arrete d ecouter|micro off)\b/.test(t)) return { action: "stop" };
+  const ask = parseQuestion(text);
+  if (ask) return ask;
   if (/\b(annule|annuler|efface|retour arriere)\b/.test(t)) return { action: "undo" };
   if (/\b(exercice suivant|passe l exercice|passe|suivant|skip)\b/.test(t) && !/\d/.test(t)) return { action: "skip" };
   if (/\b(go|c est parti|pret|on y va|fin du repos|repos fini|j y vais|allez)\b/.test(t) && !/\d/.test(t)) return { action: "go" };

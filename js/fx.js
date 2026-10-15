@@ -16,8 +16,9 @@ if ("speechSynthesis" in window) {
 // Le mode mains libres coupe l'écoute pendant que le coach parle.
 export const speechHooks = { start: null, end: null };
 
-export function speak(text, { interrupt = false } = {}) {
-  if (!state.profile.voice || !("speechSynthesis" in window) || !text) return;
+// force : réponse à une question posée à voix haute (lue même si les consignes vocales sont coupées)
+export function speak(text, { interrupt = false, force = false } = {}) {
+  if ((!state.profile.voice && !force) || !("speechSynthesis" in window) || !text) return;
   if (interrupt) speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "fr-FR";

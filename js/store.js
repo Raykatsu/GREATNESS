@@ -1,6 +1,7 @@
 // Données de l'utilisateur connecté. Chaque compte a ses propres données ;
 // elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
+import { classicSession } from "./classics.js";
 import { targets, waterGoal } from "./nutrition.js";
 import { leaguePublic } from "./league.js";
 
@@ -98,7 +99,8 @@ export function legacyData() {
 }
 
 export const allPrograms = () => [...PROGRAMS, ...state.customPrograms.map(p => ({ ...p, cat: "custom" }))];
-export const getProgram = id => allPrograms().find(p => p.id === id);
+// « classic » : la prochaine séance du programme célèbre en cours (classics.js)
+export const getProgram = id => (id === "classic" ? classicSession(state.classic, state) : allPrograms().find(p => p.id === id));
 
 export const totalXp = () => state.sessions.reduce((s, x) => s + (x.xp || 0), 0);
 

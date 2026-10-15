@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "web": "node build-web.mjs",
-    "ios": "node build-web.mjs && (test -d ios || npx cap add ios) && node ios-setup.mjs && npx cap sync ios",
+    "ios": "node build-web.mjs && (test -d ios || npx cap add ios) && node ios-setup.mjs && ruby ios-widgets.rb && npx cap sync ios",
     "icons": "npx @capacitor/assets generate --ios --iconBackgroundColor '#06060b' --splashBackgroundColor '#09090d' --splashBackgroundColorDark '#09090d'"
   },
   "dependencies": {

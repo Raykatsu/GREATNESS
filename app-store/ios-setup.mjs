@@ -1,4 +1,5 @@
 // Réglages du projet iPhone créé par « npx cap add ios » : textes des autorisations (caméra, micro, Santé, Face ID…),
+// Live Activity, App Group partagé avec les widgets,
 // Apple Santé (HealthKit), iPhone seulement, en portrait. Relançable sans risque.
 import fs from "node:fs";
 import path from "node:path";
@@ -29,6 +30,7 @@ setKey("CFBundleDevelopmentRegion", "<string>fr</string>");
 setKey("ITSAppUsesNonExemptEncryption", "<false/>"); // HTTPS seulement : pas de déclaration d'export à faire
 setKey("UIRequiredDeviceCapabilities", "<array>\n\t\t<string>arm64</string>\n\t</array>");
 setKey("UISupportedInterfaceOrientations", "<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>");
+setKey("NSSupportsLiveActivities", "<true/>"); // le repos dans la Dynamic Island
 fs.writeFileSync(plist, p);
 
 // Apple Santé : droit HealthKit (lecture seulement)
@@ -40,6 +42,10 @@ fs.writeFileSync(path.join(app, "App", "App.entitlements"), `<?xml version="1.0"
 	<true/>
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.io.github.raykatsu.greatness</string>
+	</array>
 </dict>
 </plist>
 `);
@@ -52,5 +58,13 @@ x = x.replace(/(buildSettings = \{[^}]*?INFOPLIST_FILE = App\/Info\.plist;[^}]*?
 });
 fs.writeFileSync(pbx, x);
 const n = (x.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/g) || []).length;
-console.log(`Projet iPhone réglé : autorisations, Apple Santé (${n} configurations), iPhone en portrait.`);
+// Pont natif et extension (widget, Live Activity) : sources de native/, contrôleur de l'app dans le storyboard ;
+// les cibles Xcode sont ajoutées ensuite par ios-widgets.rb
+fs.cpSync(path.join(here, "native", "App"), path.join(app, "App"), { recursive: true });
+fs.cpSync(path.join(here, "native", "GreatnessWidgets"), path.join(app, "GreatnessWidgets"), { recursive: true });
+const board = path.join(app, "App", "Base.lproj", "Main.storyboard");
+const sb = fs.readFileSync(board, "utf8").replace(/customClass="CAPBridgeViewController" customModule="Capacitor"/, 'customClass="MainViewController" customModule="App" customModuleProvider="target"');
+if (!sb.includes('customClass="MainViewController"')) { console.error("Contrôleur introuvable dans Main.storyboard."); process.exit(1); }
+fs.writeFileSync(board, sb);
+console.log(`Projet iPhone réglé : autorisations, Apple Santé (${n} configurations), iPhone en portrait, pont natif et widgets.`);
 if (n < 2) { console.error("Réglage HealthKit introuvable dans le projet Xcode."); process.exit(1); }

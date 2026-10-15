@@ -10,7 +10,7 @@ const round = (v, step) => Math.max(0, Math.round(v / step) * step);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 export const unitOf = type => (type === "time" ? "s" : "reps");
-export const fmtTarget = ex => (ex.type === "load" ? `${ex.weight} kg × ${ex.goal}` : `${ex.goal} ${ex.type === "time" ? "s" : "reps"}`);
+export const fmtTarget = ex => (ex.type === "load" ? `${ex.weight} kg × ${ex.goal}${ex.amrap ? "+" : ""}` : `${ex.goal}${ex.amrap ? "+" : ""} ${ex.type === "time" ? "s" : "reps"}`);
 
 export function readinessScore({ sleep, energy, soreness }) {
   return (sleep + energy + (6 - soreness)) / 15; // 0.2 .. 1
@@ -55,6 +55,7 @@ function startingTarget(item) {
 // on la suit, allégée seulement un jour sans ou sur un muscle pas remis.
 function makeItem(item, verdict, isMain, rec, goals = true) {
   const meta = EXERCISES[item.id];
+  if (item.scheme) return schemeItem(item, meta, verdict, rec);
   const fix = item.fixed || (goals ? goalFix(item.id) : null);
   if (fix) return fixedItem(item, meta, fix, verdict, rec);
   const t = startingTarget(item);
@@ -82,6 +83,22 @@ function fixedItem(item, meta, fix, verdict, rec) {
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
   };
 }
+
+// Programme célèbre (classics.js) : charge et reps imposées série par série (« 5+ » : au maximum). Un jour sans ou un
+// muscle pas remis allègent un peu les charges, jamais le nombre de séries (la série au max décide de la suite).
+function schemeItem(item, meta, verdict, rec) {
+  const sore = rec ? exerciseReady(item.id, rec) < 0.5 : false;
+  const k = Math.min(1, verdict.factor) * (sore ? 0.95 : 1), s0 = item.scheme[0], reps = item.scheme.map(x => x.reps);
+  return {
+    id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
+    sets: item.scheme.length, reps: [Math.min(...reps), Math.max(...reps)], rpe: item.rpe || 8, rest: item.rest || 120, ss: null, plateau: false, sore,
+    weight: meta.type === "load" ? round(s0.weight * k, meta.step) : 0, goal: s0.reps, amrap: !!s0.amrap,
+    scheme: item.scheme, schemeK: k, schemeNote: item.note || null,
+    done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
+  };
+}
+// Charge prescrite de la série i (avec l'allègement du jour)
+export const schemeAt = (ex, i) => { const x = ex.scheme?.[i]; return x ? { weight: ex.type === "load" ? round(x.weight * (ex.schemeK || 1), ex.step) : 0, reps: x.reps, amrap: !!x.amrap } : null; };
 
 export function stalled(id) {
   const h = exerciseHistory(id).slice(-4);
@@ -160,6 +177,7 @@ export class Session {
       warm = ex.type === "load" ? ` Test final : montée en charge ${steps.map(r => `${r.reps} × ${String(r.weight).replace(".", ",")} kg`).join(", ")}, puis la tentative à ${String(tgt.weight).replace(".", ",")} kg.`
         : ` Test final : une série facile pour te chauffer, puis le maximum : objectif ${tgt.reps}${ex.type === "time" ? " secondes" : " répétitions"}.`;
     } else if (ex.goalNote) warm = ` ${ex.goalNote}`;
+    else if (ex.schemeNote) warm = ` ${ex.schemeNote}`;
     if (!this.flags.warmup && ex.type === "load" && ex.weight >= 30) {
       this.flags.warmup = true;
       warm += ` Échauffement : 8 reps à ${round(ex.weight * 0.5, ex.step)} kg puis 4 reps à ${round(ex.weight * 0.75, ex.step)} kg.`;
@@ -213,6 +231,7 @@ export class Session {
     }
 
     if (ex.ramp) this.rampNext(ex, reps, w, events);
+    else if (ex.scheme) this.schemeNext(ex, reps, w, events);
     else if (ex.type === "load") {
       let next = w;
       if (reps < min) {
@@ -250,7 +269,7 @@ export class Session {
     if (this.fatigue >= 65 && !this.flags.cut) {
       this.flags.cut = true;
       let cut = 0;
-      this.plan.forEach((e, i) => { if (i !== this.idx && e.status === "todo" && e.sets > 1 && e.done.length < e.sets - 1) { e.sets--; cut++; } });
+      this.plan.forEach((e, i) => { if (i !== this.idx && e.status === "todo" && !e.scheme && e.sets > 1 && e.done.length < e.sets - 1) { e.sets--; cut++; } });
       if (cut) events.push(this.push({ kind: "warn", mood: "alert", title: "J'allège la fin", text: `Fatigue élevée (${Math.round(this.fatigue)} %). Je retire une série sur ${cut} exercice(s) restant(s).`,
         say: "Fatigue élevée. J'allège la fin de séance pour protéger ta récupération." }));
     }
@@ -283,6 +302,22 @@ export class Session {
       rest = Math.max(rest, Math.min(90, ex.rest));
     }
     return { events, rest };
+  }
+
+  // Programme célèbre : la série suivante est celle du programme ; la série au maximum est commentée
+  schemeNext(ex, reps, w, events) {
+    const k = ex.done.length, cur = ex.scheme[k - 1], nx = schemeAt(ex, k);
+    if (cur?.amrap) {
+      const u = ex.type === "time" ? " s" : " reps";
+      if (reps < cur.reps) events.push(this.push({ kind: "down", title: "Moins que prévu", text: `${reps}${u} sur la série au maximum (${cur.reps} visées). Le programme en tiendra compte : pas de panique, ça arrive.`, say: "Moins que prévu. Le programme va s'adapter." }));
+      else events.push(this.push({ kind: "up", mood: "party", title: reps >= cur.reps + 3 ? "Énorme !" : "Série au max réussie", text: `${reps}${u}${w ? ` à ${String(w).replace(".", ",")} kg` : ""} : ${reps >= cur.reps + 3 ? "de la marge, ça va monter." : "objectif atteint."}`, say: reps >= cur.reps + 3 ? `Énorme, ${reps} répétitions !` : "Série au max réussie." }));
+    }
+    if (!nx) return;
+    ex.weight = nx.weight; ex.goal = nx.reps; ex.amrap = nx.amrap;
+    const what = ex.type === "load" ? `${String(nx.weight).replace(".", ",")} kg × ${nx.reps}${nx.amrap ? "+" : ""}` : `${nx.reps}${nx.amrap ? "+" : ""}${ex.type === "time" ? " s" : " reps"}`;
+    if (nx.amrap) events.push(this.push({ kind: "info", title: "Série au maximum", text: `${what} : le plus de reps possible, propres, en gardant 1 rep en réserve. C'est elle qui fait avancer le programme.`,
+      say: `Série au maximum. ${ex.type === "load" ? `${nx.weight} kilos` : ""}. Le plus de répétitions possible, propres.` }));
+    else if (!cur?.amrap) events.push(this.push({ kind: "info", title: "Série suivante", text: `${what}.`, say: `Série suivante : ${what.replace(" kg × ", " kilos, ").replace("+", "")}.` }));
   }
 
   // Test final : montée en charge fixée d'avance, puis la tentative ; le 2e essai monte si elle est réussie, redescend sinon
