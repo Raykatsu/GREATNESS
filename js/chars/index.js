@@ -6,6 +6,8 @@
 import spider from "./spider.js";
 import { state, save } from "../store.js";
 import { storeSafe, storeHidden } from "../native.js";
+import { costumeOf } from "../costumes.js";
+import { wornCostume } from "../story.js";
 
 export const GROUPS = ["Héros", "Manga", "Mignons", "Animaux"];
 const FILES = { "Héros": "./heroes.js", "Manga": "./manga.js", "Mignons": "./cute.js", "Animaux": "./animals.js" };
@@ -116,11 +118,13 @@ let shown = base.id;
 // Prévient les abonnés si le coach effectif a changé (choix, connexion, univers enfin chargé).
 function emit(why) {
   const c = current();
-  if (c.id === shown) return;
+  if (c.id === shown && why !== "costume") return;
   shown = c.id;
   subs.forEach(fn => { try { fn(c, why); } catch (e) { console.warn(e); } });
 }
 export const sync = () => emit("sync");
+// Nouveau costume : tous les dessins du coach se mettent à jour
+export const refreshLook = () => emit("costume");
 export function onCoachChange(fn) { subs.add(fn); return () => subs.delete(fn); }
 
 export async function setCoach(id) {
@@ -163,12 +167,17 @@ export function ensureCss(c) {
   document.head.appendChild(st);
 }
 
+// Costume porté (mode histoire) : celui du profil s'il a été gagné ; jamais sur le coach neutre
+const wearing = (c, costume) => (c.id === "none" ? null : costumeOf(costume === undefined ? wornCostume(state) : costume));
+const look = w => (w?.filter ? ` style="filter:${w.filter}"` : "");
+
 // Personnage entier : <svg class="sp pose-… ch-…"> avec les calques dans l'ordre du format.
-export function figure(c = current(), { pose = "idle", cls = "" } = {}) {
+// costume : identifiant (aperçu), null (aucun), ou absent (celui que porte le coach)
+export function figure(c = current(), { pose = "idle", cls = "", costume } = {}) {
   ensureCss(c);
-  const u = `sp${++uid}-`;
-  const body = `<g class="sp-body"><g class="sp-char ch-${c.id}">${c.back ? `<g class="sp-back">${c.back}</g>` : ""}<g class="sp-legL">${c.legL}</g><g class="sp-legR">${c.legR}</g><g class="sp-armL">${c.armL}</g><g class="sp-torso">${c.torso}</g><g class="sp-armR">${c.armR}${DB}</g><g class="sp-head">${c.head}</g></g>${ZZZ}</g>`;
-  return `<svg class="sp pose-${pose} ch-${c.id}${cls ? " " + cls : ""}" viewBox="0 0 60 80" overflow="visible" aria-hidden="true">${scope(`<defs>${c.defs}</defs>${body}`, c, u)}</svg>`;
+  const u = `sp${++uid}-`, w = wearing(c, costume), back = (c.back || "") + (w?.back || "");
+  const body = `<g class="sp-body"><g class="sp-char ch-${c.id}">${back ? `<g class="sp-back">${back}</g>` : ""}<g class="sp-legL">${c.legL}</g><g class="sp-legR">${c.legR}</g><g class="sp-armL">${c.armL}</g><g class="sp-torso">${c.torso}${w?.torso ? `<g class="sp-acc">${w.torso}</g>` : ""}</g><g class="sp-armR">${c.armR}${DB}</g><g class="sp-head">${c.head}${w?.head ? `<g class="sp-acc">${w.head}</g>` : ""}</g></g>${ZZZ}</g>`;
+  return `<svg class="sp pose-${pose} ch-${c.id}${cls ? " " + cls : ""}" viewBox="0 0 60 80" overflow="visible" aria-hidden="true"${look(w)}>${scope(`<defs>${c.defs}</defs>${body}`, c, u)}</svg>`;
 }
 
 // Cadrage carré de la tête seule (mesuré une fois par personnage).
@@ -201,10 +210,10 @@ function faceBox(c) {
 }
 
 // Visage du coach (avatar) : la tête seule, recadrée, avec ses dégradés.
-export function coachFace(cls = "", c = current()) {
+export function coachFace(cls = "", c = current(), costume) {
   ensureCss(c);
-  const u = `sp${++uid}-`;
-  return `<svg class="coach-face${cls ? " " + cls : ""}" viewBox="${faceBox(c)}" aria-hidden="true">${scope(`<defs>${c.defs}</defs><g class="ch-${c.id}">${c.head}</g>`, c, u)}</svg>`;
+  const u = `sp${++uid}-`, w = wearing(c, costume);
+  return `<svg class="coach-face${cls ? " " + cls : ""}" viewBox="${faceBox(c)}" aria-hidden="true"${look(w)}>${scope(`<defs>${c.defs}</defs><g class="ch-${c.id}">${c.head}${w?.head ? `<g class="sp-acc">${w.head}</g>` : ""}</g>`, c, u)}</svg>`;
 }
 
 // Couleur fx en "r, g, b" (pour rgba()).

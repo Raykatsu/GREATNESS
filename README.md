@@ -136,6 +136,22 @@ Tu verrouilles le téléphone pendant un repos : à la seconde où il finit, une
 
 Le dossier [`app-store/`](app-store/) emballe l'app avec Capacitor et ajoute le natif : Apple Santé lu directement (sans Raccourci), notifications locales (fin du repos, rappels de séance), vibrations. GitHub la construit sur un Mac et l'envoie sur TestFlight, sans Mac chez toi : voir **[APPSTORE.md](APPSTORE.md)**. Suppression définitive du compte dans Moi → Réglages → Compte ; politique de confidentialité : [`privacy.html`](privacy.html).
 
+## Mode histoire et costumes
+
+Carte **« Mode histoire »** sur l'accueil : dix chapitres où ton coach défend la ville contre la Flemme. Chaque chapitre a un objectif tiré de tes vraies séances, à remplir depuis le début du chapitre : 2 séances, 5 000 kg soulevés, un record, une séance au minuteur d'intervalles, 3 jours de repas notés, 2 h d'entraînement, une analyse vidéo de ta technique, 2 séances de mobilité, 3 records, puis 6 séances pour le sommet.
+- Chaque chapitre réussi est fêté et débloque un **costume** pour ton coach : bandeau du guerrier, tenue néon, lunettes de star, tenue glace, casquette, tenue de feu, cape de héros, tenue symbiote, médaille d'or, puis la couronne de légende et la tenue en or. « Le porter » l'enfile aussitôt, sur la mascotte comme sur les visages du coach.
+- La **garde-robe** (dans le livre de l'histoire) garde tous les costumes gagnés. L'histoire suit ton compte d'un téléphone à l'autre ; les séances importées d'une autre app ne comptent pas.
+
+## Duo à distance
+
+En séance, bouton **Duo** (compte en ligne) : crée un duo et envoie le code de 6 caractères à un ami, ou tape le sien. Chacun s'entraîne chez soi et voit en haut de l'écran où en est l'autre (exercice, série, charge, repos), est prévenu quand il valide une série ou bat un record, et peut l'encourager d'un émoji (🔥 💪 👏). À la fin, l'autre voit ta durée et ton volume. Un duo dure 4 heures au plus ; mise à jour toutes les 4 secondes, seulement pendant la séance.
+
+## Rapide, accessible et surveillé
+
+- **Ouverture plus rapide** : les modules de démarrage sont annoncés au navigateur dès la première ligne de la page (`scripts/preload.mjs` tient la liste à jour, un test vérifie qu'elle l'est) ; les écrans rares (import, coach vidéo) ne se chargent qu'à l'ouverture.
+- **Accessibilité** : chaque écran passe l'audit axe-core (WCAG 2.1 AA) en thème sombre, noir et clair : contrastes, noms des boutons et des barres de progression, feuilles utilisables au clavier et au lecteur d'écran, animations coupées avec « Réduire les animations ».
+- **Plantages signalés** : une erreur JavaScript sur un téléphone remonte, anonyme (message, fichier et ligne, version, type de navigateur ; aucune donnée d'entraînement), au plus 10 par jour et une seule fois chacune. Elles s'affichent dans le déploiement Supabase (étape « Erreurs signalées par l'app »).
+
 ## Récupération musculaire
 
 Une **carte du corps** (face et dos) sur l'accueil montre chaque muscle travaillé cette semaine, de rouge (à reposer) à vert (récupéré). Elle est calculée d'après tes séances : chaque série laisse une fatigue sur ses muscles (plus forte quand la série est dure), qui s'efface avec le temps, plus vite pour les petits muscles que pour les gros. Le détail donne, muscle par muscle, le pourcentage de récupération, le délai avant d'être prêt et les séries de la semaine (repère : 10 à 20).
@@ -194,7 +210,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test   # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, SQL (PGlite)
+npm test   # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, SQL (PGlite)
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -254,7 +270,13 @@ js/vbt.js         vitesse de barre à la caméra : vitesse de chaque poussée, p
 js/videocoach.js  coach vidéo IA : images d'une vidéo, analyse de technique, corrections
 js/resttimer.js   fin du repos sur l'écran verrouillé (Web Push ou notification locale)
 js/native.js      app App Store (Capacitor) : notifications locales, vibrations, Apple Santé direct
+js/story.js       mode histoire : chapitres, objectifs, costumes gagnés (+ story-ui.js : carte, livre, fête)
+js/costumes.js    les costumes du coach (teintes et accessoires)
+js/duo.js         duo à distance : salle, code, état de l'autre, encouragements
+js/errors.js      remontée anonyme des plantages
+js/version.js     version de l'app (la même que le cache de sw.js)
 app-store/        projet Capacitor (copie du site, réglages iPhone, icônes) ; APPSTORE.md pour publier
+scripts/preload.mjs  liste des modules préchargés dans index.html (--check pour vérifier)
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne
 supabase/002_social.sql  amis, classement, défis
@@ -269,6 +291,8 @@ supabase/functions/health/     fonction appelée par le Raccourci iOS
 supabase/009_ai_models.sql     état des modèles Gemini partagé (IA plus rapide)
 supabase/010_rest_timer.sql    alertes de fin de repos (écran verrouillé)
 supabase/011_account_delete.sql  suppression définitive du compte depuis l'app
+supabase/012_duo.sql           salles du duo à distance
+supabase/013_errors.sql        plantages signalés par l'app
 js/online.js      client de l'IA en ligne
 tests/                   tests automatiques
 ```

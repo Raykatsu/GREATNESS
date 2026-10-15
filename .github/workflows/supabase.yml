@@ -59,7 +59,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         continue-on-error: true
         run: |
-          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql 010_rest_timer.sql 011_account_delete.sql; do
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql 010_rest_timer.sql 011_account_delete.sql 012_duo.sql 013_errors.sql; do
             code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
@@ -181,6 +181,20 @@ jobs:
       - name: Retrait du secret de diagnostic
         if: always() && steps.token.outputs.ok == 'true'
         run: supabase secrets unset DIAG_TOKEN --project-ref "$PROJECT_REF" --yes || true
+
+      # Plantages signalés par l'app ces 7 derniers jours (013_errors.sql), les plus fréquents d'abord
+      - name: Erreurs signalées par l'app
+        if: always() && steps.token.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          code=$(jq -n '{query: "select gt_errors_recent(7, 15) as r"}' | curl -sS -o errs.json -w '%{http_code}' -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+          if [ "$code" -ge 300 ]; then echo "Bilan indisponible (HTTP $code)"; exit 0; fi
+          n=$(jq '.[0].r | length' errs.json)
+          if [ "$n" = "0" ]; then echo "Aucune erreur signalée ces 7 derniers jours."; exit 0; fi
+          echo "$n erreur(s) différente(s) ces 7 derniers jours :"
+          jq -r '.[0].r[] | "  ×\(.count)  \(.place)  [\(.version)]  \(.msg)"' errs.json
 
       - name: Bilan de la base de données
         if: steps.token.outputs.ok == 'true' && steps.sql.outcome == 'failure'

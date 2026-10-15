@@ -102,6 +102,19 @@ La clé *anon* est **faite pour être publique** : elle ne donne accès qu'aux f
 
 [`011_account_delete.sql`](supabase/011_account_delete.sql) (installé automatiquement) : dans l'app, **Moi → Réglages → Compte → Supprimer définitivement mon compte**. Le code est redemandé, puis le compte et tout ce qui en dépend sont effacés (données, amis, notifications, mesures Apple Santé, alertes). Exigé par l'App Store, et ton droit selon le RGPD.
 
+## 2 septies. Duo à distance et plantages signalés
+
+Installés automatiquement, rien à faire :
+
+- [`012_duo.sql`](supabase/012_duo.sql) : les salles du **duo à distance**. Un code de 6 caractères (sans 0/O ni 1/I/L), valable 4 heures, une salle ouverte par personne. Seuls les deux membres voient l'état de la salle ; l'état envoyé est limité à 2 Ko et les encouragements à 6 émojis. Quand l'hôte quitte, la salle est effacée.
+- [`013_errors.sql`](supabase/013_errors.sql) : les **plantages signalés** par l'app. Rien d'identifiant : le message, le fichier et la ligne, la version et le type de navigateur. Une même erreur ne fait qu'une ligne avec un compteur ; 300 nouvelles erreurs par heure au plus, 500 gardées, effacées après 30 jours. La table est fermée : l'app peut seulement y ajouter.
+
+Pour lire les plantages : onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow**, puis l'étape **« Erreurs signalées par l'app »** (les 7 derniers jours, les plus fréquentes d'abord, ou « Aucune erreur signalée »). Ou dans SQL Editor :
+
+```sql
+select count, place, version, msg, last_at from gt_errors order by last_at desc limit 30;
+```
+
 ## Sécurité
 
 - Le code secret est **haché** (bcrypt) : même toi, tu ne peux pas le lire.

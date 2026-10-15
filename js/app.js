@@ -1,3 +1,4 @@
+import "./errors.js"; // remontée des plantages, en premier pour tout attraper
 import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
 import { isNative, storeText } from "./native.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
@@ -34,7 +35,7 @@ import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
-import { openImport, openExport } from "./import-ui.js";
+import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 
 const view = $("#view");
 // app App Store : classe pour les réglages propres au natif, et aucun nom sous licence
@@ -287,6 +288,7 @@ function home() {
 
     ${healthCard()}
     ${goalCard()}
+    ${storyCard()}
     ${recoveryCard()}
     ${reviewCard(now)}
     ${socialCard()}
@@ -337,6 +339,8 @@ function home() {
   bindRecoveryCard(view);
   bindGoalCard(view, route);
   bindHealthCard(view);
+  bindStoryCard(view);
+  checkStory(); // chapitre réussi depuis la dernière fois : fête et nouveau costume
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {
@@ -856,8 +860,9 @@ function profile() {
     try { const t = await testKey(); toast("✓ " + t, 5000); } catch (err) { toast("Échec : " + (err.message || err), 5000); }
   };
   $("#p-health").onclick = () => openHealth();
-  $("#exp").onclick = () => openExport();
-  $("#imp").onclick = () => openImport(() => route());
+  // import et export : chargés seulement quand on s'en sert
+  $("#exp").onclick = () => import("./import-ui.js").then(m => m.openExport());
+  $("#imp").onclick = () => import("./import-ui.js").then(m => m.openImport(() => route()));
 
   // Compte
   $("#acc-lock").onclick = () => { logout(); route(); };
@@ -906,7 +911,7 @@ function onboarding(step = 1) {
   document.body.classList.add("hide-tabs");
   const p = state.profile;
   const total = 4;
-  const steps = `<div class="onb-top"><div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${step}">${Array.from({ length: total }, (_, k) => `<i class="${k + 1 < step ? "on" : k + 1 === step ? "on cur" : ""}"></i>`).join("")}</div><span class="onb-count">Étape ${step} sur ${total}</span></div>`;
+  const steps = `<div class="onb-top"><div class="steps" role="progressbar" aria-label="Progression" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${step}">${Array.from({ length: total }, (_, k) => `<i class="${k + 1 < step ? "on" : k + 1 === step ? "on cur" : ""}"></i>`).join("")}</div><span class="onb-count">Étape ${step} sur ${total}</span></div>`;
   view.className = "view";
   void view.offsetWidth;
   view.className = "view enter";

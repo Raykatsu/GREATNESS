@@ -322,3 +322,71 @@ test("suppression définitive du compte : code exigé, tout est effacé", async 
   // le pseudo redevient libre
   assert.ok((await call("gt_signup", "efface.moi", "1111")).token);
 });
+
+test("duo à distance : salle avec code, deux places, état et encouragements de l'autre, départ", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/012_duo.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const m = (await call("gt_login", "miles", "1234")).token, g = (await call("gt_login", "gwen", "4321")).token;
+  const p = (await call("gt_signup", "peter.duo", "1111")).token;
+  assert.equal((await call("gt_duo_create", "faux")).error, "BAD_TOKEN");
+  const { code, role } = await call("gt_duo_create", m);
+  assert.equal(role, "host");
+  assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
+  assert.equal((await call("gt_duo_join", g, "zzzzzz")).error, "NO_ROOM");
+  const j = await call("gt_duo_join", g, code.toLowerCase());
+  assert.deepEqual([j.ok, j.role, j.partner], [true, "guest", "miles"]);
+  assert.equal((await call("gt_duo_join", p, code)).error, "FULL");
+  assert.equal((await call("gt_duo_sync", p, code, null, 0)).error, "NOT_MEMBER");
+  // l'hôte voit l'arrivée de son invité ; chacun envoie où il en est
+  let h = await call("gt_duo_sync", m, code, JSON.stringify({ ex: "Squat", set: 2, w: 100, r: 5, done: 3 }), 0);
+  assert.deepEqual([h.role, h.partner, h.events.map(e => e.e)], ["host", "gwen", ["join"]]);
+  const after = h.seq;
+  let gs = await call("gt_duo_sync", g, code, JSON.stringify({ ex: "Tractions", set: 1, w: 0, r: 8, done: 1 }), 0);
+  assert.deepEqual([gs.state.ex, gs.state.w, gs.state.done], ["Squat", 100, 3]);
+  assert.ok(gs.state.at > 0);
+  assert.deepEqual(gs.events, []); // ses propres événements ne lui reviennent pas
+  // encouragements : émojis autorisés seulement, reçus une fois
+  assert.equal((await call("gt_duo_cheer", g, code, "💩")).error, "BAD_EMOJI");
+  assert.ok((await call("gt_duo_cheer", g, code, "🔥")).ok);
+  h = await call("gt_duo_sync", m, code, null, after);
+  assert.deepEqual([h.state.ex, h.events.map(e => [e.e, e.from])], ["Tractions", [["🔥", "gwen"]]]);
+  assert.deepEqual((await call("gt_duo_sync", m, code, null, h.seq)).events, []);
+  // état trop gros : ignoré
+  await call("gt_duo_sync", g, code, JSON.stringify({ ex: "x".repeat(3000) }), 0);
+  assert.equal((await call("gt_duo_sync", m, code, null, 0)).state.ex, "Tractions");
+  // l'invité part : place libre, l'hôte le voit ; l'hôte ferme : la salle disparaît
+  assert.ok((await call("gt_duo_leave", g, code)).ok);
+  h = await call("gt_duo_sync", m, code, null, h.seq);
+  assert.deepEqual([h.partner, h.events.map(e => e.e)], [null, ["bye"]]);
+  assert.equal((await call("gt_duo_join", p, code)).role, "guest");
+  assert.ok((await call("gt_duo_leave", m, code)).ok);
+  assert.equal((await call("gt_duo_sync", p, code, null, 0)).error, "NO_ROOM");
+  // une seule salle ouverte par hôte ; les encouragements gardés sont bornés
+  const a = (await call("gt_duo_create", m)).code, b = (await call("gt_duo_create", m)).code;
+  assert.equal((await call("gt_duo_join", g, a)).error, "NO_ROOM");
+  await call("gt_duo_join", g, b);
+  for (let i = 0; i < 45; i++) await call("gt_duo_cheer", g, b, "💪");
+  assert.equal((await call("gt_duo_sync", m, b, null, 0)).events.length, 40);
+  await db.exec("set role anon");
+  await assert.rejects(db.query("select * from gt_duo"));
+  await db.exec("reset role");
+});
+
+test("plantages de l'app : regroupés par message et endroit, bornés, lisibles seulement par le serveur", async () => {
+  const sql = fs.readFileSync(new URL("../supabase/013_errors.sql", import.meta.url), "utf8");
+  await db.exec(sql); await db.exec(sql);
+  const log = async (...a) => (await db.query("select gt_error_log($1, $2, $3, $4, $5) as r", [...a, "", "", "", ""].slice(0, 5))).rows[0].r;
+  assert.equal((await log("", "js/app.js:1:1")).error, "EMPTY");
+  for (let i = 0; i < 3; i++) assert.ok((await log("TypeError: x is undefined", "js/live.js:412:15", "at render", "greatness-v23", "iPhone")).ok);
+  assert.ok((await log("TypeError: x is undefined", "js/live.js:412:15", "", "greatness-v22")).ok); // autre version : à part
+  assert.ok((await log("x".repeat(1000), "js/food.js:1:1")).ok);
+  const recent = (await db.query("select gt_errors_recent(7, 10) as r")).rows[0].r;
+  assert.deepEqual(recent.map(e => [e.place, e.version, e.count]), [["js/live.js:412:15", "greatness-v23", 3], ["js/food.js:1:1", "", 1], ["js/live.js:412:15", "greatness-v22", 1]]);
+  assert.equal(recent[1].msg.length, 300);
+  // l'app peut signaler, pas lire
+  await db.exec("set role anon");
+  assert.ok((await db.query("select gt_error_log('Boom', 'js/x.js:1:1', '', '', '') as r")).rows[0].r.ok);
+  await assert.rejects(db.query("select gt_errors_recent(7, 10)"));
+  await assert.rejects(db.query("select * from gt_errors"));
+  await db.exec("reset role");
+});

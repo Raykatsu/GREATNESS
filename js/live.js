@@ -16,8 +16,8 @@ import { onlineReady, onlineChat } from "./online.js";
 import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
 import { openCam, camFor, summaryText, velText } from "./cam.js";
-import { openVideoCoach, VIDEO } from "./videocoach.js";
 import { watchRest, unwatchRest } from "./resttimer.js";
+import { openDuo, duoActive, duoAvailable, duoBarHtml, bindDuoBar, startDuo, stopDuo, finishDuo, PAIR } from "./duo.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
@@ -77,6 +77,15 @@ export function startWithWarmup(warmupId, program, readiness, exit) {
   chain = { program, readiness };
 }
 
+// Ce que mon partenaire de duo voit de ma séance
+let lastLogged = null;
+function duoMine() {
+  if (!S) return null;
+  const ex = S.current, done = S.plan.reduce((a, e) => a + e.done.length, 0);
+  return { ex: ex?.name || "", set: ex ? ex.done.length + 1 : 0, of: ex?.sets || 0, w: lastLogged?.w || 0, r: lastLogged?.r || 0, done, prs: S.prs.length,
+    rest: rest ? Math.round(rest.end) : 0 };
+}
+
 export function startLive(program, readiness, exit) {
   chain = null;
   S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload });
@@ -109,6 +118,8 @@ function begin(exit) {
   mounted = false; prevProg = 0; lastMsgKey = ""; lastIdx = -1;
   document.body.classList.add("hide-tabs");
   navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
+  // duo à distance : l'autre voit où j'en suis, et moi où il en est
+  startDuo(duoMine);
   // téléphone verrouillé pendant un repos : « Repos terminé » arrive en notification à la fin du repos
   watchRest(() => rest && S?.current ? { end: rest.end, title: "Repos terminé : c'est reparti !",
     body: `${S.current.name} · série ${S.current.done.length + 1}${S.current.type === "load" ? ` · ${fmtKg(S.current.weight)} kg` : ""} × ${S.current.goal}${S.current.type === "time" ? " s" : ""}` } : null);
@@ -173,7 +184,8 @@ function render() {
     `<button class="tool" id="swap">${I.swap}<span>Remplacer</span></button>`,
     `<button class="tool" id="skip">${I.skip}<span>Passer</span></button>`,
     camFor(ex) ? `<button class="tool" id="cam">${I.camera}<span>Caméra</span></button>` : "",
-    ex.type !== "time" ? `<button class="tool" id="vid">${VIDEO}<span>Vidéo IA</span></button>` : "",
+    ex.type !== "time" ? `<button class="tool" id="vid">${I.video}<span>Vidéo IA</span></button>` : "",
+    duoAvailable() ? `<button class="tool ${duoActive() ? "on" : ""}" id="duo">${PAIR}<span>Duo</span></button>` : "",
     `<button class="tool" id="note">${I.edit}<span>Note</span></button>`,
     S.history.length ? `<button class="tool" id="undo">${I.undo}<span>Annuler</span></button>` : "",
   ].join("");
@@ -192,6 +204,7 @@ function render() {
         <span class="k">${e.status === "done" ? I.check : i + 1}</span><span class="nm">${esc(e.name)}</span>${e.ss ? `<span class="ss">${esc(e.ss)}</span>` : ""}</button>`).join("")}
         <button class="ex-tab add" id="add-ex" aria-label="Ajouter un exercice">${I.plus}</button></nav>
     </header>
+    <div id="duo-bar">${duoBarHtml()}</div>
 
     <div class="ex-head">
       <div class="grow"><div class="eyebrow">${esc(ex.muscle)}${ex.ss ? ` · Superset ${esc(ex.ss)}` : ""}</div><h2>${esc(ex.name)}</h2></div>
@@ -333,7 +346,9 @@ function bind(ex) {
   $("#mic").onclick = toggleVoice;
   $("#cues-btn").onclick = () => { showCues = !showCues; render(); };
   mountAnims(overlay());
-  $("#vid")?.addEventListener("click", () => openVideoCoach(ex));
+  $("#vid")?.addEventListener("click", () => import("./videocoach.js").then(m => m.openVideoCoach(ex)));
+  $("#duo")?.addEventListener("click", () => openDuo(() => { startDuo(duoMine); render(); }));
+  bindDuoBar($("#duo-bar"));
   $("#cam")?.addEventListener("click", () => openCam(ex, { goal: ex.type === "time" ? ex.goal : 0, onDone: (n, form) => {
     ui.reps = n; const inp = $("#in-reps"); if (inp) inp.value = n; const c = $("#v-reps"); if (c) c.firstChild.nodeValue = n;
     // ressenti estimé d'après la perte de vitesse : proposé, modifiable
@@ -414,6 +429,7 @@ function logSet(e) {
   const lastSet = { exercice: ex.name, charge_kg: ex.type === "load" ? ui.weight : 0, reps: ui.reps, rpe: ui.rpe, douleur: ui.pain };
   const prevW = ex.weight;
   const { events, rest: restSec } = S.logSet({ reps: ui.reps, rpe: S.program.simple ? 6 : ui.rpe, pain: ui.pain, weight: ui.weight });
+  lastLogged = { w: ex.type === "load" ? ui.weight : 0, r: ui.reps };
   const pr = events.some(ev => ev.kind === "pr" && ev.title.startsWith("Nouveau"));
 
   success(); vibrate(pr ? [30, 40, 80] : 25);
@@ -592,6 +608,7 @@ async function quit() {
 function finish() {
   if (!S) return;
   unwatchRest();
+  if (duoActive()) finishDuo(S.summary());
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   spidey.hang(false);
@@ -714,6 +731,7 @@ function countUp(root) {
 
 function close() {
   unwatchRest();
+  stopDuo();
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   clearSaved();

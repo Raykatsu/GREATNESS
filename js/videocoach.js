@@ -7,8 +7,7 @@ import { state, save } from "./store.js";
 import { onlineReady, formAI } from "./online.js";
 import { $, esc, I, sheet, toast, ring, animateRings } from "./ui.js";
 
-const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-export const VIDEO = svg('<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 5-3v9l-5-3z"/>');
+const VIDEO = I.video;
 
 // Images d'une vidéo : jusqu'à `max`, environ deux par seconde, sur `span` secondes au plus (le milieu d'une
 // longue vidéo), réduites à `size` px. → [{ t, dataUrl, mime, data }]
