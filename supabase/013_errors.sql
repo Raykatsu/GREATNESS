@@ -40,7 +40,7 @@ create or replace function public.gt_errors_recent(p_days int default 7, p_limit
 language sql security definer set search_path = public as $$
   select coalesce(json_agg(x), '[]'::json) from (
     select msg, place, version, count, last_at from gt_errors where last_at > now() - make_interval(days => greatest(1, least(p_days, 30)))
-    order by count desc, last_at desc limit greatest(1, least(p_limit, 50))) x;
+    order by count desc, last_at desc, key limit greatest(1, least(p_limit, 50))) x; -- key : ordre stable entre ex aequo
 $$;
 
 grant execute on function public.gt_error_log(text, text, text, text, text) to anon;

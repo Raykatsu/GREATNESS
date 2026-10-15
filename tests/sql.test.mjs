@@ -381,8 +381,10 @@ test("plantages de l'app : regroupés par message et endroit, bornés, lisibles 
   assert.ok((await log("TypeError: x is undefined", "js/live.js:412:15", "", "greatness-v22")).ok); // autre version : à part
   assert.ok((await log("x".repeat(1000), "js/food.js:1:1")).ok);
   const recent = (await db.query("select gt_errors_recent(7, 10) as r")).rows[0].r;
-  assert.deepEqual(recent.map(e => [e.place, e.version, e.count]), [["js/live.js:412:15", "greatness-v23", 3], ["js/food.js:1:1", "", 1], ["js/live.js:412:15", "greatness-v22", 1]]);
-  assert.equal(recent[1].msg.length, 300);
+  // la plus fréquente d'abord ; les ex aequo (enregistrés dans la même microseconde) dans un ordre quelconque
+  assert.deepEqual(recent[0].count, 3);
+  assert.deepEqual(recent.map(e => [e.place, e.version, e.count]).sort(), [["js/food.js:1:1", "", 1], ["js/live.js:412:15", "greatness-v22", 1], ["js/live.js:412:15", "greatness-v23", 3]]);
+  assert.equal(recent.find(e => e.place === "js/food.js:1:1").msg.length, 300);
   // l'app peut signaler, pas lire
   await db.exec("set role anon");
   assert.ok((await db.query("select gt_error_log('Boom', 'js/x.js:1:1', '', '', '') as r")).rows[0].r.ok);
