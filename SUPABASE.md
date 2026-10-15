@@ -78,6 +78,17 @@ Sécurité : la clé de l'adresse est stockée hachée (SHA-256) et ne permet qu
 
 > Sans GitHub : SQL Editor → colle [`supabase/008_health.sql`](supabase/008_health.sql) → Run ; puis déploie [`supabase/functions/health/index.ts`](supabase/functions/health/index.ts) sous le nom `health` en désactivant « Verify JWT ». L'adresse `…/functions/v1/health` doit afficher « GREATNESS : fonction santé en ligne ».
 
+## 2 octies. Retours des utilisateurs (« Une idée ? Un souci ? »)
+
+[`014_feedback.sql`](supabase/014_feedback.sql) (installé automatiquement) reçoit les messages envoyés depuis l'app : idée, souci ou autre, signés du pseudo si l'utilisateur le veut, avec la version, l'écran ouvert et le modèle de téléphone. 10 messages par compte et par jour, 120 par heure en tout ; gardés un an.
+
+**Les lire** : seuls les administrateurs de l'app les voient, dans l'app : **Moi → Réglages → Retours reçus** (avec aussi les plantages des 14 derniers jours). Pour devenir administrateur, une seule fois :
+1. Dans l'app, note ton pseudo (Moi → Réglages → Compte, il commence par @).
+2. Sur GitHub : onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow**, écris ton pseudo dans le champ « admin » → **Run workflow**.
+3. L'étape « Administrateur de l'app » confirme : « @pseudo est administrateur ». Ferme et rouvre les réglages de l'app : la ligne « Retours reçus » apparaît.
+
+Le dépôt GitHub étant public, ses journaux le sont aussi : le déploiement n'y affiche que le **nombre** de retours (étape « Retours des utilisateurs »), jamais leur contenu.
+
 ## 3. Récupérer les deux valeurs
 
 Dans **Project Settings** (roue dentée) → **API** (ou *Data API*) :

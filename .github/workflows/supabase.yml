@@ -13,6 +13,11 @@ on:
       - "supabase/**"
       - ".github/workflows/supabase.yml"
   workflow_dispatch:
+    inputs:
+      admin:
+        description: "Ton pseudo dans l'app, pour lire les retours des utilisateurs (Moi → Réglages → Retours reçus). Facultatif."
+        required: false
+        type: string
 
 concurrency:
   group: supabase-deploy
@@ -59,7 +64,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         continue-on-error: true
         run: |
-          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql 010_rest_timer.sql 011_account_delete.sql 012_duo.sql 013_errors.sql; do
+          for f in schema.sql 002_social.sql 003_push.sql 004_ai.sql 005_social_push.sql 006_water_push.sql 007_league_push.sql 008_health.sql 009_ai_models.sql 010_rest_timer.sql 011_account_delete.sql 012_duo.sql 013_errors.sql 014_feedback.sql; do
             code=$(jq -Rs '{query: .}' "supabase/$f" | curl -sS -o out.json -w '%{http_code}' -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
@@ -182,6 +187,21 @@ jobs:
         if: always() && steps.token.outputs.ok == 'true'
         run: supabase secrets unset DIAG_TOKEN --project-ref "$PROJECT_REF" --yes || true
 
+      # Administrateur de l'app (014_feedback.sql) : le pseudo donné au lancement manuel (« Run workflow »)
+      - name: Administrateur de l'app
+        if: steps.token.outputs.ok == 'true' && inputs.admin
+        continue-on-error: true
+        env:
+          ADMIN: ${{ inputs.admin }}
+        run: |
+          u=$(printf '%s' "$ADMIN" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]@')
+          if ! printf '%s' "$u" | grep -Eq '^[a-z0-9_.-]{3,20}$'; then echo "::error::Pseudo invalide : « $ADMIN »"; exit 1; fi
+          q="insert into gt_admins(username) select username from gt_accounts where username = '$u' on conflict do nothing; select exists (select 1 from gt_admins where username = '$u') as ok"
+          code=$(jq -n --arg q "$q" '{query: $q}' | curl -sS -o adm.json -w '%{http_code}' -X POST             "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+          if [ "$code" -ge 300 ]; then echo "::error::Administrateur non enregistré (HTTP $code)"; exit 1; fi
+          if [ "$(jq -r '.[0].ok' adm.json)" = "true" ]; then echo "@$u est administrateur : Moi → Réglages → Retours reçus."
+          else echo "::error::Aucun compte « $u » : crée-le d'abord dans l'app (compte en ligne), puis relance."; exit 1; fi
+
       # Plantages signalés par l'app ces 7 derniers jours (013_errors.sql), les plus fréquents d'abord
       - name: Erreurs signalées par l'app
         if: always() && steps.token.outputs.ok == 'true'
@@ -195,6 +215,17 @@ jobs:
           if [ "$n" = "0" ]; then echo "Aucune erreur signalée ces 7 derniers jours."; exit 0; fi
           echo "$n erreur(s) différente(s) ces 7 derniers jours :"
           jq -r '.[0].r[] | "  ×\(.count)  \(.place)  [\(.version)]  \(.msg)"' errs.json
+
+      # Retours des utilisateurs (014_feedback.sql) : le dépôt est public, on n'affiche que des nombres ; les messages
+      # se lisent dans l'app (Moi → Réglages → Retours reçus, compte administrateur)
+      - name: Retours des utilisateurs
+        if: always() && steps.token.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          code=$(jq -n '{query: "select gt_feedback_counts(7) as r"}' | curl -sS -o fb.json -w '%{http_code}' -X POST             "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @-)
+          if [ "$code" -ge 300 ]; then echo "Bilan indisponible (HTTP $code)"; exit 0; fi
+          jq -r '.[0].r | "Ces 7 derniers jours : \(.total) retour(s) (\(.idea) idée(s), \(.bug) souci(s), \(.other) autre(s)). Administrateurs : \(.admins)."' fb.json
+          if [ "$(jq -r '.[0].r.admins' fb.json)" = "0" ]; then echo "Pour lire les retours dans l'app : Actions → Supabase (IA en ligne) → Run workflow, avec ton pseudo dans « admin »."; fi
 
       - name: Bilan de la base de données
         if: steps.token.outputs.ok == 'true' && steps.sql.outcome == 'failure'

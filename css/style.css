@@ -1091,7 +1091,7 @@ html:has(> body > :where(#view) > .composer) .toast { bottom: calc(var(--tab-h) 
 .cal .h { font-size: var(--fs-2xs); color: var(--dim); text-align: center; font-weight: 650; padding-bottom: 4px; }
 .cal .c { display: grid; place-items: center; height: 38px; }
 .cal .c span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-.cal .c.on span { background: var(--red); color: var(--on-accent); font-weight: 700; box-shadow: 0 4px 12px -6px rgba(var(--accent-rgb), .9); animation: pop var(--dur-4) var(--spring) backwards; }
+.cal .c.on span { background: var(--accent-deep, var(--red)); color: #fff; font-weight: 700; box-shadow: 0 4px 12px -6px rgba(var(--accent-rgb), .9); animation: pop var(--dur-4) var(--spring) backwards; }
 .cal .c span { position: relative; }
 .cal .c.plan span::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent-ink); }
 .cal .c.today span { box-shadow: inset 0 0 0 2px var(--text); color: var(--text); font-weight: 750; }
@@ -1286,7 +1286,8 @@ details.adv[open] > :not(summary) { animation: fade var(--dur-3) var(--ease-out)
   box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(16px) saturate(170%); backdrop-filter: blur(16px) saturate(170%);
   opacity: 0; pointer-events: none; --ty: 22px; transform: translate3d(-50%, var(--ty), 0) scale(.9);
   transition: transform .26s var(--ease-in), opacity .2s var(--ease-in); }
-.toast.show { opacity: 1; pointer-events: auto; transform: translate3d(-50%, 0, 0); transition: transform var(--dur-5) var(--spring), opacity var(--dur-2) var(--ease-out); cursor: pointer; }
+/* les taps traversent la bulle : elle ne bloque jamais le bouton qu'elle recouvre (elle part toute seule) */
+.toast.show { opacity: 1; transform: translate3d(-50%, 0, 0); transition: transform var(--dur-5) var(--spring), opacity var(--dur-2) var(--ease-out); }
 .toast.swap { animation: toastSwap .42s var(--spring); }
 @keyframes toastSwap { from { transform: translate3d(-50%, 0, 0) scale(.9); opacity: .4; } }
 .hide-tabs .toast { bottom: calc(var(--safe-b) + 100px); }
@@ -2920,3 +2921,22 @@ body.no-chars .story-stage { display: none; }
 .tool.on { color: var(--blue-ink); }
 @media (prefers-reduced-motion: reduce) { .story-win .story-stage, .vc-bar i, .story-bar i { animation: none; transition: none; } }
 .duo-cheers button { width: 40px; height: 40px; }
+
+/* Face ID / Touch ID */
+.bio-btn { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: var(--s-3); }
+.bio-btn svg { width: 24px; height: 24px; }
+.bio-offer { text-align: center; }
+.bio-offer .bio-ic { display: inline-grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; margin: 4px auto 12px; color: var(--green, #22c55e); background: color-mix(in srgb, var(--green, #22c55e) 14%, transparent); }
+.bio-offer .bio-ic svg { width: 40px; height: 40px; }
+
+/* Carte de séance à partager */
+.share-box { display: grid; place-items: center; min-height: 240px; }
+.share-img { width: min(100%, 300px); aspect-ratio: 9 / 16; border-radius: 18px; box-shadow: 0 12px 40px rgba(0, 0, 0, .45); -webkit-touch-callout: default; user-select: auto; }
+
+/* Une idée ? Un souci ? */
+.fb-kind button { white-space: nowrap; }
+.fb-item { padding: 12px 14px; margin-top: 10px; }
+.fb-item.new { border-color: color-mix(in srgb, var(--red) 55%, var(--line)); }
+.fb-msg { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-msg.mono { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+#inbox-n { margin-right: 6px; }

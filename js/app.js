@@ -12,7 +12,9 @@ import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSa
 import { BADGES, checkBadges } from "./badges.js";
 import { renderFriends, renderImport, syncSocial, onSocial, unreadCount, FEED_ICON, ensureLeague } from "./social.js";
 import { showAuth, emblem } from "./auth.js";
-import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS, deleteAccount } from "./cloud.js";
+import { logout, isOnlineMode, syncStatus, onSyncStatus, onRemoteUpdate, changePin, push, forget, resumeSession, touchSession, SESSION_MS, deleteAccount, bioOf, setBio } from "./cloud.js";
+import { bioName, bioEnroll } from "./bio.js";
+import { openFeedback, openInbox, isAdmin, unseenFeedback, flushFeedback } from "./feedback.js";
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
@@ -509,7 +511,8 @@ function progress() {
   const more = (btn, box, on, off) => btn && (btn.onclick = () => { const few = box.classList.toggle("few"); btn.textContent = few ? off : on; });
   more($("#badges-more"), $("#badges"), "Réduire", `Voir les ${BADGES.length} succès`);
   more($("#hist-more"), $("#hist"), "Réduire", "Voir plus de séances");
-  $$(".sess").forEach(el => el.onclick = e => { if (!e.target.closest("[data-del]")) el.classList.toggle("open"); });
+  $$(".sess").forEach(el => el.onclick = e => { if (!e.target.closest("[data-del], [data-share]")) el.classList.toggle("open"); });
+  $$("[data-share]").forEach(b => b.onclick = () => { const s = state.sessions.find(x => x.id === b.dataset.share); if (s) import("./sharecard.js").then(m => m.openShare(s)); });
   $$("[data-del]").forEach(b => b.onclick = async () => {
     if (!(await confirmSheet("Supprimer cette séance ?", "Elle sera retirée de ton historique.", "Supprimer", true))) return;
     state.sessions = state.sessions.filter(s => s.id !== b.dataset.del); tombstone("sessions", b.dataset.del); save(); route();
@@ -536,7 +539,7 @@ function sessRow(s) {
       <span class="chip green">+${s.xp} XP</span></div>
     <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span>${s.iv ? `<span>${esc(ivSummary(s).replace(/^[^·]+· /, ""))}</span>`
       : `<span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>`}${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
-    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${s.iv ? ivSets(s) : groupSets(s.sets)}<button class="btn btn-danger btn-sm mt" data-del="${s.id}">${I.trash} Supprimer</button></div>
+    <div class="det">${s.note ? `<div class="note-line">${I.edit}<span>${esc(s.note)}</span></div>` : ""}${s.iv ? ivSets(s) : groupSets(s.sets)}<div class="row mt">${!s.iv && s.sets.length ? `<button class="btn btn-soft btn-sm" data-share="${s.id}">${I.share} Partager</button>` : ""}<button class="btn btn-danger btn-sm" data-del="${s.id}">${I.trash} Supprimer</button></div></div>
   </article>`;
 }
 
@@ -695,6 +698,9 @@ const SIC = {
   up: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5.5 12h3l1.5-3 2.5 6 1.5-3h4.5"/>',
   trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
+  face: '<path d="M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2M15.5 4h2A2.5 2.5 0 0 1 20 6.5v2M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M8.5 20h-2A2.5 2.5 0 0 1 4 17.5v-2M9 9.5v1.2M15 9.5v1.2M12 9.5v3.6h-1M9.4 15.6c1.6 1.3 3.6 1.3 5.2 0"/>',
+  idea: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+  inbox: '<path d="M4 13.5 6.5 5h11l2.5 8.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13.5h4.5l1 2h5l1-2H20"/>',
 };
 const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? spider() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
 
@@ -783,6 +789,7 @@ function profile() {
     <div class="card card-list set-list">
       <div class="set-row">${sic("at", "#64748b")}<div class="grow"><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
       <label class="toggle set-row">${sic("lock", "#64748b")}<div class="grow"><b>Code à chaque ouverture</b><span class="xs muted">Sinon l'app reste ouverte 12 h après ta dernière utilisation</span></div><input type="checkbox" id="p-pinlock" ${p.pinLock ? "checked" : ""}/></label>
+      <label class="toggle set-row hidden" id="bio-row">${sic("face", "#22c55e")}<div class="grow"><b>Déverrouiller avec <span class="bio-name">Face ID</span></b><span class="xs muted">À la place du code, sur ce téléphone. Rien ne quitte l'appareil.</span></div><input type="checkbox" id="p-bio" ${bioOf(currentUser) ? "checked" : ""}/></label>
       <button class="set-row set-act" id="acc-pin">${sic("key", "#f59e0b")}<b class="grow">Changer mon code</b>${I.chev}</button>
       <button class="set-row set-act" id="acc-lock">${sic("lock", "#3b82f6")}<b class="grow">Verrouiller / changer de compte</b>${I.chev}</button>
       <button class="set-row set-act danger" id="acc-forget">${sic("out", "var(--danger)")}<div class="grow"><b>Retirer ce compte de cet appareil</b><span class="xs muted">${isOnlineMode() ? "Le compte reste en ligne" : "Supprime le compte et ses données"}</span></div>${I.chev}</button>
@@ -808,6 +815,8 @@ function profile() {
     </details>
 
     <div class="card card-list set-list mt-l">
+      <button class="set-row set-act" id="feedback">${sic("idea", "#f59e0b")}<div class="grow"><b>Une idée ? Un souci ?</b><span class="xs muted">Écris-nous directement depuis l'app</span></div>${I.chev}</button>
+      <button class="set-row set-act hidden" id="inbox">${sic("inbox", "#8b5cf6")}<div class="grow"><b>Retours reçus</b><span class="xs muted">Messages des utilisateurs et plantages (administrateur)</span></div><span class="chip red hidden" id="inbox-n"></span>${I.chev}</button>
       <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${spider()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
       <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
     </div>
@@ -865,6 +874,27 @@ function profile() {
   $("#imp").onclick = () => import("./import-ui.js").then(m => m.openImport(() => route()));
 
   // Compte
+  bioName().then(name => {
+    const row = $("#bio-row");
+    if (!name || !row) return;
+    row.classList.remove("hidden");
+    row.querySelector(".bio-name").textContent = name;
+    // la demande part dans le geste (sinon Safari la refuse)
+    $("#p-bio").onchange = e => {
+      const t = e.target;
+      if (!t.checked) { setBio(currentUser, null); return toast(`${name} désactivé : ton code sera demandé.`); }
+      bioEnroll(currentUser, p.name).then(b => { setBio(currentUser, b); toast(`${name} activé ✓`); })
+        .catch(() => { t.checked = false; toast(`${name} n'a pas pu être activé.`); });
+    };
+  });
+  $("#feedback").onclick = () => openFeedback("#/profile");
+  isAdmin().then(ok => {
+    const b = $("#inbox");
+    if (!ok || !b) return;
+    b.classList.remove("hidden");
+    b.onclick = () => { openInbox(); $("#inbox-n")?.classList.add("hidden"); };
+    unseenFeedback().then(n => { const c = $("#inbox-n"); if (c && n) { c.textContent = n; c.classList.remove("hidden"); } });
+  });
   $("#acc-lock").onclick = () => { logout(); route(); };
   $("#acc-pin").onclick = () => pinSheet();
   $("#acc-delete")?.addEventListener("click", () => deleteSheet());
@@ -1024,6 +1054,7 @@ spidey.onTap = () => {
 };
 spidey.init();
 route();
+setTimeout(() => flushFeedback(), 6000); // retours écrits hors réseau
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 // app App Store : rappels de séance reprogrammés à chaque ouverture (le programme de la semaine a pu changer)
 if (isNative()) setTimeout(() => refreshPush(), 3000);

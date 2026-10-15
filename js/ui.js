@@ -47,6 +47,9 @@ export const I = {
   camera: ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   eye: ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   video: ic('<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 5-3v9l-5-3z"/>'),
+  face: ic('<path d="M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2M15.5 4h2A2.5 2.5 0 0 1 20 6.5v2M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M8.5 20h-2A2.5 2.5 0 0 1 4 17.5v-2M9 9.5v1.2M15 9.5v1.2M12 9.5v3.6h-1M9.4 15.6c1.6 1.3 3.6 1.3 5.2 0"/>'),
+  share: ic('<path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M6 11.5H5.5A1.5 1.5 0 0 0 4 13v6.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V13a1.5 1.5 0 0 0-1.5-1.5H18"/>'),
+  idea: ic('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>'),
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
 };
 // Visage du coach choisi (avatar utilisé partout dans l'app).
@@ -65,7 +68,6 @@ export function toast(msg, ms = 2400) {
   t.textContent = msg;
   if (showing && !reduceMotion()) { t.classList.remove("swap"); void t.offsetWidth; t.classList.add("swap"); }
   t.classList.add("show");
-  t.onclick = () => { clearTimeout(toastT); t.classList.remove("show", "swap"); };
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove("show", "swap"), Math.max(ms, 1200 + String(msg).length * 40));
 }

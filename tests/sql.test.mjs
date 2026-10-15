@@ -381,12 +381,52 @@ test("plantages de l'app : regroupés par message et endroit, bornés, lisibles 
   assert.ok((await log("TypeError: x is undefined", "js/live.js:412:15", "", "greatness-v22")).ok); // autre version : à part
   assert.ok((await log("x".repeat(1000), "js/food.js:1:1")).ok);
   const recent = (await db.query("select gt_errors_recent(7, 10) as r")).rows[0].r;
-  assert.deepEqual(recent.map(e => [e.place, e.version, e.count]), [["js/live.js:412:15", "greatness-v23", 3], ["js/food.js:1:1", "", 1], ["js/live.js:412:15", "greatness-v22", 1]]);
-  assert.equal(recent[1].msg.length, 300);
+  // la plus fréquente d'abord ; les ex aequo (enregistrés dans la même microseconde) dans un ordre quelconque
+  assert.deepEqual(recent[0].count, 3);
+  assert.deepEqual(recent.map(e => [e.place, e.version, e.count]).sort(), [["js/food.js:1:1", "", 1], ["js/live.js:412:15", "greatness-v22", 1], ["js/live.js:412:15", "greatness-v23", 3]]);
+  assert.equal(recent.find(e => e.place === "js/food.js:1:1").msg.length, 300);
   // l'app peut signaler, pas lire
   await db.exec("set role anon");
   assert.ok((await db.query("select gt_error_log('Boom', 'js/x.js:1:1', '', '', '') as r")).rows[0].r.ok);
   await assert.rejects(db.query("select gt_errors_recent(7, 10)"));
   await assert.rejects(db.query("select * from gt_errors"));
   await db.exec("reset role");
+});
+
+test("retours des utilisateurs : envoi signé ou anonyme, bornés, lisibles seulement par un administrateur", async () => {
+  for (const f of ["013_errors.sql", "014_feedback.sql"]) {
+    const sql = fs.readFileSync(new URL(`../supabase/${f}`, import.meta.url), "utf8");
+    await db.exec(sql); await db.exec(sql);
+  }
+  const a = (await call("gt_signup", "fbuser", "2468")).token, boss = (await call("gt_signup", "fbboss", "1357")).token;
+  const add = (t, kind, text) => call("gt_feedback_add", t, kind, text, "#/coach", "greatness-v24", "iPhone");
+  assert.equal((await add(null, "idea", "ok")).error, "EMPTY");
+  assert.ok((await add(a, "bug", "Le minuteur saute une seconde")).ok);
+  assert.ok((await add(null, "hack", "Anonyme, type inconnu")).ok);
+  assert.ok((await add("faux", "idea", "Jeton faux : anonyme")).ok);
+  for (let i = 0; i < 9; i++) await add(a, "idea", `Idée ${i}`);
+  assert.equal((await add(a, "idea", "Une de trop")).error, "LIMIT"); // 10 par compte et par jour
+  // personne n'est administrateur : rien à lire, même avec un compte
+  assert.equal((await call("gt_is_admin", a)).admin, false);
+  assert.equal((await call("gt_feedback_list", a, 10)).error, "NOT_ADMIN");
+  await db.exec("insert into gt_admins(username) values ('fbboss')");
+  assert.equal((await call("gt_is_admin", boss)).admin, true);
+  const list = await call("gt_feedback_list", boss, 50);
+  assert.equal(list.feedback.length, 12);
+  const bug = list.feedback.find(f => f.kind === "bug");
+  assert.deepEqual([bug.username, bug.screen, bug.version], ["fbuser", "#/coach", "greatness-v24"]);
+  assert.equal(list.feedback.find(f => /type inconnu/.test(f.msg)).kind, "other");
+  assert.equal(list.feedback.find(f => /Jeton faux/.test(f.msg)).username, "");
+  assert.ok(Array.isArray(list.errors));
+  // le bilan du déploiement : des nombres seulement, et réservé au serveur
+  const counts = (await db.query("select gt_feedback_counts(7) as r")).rows[0].r;
+  assert.deepEqual([counts.total, counts.bug, counts.idea, counts.other, counts.admins], [12, 1, 10, 1, 1]);
+  await db.exec("set role anon");
+  await assert.rejects(db.query("select gt_feedback_counts(7)"));
+  await assert.rejects(db.query("select * from gt_feedback"));
+  await assert.rejects(db.query("select * from gt_admins"));
+  await db.exec("reset role");
+  // compte supprimé : ses messages restent, anonymes
+  await db.exec("delete from gt_accounts where username = 'fbuser'");
+  assert.equal((await call("gt_feedback_list", boss, 50)).feedback.find(f => f.kind === "bug").username, "");
 });

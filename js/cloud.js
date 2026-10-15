@@ -257,6 +257,19 @@ export async function changePin(oldPin, newPin) {
   await rememberPin(currentUser, newPin, { token: token() });
 }
 
+// Face ID / Touch ID (bio.js) : ce qu'il faut garder sur l'appareil pour ce compte, ou rien
+export const bioOf = u => registry()[normalize(u)]?.bio || null;
+export const setBio = (u, bio) => updateEntry(normalize(u), { bio: bio || undefined, bioAsked: true });
+export const bioAsked = u => !!registry()[normalize(u)]?.bioAsked;
+// Ouvre un compte déjà connu de l'appareil sans le code, une fois le visage ou le doigt vérifié par bio.js
+export async function unlockKnown(username) {
+  const u = normalize(username), e = registry()[u];
+  if (!e?.hash || (isOnlineMode() && !e.token)) throw fail("BAD_CREDENTIALS"); // jeton expiré : le code, une fois
+  open(u);
+  if (isOnlineMode()) pull().catch(() => {});
+  return u;
+}
+
 export function knownAccounts() {
   const r = registry();
   return Object.keys(r).map(u => ({ username: u, display: r[u].display || u, len: r[u].len || 4, name: readLocal(u)?.profile?.name || r[u].display || u }));

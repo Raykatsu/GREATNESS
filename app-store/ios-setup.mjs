@@ -1,4 +1,4 @@
-// Réglages du projet iPhone créé par « npx cap add ios » : textes des autorisations (caméra, micro, Santé…),
+// Réglages du projet iPhone créé par « npx cap add ios » : textes des autorisations (caméra, micro, Santé, Face ID…),
 // Apple Santé (HealthKit), iPhone seulement, en portrait. Relançable sans risque.
 import fs from "node:fs";
 import path from "node:path";
@@ -17,6 +17,7 @@ const KEYS = {
   NSPhotoLibraryUsageDescription: "Pour choisir une vidéo de ta série (analyse de technique), une photo de repas ou une photo de progrès.",
   NSHealthShareUsageDescription: "GREATNESS lit ton sommeil, ta variabilité cardiaque, ta fréquence cardiaque au repos, tes pas, ton poids et ton énergie active pour préremplir ton bilan de forme et adapter tes séances.",
   NSHealthUpdateUsageDescription: "GREATNESS n'écrit rien dans Santé.",
+  NSFaceIDUsageDescription: "Face ID déverrouille ton compte GREATNESS à la place de ton code secret. Rien ne quitte ton téléphone.",
 };
 let p = fs.readFileSync(plist, "utf8");
 const setKey = (k, xml) => {
