@@ -3,7 +3,10 @@ import { EXERCISES } from "./data.js";
 import { getProgram } from "./store.js";
 import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
-import { Session, fmtTarget, plates } from "./engine.js";
+import { Session, fmtTarget, plates, schemeAt } from "./engine.js";
+import { classicAfter, CLASSICS } from "./classics.js";
+import { nativeRestLive, nativeWidget, isNative } from "./native.js";
+import { widgetData } from "./widgetdata.js";
 import { cycleInfo, isWorkout } from "./planner.js";
 import { pickExercises } from "./train.js";
 import { defaultItem } from "./create.js";
@@ -39,6 +42,7 @@ function toggleVoice() {
       if (!S) return;
       if (cmd.action === "stop") { listener?.stop(); listener = null; render(); return; }
       if (cmd.action === "go") return endRest(true);
+      if (cmd.action === "ask") return askCoach({ q: cmd.q, voice: true }); // « Coach, … ? » : réponse lue à voix haute
       if (cmd.action === "undo") return $("#undo")?.click();
       if (cmd.action === "skip") return $("#skip")?.click();
       if (cmd.action === "log" && S.current) {
@@ -54,7 +58,7 @@ function toggleVoice() {
   speechHooks.end = () => listener?.resume();
   listener.start();
   render();
-  speak("Mode mains libres activé. Dis par exemple : huit reps, difficile.");
+  speak("Mode mains libres activé. Dis par exemple : huit reps, difficile. Ou pose une question : coach, combien de repos ?");
 }
 const stopVoice = () => { listener?.stop(); listener = null; speechHooks.start = speechHooks.end = null; };
 
@@ -163,10 +167,10 @@ function render() {
     const prev = last?.[i] ? fmtSet(last[i], ex) : "—";
     if (d) return `<div class="set done ${i === justDone ? "just" : ""}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
       ${load ? `<span class="val">${fmtKg(d.weight)}</span>` : ""}<span class="val">${d.reps}<small>${unit(ex)}</small>${simple ? "" : `<span class="rpe-b">@${d.rpe}</span>`}</span><span class="ok" role="img" aria-label="Série faite">${TICK}</span></div>`;
-    const cur = i === ex.done.length;
+    const cur = i === ex.done.length, sc = schemeAt(ex, i); // programme célèbre : la prescription de chaque série
     return `<div class="set ${cur ? "cur" : "todo"}"><span class="i">${i + 1}</span><span class="prev">${prev}</span>
-      ${load ? `<span class="val" ${cur ? 'id="v-weight"' : ""}>${fmtKg(cur ? ui.weight : ex.weight)}</span>` : ""}
-      <span class="val" ${cur ? 'id="v-reps"' : ""}>${cur ? ui.reps : ex.goal}<small>${unit(ex)}</small></span>
+      ${load ? `<span class="val" ${cur ? 'id="v-weight"' : ""}>${fmtKg(cur ? ui.weight : sc ? sc.weight : ex.weight)}</span>` : ""}
+      <span class="val" ${cur ? 'id="v-reps"' : ""}>${cur ? ui.reps : sc ? sc.reps : ex.goal}${!cur && sc?.amrap ? "+" : ""}<small>${unit(ex)}</small></span>
       ${cur ? `<button class="ok" id="row-log" aria-label="Valider la série ${i + 1}"></button>` : `<span class="ok"></span>`}</div>
       ${cur ? editor(ex, simple) : ""}`;
   }).join("");
@@ -312,7 +316,7 @@ function renderDock() {
     $$("[data-r]", dock).forEach(b => b.onclick = () => {
       const d = +b.dataset.r;
       rest.end = Math.max(Date.now() + 1000, rest.end + d * 1000); rest.total = Math.max(rest.total + d, 10);
-      vibrate(6); paintRest(true);
+      vibrate(6); paintRest(true); liveRest();
     });
     $("#rest-skip", dock).onclick = () => endRest(true);
     paintRest(true);
@@ -409,7 +413,7 @@ function bind(ex) {
   $("#plates")?.addEventListener("click", () => toast("Disques calculés pour une barre de 20 kg."));
   $("#skip").onclick = () => { endRest(false); const ev = S.skip(); if (S.finished) return finish(); resetInputs(); render(); announce(ev); };
   $("#swap").onclick = openSwap;
-  $("#ask").onclick = askCoach;
+  $("#ask").onclick = () => askCoach();
   $("#undo")?.addEventListener("click", () => { endRest(false); if (S.undo()) { resetInputs(); const ex2 = S.current; const d = ex2.done.length; render(); toast(`Série ${d + 1} annulée`); } });
   $("#add-alt")?.addEventListener("click", () => { const id = S.log[0].swap; S.log[0].swap = null; S.insertAlt(id); resetInputs(); render(); const intro = S.intro(); speak(intro.say, { interrupt: true }); });
 }
@@ -450,7 +454,7 @@ function logSet(e) {
     aiAdjust(S, lastSet, local).then(rec => {
       if (!rec || !S || S.finished) return;
       const changed = S.applyAi(rec);
-      if (rest && Number.isFinite(rec.rest_seconds)) { const s = Math.min(300, Math.max(20, rec.rest_seconds)); rest.end = Date.now() + s * 1000; rest.total = s; }
+      if (rest && Number.isFinite(rec.rest_seconds)) { const s = Math.min(300, Math.max(20, rec.rest_seconds)); rest.end = Date.now() + s * 1000; rest.total = s; liveRest(); }
       S.push({ kind: "ai", title: changed ? "Ajustement du coach (IA)" : "Conseil du coach (IA)", text: rec.message });
       resetInputs(); render();
       spidey.say(rec.message); speak(rec.message);
@@ -464,6 +468,14 @@ function startRest(sec) {
   rest = { end: Date.now() + sec * 1000, total: sec, said10: false, beeped: new Set() };
   rest.timer = setInterval(paintRest, 250);
   spidey.hang(true);
+  liveRest();
+}
+// App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit
+function liveRest() {
+  if (!isNative()) return;
+  const n = S?.current;
+  nativeRestLive(rest && n ? { start: rest.end - rest.total * 1000, end: rest.end, title: n.name,
+    detail: `Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}` } : null);
 }
 
 // La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.
@@ -490,6 +502,7 @@ function endRest(announceNext) {
   if (!rest) return;
   clearInterval(rest.timer);
   rest = null;
+  liveRest();
   spidey.hang(false);
   renderDock();
   if (announceNext && S?.current) {
@@ -515,15 +528,21 @@ function openSwap() {
 // Réponses immédiates (même hors ligne) aux cas courants ; une vraie question part à l'IA en ligne,
 // qui connaît la séance en cours et peut changer la charge (action set_weight, à valider d'un geste).
 const QUICK = [["harder", "Trop facile"], ["easier", "Trop dur"], ["pain", "Gêne ou douleur"], ["busy", "Machine prise"], ["rest", "Combien de repos ?"]];
-function askCoach() {
+// Question à voix haute (bouton micro, ou « Coach, … ? » en mains libres) : la réponse est lue
+let askSheet = null;
+const plain = t => String(t).replace(/\*\*|[*_#>`]/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+function askCoach({ q: asked = "", voice = false } = {}) {
   const ex = S?.current;
   if (!ex) return;
-  const sh = sheet(`<h2 class="h2">Demander au coach</h2>
+  askSheet?.close();
+  const canTalk = voiceSupported();
+  const sh = askSheet = sheet(`<h2 class="h2">Demander au coach</h2>
     <p class="muted small" id="ak-sub"></p>
     <div class="ak-chips mt-s">${QUICK.map(([k, l]) => `<button class="chip" data-k="${k}">${l}</button>`).join("")}</div>
-    <div class="ak-row mt"><input class="input" id="ak-in" maxlength="300" placeholder="Pose ta question…" enterkeyhint="send" autocomplete="off"/>
+    <div class="ak-row mt"><input class="input" id="ak-in" maxlength="300" placeholder="${canTalk ? "Pose ta question, ou parle…" : "Pose ta question…"}" enterkeyhint="send" autocomplete="off"/>
+      ${canTalk ? `<button class="btn btn-soft ak-mic" id="ak-mic" aria-label="Poser la question à voix haute">${I.mic}</button>` : ""}
       <button class="btn btn-primary" id="ak-go" aria-label="Envoyer">${I.send}</button></div>
-    <div class="ak-out" id="ak-out" aria-live="polite"></div><div class="acts" id="ak-acts"></div>`, { z: 60 });
+    <div class="ak-out" id="ak-out" aria-live="polite"></div><div class="acts" id="ak-acts"></div>`, { z: 60, onClose: () => { if (askSheet === sh) askSheet = null; } });
   const out = $("#ak-out", sh.el), acts = $("#ak-acts", sh.el), input = $("#ak-in", sh.el);
   const say = t => { out.innerHTML = md(t); };
   const sub = () => { $("#ak-sub", sh.el).textContent = `${ex.name} · série ${Math.min(ex.done.length + 1, ex.sets)}/${ex.sets}${ex.type === "load" ? ` · ${fmtKg(ex.weight)} kg` : ` · objectif ${ex.goal}${ex.type === "time" ? " s" : " reps"}`}`; };
@@ -552,11 +571,14 @@ function askCoach() {
     } else if (k === "busy") { sh.close(); openSwap(); }
     else say(`Repos conseillé : **${ex.rest} s** entre les séries de cet exercice. Plus long (jusqu'à ${Math.round(ex.rest * 1.5)} s) si la série d'avant était très dure, plus court sur les petits muscles.`);
   });
-  const ask = async () => {
+  const ask = async ({ spoken = false } = {}) => {
     const q = input.value.trim();
     if (!q) return input.focus();
     input.value = ""; acts.innerHTML = "";
-    if (!onlineReady()) return say(answer(q).text);
+    $("#ak-q", sh.el)?.remove();
+    out.insertAdjacentHTML("beforebegin", `<p class="ak-q" id="ak-q">${spoken ? "🎙️ " : ""}« ${esc(q)} »</p>`);
+    const reply = t => { say(t); if (spoken) speak(plain(t), { interrupt: true, force: true }); };
+    if (!onlineReady()) return reply(answer(q).text);
     out.innerHTML = `<div class="rv-wait"><i class="spinner"></i><span>${esc(coachName())} réfléchit…</span></div>`;
     try {
       const res = await onlineChat({
@@ -566,7 +588,7 @@ function askCoach() {
         onDelta: t => say(streamText(t)),
       });
       const { text, actions } = parseActions(res.text);
-      say(text || "C'est noté.");
+      reply(text || "C'est noté.");
       if (actions.some(a => a.type === "remember")) { actions.filter(a => a.type === "remember").forEach(a => applyAction(a)); save(); }
       const sw = actions.filter(a => a.type === "set_weight" && +a.weight >= 0);
       acts.innerHTML = sw.map((a, i) => `<button class="chip red" data-sw="${i}">Appliquer : ${esc(EXERCISES[resolveExercise(a.exercise) || ex.id]?.name || ex.name)} à ${fmtKg(+a.weight)} kg</button>`).join("");
@@ -578,10 +600,23 @@ function askCoach() {
         render(); sub(); b.disabled = true; b.textContent = `✓ ${item.name} : ${fmtKg(item.weight)} kg`;
         toast(`${item.name} : ${fmtKg(item.weight)} kg`);
       });
-    } catch (e) { say(`${answer(q).text}\n\n*(${e.message}${e.detail ? ` : ${e.detail}` : ""})*`); }
+    } catch (e) { reply(answer(q).text); say(`${answer(q).text}\n\n*(${e.message}${e.detail ? ` : ${e.detail}` : ""})*`); }
   };
-  $("#ak-go", sh.el).onclick = ask;
+  $("#ak-go", sh.el).onclick = () => ask();
   input.onkeydown = e => { if (e.key === "Enter") ask(); };
+  // micro : une question dictée, envoyée dès la fin de la phrase (l'écoute mains libres attend pendant ce temps)
+  $("#ak-mic", sh.el)?.addEventListener("click", () => {
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition, b = $("#ak-mic", sh.el);
+    if (b.classList.contains("on")) return;
+    const rec = new R();
+    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = false;
+    b.classList.add("on"); listener?.pause(); stopSpeaking();
+    rec.onresult = e => { input.value = e.results[e.results.length - 1][0].transcript; };
+    rec.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") toast("Autorise le micro pour parler au coach.", 3500); };
+    rec.onend = () => { b.classList.remove("on"); listener?.resume(); if (sh.el.isConnected && input.value.trim()) ask({ spoken: true }); };
+    try { rec.start(); } catch { b.classList.remove("on"); listener?.resume(); }
+  });
+  if (asked) { input.value = asked; ask({ spoken: voice }); }
 }
 
 function menu() {
@@ -611,6 +646,7 @@ function finish() {
   if (duoActive()) finishDuo(S.summary());
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
+  liveRest();
   spidey.hang(false);
   const before = rankInfo();
   const sum = S.summary();
@@ -622,6 +658,7 @@ function finish() {
   if (sum.sets.length) state.sessions.push(sum);
   if (sum.sets.length && !state.cycleStart) state.cycleStart = sum.date;
   const goals = sum.sets.length ? goalAfterSession(sum) : []; // objectifs chiffrés : test final, ou programme recalé
+  const classic = sum.sets.length && done.program.classic ? classicAfter(state.classic, sum, done.program) : []; // programme célèbre : il avance
   save();
   clearSaved();
   const after = rankInfo();
@@ -661,6 +698,7 @@ function finish() {
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
     ${goals.map(goalResultHtml).join("")}
+    ${classic.length ? `<div class="card goal-res classic-res"><span class="gr-ic">${I.flame}</span><div class="grow"><b>${esc(CLASSICS[state.classic.id].name)}</b>${classic.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>` : ""}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
     ${sum.sets.length ? `<label class="field fin-note"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…"></textarea></label>` : ""}
     <div class="fin-actions">${sum.sets.length ? `<button class="btn btn-soft btn-block" id="share-sess">${I.share} Partager ma séance</button>` : ""}${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
@@ -735,6 +773,8 @@ function close() {
   stopDuo();
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
+  liveRest();
+  if (isNative()) nativeWidget(widgetData()); // widget : la séance faite, la suivante
   clearSaved();
   wakeLock?.release?.(); wakeLock = null;
   S = null;

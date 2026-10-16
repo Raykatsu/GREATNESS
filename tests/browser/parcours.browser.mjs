@@ -24,7 +24,7 @@ test("parcours : onglets, séance, carte à partager, Face ID", { timeout: 18000
     await page.click("#start").catch(() => {}); await sleep(600);
     await page.click("#ci-go"); await page.waitForSelector("#log", { timeout: 10000 });
     await page.click("#log"); await sleep(500);
-    await page.evaluate(() => document.querySelector("#skip, #rest-skip, [data-act=skip]")?.click());
+    await page.evaluate(() => document.querySelector("#rest-skip")?.click());
     await page.waitForSelector("#log", { timeout: 10000 }); await page.click("#log"); await sleep(500);
     await page.click("#quit"); await sleep(400);
     await page.click('.sheet [data-r="1"]');

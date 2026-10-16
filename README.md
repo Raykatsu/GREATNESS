@@ -161,6 +161,23 @@ En séance, bouton **Duo** (compte en ligne) : crée un duo et envoie le code de
 
 À la fin d'une séance (ou depuis l'historique), **Partager ma séance** crée une image au format story : ton coach avec son costume, la séance, la durée, le volume, les séries, tes records et ton XP. Aperçu, puis la feuille de partage de l'iPhone (Instagram, WhatsApp, Messages, Photos…).
 
+## Programmes célèbres
+
+Onglet **Séances → Programmes célèbres** : **5/3/1 de Wendler**, **GZCLP**, **nSuns 5/3/1** et **Starting Strength**, avec leurs vraies règles.
+- Tu donnes tes maximums (estimés d'après tes séances, modifiables) ; l'app calcule **chaque série** : charge et reps, « 5+ » pour la série au maximum, annoncée par le coach.
+- La séance faite fait **avancer le programme** : semaines du cycle et +2,5 / +5 kg au nouveau cycle (5/3/1), paliers 5×3 → 6×2 → 10×1 (GZCLP), max d'entraînement selon la série « 1+ » (nSuns), +2,5 kg et −10 % après 3 échecs (Starting Strength).
+- Ta semaine suit le programme (jours d'entraînement, séance du jour sur l'accueil) ; carte de suivi avec tes maximums ; synchronisé sur tous tes appareils.
+
+## Parler au coach pendant la séance
+
+En séance, **Demander au coach** a un **micro** : pose ta question à voix haute (« J'ai mal à l'épaule, je remplace par quoi ? »), la réponse s'affiche **et se lit à voix haute**. En mode mains libres, commence simplement par « Coach, … » ou par une question (« Combien de repos ? ») : plus besoin de toucher l'écran. Avec l'IA en ligne, le coach connaît la séance en cours et peut proposer une nouvelle charge.
+
+## Dynamic Island et widget (app App Store)
+
+- **Repos dans la Dynamic Island et sur l'écran verrouillé** : le compte à rebours et l'exercice qui suit (série, charge, reps), même téléphone verrouillé ; « C'est reparti ! » à la fin.
+- **Widget « Séance du jour »** (écran d'accueil et écran verrouillé) : la séance prévue, ta série de jours, ta semaine ; il change de jour tout seul à minuit.
+- Code natif dans [`app-store/native/`](app-store/native/) (Swift), ajouté au projet Xcode par `app-store/ios-widgets.rb`.
+
 ## Une idée ? Un souci ?
 
 **Moi → Réglages → Une idée ? Un souci ?** : idée, souci ou autre, envoyé directement depuis l'app avec la version et l'écran ouvert, signé de ton pseudo si tu veux une réponse. Hors réseau, il part tout seul au retour de la connexion. L'administrateur de l'app lit les messages **et les plantages** dans **Moi → Réglages → Retours reçus** (voir SUPABASE.md pour devenir administrateur) ; le dépôt étant public, GitHub n'en affiche que le nombre.
@@ -225,7 +242,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 npm install
 npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
 npx playwright install chromium
-npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité
+npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité, programmes célèbres, coach vocal
 ```
 
 Ils tournent aussi automatiquement sur GitHub à chaque modification (`.github/workflows/tests.yml`).
@@ -293,7 +310,10 @@ js/version.js     version de l'app (la même que le cache de sw.js)
 js/bio.js         Face ID / Touch ID : clé d'accès (WebAuthn) ou biométrie native
 js/sharecard.js   carte de séance à partager (image au format story)
 js/feedback.js    « Une idée ? Un souci ? » et boîte « Retours reçus » de l'administrateur
+js/classics.js    programmes célèbres : séances prescrites et règles de progression (+ classics-ui.js : écrans)
+js/widgetdata.js  données du widget « Séance du jour » (app App Store)
 app-store/        projet Capacitor (copie du site, réglages iPhone, icônes) ; APPSTORE.md pour publier
+app-store/native/ Swift : pont natif, Live Activity du repos, widget (ajoutés par ios-widgets.rb)
 scripts/preload.mjs  liste des modules préchargés dans index.html (--check pour vérifier)
 sw.js             cache hors ligne + réception des notifications
 supabase/schema.sql      comptes en ligne

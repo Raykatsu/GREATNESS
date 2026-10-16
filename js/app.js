@@ -1,6 +1,7 @@
 import "./errors.js"; // remontée des plantages, en premier pour tout attraper
 import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
-import { isNative, storeText } from "./native.js";
+import { isNative, storeText, nativeWidget } from "./native.js";
+import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
@@ -36,6 +37,7 @@ import { addMemory, removeMemory } from "./memory.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
+import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 
@@ -290,6 +292,7 @@ function home() {
 
     ${healthCard()}
     ${goalCard()}
+    ${classicCard()}
     ${storyCard()}
     ${recoveryCard()}
     ${reviewCard(now)}
@@ -340,6 +343,7 @@ function home() {
   bindFoodCard(view);
   bindRecoveryCard(view);
   bindGoalCard(view, route);
+  bindClassicCard(view, route);
   bindHealthCard(view);
   bindStoryCard(view);
   checkStory(); // chapitre réussi depuis la dernière fois : fête et nouveau costume
@@ -1056,5 +1060,11 @@ spidey.init();
 route();
 setTimeout(() => flushFeedback(), 6000); // retours écrits hors réseau
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
-// app App Store : rappels de séance reprogrammés à chaque ouverture (le programme de la semaine a pu changer)
-if (isNative()) setTimeout(() => refreshPush(), 3000);
+// app App Store : rappels de séance reprogrammés à chaque ouverture (le programme de la semaine a pu changer), et le
+// widget « Séance du jour » mis à jour à l'ouverture et à chaque sortie de l'app
+if (isNative()) {
+  setTimeout(() => refreshPush(), 3000);
+  const widget = () => { if (currentUser) try { nativeWidget(widgetData()); } catch { /* données incomplètes */ } };
+  setTimeout(widget, 2500);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) widget(); });
+}

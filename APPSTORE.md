@@ -3,6 +3,8 @@
 L'app iPhone est la même que le site, emballée avec [Capacitor](https://capacitorjs.com) (dossier [`app-store/`](app-store/)). Elle ajoute ce que seul le natif permet :
 - **Apple Santé lu directement** (sommeil, VFC, fréquence au repos, pas, poids, énergie active), sans Raccourci.
 - **Face ID / Touch ID** pour déverrouiller l'app à la place du code secret.
+- **Le repos dans la Dynamic Island et sur l'écran verrouillé** (Live Activity) : le compte à rebours et l'exercice qui suit, sans ouvrir l'app.
+- **Widget « Séance du jour »** sur l'écran d'accueil et l'écran verrouillé : la séance prévue, ta série de jours et ta semaine.
 - **Fin du repos en notification locale**, même sans réseau, et **rappels de séance** programmés sur le téléphone.
 - **Vibrations** natives.
 
@@ -21,7 +23,11 @@ Sans compte développeur, tu peux quand même vérifier que l'app compile : **Ac
 2. Renseigne :
    - Description : `GREATNESS` ;
    - Bundle ID **Explicit** : `io.github.raykatsu.greatness`.
-3. Dans *Capabilities*, coche **HealthKit**, puis *Continue* → *Register*.
+3. Dans *Capabilities*, coche **HealthKit** et **App Groups**, puis *Continue* → *Register*.
+4. Le groupe partagé avec le widget : **+** → *App Groups* → Description `GREATNESS`, identifiant `group.io.github.raykatsu.greatness` → *Register*. Rouvre l'App ID de l'étape 2 → *App Groups* → *Configure* → coche ce groupe → *Save*.
+5. L'identifiant du widget : **+** → *App IDs* → *App*, Description `GREATNESS Widgets`, Bundle ID **Explicit** `io.github.raykatsu.greatness.widgets`, coche **App Groups** (même groupe) → *Register*.
+
+> GitHub crée ensuite tout seul les profils de signature (l'app et son widget) au moment de l'envoi.
 
 ## 2. Créer la fiche de l'app dans App Store Connect (une fois)
 
@@ -100,7 +106,7 @@ Apple répond en général en 24 à 48 h.
 ```bash
 cd app-store
 npm install
-npm run ios        # copie le site, crée le projet Xcode, règle les autorisations et Santé
+npm run ios        # copie le site, crée le projet Xcode, règle les autorisations, Santé, le widget (Ruby + gem xcodeproj)
 npm run icons      # icônes et écran de lancement
 npx cap open ios   # ouvre Xcode : choisis ton équipe, puis Product → Archive
 ```
