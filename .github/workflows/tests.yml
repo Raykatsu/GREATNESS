@@ -21,8 +21,9 @@ jobs:
 
   # L'app dans un iPhone simulé (Chromium) : parcours complet (séance, carte à partager, Face ID), compte en ligne
   # (retours des utilisateurs, administrateur, plantages) et accessibilité de chaque écran en thème sombre et clair
+  # Ubuntu 24.04 : Playwright 1.56 n'installe pas Chromium sur la nouvelle image ubuntu-latest (26.04)
   navigateur:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
