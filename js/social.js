@@ -6,7 +6,7 @@ import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, d
 import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
 import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
-import { LOC, tr, ordinal, ago as agoTxt } from "./i18n.js";
+import { LOC, tr, ordinal, ago as agoTxt, dayUnit } from "./i18n.js";
 
 export { weeklyChallenge };
 // Les stats "semaine" d'un ami ne comptent que si elles datent de cette semaine.
@@ -15,7 +15,7 @@ const fresh = p => (p?.week?.start === weekStart().getTime() ? p : { ...p, week:
 const BOARDS = [
   { id: "volume", name: "Volume", val: p => p.week.volume, fmt: v => `${fmtNum(v)} kg` },
   { id: "count", name: "Séances", val: p => p.week.count, fmt: v => `${v}` },
-  { id: "streak", name: "Série", val: p => p.streak || 0, fmt: v => `${v} j` },
+  { id: "streak", name: "D'affilée", val: p => p.streak || 0, fmt: v => `${v} j` },
   { id: "xp", name: "XP", val: p => p.xp || 0, fmt: v => `${fmtNum(v)}` },
 ];
 let board = "volume", cache = null;
@@ -299,7 +299,7 @@ function friendSheet(f, reload, friends = []) {
       <div class="small muted">@${esc(f.username)}</div><div class="chips-c">${p.rank ? `<span class="chip red">${esc(p.rank)}</span>` : ""}<span class="chip">Niveau ${p.level || 1}</span></div></div>
     <div class="grid3 mt">
       <div class="card stat"><div class="v">${p.week.count}</div><div class="l">Semaine</div></div>
-      <div class="card stat"><div class="v">${p.streak || 0}<small>j</small></div><div class="l">D'affilée</div></div>
+      <div class="card stat"><div class="v">${p.streak || 0}<small>${dayUnit()}</small></div><div class="l">D'affilée</div></div>
       <div class="card stat"><div class="v">${p.total?.sessions || 0}</div><div class="l">Au total</div></div>
     </div>
     ${d ? `<p class="small muted mt" style="text-align:center">⚔️ ${d.status === "active" ? `Duel en cours : ${esc(METRICS[d.m].short)}` : d.status === "pending" ? "Duel proposé, en attente de sa réponse" : "Il te défie cette semaine : réponds dans Duels"}</p>`

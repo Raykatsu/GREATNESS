@@ -37,6 +37,10 @@ test("traduction : texte entier, morceaux, pluriel, première lettre en minuscul
   assert.equal(tr("Bonjour"), "Bonjour");
   assert.equal(tr("Reposant"), "Reposant"); // mot entier seulement
   assert.equal(tr("12,5"), "12.5");
+  // bulle du coach : espaces insécables de la typographie française avant « : ! » (visite guidée)
+  useDict({ "Salut, c'est": "Hi, it's", "Ici, l'Accueil : ta mission du jour.": "This is Home: today's mission." });
+  assert.equal(tr("Salut, c'est Alex ! Ici, l'Accueil : ta mission du jour."), "Hi, it's Alex! This is Home: today's mission.");
+  assert.equal(tr("Alex !"), "Alex !"); // rien à traduire : texte laissé tel quel
 });
 
 test("dictionnaire anglais : chaque texte de l'app a sa traduction", { skip: !EN_READY && "version anglaise pas encore livrée" }, async () => {

@@ -28,7 +28,8 @@ export function core(s) {
 // Est-ce du français à afficher ? (sinon : identifiant, classe CSS, code…)
 export function isText(s) {
   if (!s || s.length < 2 || !/\p{L}/u.test(s)) return false;
-  if (/[{};<>]|=>|(?<! )=|=(?! )|\bvar\(--|^https?:|^data:|^#|^\.[a-z]|^[\w-]+\/[\w./-]+$|\.(js|css|png|svg|json|html)$|\d+px\b|sans-serif|system-ui|rgba?\(|translate\(|cubic-bezier/i.test(s)) return false;
+  if (/;/.test(s) && /[\w-]+\s*:\s*[^;\s]+;/.test(s)) return false; // déclarations CSS (« color: red; »), pas la prose « ; »
+  if (/[{}<>]|=>|(?<! )=|=(?! )|\bvar\(--|^https?:|^data:|^#|^\.[a-z]|^[\w-]+\/[\w./-]+$|\.(js|css|png|svg|json|html)$|\d+px\b|sans-serif|system-ui|rgba?\(|translate\(|cubic-bezier/i.test(s)) return false;
   if (/[à-ÿœæ«»]/i.test(s) || /\p{L}\(s\)/u.test(s)) return true; // accents, ou pluriel « exercice(s) »
   if (FRENCH_WORDS.test(s) && /\s/.test(s)) return true;
   // libellés : « Valider », « Mes séances », « Dos plat ! », « Presse pectoraux (machine) », « Maison · Bas »

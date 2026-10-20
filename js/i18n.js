@@ -5,7 +5,7 @@
 const KEY = "greatness.lang";
 let lang = "fr", dict = null, index = null;
 // La version anglaise s'allume quand son dictionnaire (js/lang/en.js) est livré ; d'ici là, l'app reste en français.
-export const EN_READY = false;
+export const EN_READY = true;
 
 export const getLang = () => lang;
 export const isEn = () => lang === "en";
@@ -13,6 +13,8 @@ export const LOC = () => (lang === "en" ? "en-US" : "fr-FR"); // dates et nombre
 export const voiceLang = () => (lang === "en" ? "en-US" : "fr-FR");
 // nombre décimal à afficher : 77,5 en français, 77.5 en anglais
 export const dec = x => (lang === "en" ? String(x) : String(x).replace(".", ","));
+// unité courte des jours (« 5 j » / « 5 d »)
+export const dayUnit = () => (lang === "en" ? "d" : "j");
 // rang : « 1er », « 2e » / « 1st », « 2nd »
 export const ordinal = n => {
   if (lang !== "en") return n === 1 ? "1er" : `${n}e`;
@@ -56,7 +58,7 @@ export function useDict(entries) {
 // Typographie anglaise : pas d'espace avant « : ; ! ? % », guillemets “ ”, virgule décimale → point,
 // espace des milliers → virgule
 export function polish(s) {
-  return s.replace(/([^\s\d])[   ]+([:;!?])/g, "$1$2")
+  return s.replace(/([^\s])[   ]+([:;!?])(?!\d)/g, "$1$2")
     .replace(/(\d)[   ]%/g, "$1%")
     .replace(/«[   ]*/g, "“").replace(/[   ]*»/g, "”")
     .replace(/(\d),(\d{1,2})(?!\d)/g, "$1.$2")
@@ -77,10 +79,14 @@ function whole(c) {
   return undefined;
 }
 // Traduit un texte : en entier s'il est connu, sinon morceau par morceau (le plus long morceau connu à chaque mot)
-export function tr(s) {
-  if (!dict || !s) return s;
+const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
+export function tr(text) {
+  if (!dict || !text) return text;
+  // les espaces insécables de la typographie française (bulles du coach : « Alex ! », « Ici : ») comptent comme des
+  // espaces ordinaires, sinon le texte ne correspond plus à celui du code
+  const s = text.replace(/[\u00a0\u202f](?=[?!:;»])/g, " ").replace(/«[\u00a0\u202f]/g, "« ");
   const hasWord = /\p{L}/u.test(s);
-  if (!hasWord) return /\d[, ]\d/.test(s) ? polish(s) : s;
+  if (!hasWord) return /\d[, ]\d/.test(s) ? polish(s) : text;
   const c = s.trim(), exact = whole(c);
   if (exact !== undefined) return polish(s.replace(c, exact));
   let out = "", i = 0, changed = false;
@@ -90,20 +96,25 @@ export function tr(s) {
       let j = i + 1;
       while (j < n && WORD.test(s[j])) j++;
       const w = s.slice(i, j);
-      let hit = null, cap = false;
-      for (const [key, c2] of [[w, false], [/^\p{Ll}/u.test(w) ? up(w) : null, true]]) {
-        const cands = key && index.get(key);
-        if (!cands) continue;
-        for (const k of cands) {
-          const k2 = c2 ? low(k) : k;
+      // le plus long morceau connu qui commence ici, tel quel ou avec sa majuscule (« semaine allégée » → « Semaine
+      // allégée »), en tolérant le « s » de pluriel ajouté par le code après un morceau de plusieurs mots
+      let best = null;
+      for (const [key, cap] of [[w, false], [/^\p{Ll}/u.test(w) ? up(w) : null, true]]) {
+        for (const k of (key && index.get(key)) || []) {
+          if (best && k.length <= best.len) break; // listes triées du plus long au plus court
+          const k2 = cap ? lc(k) : k;
           if (!s.startsWith(k2, i)) continue;
-          const after = s[i + k2.length];
-          if (after && WORD.test(after) && WORD.test(k2[k2.length - 1])) continue; // mot entier seulement
-          hit = k; cap = c2; break;
+          let len = k2.length;
+          const after = s[i + len];
+          if (after && WORD.test(after) && WORD.test(k2[len - 1])) {
+            if (!(after === "s" && /\s/.test(k2) && !WORD.test(s[i + len + 1] || ""))) continue; // mot entier seulement
+            len++;
+          }
+          best = { k, cap, len };
+          break;
         }
-        if (hit) break;
       }
-      if (hit) { const e = dict.get(hit); out += cap ? low(e) : e; i += hit.length; changed = true; continue; }
+      if (best) { const e = dict.get(best.k); out += best.cap ? low(e) : e; i += best.len; changed = true; continue; }
       // pluriel d'un mot connu au singulier
       const sing = w.length > 3 && /s$/.test(w) ? w.slice(0, -1) : null, e = sing ? dict.get(sing) ?? (/^\p{Ll}/u.test(sing) ? dict.get(up(sing)) : undefined) : undefined;
       if (typeof e === "string" && !/\s/.test(e)) { out += plural(/^\p{Ll}/u.test(sing) && dict.get(sing) === undefined ? low(e) : e); i = j; changed = true; continue; }
@@ -112,25 +123,34 @@ export function tr(s) {
     }
     out += s[i++];
   }
-  return changed ? polish(out) : /\d[, ]\d/.test(s) ? polish(s) : s;
+  return changed ? polish(out) : /\d[, ]\d/.test(s) ? polish(s) : text;
 }
 
 /* ---------- Écran ---------- */
 const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "CODE", "PRE", "NOSCRIPT"]);
 const ATTRS = ["placeholder", "aria-label", "title", "alt"];
 const untouchable = el => !el || SKIP.has(el.tagName) || !!el.closest?.('[translate="no"]');
+// Ce qu'on a écrit dans un nœud ou un attribut : notre propre écriture (vue par l'observateur) n'est pas retraduite,
+// sinon des mots anglais qui existent aussi en français (« pain », « or », « effort ») seraient traduits une 2e fois
+const doneText = new WeakMap(), doneAttr = new WeakMap();
 function fixText(node) {
   if (untouchable(node.parentElement)) return;
-  const v = node.data, t = tr(v);
+  const v = node.data;
+  if (doneText.get(node) === v) return;
+  const t = tr(v);
+  doneText.set(node, t);
   if (t !== v) node.data = t;
 }
 function fixAttrs(el) {
+  let m = doneAttr.get(el);
   for (const a of ATTRS) {
     const v = el.getAttribute(a);
-    if (!v) continue;
+    if (!v || m?.[a] === v) continue;
     const t = tr(v);
+    (m ||= {})[a] = t;
     if (t !== v) el.setAttribute(a, t);
   }
+  if (m) doneAttr.set(el, m);
 }
 export function translateTree(root) {
   if (!dict || !root) return;

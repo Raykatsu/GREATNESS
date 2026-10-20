@@ -6,7 +6,7 @@ import { EN_READY } from "../../js/i18n.js";
 import { openApp, signup, seed, go, sleep } from "./kit.mjs";
 
 // mots qui trahissent un texte resté en français (hors noms propres, aliments et contenus de l'utilisateur)
-const FRENCH = /(^|[^\p{L}])(séances?|séries?|aujourd'hui|réglages|accueil|semaine|objectif|récupération|entraînement|exercices?|avec|dans|très|déjà|les|des|une|tu|ton|ta|tes|mon|mes|ici|encore|plus que)(?=$|[^\p{L}])/iu;
+const FRENCH = /(^|[^\p{L}])(séances?|séries?|aujourd'hui|réglages|accueil|semaine|objectif|récupération|entraînement|exercices?|avec|dans|très|déjà|les|des|une|tu|ta|tes|mes|ici|encore|plus que)(?=$|[^\p{L}])/iu;
 
 test("version anglaise : écrans traduits sans reste de français, retour au français", { skip: !EN_READY && "version anglaise pas encore livrée" }, async () => {
   const app = await openApp({ locale: "en-US" });

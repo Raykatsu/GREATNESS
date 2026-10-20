@@ -7,7 +7,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Le coach animé
 
 - **Animé** : il se déplace à sa façon (il court, sautille, vole, marche, roule en fauteuil ou en skate, grimpe aux murs), se pose pendant tes repos, fait un salto (ou une roue arrière) quand tu bats un record. Tu peux le toucher ou le faire glisser.
-- **Parle** via des bulles et en voix française.
+- **Parle** via des bulles et à voix haute, en français ou en anglais.
 - **Gratuit et hors ligne** : tout le coaching tourne sur le téléphone, sans IA payante.
 
 | Moment | Ce que fait le coach |
@@ -178,6 +178,10 @@ En séance, **Demander au coach** a un **micro** : pose ta question à voix haut
 - **Widget « Séance du jour »** (écran d'accueil et écran verrouillé) : la séance prévue, ta série de jours, ta semaine ; il change de jour tout seul à minuit.
 - Code natif dans [`app-store/native/`](app-store/native/) (Swift), ajouté au projet Xcode par `app-store/ios-widgets.rb`.
 
+## Version anglaise
+
+L'app s'affiche **en anglais** si le téléphone est en anglais, ou au choix (écran de bienvenue, ou Moi → Réglages → Apparence → Langue). Tout suit : écrans, coach vocal, commandes à la voix, IA (en ligne et locale), recherche d'exercices et d'aliments, carte à partager, notifications du serveur, textes iOS (autorisations caméra, Santé…). Le dictionnaire `js/lang/en.js` traduit les textes français du code (`node scripts/i18n.mjs` dit ce qui manque ; un test vérifie qu'il ne manque rien, un autre ouvre l'app dans un iPhone réglé en anglais).
+
 ## Une idée ? Un souci ?
 
 **Moi → Réglages → Une idée ? Un souci ?** : idée, souci ou autre, envoyé directement depuis l'app avec la version et l'écran ouvert, signé de ton pseudo si tu veux une réponse. Hors réseau, il part tout seul au retour de la connexion. L'administrateur de l'app lit les messages **et les plantages** dans **Moi → Réglages → Retours reçus** (voir SUPABASE.md pour devenir administrateur) ; le dépôt étant public, GitHub n'en affiche que le nombre.
@@ -310,6 +314,7 @@ js/errors.js      remontée anonyme des plantages
 js/version.js     version de l'app (la même que le cache de sw.js)
 js/bio.js         Face ID / Touch ID : clé d'accès (WebAuthn) ou biométrie native
 js/sharecard.js   carte de séance à partager (image au format story)
+js/i18n.js        langue de l'app : français ou anglais (+ lang/en.js : le dictionnaire anglais)
 js/feedback.js    « Une idée ? Un souci ? » et boîte « Retours reçus » de l'administrateur
 js/classics.js    programmes célèbres : séances prescrites et règles de progression (+ classics-ui.js : écrans)
 js/widgetdata.js  données du widget « Séance du jour » (app App Store)
