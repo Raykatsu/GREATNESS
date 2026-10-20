@@ -3,6 +3,7 @@
 //   src: db | off | custom | ai | manual, code?, nutri?, img? }
 // Une entrée du journal : le modèle + { id, meal, g (quantité en grammes), at }.
 import { FOODS, norm } from "./foods.js";
+import { isEn, tr } from "./i18n.js";
 
 export const MEALS = [
   { id: "breakfast", name: "Petit-déjeuner" },
@@ -184,6 +185,13 @@ export function nutritionContext(state, now = new Date()) {
 }
 
 /* ---------- Recherche dans les aliments connus ---------- */
+// App en anglais : les noms et alias traduits s'ajoutent aux noms français (calculés une seule fois)
+let enKeys = null;
+const keysOf = f => {
+  if (!isEn() || f.src !== "db") return f.keys;
+  enKeys ||= new Map(FOODS.map(x => [x, [...new Set([...x.keys, norm(tr(x.name)), ...(x.alias ? tr(x.alias).split("|").map(norm) : [])])].filter(Boolean)]));
+  return enKeys.get(f) || f.keys;
+};
 // Tolère les fautes de frappe (« bananne », « poulé »), les pluriels et l'ordre des mots.
 export function searchLocal(q, state = {}, limit = 12) {
   const n = norm(q);
@@ -194,7 +202,7 @@ export function searchLocal(q, state = {}, limit = 12) {
   const scored = [];
   for (const f of pool) {
     let best = 0;
-    for (const key of f.keys) {
+    for (const key of keysOf(f)) {
       if (key === n) best = Math.max(best, 100);
       else if (key.startsWith(n)) best = Math.max(best, 80 - key.length / 10);
       else if (key.includes(n)) best = Math.max(best, 60 - key.length / 10);
@@ -279,12 +287,14 @@ const UNITS = [
 const singular = s => s.split(" ").map(w => (w.length > 3 ? w.replace(/(s|x)$/, "") : w)).join(" ");
 // Mots seuls, sans articles élidés (« d'huile » → « huile ») ni unités (« cuillère à soupe » n'est pas une soupe)
 const words = s => norm(s).replace(/\b(d|l|j|qu)'/g, " ").replace(/cuill?eres? a (soupe|cafe)/g, " ").replace(/[^a-z0-9% ]/g, " ").replace(/\s+/g, " ").trim();
-const KEYS = FOODS.map(f => [f, f.keys.map(k => { const w = words(k); return [w, singular(w)]; })]);
+const wordKeys = keysFn => FOODS.map(f => [f, keysFn(f).map(k => { const w = words(k); return [w, singular(w)]; })]);
+const KEYS = wordKeys(f => f.keys);
+let KEYS_EN = null;
 
 export function matchFood(text) {
   const t = ` ${words(text)} `, ts = ` ${singular(t.trim())} `;
   let best = null, len = 0;
-  for (const [f, keys] of KEYS) for (const [k, ks] of keys) {
+  for (const [f, keys] of isEn() ? (KEYS_EN ||= wordKeys(keysOf)) : KEYS) for (const [k, ks] of keys) {
     if (k.length > len && (t.includes(` ${k} `) || ts.includes(` ${ks} `))) { best = f; len = k.length; }
   }
   return best;
@@ -294,7 +304,8 @@ export function parseMeal(text) {
   const chunks = norm(text)
     .replace(/(\d),(\d)/g, "$1.$2")                                  // « 1,5 kg » n'est pas une liste
     .replace(/\b(?:une?|la)?\s*(?:demie?|moitie)(?: de)?\b/g, " 0.5 ").replace(/\b(?:un )?quart(?: de)?\b/g, " 0.25 ")
-    .split(/,|;|\+|\n|\bet\b|\bavec\b|\bpuis\b/).map(s => s.trim()).filter(Boolean);
+    .replace(/\b(?:a |an )?half(?: (?:a|an|of))?\b/g, " 0.5 ").replace(/\b(?:a )?quarter(?: of)?\b/g, " 0.25 ")
+    .split(/,|;|\+|\n|\bet\b|\bavec\b|\bpuis\b|\band\b|\bwith\b|\bthen\b/).map(s => s.trim()).filter(Boolean);
   const items = [], unknown = [];
   for (const raw of chunks) {
     const food = matchFood(raw);

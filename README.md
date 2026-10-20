@@ -1,12 +1,12 @@
-# GREATNESS 🕷️
+# GREATNESS 💪
 
-App d'entraînement avec **Spider-Man comme coach** : il se balade sur l'écran, te donne les consignes et ajuste ta séance **en temps réel**. Design sombre et épuré, avec des touches Spider-Man (fines toiles, emblème, accents rouge/bleu).
+App d'entraînement avec **un coach animé** à choisir parmi **37 personnages originaux** : il se balade sur l'écran, te donne les consignes et ajuste ta séance **en temps réel**. Design sombre et épuré, accents rouge et bleu.
 
 👉 **https://raykatsu.github.io/GREATNESS/** — à ajouter à l'écran d'accueil du téléphone.
 
-## Le coach Spider-Man
+## Le coach animé
 
-- **Animé** : il marche sur les bords de l'écran, se balance d'un côté à l'autre au bout de sa toile, pend la tête en bas pendant tes repos, fait un salto quand tu bats un record. Tu peux le toucher ou le faire glisser (il relance une toile vers le bord le plus proche).
+- **Animé** : il se déplace à sa façon (il court, sautille, vole, marche, roule en fauteuil ou en skate, grimpe aux murs), se pose pendant tes repos, fait un salto (ou une roue arrière) quand tu bats un record. Tu peux le toucher ou le faire glisser.
 - **Parle** via des bulles et en voix française.
 - **Gratuit et hors ligne** : tout le coaching tourne sur le téléphone, sans IA payante.
 
@@ -190,7 +190,7 @@ Le coach s'en sert : une séance qui tombe sur un muscle pas encore remis est **
 
 ## Personnages
 
-22 coachs à choisir (Héros, Manga, Mignons, Animaux), dont **Harley Quinn**. Pour une app sobre : **Moi → Réglages → Personnages** (ou « Aucun personnage » dans la galerie) masque la mascotte et les visages ; le choix est gardé sur le compte et sur l'appareil, même avant la connexion.
+**37 coachs originaux**, tous créés pour l'app (aucun personnage sous licence), qui représentent plein de gens différents : toutes les couleurs de peau, femmes et hommes, jeunes et seniors, toutes les silhouettes, hijab et turban, une sprinteuse sur lame, une basketteuse en fauteuil… et 9 compagnons (robot, bébé dragon, chiot, chat, paresseux, tortue, axolotl, yéti, hibou). Cinq familles : **Salle, Sports, Nature, Zen, Compagnons**. Ils sont dessinés par un petit générateur (`js/chars/kit.js` : peau, silhouette, coiffure, tenue, accessoires). Les anciens choix de coach sont redirigés automatiquement vers le nouveau le plus proche. Pour une app sobre : **Moi → Réglages → Personnages** (ou « Aucun personnage » dans la galerie) masque la mascotte et les visages ; le choix est gardé sur le compte et sur l'appareil, même avant la connexion.
 
 ## Onglet Créer
 
@@ -225,7 +225,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ## Fonctionnalités
 
-- **22 coachs animés au choix** (Héros, Manga, Mignons, Animaux), chacun avec sa façon de se déplacer (toile, vol, sauts, ninja, marche) : Moi → Réglages → Ton coach. Ou aucun personnage, pour une app sobre.
+- **37 coachs animés originaux** (Salle, Sports, Nature, Zen, Compagnons), chacun avec sa façon de se déplacer (course, vol, sauts, marche, roues, escalade) : Moi → Réglages → Ton coach. Ou aucun personnage, pour une app sobre.
 - **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
@@ -256,15 +256,16 @@ npx serve .          # ou : python3 -m http.server 8080
 ## Structure
 
 ```
-index.html        squelette, barre d'onglets, emblème
-css/style.css     design + animations de Spider-Man
+index.html        squelette, barre d'onglets, icône du coach
+css/style.css     design + animations du coach
 js/app.js         routeur, Accueil, Progrès, Profil, première ouverture
 js/train.js       Séances : liste, aperçu modifiable, check-in, sélecteur d'exercices
 js/create.js      onglet Créer (atelier de séances, exercices perso)
 js/actions.js     actions du coach sur l'app + apparence
 js/live.js        séance en direct, repos, fin de séance
 js/coach.js       chat avec le coach
-js/spidey.js      Spider-Man animé (déplacements, toile, poses, bulles)
+js/mascot.js      coach animé (déplacements, poses, bulles)
+js/chars/         les 37 personnages (kit.js : le générateur de dessins ; base.js : Alex, le coach par défaut)
 js/engine.js      moteur de coaching temps réel
 js/brain.js       réponses et débriefs du coach (gratuit, hors ligne)
 js/planner.js     programme de la semaine, adaptation à l'objectif

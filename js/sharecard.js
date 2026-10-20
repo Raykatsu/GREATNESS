@@ -7,6 +7,7 @@ import { costumeOf } from "./costumes.js";
 import { state, rankInfo, streak, exName } from "./store.js";
 import { isNative } from "./native.js";
 import { $, esc, I, sheet, toast, fmtNum } from "./ui.js";
+import { LOC, tr } from "./i18n.js";
 
 export const W = 1080, H = 1920;
 
@@ -19,18 +20,18 @@ export function cardData(sum, { rank = "", streakDays = 0 } = {}) {
   const prs = (sum.prs || []).slice(0, 3).map(id => {
     const own = sets.filter(s => s.exId === id);
     const best = own.reduce((b, s) => (!b || (s.weight || 0) * (1 + (s.reps || 0) / 30) > (b.weight || 0) * (1 + (b.reps || 0) / 30) ? s : b), null);
-    return { name: best?.name || exName(id), txt: best ? (best.weight > 0 ? `${kg(best.weight)} kg × ${best.reps}` : `${best.reps} reps`) : "" };
+    return { name: tr(best?.name || exName(id)), txt: best ? tr(best.weight > 0 ? `${kg(best.weight)} kg × ${best.reps}` : `${best.reps} reps`) : "" };
   });
   return {
-    title: sum.name || "Séance",
-    date: new Date(sum.date || Date.now()).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+    title: tr(sum.name || "Séance"), // l'image est dessinée hors de la page : textes traduits ici
+    date: new Date(sum.date || Date.now()).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" }),
     stats: [
-      { v: durTxt(sum.durationSec), l: "Durée" },
-      sum.volume > 0 ? { v: `${fmtNum(sum.volume)} kg`, l: "Volume soulevé" } : { v: fmtNum(reps), l: "Répétitions" },
-      { v: String(sets.length), l: sets.length > 1 ? "Séries" : "Série" },
-      prs.length ? { v: String((sum.prs || []).length), l: (sum.prs || []).length > 1 ? "Records" : "Record", gold: true } : { v: String(nEx), l: nEx > 1 ? "Exercices" : "Exercice" },
+      { v: durTxt(sum.durationSec), l: tr("Durée") },
+      sum.volume > 0 ? { v: `${fmtNum(sum.volume)} kg`, l: tr("Volume soulevé") } : { v: fmtNum(reps), l: tr("Répétitions") },
+      { v: String(sets.length), l: tr(sets.length > 1 ? "Séries" : "Série") },
+      prs.length ? { v: String((sum.prs || []).length), l: tr((sum.prs || []).length > 1 ? "Records" : "Record"), gold: true } : { v: String(nEx), l: tr(nEx > 1 ? "Exercices" : "Exercice") },
     ],
-    prs, xp: sum.xp || 0, rank, streak: streakDays,
+    prs, xp: sum.xp || 0, rank: tr(rank), streak: streakDays,
   };
 }
 
@@ -49,8 +50,8 @@ export function coachSvg(c, costume) {
   const f = svgFilter(costumeOf(costume)?.filter);
   return figure(c, { costume })
     .replace(/ style="filter:[^"]*"/, "")
-    .replace(/ viewBox="[^"]*"/, ' viewBox="-8 -10 76 94"')
-    .replace(/^<svg /, '<svg xmlns="http://www.w3.org/2000/svg" width="760" height="940" ')
+    .replace(/ viewBox="[^"]*"/, ' viewBox="-10 -16 80 98"')
+    .replace(/^<svg /, '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="980" ')
     .replace(/(<svg[^>]*>)([\s\S]*)(<\/svg>)$/, (m, a, body, z) =>
       `${a}<style>.sp-db,.sp-zzz{display:none}${c.css || ""}</style>${f ? `<defs>${f}</defs><g filter="url(#cf)">${body}</g>` : body}${z}`);
 }
@@ -96,14 +97,14 @@ export async function drawCard(sum) {
   g.fillText(d.date.charAt(0).toUpperCase() + d.date.slice(1), W - 80, 130); g.textAlign = "left";
   // le coach (ou un badge s'il n'y a pas de personnage)
   if (c.id !== "none") {
-    try { const img = await loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(coachSvg(c, costume))}`); g.drawImage(img, (W - 540) / 2, 180, 540, 668); }
+    try { const img = await loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(coachSvg(c, costume))}`); g.drawImage(img, (W - 540) / 2, 180, 540, 662); }
     catch { /* pas d'image : la carte reste lisible */ }
   } else {
     g.strokeStyle = accent; g.lineWidth = 22; g.beginPath(); g.arc(W / 2, 520, 190, 0, Math.PI * 2); g.stroke();
     g.lineWidth = 30; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); g.moveTo(W / 2 - 90, 520); g.lineTo(W / 2 - 22, 588); g.lineTo(W / 2 + 100, 455); g.stroke();
   }
   // titre
-  g.fillStyle = accent; g.font = "700 38px Outfit, sans-serif"; spaced(g, "MISSION ACCOMPLIE", 80, 910, 6);
+  g.fillStyle = accent; g.font = "700 38px Outfit, sans-serif"; spaced(g, tr("MISSION ACCOMPLIE"), 80, 910, 6);
   g.fillStyle = "#ffffff"; g.font = "800 88px Outfit, sans-serif";
   let y = 1005;
   for (const l of lines(g, d.title, W - 160, 2)) { g.fillText(l, 80, y); y += 96; }
@@ -128,7 +129,7 @@ export async function drawCard(sum) {
   // pied : XP, rang, série de jours
   g.fillStyle = accent; rrect(g, 80, H - 170, W - 160, 4, 2); g.fill();
   g.fillStyle = "#f3f3f6"; g.font = "700 40px Outfit, sans-serif";
-  g.fillText([`+${d.xp} XP`, d.rank, d.streak > 1 ? `🔥 ${d.streak} jours d'affilée` : ""].filter(Boolean).join("  ·  "), 80, H - 95);
+  g.fillText([`+${d.xp} XP`, d.rank, d.streak > 1 ? tr(`🔥 ${d.streak} jours d'affilée`) : ""].filter(Boolean).join("  ·  "), 80, H - 95);
   g.fillStyle = "#6f6f80"; g.font = "500 28px Inter, sans-serif"; g.fillText("raykatsu.github.io/GREATNESS", 80, H - 48);
   return cv;
 }
@@ -145,7 +146,7 @@ export async function openShare(sum) {
   const name = `greatness-${new Date(sum.date || Date.now()).toISOString().slice(0, 10)}.png`;
   const file = new File([blob], name, { type: "image/png" });
   url = URL.createObjectURL(blob);
-  const text = `${sum.name} : ${durTxt(sum.durationSec)}${sum.volume > 0 ? `, ${fmtNum(sum.volume)} kg` : ""}${sum.prs?.length ? `, ${sum.prs.length} record${sum.prs.length > 1 ? "s" : ""} 🏆` : ""} 💪 #GREATNESS`;
+  const text = tr(`${sum.name} : ${durTxt(sum.durationSec)}${sum.volume > 0 ? `, ${fmtNum(sum.volume)} kg` : ""}${sum.prs?.length ? `, ${sum.prs.length} record${sum.prs.length > 1 ? "s" : ""} 🏆` : ""} 💪 #GREATNESS`);
   const canShare = !!navigator.canShare?.({ files: [file] });
   $("#sc-box", sh.el).innerHTML = `<img class="share-img" src="${url}" alt="Carte de la séance ${esc(sum.name || "")}"/>`;
   $("#sc-act", sh.el).innerHTML = `${canShare ? `<button class="btn btn-primary btn-lg btn-block mt" id="sc-share">${I.share} Partager</button>` : ""}

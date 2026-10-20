@@ -2,6 +2,7 @@
 // Aucun affichage ici (testé dans Node) ; l'écran est dans review.js.
 import { EXERCISES, GOALS } from "./data.js";
 import { targets, dayKey, sumItems } from "./nutrition.js";
+import { LOC } from "./i18n.js";
 
 const DAY = 864e5;
 export function mondayOf(d = new Date()) {
@@ -51,7 +52,7 @@ export function weekReport(state, start) {
   else if (done) todo.push(`${done} séance${done > 1 ? "s" : ""} sur ${planned} : bloque tes créneaux dans ton agenda (les rappels sont dans Réglages).`);
   else todo.push("Aucune séance cette semaine : reprends en douceur avec 2 séances courtes.");
   const dv = pct(volume, prevVolume);
-  if (dv != null && dv >= 5) good.push(`Volume en hausse de ${dv} % (${volume.toLocaleString("fr-FR")} kg).`);
+  if (dv != null && dv >= 5) good.push(`Volume en hausse de ${dv} % (${volume.toLocaleString(LOC())} kg).`);
   else if (dv != null && dv <= -15 && done) todo.push(`Volume en baisse de ${-dv} % par rapport à la semaine d'avant.`);
   if (prs.length) good.push(`${prs.length} record${prs.length > 1 ? "s" : ""} battu${prs.length > 1 ? "s" : ""} : ${prs.slice(0, 3).map(id => EXERCISES[id]?.name || id).join(", ")}.`);
   if (done >= 2) {
@@ -67,7 +68,7 @@ export function weekReport(state, start) {
   } else todo.push("Note tes repas quelques jours (onglet Repas) : ton bilan inclura la nutrition.");
   if (bwDelta != null) {
     const fine = goal === "seche" ? bwDelta < 0 : goal === "muscle" ? bwDelta > 0 && bwDelta <= 0.6 : Math.abs(bwDelta) <= 0.5;
-    (fine ? good : todo).push(`Poids de corps : ${bwDelta > 0 ? "+" : ""}${bwDelta.toLocaleString("fr-FR")} kg sur la semaine${fine ? "" : ` (objectif ${GOALS[goal]?.name.toLowerCase()})`}.`);
+    (fine ? good : todo).push(`Poids de corps : ${bwDelta > 0 ? "+" : ""}${bwDelta.toLocaleString(LOC())} kg sur la semaine${fine ? "" : ` (objectif ${GOALS[goal]?.name.toLowerCase()})`}.`);
   }
 
   // note sur 100 : régularité 50, progression 15, records 10, nutrition 25
@@ -81,7 +82,7 @@ export function weekReport(state, start) {
 export function reportText(r) {
   const mus = Object.entries(r.muscles).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${m} ${n}`).join(", ");
   return [
-    `Semaine du ${new Date(r.start).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} : ${r.sessions} séance(s) sur ${r.planned} prévues, ${r.minutes} min, volume ${r.volume} kg (semaine d'avant ${r.prevVolume} kg).`,
+    `Semaine du ${new Date(r.start).toLocaleDateString(LOC(), { day: "numeric", month: "long" })} : ${r.sessions} séance(s) sur ${r.planned} prévues, ${r.minutes} min, volume ${r.volume} kg (semaine d'avant ${r.prevVolume} kg).`,
     r.prs.length ? `Records : ${r.prs.map(id => EXERCISES[id]?.name || id).join(", ")}.` : "Pas de record.",
     mus ? `Séries par muscle : ${mus}.` : "",
     r.nutri ? `Nutrition (${r.nutri.n} jours notés) : ${r.nutri.k} kcal et ${r.nutri.p} g de protéines par jour en moyenne (objectifs ${r.t.kcal} kcal, ${r.t.p} g).` : "Repas non notés.",

@@ -95,7 +95,7 @@ Apple répond en général en 24 à 48 h.
 
 ## Points de vigilance (déjà gérés dans l'app)
 
-- **Personnages sous licence** (règle 5.2) : dans l'app App Store, Spider-Man devient « Tisseur » (rangs compris) et Harley Quinn n'est pas proposée. Les dessins restent inspirés des héros : si Apple refuse pour cette raison, mets « Aucun personnage » par défaut ou redessine ce coach.
+- **Propriété intellectuelle** (règle 5.2) : tous les personnages sont des créations originales de l'app (aucun héros, manga ou mascotte sous licence), les rangs et les textes aussi.
 - **Suppression du compte** (règle 5.1.1) : Moi → Réglages → Compte → *Supprimer définitivement mon compte*.
 - **Apple Santé** : l'app lit seulement, et l'explique avant de demander l'accès. Les mesures ne servent qu'au coaching (règle 5.1.3).
 - **Plus qu'un site** (règle 4.2) : Santé natif, Face ID, notifications locales, vibrations, caméra (compteur, vitesse de barre), coach IA.

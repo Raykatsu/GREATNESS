@@ -315,24 +315,24 @@ export const PROGRAMS = [
     exercises: [m("wrist_circles", 2, 30), m("forearm_stretch", 2, 40), m("tri_stretch", 2, 30), m("dead_hang", 2, 20)] },
 ];
 
-// Rangs : petit clin d'œil au parcours d'un certain héros de Queens.
+// Rangs : la progression de la recrue à la légende.
 export const RANKS = [
-  { xp: 0,     name: "Étudiant de Midtown" },
-  { xp: 500,   name: "Piqûre radioactive" },
-  { xp: 1500,  name: "Héros du quartier" },
-  { xp: 3500,  name: "Tisseur de toile" },
-  { xp: 7000,  name: "Spider-Man" },
-  { xp: 12000, name: "Iron Spider" },
-  { xp: 20000, name: "Légende du Spider-Verse" },
+  { xp: 0,     name: "Recrue" },
+  { xp: 500,   name: "Motivé du matin" },
+  { xp: 1500,  name: "Habitué de la salle" },
+  { xp: 3500,  name: "Athlète" },
+  { xp: 7000,  name: "Machine" },
+  { xp: 12000, name: "Champion" },
+  { xp: 20000, name: "Légende" },
 ];
 
 export const QUOTES = [
-  "Un grand pouvoir implique de grandes responsabilités.",
-  "Ce qui fait un héros, c'est de se relever. À chaque fois.",
-  "Le quartier compte sur toi. Ton corps aussi.",
-  "Un saut de foi, c'est tout ce qu'il faut.",
+  "Chaque séance compte, même les petites.",
+  "Ce qui compte, c'est de se relever. À chaque fois.",
+  "Ton corps te remerciera demain.",
+  "Le plus dur, c'est de commencer. Le reste suit.",
   "La régularité bat le talent quand le talent ne s'entraîne pas.",
-  "Petit à petit, l'araignée tisse sa toile.",
+  "Petit à petit, on va loin.",
 ];
 
 export const GOALS = {

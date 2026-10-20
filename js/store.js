@@ -1,6 +1,7 @@
 // Données de l'utilisateur connecté. Chaque compte a ses propres données ;
 // elles sont gardées sur l'appareil et synchronisées en ligne (voir cloud.js).
 import { RANKS, PROGRAMS, EXERCISES } from "./data.js";
+import { tr } from "./i18n.js";
 import { classicSession } from "./classics.js";
 import { targets, waterGoal } from "./nutrition.js";
 import { leaguePublic } from "./league.js";
@@ -11,7 +12,7 @@ const dataKey = user => `greatness.data.${user}`;
 const DEFAULT = {
   profile: {
     name: "", bodyweight: 75, goal: "muscle", days: 3, equipment: "gym",
-    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "spider",
+    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "alex",
     sex: "", age: "", height: "", activity: "light", nutri: null, // nutrition (voir nutrition.js)
   },
   sessions: [],
@@ -208,7 +209,7 @@ export function reminderPlan() {
   const days = {};
   for (const [d, id] of Object.entries(state.weekPlan || {})) {
     const p = id && id !== "mobility" ? getProgram(id) : null;
-    if (p) days[d] = p.name;
+    if (p) days[d] = tr(p.name); // dans la langue de l'app (le serveur envoie le rappel tel quel)
   }
   const w = state.profile.waterRemind; // rappels pour boire : le serveur lit l'eau du jour dans le journal
   return { at: state.profile.remindAt || "18:00", before: state.profile.remindBefore ?? 15, days,

@@ -4,8 +4,9 @@ import { state, save } from "./store.js";
 import { CHAPTERS, storyStatus, advanceStory, chapterText, wornCostume } from "./story.js";
 import { COSTUMES } from "./costumes.js";
 import { current, figure, coachFace, coachName, refreshLook } from "./chars/index.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const BOOK = svg('<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 11.5h5"/>');
@@ -36,7 +37,7 @@ export function checkStory() {
 }
 
 function celebrate(ch, rewards) {
-  spidey.react?.("party");
+  mascot.react?.("party");
   const s = storyStatus(state), first = rewards[0];
   const sh = sheet(`<div class="story-win"><div class="eyebrow">${BOOK} Chapitre réussi</div>
     <h2 class="h2">${esc(ch.title)}</h2>
@@ -76,7 +77,7 @@ export function openStory() {
       <ol class="story-list">${CHAPTERS.map((c, i) => {
         const ok = !!done[c.id], cur = !s.finished && i === s.index;
         return `<li class="${ok ? "ok" : cur ? "cur" : "lock"}"><span class="story-n">${ok ? I.check : cur ? i + 1 : LOCK}</span>
-          <span class="grow"><b>${ok || cur ? esc(c.title) : "Chapitre verrouillé"}</b><span class="xs muted">${ok ? `Réussi le ${new Date(done[c.id]).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : cur ? "En cours" : "Réussis le chapitre précédent"}</span></span></li>`;
+          <span class="grow"><b>${ok || cur ? esc(c.title) : "Chapitre verrouillé"}</b><span class="xs muted">${ok ? `Réussi le ${new Date(done[c.id]).toLocaleDateString(LOC(), { day: "numeric", month: "long" })}` : cur ? "En cours" : "Réussis le chapitre précédent"}</span></span></li>`;
       }).join("")}</ol>
       <h3 class="demo-h">Garde-robe de ${esc(coach())}</h3>
       ${s.unlocked.length ? `<div class="story-wardrobe">

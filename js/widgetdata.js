@@ -3,6 +3,7 @@
 import { state, getProgram, streak, sessionsOn, weekStart } from "./store.js";
 import { ensureWeekPlan, estimateMinutes } from "./planner.js";
 import { classicSession } from "./classics.js";
+import { tr } from "./i18n.js";
 
 const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -16,9 +17,10 @@ export function widgetData(now = Date.now(), st = state) {
     const id = plan[(date.getDay() + 6) % 7];
     const p = id === "classic" ? (st.classic ? classicSession({ ...st.classic, n: n++ }, st) : null) : id && id !== "mobility" ? getProgram(id) : null;
     const done = i === 0 && sessionsOn(date).length > 0;
-    days.push(done ? { date: key(date), title: "Séance faite ✓", sub: "Bravo : récupère bien", rest: true }
-      : p ? { date: key(date), title: p.name, sub: `~${estimateMinutes(p)} min · ${p.exercises.length} exercice${p.exercises.length > 1 ? "s" : ""}`, rest: false }
-      : { date: key(date), title: "Récupération", sub: "Mobilité · 15 min", rest: true });
+    // le widget s'affiche hors de l'app : textes traduits ici si l'app est en anglais
+    days.push(done ? { date: key(date), title: tr("Séance faite ✓"), sub: tr("Bravo : récupère bien"), rest: true }
+      : p ? { date: key(date), title: tr(p.name), sub: tr(`~${estimateMinutes(p)} min · ${p.exercises.length} exercice${p.exercises.length > 1 ? "s" : ""}`), rest: false }
+      : { date: key(date), title: tr("Récupération"), sub: tr("Mobilité · 15 min"), rest: true });
   }
   const start = +weekStart();
   return {

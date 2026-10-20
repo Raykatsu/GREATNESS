@@ -1,4 +1,5 @@
 // Plan de repas et liste de courses : carte de l'onglet Repas, plan jour par jour, liste à cocher et à partager.
+import { tr } from "./i18n.js";
 import { state, save } from "./store.js";
 import { MEALS, targets, addItem, dayKey, sumItems } from "./nutrition.js";
 import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf } from "./mealplan.js";
@@ -136,9 +137,9 @@ export function openShopping() {
   };
   $("#sh-reset", sh.el).onclick = () => { p.shopping.forEach(x => (x.done = false)); save(); draw(); onChange(); };
   $("#sh-share", sh.el).onclick = async () => {
-    const text = `Liste de courses GREATNESS\n\n${shoppingText(p.shopping.filter(x => !x.done))}`;
+    const text = tr(`Liste de courses GREATNESS\n\n${shoppingText(p.shopping.filter(x => !x.done))}`);
     try {
-      if (navigator.share) await navigator.share({ title: "Liste de courses", text });
+      if (navigator.share) await navigator.share({ title: tr("Liste de courses"), text });
       else { await navigator.clipboard.writeText(text); toast("Liste copiée ✓"); }
     } catch { /* partage annulé */ }
   };

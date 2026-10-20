@@ -2,6 +2,7 @@
 // cardiaque au repos, pas, poids, énergie active) préremplissent le bilan de forme avant une séance, alimentent la
 // courbe de poids (et donc les calories adaptatives) et renseignent le coach. La variabilité cardiaque et la fréquence
 // au repos se lisent par rapport à TES valeurs habituelles (médiane des 30 jours d'avant). Logique pure, testée.
+import { LOC } from "./i18n.js";
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const nice = v => String(Math.round(v * 10) / 10).replace(".", ",");
@@ -91,7 +92,7 @@ export function healthContext(days = {}, today = dayKeyOf(new Date())) {
   if (Number.isFinite(t?.hrv)) out.push(`VFC ${Math.round(t.hrv)} ms${bh ? ` (habituelle ${Math.round(bh)})` : ""}`);
   if (Number.isFinite(t?.rhr)) out.push(`fréquence cardiaque au repos ${Math.round(t.rhr)} bpm${br ? ` (habituelle ${Math.round(br)})` : ""}`);
   const steps = Number.isFinite(t?.steps) ? ["aujourd'hui", t.steps] : Number.isFinite(y?.steps) ? ["hier", y.steps] : null;
-  if (steps) out.push(`${steps[1].toLocaleString("fr-FR")} pas ${steps[0]}`);
+  if (steps) out.push(`${steps[1].toLocaleString(LOC())} pas ${steps[0]}`);
   if (Number.isFinite(t?.kcal)) out.push(`${Math.round(t.kcal)} kcal actives aujourd'hui`);
   return out.length ? `Apple Santé : ${out.join(", ")}. Si le sommeil ou la VFC sont bas, propose une séance plus légère.` : "";
 }
@@ -100,6 +101,6 @@ export function healthLine(days = {}, today = dayKeyOf(new Date())) {
   const t = days[today];
   if (!t) return "";
   return [Number.isFinite(t.sleep) && `${fmtSleep(t.sleep)} de sommeil`, Number.isFinite(t.hrv) && `VFC ${Math.round(t.hrv)} ms`,
-    Number.isFinite(t.rhr) && `FC repos ${Math.round(t.rhr)}`, Number.isFinite(t.steps) && `${t.steps.toLocaleString("fr-FR")} pas`,
+    Number.isFinite(t.rhr) && `FC repos ${Math.round(t.rhr)}`, Number.isFinite(t.steps) && `${t.steps.toLocaleString(LOC())} pas`,
     Number.isFinite(t.weight) && `${nice(t.weight)} kg`].filter(Boolean).join(" · ");
 }

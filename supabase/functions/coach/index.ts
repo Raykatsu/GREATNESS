@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-13";
+const VERSION = "coach-14";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -139,8 +139,16 @@ const thinks = (model: string) => THINKING !== "default" && !noThinking.has(mode
 const WEB = /\b(actu|actus|actualites?|news|recemment|recente?s?|derni(er|ere|ers|eres) (etudes?|recherches?|nouvelles?|versions?|sorties?)|etudes?|meta-analyses?|selon (la science|les etudes|les chercheurs)|prix|couts?|coute|tarifs?|promos?|acheter|achat|ou trouver|magasins?|boutiques?|marques?|avis sur|comparatif|horaires?|adresse|pres de chez|meteo|match|tournoi|championnats?|jeux olympiques|record du monde|qui a gagne|transferts?|sites?|liens?|videos?|youtube|internet|google|cherche sur|20[2-9]\d)\b/;
 const wantsWeb = (text: string) => WEB.test(text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
+// App en anglais (champ « lang » de la requête) : réponses et contenus en anglais
+const EN_MARK = "[lang:en]";
+const GUARD_EN = GUARD.replace("Réponds toujours en français, en tutoyant.", "Answer ALWAYS in English, in a friendly, informal tone (the app is set to English; the data below may be in French).");
+const EN_TASK = "\n\nIMPORTANT: the app is set to English. Write every name, note and text of your answer in English (US).";
+// deno-lint-ignore no-explicit-any
+const taskNote = (input: any) => (input?.lang === "en" ? EN_TASK : "");
+
 function requestBody(model: string, search: boolean, system: string, messages: Msg[]) {
-  const sys = `${GUARD}\n\n${system}`.trim();
+  const en = system.includes(EN_MARK);
+  const sys = `${en ? GUARD_EN : GUARD}\n\n${system.replace(EN_MARK, "")}`.trim();
   const conv = contents(messages);
   // Gemma n'accepte ni consignes système ni recherche : les consignes passent dans le premier message.
   if (isGemma(model)) {
@@ -491,7 +499,7 @@ async function food(input: { text?: string; mode?: string; image?: { mime?: stri
     if (deadline - Date.now() < 10_000) break;
     const s = Date.now();
     const body = {
-      systemInstruction: { parts: [{ text: info ? INFO_PROMPT : FOOD_PROMPT }] },
+      systemInstruction: { parts: [{ text: (info ? INFO_PROMPT : FOOD_PROMPT) + taskNote(input) }] },
       contents: [{ role: "user", parts }],
       generationConfig: { responseMimeType: "application/json", responseSchema: info ? INFO_SCHEMA : FOOD_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
     };
@@ -578,7 +586,7 @@ async function formCheck(input: any, quota: { remaining?: number | null }) {
     if (deadline - Date.now() < 12_000) break;
     const s = Date.now();
     const body = {
-      systemInstruction: { parts: [{ text: FORM_PROMPT }] },
+      systemInstruction: { parts: [{ text: FORM_PROMPT + taskNote(input) }] },
       contents: [{ role: "user", parts }],
       generationConfig: { responseMimeType: "application/json", responseSchema: FORM_SCHEMA, maxOutputTokens: 4096, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
     };
@@ -664,7 +672,7 @@ async function mealPlan(input: any, quota: { remaining?: number | null }) {
     if (deadline - Date.now() < 15_000) break;
     const s = Date.now();
     const body = {
-      systemInstruction: { parts: [{ text: PLAN_PROMPT }] },
+      systemInstruction: { parts: [{ text: PLAN_PROMPT + taskNote(input) }] },
       contents: [{ role: "user", parts: [{ text: ask }] }],
       generationConfig: { responseMimeType: "application/json", responseSchema: PLAN_SCHEMA, maxOutputTokens: 16384, ...(thinks(model) ? { thinkingConfig: { thinkingLevel: THINKING } } : {}) },
     };
@@ -726,7 +734,7 @@ Deno.serve(async req => {
     if (quota.error) return json({ error: quota.error });
     return input.task === "mealplan" ? await mealPlan(input, quota) : input.task === "form" ? await formCheck(input, quota) : await food(input, quota);
   }
-  const system = String(input?.system || "").slice(0, 30000);
+  const system = String(input?.system || "").slice(0, 30000) + (input?.lang === "en" ? EN_MARK : "");
   const raw = input?.messages;
   const messages = (Array.isArray(raw) ? raw : []).slice(-24)
     .filter(m => m && typeof m.content === "string" && m.content.trim())

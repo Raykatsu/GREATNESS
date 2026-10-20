@@ -40,13 +40,13 @@ test("carte de séance : le coach en image SVG autonome, costume en filtre SVG",
   assert.match(f, /type="hueRotate" values="150"/);
   assert.match(f, /type="saturate" values="1.6"/);
   assert.match(f, /feFuncR type="linear" slope="1.1"/);
-  const spider = byIdGet("spider");
-  const plain = coachSvg(spider, null);
+  const alex = byIdGet("alex");
+  const plain = coachSvg(alex, null);
   assert.match(plain, /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/);
   assert.match(plain, /\.sp-db,\.sp-zzz\{display:none\}/); // haltère et « zzz » cachés hors de la page
   assert.doesNotMatch(plain, /filter=/);
-  const neon = coachSvg(spider, "neon");
+  const neon = coachSvg(alex, "neon");
   assert.match(neon, /<g filter="url\(#cf\)">/);
   assert.doesNotMatch(neon, /style="filter:/);
-  assert.match(coachSvg(spider, "casquette"), /class="sp-acc"/); // accessoire dessiné
+  assert.match(coachSvg(alex, "casquette"), /class="sp-acc"/); // accessoire dessiné
 });

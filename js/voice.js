@@ -1,10 +1,15 @@
 // Mode mains libres : on parle au coach pendant la séance.
 // « 8 reps, difficile », « 10 à 60 kilos », « valide », « passe », « annule », « go ».
 // Et les questions : « Coach, j'ai mal à l'épaule, je remplace par quoi ? », « Combien de repos ? »
+// En anglais aussi : « eight reps, hard », « ten at sixty kilos », « skip », « undo », « go », « Coach, how long should I rest? »
+import { voiceLang } from "./i18n.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’'-]/g, " ").replace(/\s+/g, " ").trim();
 
-const UNITS = { zero: 0, vingts: 20, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16, vingt: 20, trente: 30, quarante: 40, cinquante: 50, soixante: 60, cent: 100 };
+const UNITS = { zero: 0, vingts: 20, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16, vingt: 20, trente: 30, quarante: 40, cinquante: 50, soixante: 60, cent: 100,
+  // anglais
+  one: 1, two: 2, three: 3, four: 4, five: 5, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 };
 
 // Remplace les nombres écrits en lettres par des chiffres (« vingt et un » → 21, « soixante deux et demi » → 62.5).
 export function wordsToNumbers(t) {
@@ -24,6 +29,7 @@ export function wordsToNumbers(t) {
       prev = v; i++;
     }
     if (words[i] === "et" && words[i + 1] === "demi") { total += 0.5; i += 2; }
+    else if (words[i] === "and" && words[i + 1] === "a" && words[i + 2] === "half") { total += 0.5; i += 3; }
     i--;
     out.push(String(total));
   }
@@ -31,17 +37,17 @@ export function wordsToNumbers(t) {
 }
 
 const RPE_WORDS = [
-  [/(echec|a fond|impossible|max(imum)?|je peux plus|limite absolue)/, 10],
-  [/(tres dur|tres difficile|super dur|hyper dur|vraiment dur|tres dure)/, 9],
-  [/\b(dur|dure|difficile|chaud|costaud)\b/, 8],
-  [/\b(modere|moyen|moyenne|correct|ok|normal|ca va)\b/, 7],
-  [/\b(facile|tranquille|leger|easy|trop simple)\b/, 6],
+  [/(echec|a fond|impossible|max(imum)?|je peux plus|limite absolue|failure|all out|maxed out|couldn t do another)/, 10],
+  [/(tres dur|tres difficile|super dur|hyper dur|vraiment dur|tres dure|very hard|really hard|super hard|brutal)/, 9],
+  [/\b(dur|dure|difficile|chaud|costaud|hard|tough|difficult)\b/, 8],
+  [/\b(modere|moyen|moyenne|correct|ok|normal|ca va|moderate|medium|okay|fine|decent)\b/, 7],
+  [/\b(facile|tranquille|leger|easy|trop simple|light|too easy)\b/, 6],
 ];
 
 // Une question pour le coach : commence par « coach » ou par un mot interrogatif → { action: "ask", q }
-const ASK = /^(coach\b|est ce que|est ce qu|comment|pourquoi|combien|quel|quelle|quels|quelles|qu est ce|je peux|je dois|on peut|c est normal|dois je|faut il|tu peux|tu penses|tu crois|ca sert)/;
+const ASK = /^(coach\b|est ce que|est ce qu|comment|pourquoi|combien|quel|quelle|quels|quelles|qu est ce|je peux|je dois|on peut|c est normal|dois je|faut il|tu peux|tu penses|tu crois|ca sert|how\b|what\b|why\b|when\b|which\b|should i|can i|could i|is it|do i|does\b|tell me|explain)/;
 export function parseQuestion(text) {
-  const t = norm(text).replace(/^(dis|eh|he|hey|ok|bon)\s+/, "");
+  const t = norm(text).replace(/^(dis|eh|he|hey|ok|bon|so)\s+/, "");
   if (!ASK.test(t)) return null;
   const q = String(text).trim().replace(/^\s*(?:(?:dis|eh|hé|hey|ok|bon)[\s,]+)?coach\b[\s,!:.]*/i, "").trim();
   return q.replace(/[\s?.!]+$/, "").length >= 4 ? { action: "ask", q } : null;
@@ -50,24 +56,24 @@ export function parseQuestion(text) {
 export function parseVoice(text) {
   const t = wordsToNumbers(norm(text));
   if (!t) return null;
-  if (/\b(stop micro|coupe le micro|arrete d ecouter|micro off)\b/.test(t)) return { action: "stop" };
+  if (/\b(stop micro|coupe le micro|arrete d ecouter|micro off|stop listening|mic off|turn off the mic)\b/.test(t)) return { action: "stop" };
   const ask = parseQuestion(text);
   if (ask) return ask;
-  if (/\b(annule|annuler|efface|retour arriere)\b/.test(t)) return { action: "undo" };
-  if (/\b(exercice suivant|passe l exercice|passe|suivant|skip)\b/.test(t) && !/\d/.test(t)) return { action: "skip" };
-  if (/\b(go|c est parti|pret|on y va|fin du repos|repos fini|j y vais|allez)\b/.test(t) && !/\d/.test(t)) return { action: "go" };
+  if (/\b(annule|annuler|efface|retour arriere|undo|cancel that|delete that)\b/.test(t)) return { action: "undo" };
+  if (/\b(exercice suivant|passe l exercice|passe|suivant|skip|next exercise|next)\b/.test(t) && !/\d/.test(t)) return { action: "skip" };
+  if (/\b(go|c est parti|pret|on y va|fin du repos|repos fini|j y vais|allez|let s go|lets go|ready|i m ready|rest over)\b/.test(t) && !/\d/.test(t)) return { action: "go" };
 
   const res = { action: "log" };
-  const w = t.match(/(\d+(?:\.\d+)?)\s*(kilos?|kg|kilogrammes?)/);
-  if (w) res.weight = +w[1];
-  const r = t.match(/(\d+)\s*(reps?|repetitions?|fois|rep)\b/) || t.replace(w?.[0] || "@@", " ").match(/\b(\d{1,3})\b/);
+  const w = t.match(/(\d+(?:\.\d+)?)\s*(kilos?|kg|kilogrammes?|kilograms?|pounds?|lbs?)\b/);
+  if (w) res.weight = /^(pound|lb)/.test(w[2]) ? Math.round(+w[1] * 0.4536 * 2) / 2 : +w[1]; // livres → kilos
+  const r = t.match(/(\d+)\s*(reps?|repetitions?|fois|rep|times)\b/) || t.replace(w?.[0] || "@@", " ").match(/\b(\d{1,3})\b/);
   if (r) res.reps = +r[1];
-  const sec = t.match(/(\d+)\s*(secondes?|sec|s)\b/);
+  const sec = t.match(/(\d+)\s*(secondes?|sec|s|seconds?)\b/);
   if (sec) res.reps = +sec[1];
-  const rpeNum = t.match(/(rpe|ressenti|difficulte|note)\s*(\d+)/);
+  const rpeNum = t.match(/(rpe|ressenti|difficulte|note|effort)\s*(\d+)/);
   if (rpeNum) res.rpe = Math.max(6, Math.min(10, +rpeNum[2]));
   else for (const [re, v] of RPE_WORDS) if (re.test(t)) { res.rpe = v; break; }
-  const validate = /\b(valide|valider|validee|c est bon|serie faite|c est fait|j ai fini|termine|ok c est bon|note)\b/.test(t);
+  const validate = /\b(valide|valider|validee|c est bon|serie faite|c est fait|j ai fini|termine|ok c est bon|note|done|set done|log it|that s it|finished|complete)\b/.test(t);
   if (res.reps == null && res.rpe == null && res.weight == null && !validate) return null;
   return res;
 }
@@ -83,7 +89,7 @@ export class Listener {
     if (!voiceSupported()) return false;
     const R = window.SpeechRecognition || window.webkitSpeechRecognition;
     this.rec = new R();
-    this.rec.lang = "fr-FR";
+    this.rec.lang = voiceLang();
     this.rec.continuous = true;
     this.rec.interimResults = false;
     this.rec.onresult = e => {

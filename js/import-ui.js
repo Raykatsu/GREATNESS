@@ -3,6 +3,7 @@ import { state, save, currentUser, setUser, syncCustomExercises } from "./store.
 import { mergeData } from "./merge.js";
 import { parseCSV, detectFormat, importWorkouts, importFood, importWeights, applyImport, sessionsCSV, foodCSV, backupJSON } from "./importer.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -13,8 +14,8 @@ const IC = {
 };
 const APPS = { strong: "Strong", hevy: "Hevy", fitbod: "Fitbod", mfp: "MyFitnessPal (repas)", weight: "pesées", greatness: "sauvegarde GREATNESS" };
 // date (ms) ou jour « 2026-10-13 » (lu en heure locale)
-const fmtD = t => { const [y, m, d] = typeof t === "string" ? t.split("-").map(Number) : []; return (y ? new Date(y, m - 1, d) : new Date(t)).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }); };
-const plural = (n, one, many = one + "s") => `${n.toLocaleString("fr-FR")} ${n > 1 ? many : one}`;
+const fmtD = t => { const [y, m, d] = typeof t === "string" ? t.split("-").map(Number) : []; return (y ? new Date(y, m - 1, d) : new Date(t)).toLocaleDateString(LOC(), { day: "numeric", month: "short", year: "numeric" }); };
+const plural = (n, one, many = one + "s") => `${n.toLocaleString(LOC())} ${n > 1 ? many : one}`;
 // Au-delà, la synchro en ligne refuse les données (5 Mo) : on garde les séances les plus récentes
 const MAX_BYTES = 4.2e6;
 

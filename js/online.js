@@ -3,6 +3,7 @@
 // la question, la conversation récente et les données du compte (profil, séances, records…).
 import { SUPABASE_URL, SUPABASE_ANON_KEY, AI_FUNCTION } from "./config.js";
 import { isOnlineMode, authToken } from "./cloud.js";
+import { getLang, isEn, aiLangNote } from "./i18n.js";
 
 let downUntil = 0, lastRemaining = null;
 export const onlineRemaining = () => lastRemaining;
@@ -41,7 +42,8 @@ export async function onlineChat({ system, messages, search = true, onDelta, sig
         ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token: authToken(), system, messages, search }),
+      // app en anglais : le serveur fait répondre l'IA en anglais
+      body: JSON.stringify({ token: authToken(), system: isEn() ? `${system.replace(/Réponds (toujours )?en français/g, "Answer in English")}${aiLangNote()}` : system, messages, search, lang: getLang() }),
       signal: ctrl.signal,
     });
   } catch (e) {
@@ -115,7 +117,7 @@ async function foodTask(payload, ms) {
         ...(SUPABASE_ANON_KEY.startsWith("eyJ") ? { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } : {}),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token: authToken(), task: "food", ...payload }),
+      body: JSON.stringify({ token: authToken(), task: "food", lang: getLang(), ...payload }),
       signal: ctrl.signal,
     });
   } catch (e) {

@@ -1,8 +1,9 @@
 // Défis entre amis, sans serveur dédié : chacun publie dans son résumé public sa semaine en cours, sa
 // semaine passée, ses duels et ses derniers records. Ici, la logique pure (testée dans Node) : défi de la
 // semaine, duels 1 contre 1, et fil d'actus calculé en comparant avec ce qu'on avait déjà vu.
+import { LOC } from "./i18n.js";
 const DAY = 864e5, WEEK = 7 * DAY;
-const fmt = n => Math.round(n || 0).toLocaleString("fr-FR");
+const fmt = n => Math.round(n || 0).toLocaleString(LOC());
 
 export const METRICS = {
   volume: { name: "Volume", short: "volume soulevé", unit: "kg", val: w => w?.volume || 0, fmt: v => `${fmt(v)} kg` },

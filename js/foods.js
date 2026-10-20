@@ -398,7 +398,7 @@ export const norm = s => String(s || "").toLowerCase().replace(/œ/g, "oe").norm
 
 // Chaque aliment : { id, name, per: { k, p, c, f, fi }, unit: { label, g }, keys: [noms normalisés] }
 export const FOODS = RAW.map(([name, k, p, c, f, fi, g, label, aliases], i) => ({
-  id: `db${i}`, name, src: "db",
+  id: `db${i}`, name, src: "db", alias: aliases,
   per: { k, p, c, f, fi },
   unit: { label, g },
   keys: [...new Set([norm(name), ...aliases.split("|").map(norm).filter(Boolean)])],

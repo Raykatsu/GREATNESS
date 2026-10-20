@@ -8,7 +8,7 @@ import { pickExercises } from "./train.js";
 import { animSvg, mountAnims } from "./anim.js";
 import { speak, stopSpeaking, beep, success, vibrate } from "./fx.js";
 import { checkBadges } from "./badges.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtTime } from "./ui.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -105,7 +105,7 @@ export function runIntervals(cfgIn) {
   document.body.classList.add("hide-tabs");
   R = { cfg, segs, total: totalOf(segs), el, base: now() - 0.01, pausedAt: null, last: -1, i: -1, amrap: 0, skipped: [], startedAt: Date.now(), raf: 0, timer: 0, wake: null };
   navigator.wakeLock?.request("screen").then(l => { if (R) R.wake = l; }).catch(() => {});
-  spidey.setContext("live");
+  mascot.setContext("live");
   beep(440, 0.01, "sine", 0.0001); // débloque le son sur iPhone (on est encore dans le geste « Lancer »)
   el.innerHTML = `<div class="iv-top">
       <button class="icon-btn" id="ivx-x" aria-label="Arrêter">${I.x}</button>
@@ -247,13 +247,13 @@ function finish(complete) {
     </div>`;
   $("#ivx-again", el).onclick = () => { close(el); runIntervals(cfg); };
   $("#ivx-end", el).onclick = () => close(el);
-  setTimeout(() => { spidey.react?.("party"); spidey.say?.(`${complete ? "Terminé" : "Bien joué"} ! +${s.xp} XP.`, { mood: "party" }); }, 400);
+  setTimeout(() => { mascot.react?.("party"); mascot.say?.(`${complete ? "Terminé" : "Bien joué"} ! +${s.xp} XP.`, { mood: "party" }); }, 400);
 }
 
 function close(el) {
   stopSpeaking();
   el?.remove();
-  if (!R) { document.body.classList.remove("hide-tabs"); spidey.setContext("app"); }
+  if (!R) { document.body.classList.remove("hide-tabs"); mascot.setContext("app"); }
 }
 
 // Retour sur l'app après une mise en veille : on resynchronise tout de suite

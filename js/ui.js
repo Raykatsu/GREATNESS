@@ -1,5 +1,6 @@
 // Petits outils d'interface partagés.
 import { coachFace } from "./chars/index.js";
+import { LOC } from "./i18n.js";
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -11,10 +12,11 @@ export const md = s => esc(s)
   .replace(/(^|[\s(«])\*(?!\s)([^*\n]+?)\*(?=[\s).,!?:;»]|$)/gm, "$1<i>$2</i>") // italique
   .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); // liens
 export const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
-export const fmtNum = n => Math.round(n).toLocaleString("fr-FR");
+export const fmtNum = n => Math.round(n).toLocaleString(LOC());
 
 const ic = (d, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
 export const I = {
+  globe: ic('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.6 3.5 5.4 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.4-3.5-8.5s1.1-5.9 3.5-8.5z"/>'),
   chev: ic('<path d="m9 6 6 6-6 6"/>'),
   back: ic('<path d="m15 6-6 6 6 6"/>'),
   x: ic('<path d="M18 6 6 18M6 6l12 12"/>'),
@@ -54,7 +56,7 @@ export const I = {
 };
 // Visage du coach choisi (avatar utilisé partout dans l'app).
 // Visage du coach actuel (« cur-face » : remplacé en place quand on change de coach).
-export const spider = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");
+export const coachIcon = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");
 
 const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 

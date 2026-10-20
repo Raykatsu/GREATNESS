@@ -1,13 +1,13 @@
-// Onglet Coach : discussion avec le coach choisi (Spider-Man par défaut).
+// Onglet Coach : discussion avec le coach choisi (Alex par défaut).
 // Priorité : Claude (si une clé est configurée) → IA locale (si chargée) → cerveau local.
 import { state, save } from "./store.js";
 import { answer, llmMessages, onlineMessages } from "./brain.js";
 import { onlineReady, onlineChat, onlineRemaining } from "./online.js";
 import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
-import { $, $$, esc, md, I, spider, sheet, confirmSheet, toast } from "./ui.js";
+import { $, $$, esc, md, I, coachIcon, sheet, confirmSheet, toast } from "./ui.js";
 import { coachName } from "./chars/index.js";
 import { parseActions, streamText, describe, applyAction } from "./aiact.js";
 import { memoryCommand, addMemory } from "./memory.js";
@@ -22,14 +22,14 @@ const reduced = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").ma
 const pct = p => Math.max(0, Math.min(100, Math.round((p || 0) * 100)));
 // espaces fines insécables avant ? ! : ; » et après « : jamais de ponctuation orpheline en début de ligne
 const fr = h => h.replace(/ ([?!:;»])/g, "\u202f$1").replace(/« /g, "«\u202f");
-const avatar = () => `<span class="msg-av" aria-hidden="true">${spider()}</span>`;
+const avatar = () => `<span class="msg-av" aria-hidden="true">${coachIcon()}</span>`;
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
 export function renderCoach(view) {
   cleanup?.();
   view.innerHTML = `
     <header class="coach-head">
-      <div class="coach-av" aria-hidden="true">${spider()}<i class="coach-dot" id="dot"></i></div>
+      <div class="coach-av" aria-hidden="true">${coachIcon()}<i class="coach-dot" id="dot"></i></div>
       <div class="coach-id"><h1 class="coach-name" data-coach-name>${esc(coachName())}</h1><div class="status" id="status" aria-live="polite"></div></div>
       <button class="icon-btn plain" id="clear" aria-label="Effacer la discussion" ${state.chat.length ? "" : "hidden"}>${I.trash}</button>
     </header>
@@ -161,7 +161,7 @@ export function renderCoach(view) {
     if (!models.some(m => m.id === sel)) sel = models[0]?.id;
     const sizeOf = id => llm.MODELS.find(m => m.id === id)?.size || "";
     const sh = sheet(`<div class="ai-sheet">
-      <div class="ai-hero" aria-hidden="true"><span class="ai-hero-av">${spider()}</span><span class="ai-hero-spark">${I.sparkle}</span></div>
+      <div class="ai-hero" aria-hidden="true"><span class="ai-hero-av">${coachIcon()}</span><span class="ai-hero-spark">${I.sparkle}</span></div>
       <h2 class="h2 center">Débloque l'IA intelligente</h2>
       <p class="muted center ai-lead">Un vrai modèle d'IA tourne dans ton téléphone. Il répond à toutes tes questions en s'appuyant sur tes séances et tes stats.</p>
       <ul class="ai-perks">
@@ -215,7 +215,7 @@ export function renderCoach(view) {
     if (m.actions.every(x => !x.ai || x.done)) m.actions = m.actions.filter(x => !x.all);
     save();
     toast(out.join(" · "), 3500);
-    spidey.react("happy");
+    mascot.react("happy");
     const box = $(".acts", el);
     if (box) { box.outerHTML = actionsHtml(m); bindActions(el, m); }
   };
@@ -227,7 +227,7 @@ export function renderCoach(view) {
     bindActions(el, m);
     return el;
   };
-  const hello = { role: "assistant", content: `Salut ${state.profile.name || "héros"} ! Ton sympathique coach de quartier est là. Technique, nutrition, programme, motivation… demande-moi ce que tu veux.` };
+  const hello = { role: "assistant", content: `Salut ${state.profile.name || "toi"} ! Ici ${coachName()}, ton coach. Technique, nutrition, programme, motivation… demande-moi ce que tu veux.` };
   const draw = () => {
     const frag = document.createDocumentFragment();
     [hello, ...state.chat].forEach(m => frag.appendChild(row(m, false)));
@@ -285,7 +285,7 @@ export function renderCoach(view) {
         await new Promise(res => setTimeout(res, 450));
         reply = { role: "assistant", content: rc.text, actions: rc.actions };
         auto = rc.auto;
-        if (rc.mood) spidey.react(rc.mood === "party" ? "party" : "happy");
+        if (rc.mood) mascot.react(rc.mood === "party" ? "party" : "happy");
       } else if (mem) {
         await new Promise(res => setTimeout(res, 350));
         const m = addMemory(state, mem, "user");
@@ -345,7 +345,7 @@ export function renderCoach(view) {
       sendBtn.disabled = !q.value.trim();
       drawStatus();
     }
-    if (!auto) spidey.react("happy");
+    if (!auto) mascot.react("happy");
     if (auto?.route) setTimeout(() => (location.hash = auto.route), 500);
     if (auto?.start) setTimeout(() => window.dispatchEvent(new CustomEvent("greatness:start", { detail: auto.start })), 500);
   };

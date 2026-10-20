@@ -5,11 +5,12 @@ import { state, currentUser } from "./store.js";
 import { beep, vibrate } from "./fx.js";
 import { measureNear, spanText } from "./records.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
+import { LOC, tr } from "./i18n.js";
 
 const DAY = 864e5;
 export const POSES = [["face", "Face"], ["profil", "Profil"], ["dos", "Dos"]];
 const poseName = k => (POSES.find(p => p[0] === k) || POSES[0])[1];
-const fmtDay = (t, o = { day: "numeric", month: "short", year: "numeric" }) => new Date(t).toLocaleDateString("fr-FR", o);
+const fmtDay = (t, o = { day: "numeric", month: "short", year: "numeric" }) => new Date(t).toLocaleDateString(LOC(), o);
 const num = v => String(Math.round(v * 10) / 10).replace(".", ",");
 
 /* ---------- Stockage local ---------- */
@@ -259,11 +260,11 @@ async function composite(a, b, line) {
     g.fillStyle = "#0b0b10"; g.fillRect(0, 0, c.width, c.height);
     g.drawImage(ia, pad, top, wa, H); g.drawImage(ib, pad * 2 + wa, top, wb, H);
     g.fillStyle = "#fff"; g.textBaseline = "middle"; g.textAlign = "center";
-    g.font = "800 54px Outfit, system-ui, sans-serif"; g.fillText("AVANT / APRÈS", c.width / 2, top / 2);
+    g.font = "800 54px Outfit, system-ui, sans-serif"; g.fillText(tr("AVANT / APRÈS"), c.width / 2, top / 2); // image dessinée hors de la page : textes traduits ici
     g.font = "600 36px Inter, system-ui, sans-serif";
     const cap = (p, k) => `${k} · ${fmtDay(p.date, { day: "numeric", month: "short", year: "numeric" })}${p.weight ? ` · ${num(p.weight)} kg` : ""}`;
-    g.fillText(cap(a, "Avant"), pad + wa / 2, top + H + 46); g.fillText(cap(b, "Après"), pad * 2 + wa + wb / 2, top + H + 46);
-    g.fillStyle = "#ff5466"; g.font = "700 38px Inter, system-ui, sans-serif"; g.fillText(line, c.width / 2, top + H + 108);
+    g.fillText(tr(cap(a, "Avant")), pad + wa / 2, top + H + 46); g.fillText(tr(cap(b, "Après")), pad * 2 + wa + wb / 2, top + H + 46);
+    g.fillStyle = "#ff5466"; g.font = "700 38px Inter, system-ui, sans-serif"; g.fillText(tr(line), c.width / 2, top + H + 108);
     g.fillStyle = "rgba(255,255,255,.55)"; g.font = "600 26px Inter, system-ui, sans-serif"; g.textAlign = "right"; g.fillText("GREATNESS", c.width - pad, top / 2);
     return await toBlob(c, 0.9);
   } finally { URL.revokeObjectURL(ua); URL.revokeObjectURL(ub); }
@@ -272,7 +273,7 @@ async function composite(a, b, line) {
 async function shareBlob(blob, name, text = "") {
   const file = new File([blob], name, { type: "image/jpeg" });
   if (navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e?.name === "AbortError") return; }
+    try { await navigator.share({ files: [file], text: tr(text) }); return; } catch (e) { if (e?.name === "AbortError") return; }
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = name; a.click();

@@ -3,11 +3,12 @@
 // ouvre le chapitre suivant. Les séances importées d'une autre app ne comptent pas. Logique pure, testée.
 import { PROGRAMS } from "./data.js";
 import { COSTUMES } from "./costumes.js";
+import { LOC } from "./i18n.js";
 
 const MOBILITY = new Set(PROGRAMS.filter(p => ["mobility", "stretch", "care"].includes(p.cat)).map(p => p.id));
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const own = (st, from) => (st.sessions || []).filter(s => !s.imported && s.date >= from);
-const nf = n => Math.round(n).toLocaleString("fr-FR");
+const nf = n => Math.round(n).toLocaleString(LOC());
 
 // Objectifs : valeur atteinte depuis le début du chapitre, et façon de l'écrire
 export const GOALS = {

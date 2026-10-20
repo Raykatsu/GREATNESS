@@ -17,7 +17,7 @@ returns table(endpoint text, sub jsonb, title text, body text)
 language sql security definer set search_path = public as $$
   with s as (
     select ps.endpoint, ps.sub, ps.tz, ps.water_sent, a.data as d, a.data->'reminders'->'water' as w,
-           (p_now at time zone ps.tz) as lt
+           (p_now at time zone ps.tz) as lt, coalesce(a.data->'profile'->>'lang', 'fr') = 'en' as en
     from gt_push_subs ps join gt_accounts a on a.username = ps.username
     where a.data->'reminders' ? 'water'
   ), v as (
@@ -40,8 +40,10 @@ language sql security definer set search_path = public as $$
   ), upd as (
     update gt_push_subs p set water_sent = p_now from due where p.endpoint = due.endpoint returning p.endpoint
   )
-  select due.endpoint, due.sub, 'Pense à boire 💧',
-         'Tu en es à ' || gt_litres(due.n * 0.25) || ' L sur ' || gt_litres(due.goal * 0.25) || ' L aujourd''hui. Un grand verre ?'
+  select due.endpoint, due.sub,
+         case when due.en then 'Time to drink 💧' else 'Pense à boire 💧' end,
+         case when due.en then 'You''re at ' || replace(gt_litres(due.n * 0.25), ',', '.') || ' L of ' || replace(gt_litres(due.goal * 0.25), ',', '.') || ' L today. A big glass?'
+              else 'Tu en es à ' || gt_litres(due.n * 0.25) || ' L sur ' || gt_litres(due.goal * 0.25) || ' L aujourd''hui. Un grand verre ?' end
   from due join upd on upd.endpoint = due.endpoint;
 $$;
 

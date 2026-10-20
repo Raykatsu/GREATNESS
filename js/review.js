@@ -8,11 +8,12 @@ import { parseActions, streamText, describe, applyAction, actionsGuide } from ".
 import { generateWeekPlan } from "./planner.js";
 import { coachName } from "./chars/index.js";
 import { $, $$, esc, md, I, sheet, toast, ring, animateRings, fmtNum } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const DAY = 864e5;
 const rangeLabel = ts => {
   const a = new Date(ts), b = new Date(ts + 6 * DAY);
-  return `Du ${a.getDate()} ${a.toLocaleDateString("fr-FR", { month: "long" })} au ${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "long" })}`;
+  return `Du ${a.getDate()} ${a.toLocaleDateString(LOC(), { month: "long" })} au ${b.getDate()} ${b.toLocaleDateString(LOC(), { month: "long" })}`;
 };
 const ARROW = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
 

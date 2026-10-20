@@ -4,11 +4,11 @@ import { EXERCISES, EQUIP, MUSCLES, GOALS } from "./data.js";
 import { state, save, syncCustomExercises, tombstone } from "./store.js";
 import { generateSession, GROUPS, estimateMinutes } from "./planner.js";
 import { pickExercises, openProgram } from "./train.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { shareProgram } from "./social.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
-import { $, $$, esc, I, sheet, toast, confirmSheet, spider } from "./ui.js";
+import { $, $$, esc, I, sheet, toast, confirmSheet, coachIcon } from "./ui.js";
 
 let tab = "new", draft = null, open = -1, genOpen = true;
 const gen = { groups: new Set(["pecs"]), minutes: 45, equipment: null };
@@ -114,7 +114,7 @@ function paneNew(pane, view, launch) {
       <span class="cr-acts">${L.length > 1 ? `<button class="chip ${allC ? "blue" : ""}" id="circuit" aria-pressed="${allC}">${IC.loop} Circuit</button>` : ""}${L.length || draft.id ? `<button class="chip" id="reset">${draft.id ? `${I.x} Annuler` : `${I.trash} Vider`}</button>` : ""}</span></div>
     <label class="cr-name"><span class="sr-only">Nom de la séance</span>${I.edit}<input class="input" id="name" placeholder="Nomme ta séance (ex. Pecs du jeudi)" value="${esc(draft.name)}" maxlength="40" autocomplete="off" enterkeyhint="done"/></label>
     ${L.length ? `<div class="cr-meta"><span>${IC.dumbbell}<b class="tnum">${L.length}</b> exercice${L.length > 1 ? "s" : ""}</span><span>${I.clock}<b class="tnum">~${estimateMinutes(draft)}</b> min</span><span><b class="tnum">${sets}</b> séries</span></div>`
-      : `<div class="card empty cr-empty">${spider()}<b>Ta séance est vide</b>${draft.id ? "Ajoute des exercices pour la compléter." : "Génère-la au-dessus, ou ajoute tes exercices un par un."}</div>`}
+      : `<div class="card empty cr-empty">${coachIcon()}<b>Ta séance est vide</b>${draft.id ? "Ajoute des exercices pour la compléter." : "Génère-la au-dessus, ou ajoute tes exercices un par un."}</div>`}
     <div class="builder">${builder()}</div>
     <button class="add-big" id="add">${I.plus}<span>Ajouter des exercices</span><span class="add-n tnum">${total}</span></button>
     ${L.length || draft.id ? `<div class="create-foot"><div class="cf-in">
@@ -142,7 +142,7 @@ function paneNew(pane, view, launch) {
     draft = { ...draft, name: draft.name || s.name, tag: s.tag, exercises: s.exercises };
     open = -1; genOpen = false; redraw();
     enter($(".builder", pane));
-    spidey.say(`Voilà ${s.exercises.length} exercices. Touche-en un pour régler séries, reps et poids.`, { mood: "happy" });
+    mascot.say(`Voilà ${s.exercises.length} exercices. Touche-en un pour régler séries, reps et poids.`, { mood: "happy" });
   });
   // nom
   $("#name", pane).oninput = e => (draft.name = e.target.value);
@@ -296,7 +296,7 @@ function persist() {
   if (p) Object.assign(p, data);
   else { p = { id: "c" + Date.now(), accent: Math.random() < 0.5 ? "red" : "blue", ...data }; state.customPrograms.push(p); }
   save();
-  spidey.react("party");
+  mascot.react("party");
   return p;
 }
 
@@ -321,7 +321,7 @@ function paneMine(pane, view, launch) {
     </article>`;
   }).join("")}
     <button class="add-big" id="first">${I.plus}<span>Nouvelle séance</span></button></div>`
-    : `<div class="card empty cr-empty mt">${spider()}<b>Aucune séance perso</b>Compose ta séance idéale, ou génère-la en 2 touches. Elle t'attendra ici.
+    : `<div class="card empty cr-empty mt">${coachIcon()}<b>Aucune séance perso</b>Compose ta séance idéale, ou génère-la en 2 touches. Elle t'attendra ici.
         <button class="btn btn-primary btn-sm mt" id="first">${I.plus} Créer ma première séance</button></div>`;
   $("#first", pane)?.addEventListener("click", () => { tab = "new"; renderCreate(view, launch); });
   $$("[data-go]", pane).forEach(b => b.onclick = () => openProgram({ ...state.customPrograms.find(x => x.id === b.dataset.go), cat: "custom" }, launch));

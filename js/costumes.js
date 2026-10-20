@@ -12,7 +12,7 @@ export const COSTUMES = {
   feu: { name: "Tenue de feu", desc: "Pour les séances qui brûlent.", filter: "hue-rotate(-28deg) saturate(1.9) brightness(1.05)" },
   cape: { name: "Cape de héros", desc: "Un vrai héros a une cape.",
     back: `<path d="M19.5 26.5 Q30 22.5 40.5 26.5 L47 63 Q30 69 13 63 Z" fill="#7a0012"/><path d="M19.5 26.5 Q30 22.5 40.5 26.5 L41.5 31 Q30 27.5 18.5 31 Z" fill="#a8001a"/>` },
-  symbiote: { name: "Tenue symbiote", desc: "Le côté sombre de la force.", filter: "grayscale(1) brightness(.55) contrast(1.6)" },
+  symbiote: { name: "Tenue de l'ombre", desc: "Discrète, mais redoutable.", filter: "grayscale(1) brightness(.55) contrast(1.6)" },
   medaille: { name: "Médaille d'or", desc: "Gagnée au tournoi.",
     torso: `<path d="M26.6 25.5 L30 33 L33.4 25.5" stroke="#3466ff" stroke-width="2.2" fill="none" stroke-linejoin="round"/><circle cx="30" cy="35.6" r="3.6" fill="#f5c542" stroke="#b8860b" stroke-width=".8"/><path d="M30 33.6 l.7 1.4 1.5.2 -1.1 1 .3 1.5 -1.4 -.7 -1.4 .7 .3 -1.5 -1.1 -1 1.5 -.2z" fill="#fff6c8"/>` },
   couronne: { name: "Couronne de légende", desc: "Le sommet est à toi.",
