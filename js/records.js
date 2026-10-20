@@ -5,6 +5,7 @@ import { state, e1rm } from "./store.js";
 import { chart, linear } from "./chart.js";
 import { animSvg, mountAnims } from "./anim.js";
 import { $, $$, esc } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const DAY = 864e5;
 export const LEVELS = ["Débutant", "Novice", "Intermédiaire", "Avancé", "Élite"];
@@ -27,8 +28,8 @@ const STD = {
   dips: { reps: true, m: [3, 10, 20, 30], f: [1, 5, 12, 20] },
 };
 const BIG3 = ["squat", "bench", "deadlift"];
-const kg = v => (Math.round(v * 2) / 2).toLocaleString("fr-FR");
-const day = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+const kg = v => (Math.round(v * 2) / 2).toLocaleString(LOC());
+const day = t => new Date(t).toLocaleDateString(LOC(), { day: "numeric", month: "short" });
 
 // Niveau de force : { level, name, pct (vers le niveau suivant), next (1RM ou reps à viser), nextName }
 export function strengthLevel(id, best, { bw = 75, sex = "m" } = {}) {

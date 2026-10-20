@@ -5,11 +5,12 @@ import { state, currentUser } from "./store.js";
 import { beep, vibrate } from "./fx.js";
 import { measureNear, spanText } from "./records.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const DAY = 864e5;
 export const POSES = [["face", "Face"], ["profil", "Profil"], ["dos", "Dos"]];
 const poseName = k => (POSES.find(p => p[0] === k) || POSES[0])[1];
-const fmtDay = (t, o = { day: "numeric", month: "short", year: "numeric" }) => new Date(t).toLocaleDateString("fr-FR", o);
+const fmtDay = (t, o = { day: "numeric", month: "short", year: "numeric" }) => new Date(t).toLocaleDateString(LOC(), o);
 const num = v => String(Math.round(v * 10) / 10).replace(".", ",");
 
 /* ---------- Stockage local ---------- */

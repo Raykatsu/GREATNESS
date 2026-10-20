@@ -5,13 +5,6 @@ const C = () => (typeof window !== "undefined" ? window.Capacitor : null);
 export const isNative = () => !!C()?.isNativePlatform?.();
 const plugin = name => { const c = C(); return c?.Plugins?.[name] || c?.registerPlugin?.(name) || null; };
 
-/* ---------- Version App Store : pas de nom ni de personnage sous licence (règle 5.2 d'Apple) ---------- */
-const STORE_NAMES = { spider: { name: "Tisseur", bio: "Le héros du quartier : agile, blagueur et toujours là pour ta série suivante." } };
-export const STORE_HIDDEN = new Set(["harley"]);
-export const storeSafe = c => (isNative() && STORE_NAMES[c?.id] ? { ...c, ...STORE_NAMES[c.id] } : c);
-export const storeHidden = id => isNative() && STORE_HIDDEN.has(id);
-export const storeText = t => (isNative() ? String(t).replace(/Spider-Man/g, "Tisseur") : t);
-
 /* ---------- Notifications locales (fin du repos) ---------- */
 const REST_ID = 4242;
 export async function nativeRestAlert(atMs, title, body) {

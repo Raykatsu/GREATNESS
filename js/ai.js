@@ -2,14 +2,15 @@
 // La clé est stockée uniquement sur cet appareil (localStorage) et envoyée directement à l'API Anthropic.
 import { state } from "./store.js";
 import { coachName, coachPersona } from "./chars/index.js";
+import { LOC, aiLangNote } from "./i18n.js";
 
 const MODEL = "claude-opus-5-5";
 const SDK_URL = "https://esm.sh/@anthropic-ai/sdk@0.131.0";
 // Fallback serveur si une requête est refusée par les classifieurs de sécurité.
 const BETAS = ["server-side-fallback-2026-07-01"];
 
-// La personnalité suit le coach choisi par l'utilisateur (Spider-Man par défaut).
-const SYSTEM_BASE = () => `Tu es le coach de GREATNESS, une app de musculation. Tu incarnes ${coachName()} en version coach sportif : ${coachPersona() || "drôle et bienveillant"}.
+// La personnalité suit le coach choisi par l'utilisateur (Alex par défaut).
+const SYSTEM_FR = () => `Tu es le coach de GREATNESS, une app de musculation. Tu incarnes ${coachName()} en version coach sportif : ${coachPersona() || "drôle et bienveillant"}.
 Tu parles français, tu tutoies, tu es direct et motivant, avec de temps en temps une petite référence à ton personnage sans en abuser.
 Tu pilotes l'entraînement : tu donnes des consignes techniques précises, tu ajustes charges, répétitions et temps de repos selon les performances réelles (reps réalisées, RPE de 1 à 10) et la fatigue.
 Règles de sécurité : jamais d'échec musculaire sur les gros mouvements, toute douleur = arrêt de l'exercice et alternative, pas de diagnostic médical (oriente vers un professionnel si besoin). Progression prudente : +2,5 à +5 kg max par série.
@@ -39,7 +40,7 @@ function textOf(msg) {
 
 function historyDigest(limit = 6) {
   return state.sessions.slice(-limit).map(s => ({
-    date: new Date(s.date).toLocaleDateString("fr-FR"), programme: s.name, minutes: Math.round(s.durationSec / 60),
+    date: new Date(s.date).toLocaleDateString(LOC()), programme: s.name, minutes: Math.round(s.durationSec / 60),
     volume_kg: s.volume, fatigue_fin: s.fatigue, records: s.prs?.length || 0,
   }));
 }
@@ -49,6 +50,9 @@ function withTimeout(promise, ms) {
 }
 
 // Test de connexion depuis le profil.
+// app en anglais : même consigne, réponse en anglais
+const SYSTEM_BASE = () => SYSTEM_FR() + aiLangNote();
+
 export async function testKey() {
   const c = await client();
   const msg = await c.beta.messages.create({

@@ -6,6 +6,7 @@ import { SUPABASE_URL } from "./config.js";
 import { mergeHealth, applyWeights, readinessFromHealth, formLabel, healthLine, dayKeyOf, shiftDay } from "./health.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 import { isNative, nativeHealthAvailable, nativeHealthAuthorize, nativeHealthRead } from "./native.js";
+import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const HEART = svg('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5.5 12h3l1.5-3 2.5 6 1.5-3h4.5"/>');
@@ -149,7 +150,7 @@ export async function openHealth() {
   draw();
 }
 // « aujourd'hui », « hier », « le mardi 13 octobre »
-const fmtDay = key => { const [y, m, d] = key.split("-").map(Number); const t = new Date(y, m - 1, d); return key === today() ? "aujourd'hui" : key === shiftDay(today(), -1) ? "hier" : `le ${t.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`; };
+const fmtDay = key => { const [y, m, d] = key.split("-").map(Number); const t = new Date(y, m - 1, d); return key === today() ? "aujourd'hui" : key === shiftDay(today(), -1) ? "hier" : `le ${t.toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" })}`; };
 
 // Pour le check-in : sommeil et énergie proposés d'après Apple Santé (null sans mesure du jour)
 export const healthReadiness = () => readinessFromHealth(state.health?.days || {});

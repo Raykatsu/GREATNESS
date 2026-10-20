@@ -1,18 +1,24 @@
-// Registre des coachs animés.
-// Spider-Man est chargé d'office (coach par défaut) ; les autres univers arrivent à la demande
-// par import dynamique (./heroes.js, ./manga.js, ./cute.js, ./animals.js, chacun
+// Registre des coachs animés : tous des personnages originaux de l'app.
+// Alex (./base.js) est chargée d'office (coach par défaut) ; les autres familles arrivent à la demande
+// par import dynamique (./salle.js, ./sports.js, ./nature.js, ./zen.js, ./compagnons.js, chacun
 // « export default [ ...personnages ] »). Un fichier absent ou invalide est simplement ignoré.
-// Le format d'un personnage est décrit en tête de ./spider.js.
-import spider from "./spider.js";
+// Le format d'un personnage est décrit en tête de ./kit.js.
+import alex from "./base.js";
 import { state, save } from "../store.js";
-import { storeSafe, storeHidden } from "../native.js";
 import { costumeOf } from "../costumes.js";
 import { wornCostume } from "../story.js";
 
-export const GROUPS = ["Héros", "Manga", "Mignons", "Animaux"];
-const FILES = { "Héros": "./heroes.js", "Manga": "./manga.js", "Mignons": "./cute.js", "Animaux": "./animals.js" };
-export const TRAVELS = { web: "Toile", fly: "Vole", hop: "Sautille", dash: "Fonce", walk: "Marche" };
-const TRAILS = ["none", "sparks", "hearts", "stars", "smoke", "bubbles", "leaves", "aura"];
+export const GROUPS = ["Salle", "Sports", "Nature", "Zen", "Compagnons"];
+const FILES = { "Salle": "./salle.js", "Sports": "./sports.js", "Nature": "./nature.js", "Zen": "./zen.js", "Compagnons": "./compagnons.js" };
+export const TRAVELS = { fly: "Vole", hop: "Sautille", dash: "Fonce", walk: "Marche", roll: "Roule" };
+const TRAILS = ["none", "sparks", "hearts", "stars", "smoke", "bubbles", "leaves", "aura", "snow"];
+// Anciens coachs (avant les personnages originaux) → le nouveau coach le plus proche
+export const LEGACY = {
+  spider: "alex", knight: "moussa", nova: "sofia", titan: "manu", captain: "alex", amazon: "awa", harley: "fatou",
+  ninja: "yuki", saiyan: "kenji", pirate: "diego", moon: "priya", pika: "braise",
+  kitty: "mochi", panda: "paco", bunny: "axo", penguin: "flocon", hamster: "pepite",
+  shiba: "pepite", fox: "braise", blackcat: "mochi", frog: "axo", bear: "flocon",
+};
 const PARTS = ["legL", "legR", "armL", "armR", "torso", "head"];
 const LINES = ["hello", "tap", "pr", "rest", "sleep"];
 
@@ -38,7 +44,7 @@ function validate(c, group) {
     bio: typeof c.bio === "string" ? c.bio : "",
     persona: typeof c.persona === "string" ? c.persona : "",
     travel,
-    climb: travel === "web" || !!c.climb, // la toile suppose de pouvoir grimper
+    climb: !!c.climb && travel !== "roll",
     fx: Object.freeze({ color, trail: TRAILS.includes(c.fx?.trail) ? c.fx.trail : "none" }),
     defs: typeof c.defs === "string" ? c.defs : "",
     back: typeof c.back === "string" ? c.back : "",
@@ -49,7 +55,7 @@ function validate(c, group) {
 
 /* ---------- Catalogue ---------- */
 const byId = new Map();
-const base = validate(storeSafe(spider), "Héros");
+const base = validate(alex, "Salle");
 byId.set(base.id, base);
 
 // « Aucun personnage » : coach neutre (un simple badge) quand on masque les personnages.
@@ -57,13 +63,13 @@ byId.set(base.id, base);
 const BOLT = "M31.6 6.2 22.4 18.4h6.1l-2.2 10.4 9.5-13.2h-6.3z";
 const NONE = Object.freeze({
   ...validate({
-    id: "none", name: "Coach", group: "Héros", travel: "walk", fx: { color: "#e8283b", trail: "none" },
+    id: "none", name: "Coach", group: "Salle", travel: "walk", fx: { color: "#e8283b", trail: "none" },
     bio: "Sans personnage : l'app reste sobre, ton coach te répond toujours.",
     persona: "Coach sportif expert, précis et bienveillant, au ton direct et motivant, sans jeu de rôle ni personnage.",
     defs: `<linearGradient id="none-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d5e"/><stop offset="1" stop-color="#b8101f"/></linearGradient>`,
     legL: "<g/>", legR: "<g/>", armL: "<g/>", armR: "<g/>", torso: "<g/>",
     head: `<circle cx="30" cy="17.5" r="12.5" fill="url(#none-bg)"/><path d="${BOLT}" fill="#fff"/><g class="sp-eyes"><g class="sp-eyeL"/><g class="sp-eyeR"/></g>`,
-  }, "Héros"),
+  }, "Salle"),
 });
 export const charsOn = () => state.profile?.mascot !== false;
 let list = [base];
@@ -73,7 +79,7 @@ const pending = {};
 const order = c => GROUPS.indexOf(c.group);
 function sortList() {
   const pos = new Map(list.map((c, i) => [c.id, i]));
-  list = list.slice().sort((a, b) => (a.id === "spider" ? -1 : b.id === "spider" ? 1 : order(a) - order(b) || pos.get(a.id) - pos.get(b.id)));
+  list = list.slice().sort((a, b) => (a.id === base.id ? -1 : b.id === base.id ? 1 : order(a) - order(b) || pos.get(a.id) - pos.get(b.id)));
 }
 
 export function loadGroup(g) {
@@ -84,7 +90,7 @@ export function loadGroup(g) {
     .then(m => {
       const raw = Array.isArray(m.default) ? m.default : m.default ? [m.default] : [];
       const added = [];
-      for (const c of raw) { if (storeHidden(c?.id)) continue; const v = validate(storeSafe(c), g); if (v) { byId.set(v.id, v); list.push(v); added.push(v); } }
+      for (const c of raw) { const v = validate(c, g); if (v) { byId.set(v.id, v); list.push(v); added.push(v); } }
       sortList();
       status[g] = "ok";
       return added;
@@ -101,9 +107,9 @@ export function loadAll() {
 }
 
 export const all = () => list.slice();
-export const byIdGet = id => byId.get(id);
+export const byIdGet = id => byId.get(id) || byId.get(LEGACY[id]);
 export const groupStatus = g => status[g];
-export const current = () => (charsOn() ? byId.get(state.profile?.coach) || base : NONE);
+export const current = () => (charsOn() ? byIdGet(state.profile?.coach) || base : NONE);
 export const none = () => NONE;
 export const coachName = () => current().name;
 export const coachPersona = () => current().persona;
@@ -129,8 +135,8 @@ export function onCoachChange(fn) { subs.add(fn); return () => subs.delete(fn); 
 
 export async function setCoach(id) {
   if (id === "none") return setCharsOn(false), NONE;
-  let c = byId.get(id);
-  if (!c) { await loadAll(); c = byId.get(id); }
+  let c = byIdGet(id);
+  if (!c) { await loadAll(); c = byIdGet(id); }
   if (!c) return null;
   const was = charsOn();
   if (state.profile.coach !== c.id || !was) { state.profile.coach = c.id; state.profile.mascot = true; save(); }
@@ -170,13 +176,15 @@ export function ensureCss(c) {
 // Costume porté (mode histoire) : celui du profil s'il a été gagné ; jamais sur le coach neutre
 const wearing = (c, costume) => (c.id === "none" ? null : costumeOf(costume === undefined ? wornCostume(state) : costume));
 const look = w => (w?.filter ? ` style="filter:${w.filter}"` : "");
+// accessoire de tête (repère standard), agrandi comme la tête du personnage s'il le faut
+const acc = (c, svg) => `<g class="sp-acc">${c.headT ? `<g transform="${c.headT}">${svg}</g>` : svg}</g>`;
 
 // Personnage entier : <svg class="sp pose-… ch-…"> avec les calques dans l'ordre du format.
 // costume : identifiant (aperçu), null (aucun), ou absent (celui que porte le coach)
 export function figure(c = current(), { pose = "idle", cls = "", costume } = {}) {
   ensureCss(c);
   const u = `sp${++uid}-`, w = wearing(c, costume), back = (c.back || "") + (w?.back || "");
-  const body = `<g class="sp-body"><g class="sp-char ch-${c.id}">${back ? `<g class="sp-back">${back}</g>` : ""}<g class="sp-legL">${c.legL}</g><g class="sp-legR">${c.legR}</g><g class="sp-armL">${c.armL}</g><g class="sp-torso">${c.torso}${w?.torso ? `<g class="sp-acc">${w.torso}</g>` : ""}</g><g class="sp-armR">${c.armR}${DB}</g><g class="sp-head">${c.head}${w?.head ? `<g class="sp-acc">${w.head}</g>` : ""}</g></g>${ZZZ}</g>`;
+  const body = `<g class="sp-body"><g class="sp-char ch-${c.id}">${back ? `<g class="sp-back">${back}</g>` : ""}<g class="sp-legL">${c.legL}</g><g class="sp-legR">${c.legR}</g><g class="sp-armL">${c.armL}</g><g class="sp-torso">${c.torso}${w?.torso ? `<g class="sp-acc">${w.torso}</g>` : ""}</g><g class="sp-armR">${c.armR}${DB}</g><g class="sp-head">${c.head}${w?.head ? acc(c, w.head) : ""}</g></g>${ZZZ}</g>`;
   return `<svg class="sp pose-${pose} ch-${c.id}${cls ? " " + cls : ""}" viewBox="0 0 60 80" overflow="visible" aria-hidden="true"${look(w)}>${scope(`<defs>${c.defs}</defs>${body}`, c, u)}</svg>`;
 }
 
@@ -213,7 +221,7 @@ function faceBox(c) {
 export function coachFace(cls = "", c = current(), costume) {
   ensureCss(c);
   const u = `sp${++uid}-`, w = wearing(c, costume);
-  return `<svg class="coach-face${cls ? " " + cls : ""}" viewBox="${faceBox(c)}" aria-hidden="true"${look(w)}>${scope(`<defs>${c.defs}</defs><g class="ch-${c.id}">${c.head}${w?.head ? `<g class="sp-acc">${w.head}</g>` : ""}</g>`, c, u)}</svg>`;
+  return `<svg class="coach-face${cls ? " " + cls : ""}" viewBox="${faceBox(c)}" aria-hidden="true"${look(w)}>${scope(`<defs>${c.defs}</defs><g class="ch-${c.id}">${c.head}${w?.head ? acc(c, w.head) : ""}</g>`, c, u)}</svg>`;
 }
 
 // Couleur fx en "r, g, b" (pour rgba()).
@@ -223,7 +231,7 @@ export function fxRgb(c = current()) {
   return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).join(", ");
 }
 
-// Recherche par nom (commandes du coach) : « kitty », « le panda », « spiderman »…
+// Recherche par nom (commandes du coach) : « alex », « le robot », « prends Mochi »…
 const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’'.-]/g, " ").replace(/\s+/g, " ").trim();
 const STOP = new Set(["hello", "super", "mister", "monsieur", "madame", "petit", "petite", "grand", "grande", "captain", "capitaine", "coach", "the", "les", "des", "man", "girl", "boy", "kid", "baby", "bebe", "dark"]);
 export function coachKeys(c) {

@@ -2,13 +2,13 @@
 import { knownAccounts, lastUser, login, createAccount, isOnlineMode, normalize, USERNAME_RE, PIN_RE, forget, bioOf, setBio, bioAsked, unlockKnown } from "./cloud.js";
 import { bioName, bioEnroll, bioVerify } from "./bio.js";
 import { legacyData, LEGACY_KEY } from "./store.js";
-import { spidey } from "./spidey.js";
-import { webSvg } from "./fx.js";
-import { $, $$, esc, I, spider, toast, confirmSheet, sheet } from "./ui.js";
+import { mascot } from "./mascot.js";
+import { ringsSvg } from "./fx.js";
+import { $, $$, esc, I, coachIcon, toast, confirmSheet, sheet } from "./ui.js";
 
 let view, done, mode, ctx, sayTimer;
-// Petite phrase de Spider-Man, annulée si on change d'écran entre-temps.
-const sayLater = (text, ms, opts) => { clearTimeout(sayTimer); sayTimer = setTimeout(() => spidey.say(text, opts), ms); };
+// Petite phrase du coach, annulée si on change d'écran entre-temps.
+const sayLater = (text, ms, opts) => { clearTimeout(sayTimer); sayTimer = setTimeout(() => mascot.say(text, opts), ms); };
 
 export function showAuth(container, onUnlocked) {
   view = container;
@@ -23,7 +23,7 @@ export function showAuth(container, onUnlocked) {
 
 function go(m, c = {}) {
   clearTimeout(sayTimer);
-  spidey.hideBubble();
+  mascot.hideBubble();
   mode = m; ctx = { pin: "", ...c };
   view.className = "view";
   void view.offsetWidth;
@@ -32,8 +32,8 @@ function go(m, c = {}) {
 }
 
 const avatar = (name, big) => `<div class="avatar ${big ? "big" : ""}">${esc((name || "?").charAt(0).toUpperCase())}</div>`;
-// Emblème : la toile et l'araignée, en grand (accueil) ou en petit (autres écrans)
-export const emblem = (big = false) => `<div class="auth-emblem ${big ? "big" : ""}" aria-hidden="true">${webSvg("auth-web", 12, [13, 25, 37, 49])}<span class="auth-mark">${spider()}</span></div>`;
+// Emblème : le visage du coach entouré d'anneaux, en grand (accueil) ou en petit (autres écrans)
+export const emblem = (big = false) => `<div class="auth-emblem ${big ? "big" : ""}" aria-hidden="true">${ringsSvg("auth-orn", [13, 25, 37, 49])}<span class="auth-mark">${coachIcon()}</span></div>`;
 const header = (title, sub) => `${emblem()}<h1 class="h1 center auth-title">${title}</h1>${sub ? `<p class="muted center small auth-sub">${sub}</p>` : ""}`;
 
 function welcome() {
@@ -113,7 +113,7 @@ function shake(msg) {
 async function attempt(fn) {
   const spin = $("#busy");
   spin?.classList.remove("hidden");
-  try { await fn(); } catch (e) { shake(e.message); spidey.react("alert"); } finally { spin?.classList.add("hidden"); }
+  try { await fn(); } catch (e) { shake(e.message); mascot.react("alert"); } finally { spin?.classList.add("hidden"); }
 }
 
 function pinScreen() {
@@ -220,7 +220,7 @@ function confirmPin() {
 function finish(created, pinUser) {
   onkeydown = null;
   view.classList.remove("auth");
-  spidey.react("party");
+  mascot.react("party");
   if (created) toast("Compte créé ✓");
   done?.(created);
   if (pinUser) setTimeout(() => offerBio(pinUser), 1400);

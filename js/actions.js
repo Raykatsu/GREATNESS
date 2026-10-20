@@ -100,7 +100,7 @@ export function parseCommand(text) {
   if (coach) return coach;
 
   // Interrupteurs
-  const target = /\bvoix|vocal|parle\b/.test(t) ? "voice" : /\bsons?\b|bips?\b/.test(t) ? "sound" : /spider|mascotte|bonhomme|personnage|araignee/.test(t) ? "mascot" : null;
+  const target = /\bvoix|vocal|parle\b/.test(t) ? "voice" : /\bsons?\b|bips?\b/.test(t) ? "sound" : /mascotte|bonhomme|personnage/.test(t) ? "mascot" : null;
   if (target && !isQuestion) {
     if (OFF.test(t)) return { type: "toggle", target, value: false };
     if (ON.test(t)) return { type: "toggle", target, value: true };
@@ -240,7 +240,7 @@ export function runCommand(cmd) {
       if (!cmd.id) {
         const by = COACH_GROUPS.map(g => [g, list.filter(c => c.group === g)]).filter(([, l]) => l.length);
         return {
-          text: `Tu peux choisir parmi **${list.length} coach${list.length > 1 ? "s" : ""}** :\n${by.map(([g, l]) => `• ${g} : ${l.map(c => c.name).join(", ")}`).join("\n")}\nDis-moi par exemple « Prends ${list.find(c => c.id !== currentCoach().id)?.name || "Spider-Man"} comme coach », ou ouvre la galerie.`,
+          text: `Tu peux choisir parmi **${list.length} coach${list.length > 1 ? "s" : ""}** :\n${by.map(([g, l]) => `• ${g} : ${l.map(c => c.name).join(", ")}`).join("\n")}\nDis-moi par exemple « Prends ${list.find(c => c.id !== currentCoach().id)?.name || "Mochi"} comme coach », ou ouvre la galerie.`,
           actions: [{ label: "Voir les coachs", route: "#/profile?coach=1" }],
         };
       }

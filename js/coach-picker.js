@@ -1,19 +1,19 @@
 // Choix du coach : carte « Ton coach » (en tête des Réglages), galerie par univers dans une feuille,
 // et la même galerie, compacte, dans l'accueil des nouveaux comptes.
 import { GROUPS, TRAVELS, all, byIdGet, loadGroup, current, setCoach, figure, fxRgb, groupStatus, onCoachChange, coachLine, coachFace, none } from "./chars/index.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { $, $$, esc, sheet, toast, I } from "./ui.js";
 
 const ic = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const TRAVEL_ICON = {
-  web: ic('<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/><path d="M12 7.6 15.1 8.9 16.4 12 15.1 15.1 12 16.4 8.9 15.1 7.6 12 8.9 8.9Z"/>'),
   fly: ic('<path d="M21 4C14 5 9.5 8.5 7 14l-4 1 3 2 1 4 2-3.5C14 16 18.5 11 21 4Z"/><path d="M7 14c2-.5 4-1.6 6-3.5"/>'),
   hop: ic('<path d="M3 20h18"/><path d="M4.5 20C6 12.5 8 9 10 9s3.5 4 4 11"/><path d="M14 20c.8-3.8 2-5.6 3.2-5.6S19.3 16.4 20 20" opacity=".6"/><circle cx="10" cy="4.6" r="1.9"/>'),
   dash: ic('<path d="M13 3 6 13h5l-1 8 7-10h-5z"/><path d="M2.5 9h3M2 13.5h2.5M3 18h3" opacity=".7"/>'),
+  roll: ic('<circle cx="9" cy="15" r="5.5"/><circle cx="9" cy="15" r="1.4"/><path d="M14.5 15H20l-1.5-6H12"/><circle cx="19.5" cy="19.5" r="1.5"/>'),
   walk: ic('<path d="M8.2 3.5c1.5 0 2.4 1.7 2.4 3.8s-1 3.3-2.4 3.3-2.4-1.2-2.4-3.3.9-3.8 2.4-3.8Z"/><path d="M6.3 13.4h4l-.3 1.7a2 2 0 0 1-3.4 0Z"/><path d="M15.8 8.5c1.5 0 2.4 1.7 2.4 3.8s-1 3.3-2.4 3.3-2.4-1.2-2.4-3.3.9-3.8 2.4-3.8Z"/><path d="M13.9 18.4h4l-.3 1.7a2 2 0 0 1-3.4 0Z"/>'),
 };
 const look = c => `--fx:${c.fx.color};--fx-rgb:${fxRgb(c)}`;
-const travelLabel = c => `${TRAVELS[c.travel]}${c.climb && c.travel !== "web" ? " · grimpe" : ""}`;
+const travelLabel = c => `${TRAVELS[c.travel]}${c.climb ? " · grimpe" : ""}`;
 
 /* ---------- Carte « Ton coach » ---------- */
 export function coachCard(el, { open = false } = {}) {
@@ -38,15 +38,12 @@ export function coachCard(el, { open = false } = {}) {
       clearTimeout(stage._t);
       stage._t = setTimeout(() => svg.setAttribute("class", svg.getAttribute("class").replace(/pose-\S+/, "pose-idle").replace(" mood-happy", "")), 1500);
       const l = coachLine("tap") || coachLine("hello");
-      if (l) spidey.say(l, { mood: "happy" });
+      if (l) mascot.say(l, { mood: "happy" });
     };
     $("#coach-change", el).onclick = openCoachGallery;
   };
   draw();
   const off = onCoachChange(() => (el.isConnected ? draw() : off()));
-  // l'interrupteur des préférences parle du coach, pas seulement de Spider-Man
-  const lbl = document.querySelector("#p-mascot")?.closest("label")?.querySelector("b");
-  if (lbl && /Spider-Man/.test(lbl.textContent)) lbl.textContent = "Coach animé";
   if (open) setTimeout(openCoachGallery, 260);
 }
 

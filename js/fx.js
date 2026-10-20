@@ -1,16 +1,18 @@
 // Effets : voix, sons, vibrations et petits détails visuels.
 import { state } from "./store.js";
+import { voiceLang, tr } from "./i18n.js";
 
 /* ---------- Voix ---------- */
-let voice = null;
-function pickVoice() {
-  const voices = speechSynthesis.getVoices();
-  voice = voices.find(v => /^fr/i.test(v.lang) && /google|thomas|nicolas|paul|male/i.test(v.name))
-       || voices.find(v => /^fr/i.test(v.lang)) || null;
-}
+// La voix du téléphone dans la langue de l'app (choisie au moment de parler : la langue est connue après le chargement)
+let voices = [];
+const pickVoice = () => {
+  const en = voiceLang().startsWith("en"), lang = en ? /^en/i : /^fr/i;
+  return voices.find(v => lang.test(v.lang) && (en ? /google|samantha|alex|daniel|male/i : /google|thomas|nicolas|paul|male/i).test(v.name))
+    || voices.find(v => lang.test(v.lang)) || null;
+};
 if ("speechSynthesis" in window) {
-  pickVoice();
-  speechSynthesis.onvoiceschanged = pickVoice;
+  voices = speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => { voices = speechSynthesis.getVoices(); };
 }
 
 // Le mode mains libres coupe l'écoute pendant que le coach parle.
@@ -20,8 +22,9 @@ export const speechHooks = { start: null, end: null };
 export function speak(text, { interrupt = false, force = false } = {}) {
   if ((!state.profile.voice && !force) || !("speechSynthesis" in window) || !text) return;
   if (interrupt) speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "fr-FR";
+  const u = new SpeechSynthesisUtterance(tr(text)); // en anglais : la phrase traduite
+  u.lang = voiceLang();
+  const voice = pickVoice();
   if (voice) u.voice = voice;
   u.rate = 1.05;
   u.onstart = () => speechHooks.start?.();
@@ -46,8 +49,8 @@ export function beep(freq = 880, dur = 0.12, type = "sine", gain = 0.12) {
   } catch { /* pas d'audio */ }
 }
 
-// "Thwip" discret : bruit filtré très court.
-export function thwip(vol = 0.35) {
+// « Whoosh » discret : bruit filtré très court (élan du coach, validation).
+export function whoosh(vol = 0.35) {
   if (!state.profile.sound) return;
   try {
     const a = ctx();
@@ -72,29 +75,24 @@ export function success() {
 
 export const vibrate = p => navigator.vibrate?.(p);
 
-/* ---------- Petite toile qui éclot (validation, record) ---------- */
-export function webPop(x, y, color = "#ff3b4e") {
+/* ---------- Petits anneaux qui éclosent (validation, record) ---------- */
+export function ringPop(x, y, color = "#ff3b4e") {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
   const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   el.setAttribute("viewBox", "-50 -50 100 100");
-  el.classList.add("webpop");
+  el.classList.add("ringpop");
   el.style.left = x + "px";
   el.style.top = y + "px";
   el.style.color = color;
-  const spokes = Array.from({ length: 8 }, (_, i) => { const a = (i * Math.PI) / 4; return `<line x1="0" y1="0" x2="${48 * Math.cos(a)}" y2="${48 * Math.sin(a)}"/>`; }).join("");
-  const rings = [16, 30, 44].map(r => `<polygon points="${Array.from({ length: 8 }, (_, i) => { const a = (i * Math.PI) / 4; return `${r * Math.cos(a)},${r * Math.sin(a)}`; }).join(" ")}"/>`).join("");
-  el.innerHTML = `<g fill="none" stroke="currentColor" stroke-width="1.4">${spokes}${rings}</g>`;
+  const dots = Array.from({ length: 8 }, (_, i) => { const a = (i * Math.PI) / 4 + 0.39; return `<circle cx="${(40 * Math.cos(a)).toFixed(1)}" cy="${(40 * Math.sin(a)).toFixed(1)}" r="2.6"/>`; }).join("");
+  el.innerHTML = `<g fill="none" stroke="currentColor"><circle r="15" stroke-width="2.2"/><circle r="28" stroke-width="1.4"/></g><g fill="currentColor">${dots}</g>`;
   document.body.appendChild(el);
   el.addEventListener("animationend", () => el.remove());
   setTimeout(() => el.remove(), 1500); // filet de sécurité si l'animation est interrompue
 }
 
-// Toile fine utilisée comme ornement (coins de cartes, chargement…).
-export function webSvg(cls = "", n = 12, rings = [12, 24, 36, 48]) {
-  const spokes = Array.from({ length: n }, (_, i) => { const a = (i * 2 * Math.PI) / n; return `<line x1="0" y1="0" x2="${50 * Math.cos(a)}" y2="${50 * Math.sin(a)}"/>`; }).join("");
-  const polys = rings.map(r => `<path d="${Array.from({ length: n + 1 }, (_, i) => {
-    const a = (i * 2 * Math.PI) / n, b = ((i - 0.5) * 2 * Math.PI) / n;
-    return i === 0 ? `M${r * Math.cos(a)},${r * Math.sin(a)}` : `Q${r * 0.86 * Math.cos(b)},${r * 0.86 * Math.sin(b)} ${r * Math.cos(a)},${r * Math.sin(a)}`;
-  }).join(" ")}"/>`).join("");
-  return `<svg class="${cls}" viewBox="-50 -50 100 100" fill="none" stroke="currentColor" stroke-width=".5" aria-hidden="true">${spokes}${polys}</svg>`;
+// Anneaux fins utilisés comme ornement (coins de cartes, fond, accueil).
+export function ringsSvg(cls = "", rings = [12, 24, 36, 48]) {
+  const dots = rings.map((r, i) => { const a = ((-38 + i * 61) * Math.PI) / 180; return `<circle cx="${(r * Math.cos(a)).toFixed(1)}" cy="${(r * Math.sin(a)).toFixed(1)}" r="1.5" fill="currentColor" stroke="none"/>`; }).join("");
+  return `<svg class="${cls}" viewBox="-50 -50 100 100" fill="none" stroke="currentColor" stroke-width=".55" aria-hidden="true">${rings.map(r => `<circle r="${r}"/>`).join("")}${dots}</svg>`;
 }

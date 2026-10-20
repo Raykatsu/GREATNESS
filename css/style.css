@@ -1,5 +1,5 @@
 /* =========================================================
-   GREATNESS — design sombre épuré, touches Spider-Man
+   GREATNESS — design sombre épuré, touches de rouge
    ========================================================= */
 
 /* Polices auto-hébergées (latin, variables) : voir assets/fonts/LICENSE-*.txt */
@@ -123,13 +123,13 @@ img, video { max-width: 100%; }
 :focus-visible { outline: 2px solid rgba(var(--accent-rgb), .95); outline-offset: 2px; }
 :is(.btn, .icon-btn, .chip, .card, .tabbar a):focus-visible { outline-offset: 3px; }
 
-/* Fond : deux lueurs fixes (dégradés radiaux, aucun flou ni animation) + fine toile dans le coin */
+/* Fond : deux lueurs fixes (dégradés radiaux, aucun flou ni animation) + fins anneaux dans le coin */
 .ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
   background:
     radial-gradient(85vmax 70vmax at 108% -12%, rgba(var(--accent-rgb), .17), rgba(var(--accent-rgb), .05) 42%, transparent 68%),
     radial-gradient(80vmax 70vmax at -14% 112%, rgba(59, 108, 246, .12), rgba(59, 108, 246, .035) 44%, transparent 70%); }
 .ambient i { display: none; }
-.ambient .corner-web { position: absolute; top: -40px; right: -40px; width: 230px; height: 230px; color: var(--text); opacity: .045; }
+.ambient .corner-orn { position: absolute; top: -40px; right: -40px; width: 230px; height: 230px; color: var(--text); opacity: .045; }
 
 /* ---------- Layout ---------- */
 /* overflow-x: clip : le glissement de page ne déborde jamais (sinon le viewport mobile s'élargit et tout « saute ») */
@@ -1298,23 +1298,23 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 .empty > svg:first-child { box-sizing: border-box; width: 48px; height: 48px; padding: 12px; margin: 0 auto 12px; border-radius: 16px; background: var(--card-2); color: var(--dim); }
 .empty b, .empty strong { display: block; color: var(--text); font-family: var(--display); font-size: 16px; margin-bottom: 2px; }
 
-/* ---------- Petite toile qui éclot ---------- */
-.webpop { position: fixed; z-index: 90; width: 120px; height: 120px; margin: -60px 0 0 -60px; pointer-events: none; animation: webpop .8s var(--smooth) forwards; }
-@keyframes webpop { 0% { transform: scale(.2) rotate(-20deg); opacity: 0; } 30% { opacity: .9; } 100% { transform: scale(1.3) rotate(0); opacity: 0; } }
+/* ---------- Petits anneaux qui éclosent ---------- */
+.ringpop { position: fixed; z-index: 90; width: 120px; height: 120px; margin: -60px 0 0 -60px; pointer-events: none; animation: ringpop .8s var(--smooth) forwards; }
+@keyframes ringpop { 0% { transform: scale(.2) rotate(-25deg); opacity: 0; } 30% { opacity: .9; } 100% { transform: scale(1.3) rotate(0); opacity: 0; } }
 
 
 /* ---------- Comptes & connexion ---------- */
 .avatar { width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; flex: none; font-family: var(--display); font-weight: 800; font-size: 19px; color: #fff;
   background: linear-gradient(135deg, var(--red), var(--blue)); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
 .avatar.big { width: 80px; height: 80px; border-radius: 28px; font-size: 34px; margin: 0 auto; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 16px 36px -12px rgba(var(--accent-rgb), .7); animation: pop var(--dur-5) var(--spring) backwards; }
-/* Emblème toile + araignée */
+/* Emblème : le visage du coach dans ses anneaux */
 .auth-emblem { position: relative; width: 84px; height: 84px; margin: 0 auto; display: grid; place-items: center; animation: emblemIn var(--dur-5) var(--spring) backwards; }
-.auth-emblem .auth-web { position: absolute; inset: -34px; width: calc(100% + 68px); height: calc(100% + 68px); color: var(--text); opacity: .1; }
+.auth-emblem .auth-orn { position: absolute; inset: -34px; width: calc(100% + 68px); height: calc(100% + 68px); color: var(--text); opacity: .1; }
 .auth-mark { position: relative; width: 60px; height: 60px; border-radius: 20px; display: grid; place-items: center; color: var(--on-accent);
   background: linear-gradient(160deg, var(--red), var(--red-2)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), var(--e-accent); }
 .auth-mark svg { width: 34px; height: 34px; }
 .auth-emblem.big { width: 128px; height: 128px; }
-.auth-emblem.big .auth-web { inset: -70px; width: calc(100% + 140px); height: calc(100% + 140px); opacity: .13; }
+.auth-emblem.big .auth-orn { inset: -70px; width: calc(100% + 140px); height: calc(100% + 140px); opacity: .13; }
 .auth-emblem.big .auth-mark { width: 92px; height: 92px; border-radius: 30px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 22px 48px -16px rgba(var(--accent-rgb), .85); }
 .auth-emblem.big .auth-mark svg { width: 54px; height: 54px; }
 @keyframes emblemIn { from { opacity: 0; transform: scale(.6) rotate(-14deg); } }
@@ -1819,16 +1819,16 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .fr-rm { color: var(--danger-ink); }
 
 /* =========================================================
-   Coach animé (Spider-Man et tous les autres personnages)
+   Coach animé (tous les personnages)
    ========================================================= */
-.spidey { position: fixed; z-index: 70; left: 0; top: 0; width: 52px; height: 70px; touch-action: none; cursor: grab; will-change: transform;
+.mascot { position: fixed; z-index: 70; left: 0; top: 0; width: 52px; height: 70px; touch-action: none; cursor: grab; will-change: transform;
   filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); transition: opacity .3s; }
-:root[data-mode="light"] .spidey { filter: drop-shadow(0 5px 7px rgba(20,20,45,.22)); }
-.spidey:active { cursor: grabbing; }
-.spidey.resting, .spidey.ghost { pointer-events: none; }
-.spidey.ghost { opacity: .16; }
-.spidey-rot { width: 100%; height: 100%; transform-origin: 50% 50%; will-change: transform; }
-.spidey-pop { width: 100%; height: 100%; transform-origin: 50% 100%; }
+:root[data-mode="light"] .mascot { filter: drop-shadow(0 5px 7px rgba(20,20,45,.22)); }
+.mascot:active { cursor: grabbing; }
+.mascot.resting, .mascot.ghost { pointer-events: none; }
+.mascot.ghost { opacity: .16; }
+.mascot-rot { width: 100%; height: 100%; transform-origin: 50% 50%; will-change: transform; }
+.mascot-pop { width: 100%; height: 100%; transform-origin: 50% 100%; }
 .sp { width: 100%; height: 100%; overflow: visible; }
 .sp g { transform-box: view-box; }
 .sp-armL { transform-origin: 20px 30px; } .sp-armR { transform-origin: 40px 30px; }
@@ -1841,17 +1841,18 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 
 /* La mascotte respire et cligne sans repeindre son dessin en continu :
    souffle et vol stationnaire animent le calque (compositeur), le clignement est déclenché par minuterie. */
-.spidey .sp-eyes { animation: none; transition: transform .07s; }
-.spidey .sp.blink .sp-eyes { transform: scaleY(.1); }
-.spidey .pose-idle .sp-body, .spidey .pose-sleep .sp-body { animation: none; }
-.spidey[data-pose="idle"] .spidey-pop, .spidey[data-pose="sit"] .spidey-pop, .spidey[data-pose="crouch"] .spidey-pop { animation: spBreathe 2.8s ease-in-out infinite; }
-.spidey[data-pose="sleep"] .spidey-pop { animation: spBreathe 3.6s ease-in-out infinite; }
-.spidey[data-pose="float"] .spidey-pop { animation: spHover 2.4s ease-in-out infinite alternate; }
+.mascot .sp-eyes { animation: none; transition: transform .07s; }
+.mascot .sp.blink .sp-eyes { transform: scaleY(.1); }
+.mascot .pose-idle .sp-body, .mascot .pose-sleep .sp-body { animation: none; }
+.mascot[data-pose="idle"] .mascot-pop, .mascot[data-pose="sit"] .mascot-pop, .mascot[data-pose="crouch"] .mascot-pop { animation: spBreathe 2.8s ease-in-out infinite; }
+.mascot[data-pose="sleep"] .mascot-pop { animation: spBreathe 3.6s ease-in-out infinite; }
+.mascot[data-pose="float"] .mascot-pop { animation: spHover 2.4s ease-in-out infinite alternate; }
 @keyframes spBreathe { 50% { scale: 1.012 1.022; } }
 @keyframes spHover { from { translate: 0 2px; } to { translate: 0 -5px; } }
 
 /* expressions : les yeux changent de forme, façon comics */
 .sp-eyeL, .sp-eyeR { transform-box: fill-box; transform-origin: center; transition: transform .3s var(--spring); }
+.sp g.sp-eyeL, .sp g.sp-eyeR { transform-box: fill-box; transform-origin: center; } /* yeux en groupe (iris + reflets) */
 .sp.mood-happy .sp-eyeL, .sp.mood-happy .sp-eyeR { transform: scaleY(.6) translateY(3px); }
 .sp.mood-alert .sp-eyeL, .sp.mood-alert .sp-eyeR { transform: scale(1.2); }
 .sp.mood-party .sp-eyeL { transform: scale(1.15) rotate(-8deg); }
@@ -1874,15 +1875,9 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 @keyframes armB { from { transform: rotate(-30deg); } to { transform: rotate(35deg); } }
 @keyframes crawlBob { to { transform: translateY(-1.5px); } }
 
-.pose-zip .sp-armR, .pose-swing .sp-armR { transform: rotate(-165deg); }
+.pose-zip .sp-armR { transform: rotate(-165deg); }
 .pose-zip .sp-armL { transform: rotate(40deg); }
 .pose-zip .sp-legL { transform: rotate(20deg); } .pose-zip .sp-legR { transform: rotate(32deg); }
-.pose-swing .sp-armL { transform: rotate(-30deg); }
-.pose-swing .sp-legL { transform: rotate(28deg); } .pose-swing .sp-legR { transform: rotate(-12deg); }
-
-.pose-hang .sp-armL { transform: rotate(150deg); } .pose-hang .sp-armR { transform: rotate(-150deg); }
-.pose-hang .sp-legL { transform: rotate(4deg); } .pose-hang .sp-legR { transform: rotate(-4deg); }
-.pose-hang .sp-head { animation: lookSlow 7s ease-in-out infinite; }
 
 .pose-flip .sp-armL { transform: rotate(140deg); } .pose-flip .sp-armR { transform: rotate(-140deg); }
 .pose-flip .sp-legL { transform: rotate(-40deg); } .pose-flip .sp-legR { transform: rotate(40deg); }
@@ -1915,7 +1910,7 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .pose-sleep .sp-zzz text { animation: zzz 2.4s ease-in-out infinite; }
 .pose-sleep .sp-zzz text:nth-child(2) { animation-delay: .5s; } .pose-sleep .sp-zzz text:nth-child(3) { animation-delay: 1s; }
 @keyframes zzz { 0% { opacity: 0; transform: translateY(4px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
-.pose-sleep .sp-eyes, .spidey .pose-sleep .sp-eyes { animation: none; transform: scaleY(.12); }
+.pose-sleep .sp-eyes, .mascot .pose-sleep .sp-eyes { animation: none; transform: scaleY(.12); }
 .pose-sleep .sp-head { transform: rotate(14deg) translateY(1px); }
 .pose-sleep .sp-body { animation: breathe 3.6s ease-in-out infinite; }
 .pose-sleep .sp-armL { transform: rotate(12deg); } .pose-sleep .sp-armR { transform: rotate(-12deg); }
@@ -1954,7 +1949,7 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 @keyframes kickB { 0%, 64%, 100% { transform: rotate(-6deg) scaleY(.52); } 76% { transform: rotate(4deg) scaleY(.52); } 90% { transform: rotate(-20deg) scaleY(.5); } }
 /* accroupi : prêt à bondir (ou accroché au plafond) */
 /* Repos des marcheurs : caché derrière le minuteur, tête et mains posées sur le rebord */
-.spidey.peek { z-index: 44; }
+.mascot.peek { z-index: 44; }
 .pose-peek .sp-armL { transform: rotate(84deg); } .pose-peek .sp-armR { transform: rotate(-84deg); }
 .pose-peek .sp-head { animation: lookSlow 6s ease-in-out infinite; }
 .pose-lurk .sp-head { animation: lookSlow 7s ease-in-out infinite; }
@@ -1962,25 +1957,24 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .pose-crouch .sp-legL { transform: rotate(26deg) scaleY(.74); } .pose-crouch .sp-legR { transform: rotate(-26deg) scaleY(.74); }
 .pose-crouch .sp-armL { transform: rotate(-12deg); } .pose-crouch .sp-armR { transform: rotate(12deg); }
 
-/* le fil (toile ou grappin) prend la couleur du personnage */
-.spidey-web { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 69; pointer-events: none; opacity: 0; transition: opacity .2s; overflow: visible; }
-.spidey-web.on { opacity: 1; }
-.spidey-web line { stroke-linecap: round; }
-.spidey-web .glow { stroke: rgba(var(--fx-rgb, 255, 255, 255), .3); stroke-width: 4.5; }
-.spidey-web .core { stroke: #fff; stroke: color-mix(in srgb, var(--fx, #fff) 18%, #fff); stroke-width: 1.4; }
-:root[data-mode="light"] .spidey-web .core { stroke: #3a3a48; stroke: color-mix(in srgb, var(--fx, #3a3a48) 45%, #2a2a36); }
-/* balancement du pendule autour du point d'accroche */
-.spidey.sway, .spidey-web.sway { animation: spSway 3.9s linear infinite; }
-@keyframes spSway {
-  0% { rotate: 0deg; animation-timing-function: cubic-bezier(.61, 1, .88, 1); }
-  25% { rotate: 3deg; animation-timing-function: cubic-bezier(.12, 0, .39, 0); }
-  50% { rotate: 0deg; animation-timing-function: cubic-bezier(.61, 1, .88, 1); }
-  75% { rotate: -3deg; animation-timing-function: cubic-bezier(.12, 0, .39, 0); }
-  100% { rotate: 0deg; }
-}
+/* roues (fauteuil, planche) : les bras poussent, les jambes ne bougent pas (règle propre au personnage) */
+.pose-roll .sp-armL { animation: rollPush .55s ease-in-out infinite alternate; }
+.pose-roll .sp-armR { animation: rollPush .55s ease-in-out infinite alternate-reverse; }
+.pose-roll .sp-head { transform: rotate(5deg); }
+@keyframes rollPush { from { transform: rotate(14deg); } to { transform: rotate(-16deg); } }
+/* petits balancements des personnages (queue de cheval, queue, bandeau) */
+@keyframes kitSway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
+
+/* la corde des grimpeurs prend la couleur du personnage */
+.mascot-rope { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 69; pointer-events: none; opacity: 0; transition: opacity .2s; overflow: visible; }
+.mascot-rope.on { opacity: 1; }
+.mascot-rope line { stroke-linecap: round; }
+.mascot-rope .glow { stroke: rgba(var(--fx-rgb, 255, 255, 255), .3); stroke-width: 4.5; }
+.mascot-rope .core { stroke: #fff; stroke: color-mix(in srgb, var(--fx, #fff) 18%, #fff); stroke-width: 1.4; }
+:root[data-mode="light"] .mascot-rope .core { stroke: #3a3a48; stroke: color-mix(in srgb, var(--fx, #3a3a48) 45%, #2a2a36); }
 
 /* particules : 12 éléments recyclés, animés en transform / opacity seulement */
-.spidey-fx { position: fixed; inset: 0; z-index: 69; pointer-events: none; overflow: hidden; contain: strict; }
+.mascot-fx { position: fixed; inset: 0; z-index: 69; pointer-events: none; overflow: hidden; contain: strict; }
 .sp-pt { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; color: var(--fx); opacity: 0; }
 .sp-pt svg { width: 100%; height: 100%; }
 .sp-pt.k-hearts, .sp-pt.k-leaves { width: 13px; height: 13px; }
@@ -1993,15 +1987,15 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .sp-pt.k-streak { width: 24px; height: 2.5px; margin: -1.25px 0 0 -12px; border-radius: 2px; background: linear-gradient(90deg, rgba(var(--fx-rgb), 0), rgba(var(--fx-rgb), .9)); }
 
 /* bulle */
-.spidey-bubble { position: fixed; z-index: 71; left: 0; top: 0; max-width: min(270px, calc(100vw - 24px)); opacity: 0; pointer-events: none; transition: opacity .2s; cursor: pointer; }
-.spidey-bubble.show { opacity: 1; pointer-events: auto; }
+.mascot-bubble { position: fixed; z-index: 71; left: 0; top: 0; max-width: min(270px, calc(100vw - 24px)); opacity: 0; pointer-events: none; transition: opacity .2s; cursor: pointer; }
+.mascot-bubble.show { opacity: 1; pointer-events: auto; }
 .sb-in { position: relative; padding: 10px 13px; border-radius: 16px; background: #fff; color: #111; font-size: 13.5px; font-weight: 500; line-height: 1.38;
   box-shadow: 0 12px 30px rgba(0,0,0,.45); transform: translateY(6px) scale(.94); transform-origin: var(--tail, 50%) 100%; transition: transform .38s var(--spring); }
-.spidey-bubble.below .sb-in { transform: translateY(-6px) scale(.94); transform-origin: var(--tail, 50%) 0; }
-.spidey-bubble.show .sb-in { transform: none; }
+.mascot-bubble.below .sb-in { transform: translateY(-6px) scale(.94); transform-origin: var(--tail, 50%) 0; }
+.mascot-bubble.show .sb-in { transform: none; }
 .sb-in b { display: block; margin-top: 6px; color: var(--accent-deep, #b8101f); font-size: 12.5px; }
 .sb-in::after { content: ""; position: absolute; left: var(--tail, 50%); bottom: -6px; width: 12px; height: 12px; background: #fff; transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
-.spidey-bubble.below .sb-in::after { bottom: auto; top: -6px; }
+.mascot-bubble.below .sb-in::after { bottom: auto; top: -6px; }
 :root[data-mode="light"] .sb-in { box-shadow: 0 10px 28px rgba(20, 20, 50, .16), 0 0 0 1px rgba(10, 10, 30, .06); }
 
 /* visage du coach (avatars) : figé, net */
@@ -2677,7 +2671,7 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .dp-opt.on { border-color: var(--red); background: var(--red-soft); }
 
 /* ---------- Sans personnage ---------- */
-.no-chars #corner-web, .no-chars .corner-web, .no-chars h2 > .coach-face.emb { display: none; }
+.no-chars #corner-orn, .no-chars .corner-orn, .no-chars h2 > .coach-face.emb { display: none; }
 .cg-fig .cg-badge { width: 52px; height: 52px; margin-bottom: 14px; }
 .cg-none .cg-fig { place-items: center; padding-bottom: 0; }
 .cg-none .cg-fig .cg-badge { margin: 0; }

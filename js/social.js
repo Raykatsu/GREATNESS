@@ -4,9 +4,9 @@ import { state, save, publicSummary, currentUser, weekStart, syncCustomExercises
 import { isOnlineMode, friendCall, push } from "./cloud.js";
 import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, duelRecord, sameWeek, weekOf } from "./rivals.js";
 import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
-import { spidey } from "./spidey.js";
+import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
-import { storeText } from "./native.js";
+import { LOC } from "./i18n.js";
 
 export { weeklyChallenge };
 // Les stats "semaine" d'un ami ne comptent que si elles datent de cette semaine.
@@ -129,7 +129,7 @@ const ago = t => {
   if (m < 1) return "à l'instant";
   if (m < 60) return `il y a ${m} min`;
   if (m < 1440) return `il y a ${Math.round(m / 60)} h`;
-  return new Date(t).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+  return new Date(t).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "short" });
 };
 
 // Duels de la semaine avec chaque ami
@@ -191,7 +191,7 @@ function duelPicker(friends, preset, done) {
   $("#dp-go", sh.el).onclick = () => {
     challenge(who, m); sh.close();
     toast("Duel lancé ⚔️ Ton ami le verra dans ses actus.");
-    spidey.react?.("party");
+    mascot.react?.("party");
     done?.();
   };
 }
@@ -254,14 +254,14 @@ export async function renderFriends(box) {
       try {
         const r = await friendCall("gt_friend_request", { p_username: u });
         toast(r.status === "accepted" ? "Vous êtes maintenant amis ✓" : "Demande envoyée ✓");
-        if (r.status === "accepted") spidey.react("party");
+        if (r.status === "accepted") mascot.react("party");
         load();
       } catch (err) { toast(err.message); }
     };
     $("#invite", box).onclick = () => invite();
     $("#lg-rules", box).onclick = leagueRules;
     $$("#boards button", box).forEach(b => b.onclick = () => { board = b.dataset.b; draw(list, error); });
-    $$("[data-acc]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.acc, p_accept: true }).catch(e => toast(e.message)); spidey.react("party"); load(); });
+    $$("[data-acc]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.acc, p_accept: true }).catch(e => toast(e.message)); mascot.react("party"); load(); });
     $$("[data-ref]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_respond", { p_username: b.dataset.ref, p_accept: false }).catch(e => toast(e.message)); load(); });
     $$("[data-rm]", box).forEach(b => b.onclick = async () => { await friendCall("gt_friend_remove", { p_username: b.dataset.rm }).catch(e => toast(e.message)); load(); });
     $$("[data-u]", box).forEach(b => b.onclick = () => {
@@ -270,7 +270,7 @@ export async function renderFriends(box) {
     });
     const redraw = () => draw(list, error);
     $("#duel-new", box)?.addEventListener("click", () => duelPicker(friends, null, redraw));
-    $$("[data-dyes]", box).forEach(b => b.onclick = () => { accept(b.dataset.dyes, b.dataset.m); toast("Défi relevé ⚔️ Bonne chance !"); spidey.react?.("party"); redraw(); });
+    $$("[data-dyes]", box).forEach(b => b.onclick = () => { accept(b.dataset.dyes, b.dataset.m); toast("Défi relevé ⚔️ Bonne chance !"); mascot.react?.("party"); redraw(); });
     $$("[data-dno]", box).forEach(b => b.onclick = () => {
       (state.social.hidden ||= []).push(`${b.dataset.dno}|${weekStart().getTime()}`);
       save({ silent: true }); redraw();
@@ -306,7 +306,7 @@ function friendSheet(f, reload, friends = []) {
     ${d ? `<p class="small muted mt" style="text-align:center">⚔️ ${d.status === "active" ? `Duel en cours : ${esc(METRICS[d.m].short)}` : d.status === "pending" ? "Duel proposé, en attente de sa réponse" : "Il te défie cette semaine : réponds dans Duels"}</p>`
       : `<button class="btn btn-primary btn-block mt" id="fr-duel">⚔️ Défier en duel cette semaine</button>`}
     ${p.records?.length ? `<div class="section"><h2>Records</h2><span class="xs muted">1RM estimé</span></div><div class="card card-list">${p.records.map(r => `<div class="fr-line"><span class="ellipsis">${esc(r.n)}</span><b class="num">${r.kg}<small> kg</small></b></div>`).join("")}</div>` : ""}
-    ${p.recent?.length ? `<div class="section"><h2>Dernières séances</h2></div><div class="card card-list">${p.recent.map(s => `<div class="fr-line"><div class="grow"><b class="ellipsis">${esc(s.n)}</b><span>${new Date(s.d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })} · ${fmtNum(s.v)} kg · ${s.s} séries</span></div>${s.pr ? `<span class="chip amber">${s.pr} PR</span>` : ""}</div>`).join("")}</div>` : ""}
+    ${p.recent?.length ? `<div class="section"><h2>Dernières séances</h2></div><div class="card card-list">${p.recent.map(s => `<div class="fr-line"><div class="grow"><b class="ellipsis">${esc(s.n)}</b><span>${new Date(s.d).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "short" })} · ${fmtNum(s.v)} kg · ${s.s} séries</span></div>${s.pr ? `<span class="chip amber">${s.pr} PR</span>` : ""}</div>`).join("")}</div>` : ""}
     <button class="btn btn-ghost btn-block mt fr-rm" id="rm">Retirer de mes amis</button>`);
   $("#fr-duel", sh.el)?.addEventListener("click", () => { sh.close(); duelPicker(friends.length ? friends : [f], f.username, reload); });
   $("#rm", sh.el).onclick = async () => {
@@ -322,7 +322,7 @@ async function shareText(text, url) {
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Lien copié ✓ Colle-le dans un message."); }
   catch { prompt("Copie ce lien :", url); }
 }
-export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec un coach animé (${storeText("Spider-Man")}, Kitty, ninja…) ! Mon pseudo : @${currentUser}`, appUrl());
+export const invite = () => shareText(`Rejoins-moi sur GREATNESS, l'app d'entraînement avec un coach animé (37 personnages à choisir : Alex, Moussa, Noor, un robot, un dragon…) ! Mon pseudo : @${currentUser}`, appUrl());
 
 /* ---------- Partage de séance par lien ---------- */
 const b64 = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -366,7 +366,7 @@ export function renderImport(view, code) {
     });
     save();
     toast("Séance ajoutée à « Mes séances » ✓");
-    spidey.react("party");
+    mascot.react("party");
     location.hash = "#/create?tab=mine";
   };
 }

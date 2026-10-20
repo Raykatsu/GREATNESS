@@ -7,6 +7,7 @@ import { APP_VERSION } from "./version.js";
 import { authToken, isOnlineMode, friendCall } from "./cloud.js";
 import { currentUser } from "./store.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const QUEUE = "greatness.feedback", SEEN = "greatness.feedback.seen";
 export const KINDS = [
@@ -99,7 +100,7 @@ export async function isAdmin() {
   return admin.ok;
 }
 const seenAt = () => { try { return +localStorage.getItem(SEEN) || 0; } catch { return 0; } };
-const when = t => new Date(t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const when = t => new Date(t).toLocaleString(LOC(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const device = ua => (/iPhone/.test(ua) ? `iPhone, iOS ${(ua.match(/OS (\d+)[._](\d+)/) || []).slice(1, 3).join(".")}` : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "");
 
 // Nombre de retours pas encore vus (pour la pastille du réglage)

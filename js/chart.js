@@ -1,6 +1,7 @@
 // Courbe nette : grille légère, aire en dégradé de l'accent, dernier point mis en avant.
 // Options : time (abscisses selon la date réelle), marks (indices des points à mettre en avant, ex. records),
 // trend (droite de tendance en pointillés).
+import { LOC } from "./i18n.js";
 let chartN = 0;
 export function chart(pts, { unit = "", dec = 0, time = false, marks = null, trend = false, empty = "La courbe apparaîtra après 2 séances." } = {}) {
   if (pts.length < 2) return `<div class="empty" style="padding:20px">${empty}</div>`;
@@ -16,7 +17,7 @@ export function chart(pts, { unit = "", dec = 0, time = false, marks = null, tre
   const Y = v => T + (1 - (v - min) / span) * (H - T - B);
   const xy = pts.map((p, i) => [X(i), Y(p.y)]);
   const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const fmtD = t => new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const fmtD = t => new Date(t).toLocaleDateString(LOC(), { day: "numeric", month: "short" });
   const fmtV = v => (dec ? v.toFixed(dec).replace(".0", "").replace(".", ",") : Math.round(v));
   const grid = dMax - dMin > 0 ? [dMin, (dMin + dMax) / 2, dMax] : [dMin];
   const id = "cg" + ++chartN;

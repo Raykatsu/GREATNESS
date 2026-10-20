@@ -11,7 +11,7 @@ const dataKey = user => `greatness.data.${user}`;
 const DEFAULT = {
   profile: {
     name: "", bodyweight: 75, goal: "muscle", days: 3, equipment: "gym",
-    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "spider",
+    voice: true, mascot: true, sound: true, aiKey: "", aiEnabled: false, coach: "alex",
     sex: "", age: "", height: "", activity: "light", nutri: null, // nutrition (voir nutrition.js)
   },
   sessions: [],

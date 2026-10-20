@@ -15,6 +15,7 @@ import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, 
 import { planCard, bindPlanCard } from "./mealplan-ui.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const IC = {
@@ -30,7 +31,7 @@ let viewKey = null, host = null;
 const mealName = id => MEALS.find(m => m.id === id)?.name || "Repas";
 const liquid = f => !!f.liquid || /verre|canette|tasse|demi|bouteille|coupe/.test(f.unit?.label || "") || /\b(lait|jus|soda|cafe|café|the|thé|biere|bière|vin|boisson|smoothie|eau)\b/i.test(f.name);
 const unitWord = f => (liquid(f) ? "ml" : "g");
-const nice = n => (Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toLocaleString("fr-FR", { maximumFractionDigits: 1 }));
+const nice = n => (Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toLocaleString(LOC(), { maximumFractionDigits: 1 }));
 const SRC = { db: "Aliment courant", off: "Open Food Facts", custom: "Ajouté par toi", ai: "Estimé par l'IA", text: "Estimé", manual: "Ajout rapide" };
 const nutriBadge = n => (n ? `<span class="nutri nutri-${n}" title="Nutri-Score ${n.toUpperCase()}">${n.toUpperCase()}</span>` : "");
 
@@ -82,7 +83,7 @@ export function renderFood(view) {
   const day = dayOf(state, viewKey), tot = sumItems(day.items), isToday = viewKey === today;
   const left = Math.round(t.kcal - tot.k);
   const label = isToday ? "Aujourd'hui" : viewKey === shiftKey(today, -1) ? "Hier"
-    : keyDate(viewKey).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    : keyDate(viewKey).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" });
   const incomplete = !p.height || !p.age || !p.sex;
 
   view.innerHTML = `
@@ -246,7 +247,7 @@ function historyCard(t) {
   return `<div class="section"><h2>7 derniers jours</h2></div>
     <div class="card nut-hist">
       <div class="nh-chart"><i class="nh-goal" style="bottom:${(t.kcal / max) * 100}%"><span>${fmtNum(t.kcal)}</span></i>
-        ${days.map(d => `<button class="nh-b ${d.key === viewKey ? "on" : ""} ${d.t.k > t.kcal * 1.1 ? "over" : ""}" data-day="${d.key}" aria-label="${d.date.toLocaleDateString("fr-FR", { weekday: "long" })} : ${fmtNum(d.t.k)} kcal"><i style="height:${d.logged ? Math.max(3, (d.t.k / max) * 100) : 0}%"></i></button>`).join("")}</div>
+        ${days.map(d => `<button class="nh-b ${d.key === viewKey ? "on" : ""} ${d.t.k > t.kcal * 1.1 ? "over" : ""}" data-day="${d.key}" aria-label="${d.date.toLocaleDateString(LOC(), { weekday: "long" })} : ${fmtNum(d.t.k)} kcal"><i style="height:${d.logged ? Math.max(3, (d.t.k / max) * 100) : 0}%"></i></button>`).join("")}</div>
       <div class="nh-days">${days.map(d => `<span>${"DLMMJVS"[d.date.getDay()]}</span>`).join("")}</div>
       ${w ? `<div class="nh-stats"><div><b class="tnum">${fmtNum(w.k)}</b><small>kcal / jour</small></div><div><b class="tnum">${w.p} g</b><small>protéines / jour</small></div><div><b class="tnum">${w.inRange}/${w.n}</b><small>jours dans l'objectif</small></div></div>`
         : `<p class="small muted nh-empty">Note tes repas quelques jours : tes moyennes apparaîtront ici.</p>`}

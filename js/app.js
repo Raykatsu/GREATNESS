@@ -1,13 +1,13 @@
 import "./errors.js"; // remontée des plantages, en premier pour tout attraper
 import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
-import { isNative, storeText, nativeWidget } from "./native.js";
+import { isNative, nativeWidget } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
-import { thwip, webSvg, speak } from "./fx.js";
-import { spidey } from "./spidey.js";
+import { whoosh, ringsSvg, speak } from "./fx.js";
+import { mascot } from "./mascot.js";
 import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
 import { BADGES, checkBadges } from "./badges.js";
@@ -26,7 +26,7 @@ import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } f
 import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
-import { $, $$, esc, I, spider, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
+import { $, $$, esc, I, coachIcon, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
 import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard, ensureAdaptive } from "./food.js";
@@ -40,10 +40,14 @@ import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
+import { LOC, initLang, getLang, setLang, EN_READY } from "./i18n.js";
+
+// Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
+await initLang();
 
 const view = $("#view");
 // app App Store : classe pour les réglages propres au natif, et aucun nom sous licence
-if (isNative()) { document.documentElement.classList.add("native"); for (const r of RANKS) r.name = storeText(r.name); }
+if (isNative()) document.documentElement.classList.add("native");
 wireDemos();
 let current = "home";
 
@@ -103,11 +107,11 @@ function route() {
     view.classList.add(prev ? "pg-in" : "stagger");
     window.scrollTo(0, 0);
   }
-  setTimeout(() => spidey.settle(), 400);
+  setTimeout(() => mascot.settle(), 400);
   setSocialBadge();
   setTimeout(socialTick, 2500);
   const fresh = checkBadges();
-  if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); spidey.react("party"); }, 600);
+  if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); mascot.react("party"); }, 600);
 }
 addEventListener("hashchange", route);
 
@@ -125,15 +129,15 @@ const TOUR = () => [
 export function startTour(i = 0) {
   const T = TOUR();
   $$(".tabbar a").forEach(a => a.classList.remove("tour-focus"));
-  spidey.quiet = i < T.length;
+  mascot.quiet = i < T.length;
   if (i >= T.length || !state.profile.mascot) {
-    spidey.quiet = false;
+    mascot.quiet = false;
     state.profile.toured = true; save();
     return;
   }
   const [tab, text] = T[i];
   $(`.tabbar a[data-tab="${tab}"]`)?.classList.add("tour-focus");
-  spidey.say(`${text}`, { ms: 60000, action: { label: i < T.length - 1 ? `Suivant (${i + 1}/${T.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
+  mascot.say(`${text}`, { ms: 60000, action: { label: i < T.length - 1 ? `Suivant (${i + 1}/${T.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
 }
 
 // Séance interrompue (app fermée) : on propose de la reprendre dès le déverrouillage.
@@ -163,7 +167,7 @@ function applyChars() {
   if (!currentUser) { try { on = localStorage.getItem("greatness.chars") !== "off"; } catch { /* mode privé */ } }
   else { try { localStorage.setItem("greatness.chars", on ? "on" : "off"); } catch { /* mode privé */ } }
   document.body.classList.toggle("no-chars", !on);
-  if (spidey.enabled !== on) spidey.setEnabled(on);
+  if (mascot.enabled !== on) mascot.setEnabled(on);
 }
 addEventListener("greatness:mascot", e => { setCharsOn(e.detail); applyChars(); });
 onCoachChange(() => applyChars());
@@ -187,7 +191,7 @@ const fmtSetReps = e => {
   const r = lo == null ? "" : lo === hi ? `${lo}` : `${lo}–${hi}`;
   return `${e.sets} × ${r}${EXERCISES[e.id]?.type === "time" ? " s" : ""}`;
 };
-const fmtDec = (v, d) => v.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtDec = (v, d) => v.toLocaleString(LOC(), { minimumFractionDigits: d, maximumFractionDigits: d });
 
 // Chiffres qui défilent jusqu'à leur valeur, une seule fois, seulement quand ils sont visibles.
 function countUp(root) {
@@ -220,7 +224,7 @@ function waterNudge() {
   try { last = +localStorage.getItem("greatness.waterNudge") || 0; } catch { /* mode privé */ }
   if (!late || Date.now() - last < (w.every || 2) * 36e5) return;
   try { localStorage.setItem("greatness.waterNudge", String(Date.now())); } catch { /* mode privé */ }
-  setTimeout(() => { if (!document.querySelector(".sheet-wrap")) spidey.say(`💧 Pense à boire : ${String(late.n / 4).replace(".", ",")} L sur ${String(goal / 4).replace(".", ",")} L pour l'instant.`, { action: { label: "Noter un verre", fn: () => (location.hash = "#/food") } }); }, 2200);
+  setTimeout(() => { if (!document.querySelector(".sheet-wrap")) mascot.say(`💧 Pense à boire : ${String(late.n / 4).replace(".", ",")} L sur ${String(goal / 4).replace(".", ",")} L pour l'instant.`, { action: { label: "Noter un verre", fn: () => (location.hash = "#/food") } }); }, 2200);
 }
 
 function home() {
@@ -240,7 +244,7 @@ function home() {
   const st = streak();
   const has = state.sessions.length > 0;
   const recentPRs = state.sessions.slice().reverse().flatMap(s => s.prs.map(id => ({ id, set: s.sets.filter(x => x.exId === id).sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps) || b.reps - a.reps)[0] }))).slice(0, 3);
-  const dateLabel = `${DAYS_FULL[now.getDay()]} ${now.getDate()} ${now.toLocaleDateString("fr-FR", { month: "long" })}`;
+  const dateLabel = `${DAYS_FULL[now.getDay()]} ${now.getDate()} ${now.toLocaleDateString(LOC(), { month: "long" })}`;
   const kind = m.doneToday ? "done" : m.rest ? "rest" : "go";
   const shown = prog.exercises.length > 5 ? 4 : prog.exercises.length;
   const left = Math.max(0, planned - ws.count);
@@ -250,7 +254,7 @@ function home() {
 
   view.innerHTML = `
     <header class="home-head">
-      <div class="logo">${spider()}GREATNESS</div>
+      <div class="logo">${coachIcon()}GREATNESS</div>
       <div class="hh-chips">
         ${st ? `<a href="#/progress" class="chip hh-streak" aria-label="${st} jour${st > 1 ? "s" : ""} d'affilée">${I.flame}<b class="tnum">${st}</b></a>` : ""}
         <a href="#/progress" class="chip hh-lvl">${I.trophy}<span>Niv. <b class="tnum">${r.level}</b></span></a>
@@ -268,7 +272,7 @@ function home() {
       : cyc.next === 1 ? `<section class="card banner b-amber mt"><div class="bi">${I.bolt}</div><div class="grow"><b>Dernière semaine du cycle</b><div class="small muted">Semaine allégée la semaine prochaine : donne tout !</div></div></section>` : ""}
 
     <section class="card mission m-${kind} mt">
-      ${webSvg("orn")}
+      ${ringsSvg("orn")}
       <div class="m-top">
         <span class="m-tag">${kind === "done" ? `${I.check} Séance du jour terminée` : kind === "rest" ? `${I.moon} Jour de récupération` : `<i class="m-pulse" aria-hidden="true"></i> Mission du jour`}</span>
         ${m.rest || m.doneToday || m.program.cat === "cardio" ? "" : `<span class="m-goal">${GOALS[p.goal].name}</span>`}
@@ -303,7 +307,7 @@ function home() {
     </div>
     ${foodHomeCard()}
 
-    <div class="section"><h2>${spider("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
+    <div class="section"><h2>${coachIcon("emb")}Ta semaine</h2><button id="edit-week">Modifier</button></div>
     <div class="card week-card">
       <div class="week">${week.map(d => {
         const real = d.program && d.program.id !== "mobility";
@@ -351,12 +355,12 @@ function home() {
   const wk = bindReviewCard(view);
   if (wk && !state.reviews?.[wk]?.hinted) {
     (state.reviews ||= {})[wk] = { ...state.reviews[wk], hinted: Date.now() }; save({ silent: true });
-    setTimeout(() => { if (!document.querySelector(".sheet-wrap") && location.hash.replace(/^#\/?/, "") === "") spidey.say("Ton bilan de la semaine est prêt : ta note, tes points forts et quoi ajuster.", { action: { label: "Voir mon bilan", fn: () => openReview(wk) } }); }, 1800);
+    setTimeout(() => { if (!document.querySelector(".sheet-wrap") && location.hash.replace(/^#\/?/, "") === "") mascot.say("Ton bilan de la semaine est prêt : ta note, tes points forts et quoi ajuster.", { action: { label: "Voir mon bilan", fn: () => openReview(wk) } }); }, 1800);
   }
   $("#resume")?.addEventListener("click", () => resumeLive(saved, route));
   $("#drop")?.addEventListener("click", async () => { if (await confirmSheet("Abandonner la séance en cours ?", "Les séries faites ne seront pas enregistrées.", "Abandonner", true)) { discardSaved(); route(); } });
   const daysOff = has ? (Date.now() - state.sessions[state.sessions.length - 1].date) / 864e5 : 0;
-  if (daysOff >= 3) setTimeout(() => spidey.sleep?.(`Zzz… ${Math.floor(daysOff)} jours sans séance. Réveille-moi avec une mission !`), 1500);
+  if (daysOff >= 3) setTimeout(() => mascot.sleep?.(`Zzz… ${Math.floor(daysOff)} jours sans séance. Réveille-moi avec une mission !`), 1500);
   else waterNudge();
   $$(".day").forEach(d => d.onclick = () => editDay(+d.dataset.d));
   $("#edit-week").onclick = () => editDay((now.getDay() + 6) % 7);
@@ -393,7 +397,7 @@ async function socialTick() {
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
   const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
-  if (top.kind === "league" && top.move > 0) setTimeout(() => spidey.react?.("party"), 600);
+  if (top.kind === "league" && top.move > 0) setTimeout(() => mascot.react?.("party"), 600);
   toast(`${FEED_ICON[top.kind] || ""} ${top.text}`, 5000);
   if (current === "home" && !document.querySelector(".sheet-wrap")) route();
 }
@@ -466,7 +470,7 @@ function progress() {
       </div>
     </section>
 
-    <div class="section"><h2>${spider("emb")}Activité</h2></div>
+    <div class="section"><h2>${coachIcon("emb")}Activité</h2></div>
     <div class="card cal-card">${calendar()}</div>
     ${reviewsHtml()}
 
@@ -539,7 +543,7 @@ function sessRow(s) {
   const d = new Date(s.date);
   return `<article class="sess" data-id="${s.id}">
     <div class="sess-top"><span class="sess-ic">${esc((s.name || "?").charAt(0).toUpperCase())}</span>
-      <div class="grow"><b class="ellipsis">${esc(s.name)}</b><span class="ellipsis">${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span></div>
+      <div class="grow"><b class="ellipsis">${esc(s.name)}</b><span class="ellipsis">${d.toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" })}</span></div>
       <span class="chip green">+${s.xp} XP</span></div>
     <div class="sess-meta"><span>${I.clock}${durTxt(s.durationSec)}</span>${s.iv ? `<span>${esc(ivSummary(s).replace(/^[^·]+· /, ""))}</span>`
       : `<span>${fmtNum(s.volume)} kg</span><span>${s.sets.length} séries</span>`}${s.prs.length ? `<span class="pr">${I.trophy}${s.prs.length} PR</span>` : ""}</div>
@@ -572,7 +576,7 @@ function bodyCard() {
   return `<div class="card body-card">
     <div class="body-kpis">${BODY.filter(([k]) => last[k] != null).slice(0, 3).map(([k, l, u]) => `<div><div class="num">${String(last[k]).replace(".", ",")}<small> ${u}</small></div><div class="xs muted ellipsis">${l}</div>${diff(k, u)}</div>`).join("")}</div>
     ${pts.length >= 2 ? `<div class="mt">${chart(pts, { unit: "kg", dec: 1 })}</div>` : ""}
-    <div class="xs dim mt-s">Dernière mesure le ${new Date(last.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} · ${b.length} mesure${b.length > 1 ? "s" : ""}</div></div>`;
+    <div class="xs dim mt-s">Dernière mesure le ${new Date(last.date).toLocaleDateString(LOC(), { day: "numeric", month: "long" })} · ${b.length} mesure${b.length > 1 ? "s" : ""}</div></div>`;
 }
 function bodySheet() {
   const last = (state.body || []).slice(-1)[0] || { weight: state.profile.bodyweight };
@@ -603,7 +607,7 @@ function downloadIcs() {
     start.setDate(start.getDate() + ((+d - ((today.getDay() + 6) % 7) + 7) % 7));
     const end = new Date(start.getTime() + estimateMinutes(prog) * 60000);
     return ["BEGIN:VEVENT", `UID:greatness-${d}-${id}@raykatsu.github.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
-      `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[d]}`, `SUMMARY:🕷️ GREATNESS · ${prog?.name || "Séance"}`, "DESCRIPTION:Ta mission t'attend : https://raykatsu.github.io/GREATNESS/",
+      `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[d]}`, `SUMMARY:💪 GREATNESS · ${prog?.name || "Séance"}`, "DESCRIPTION:Ta mission t'attend : https://raykatsu.github.io/GREATNESS/",
       "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Ta séance commence bientôt !", `TRIGGER:-PT${p.remindBefore ?? 15}M`, "END:VALARM", "END:VEVENT"].join("\r\n");
   });
   if (!events.length) return 0;
@@ -631,7 +635,7 @@ function calendar() {
     cells.push(`<div class="c${done.has(d) ? " on" : ""}${isToday ? " today" : ""}${planned ? " plan" : ""}"><span>${d}</span></div>`);
   }
   const st = streak();
-  return `<div class="cal-head"><b class="h3">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</b>
+  return `<div class="cal-head"><b class="h3">${ref.toLocaleDateString(LOC(), { month: "long", year: "numeric" })}</b>
       <div class="row" style="gap:2px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled" : ""}>${I.chev}</button></div></div>
     <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>
     <div class="cal-foot"><span><i class="lg on"></i>${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span>${monthOffset === 0 ? `<span><i class="lg plan"></i>Prévu</span>` : ""}${monthOffset === 0 && st ? `<span class="hot">${I.flame}${st} j d'affilée</span>` : ""}</div>`;
@@ -666,12 +670,12 @@ function exerciseSheet(id) {
     </div>
     ${lvl ? `<div class="card mt lvl-card"><div class="row between"><div><div class="eyebrow">Niveau de force</div><b class="h3">${esc(lvl.name)}</b></div>${lvl.ratio ? `<span class="chip">${lvl.ratio.toFixed(2).replace(".", ",")}× ton poids</span>` : ""}</div>
       <div class="lvl-steps">${["Débutant", "Novice", "Inter.", "Avancé", "Élite"].map((n, i) => `<span class="${i < lvl.level ? "done" : i === lvl.level ? "cur" : ""}">${n}</span>`).join("")}</div>
-      <div class="xs muted">${lvl.next ? `${lvl.nextName} : ${lvl.reps ? `${lvl.next} reps` : `${lvl.next.toLocaleString("fr-FR")} kg au 1RM estimé`}. Repères indicatifs selon ton poids de corps.` : "Niveau élite : chapeau."}</div></div>` : ""}
+      <div class="xs muted">${lvl.next ? `${lvl.nextName} : ${lvl.reps ? `${lvl.next} reps` : `${lvl.next.toLocaleString(LOC())} kg au 1RM estimé`}. Repères indicatifs selon ton poids de corps.` : "Niveau élite : chapeau."}</div></div>` : ""}
     <div class="card mt"><div class="eyebrow" style="margin-bottom:10px">${load ? "1RM estimé" : ex.type === "time" ? "Meilleure série (s)" : "Meilleure série (reps)"}</div>${chart(pts, { unit, time: true, marks, trend: true })}</div>
     <div class="section"><h2>Technique</h2></div>
     <div class="cues" style="margin-top:0"><div class="grow">${ex.cues.map(c => `<div>${esc(c)}</div>`).join("")}</div>${demoBtn(id, "demo-tile")}</div>
     <div class="section"><h2>Dernières séances</h2></div>
-    <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+    <div class="card card-list">${hist.slice().reverse().slice(0, 8).map(h => `<div class="ex-h"><span class="small">${new Date(h.date).toLocaleDateString(LOC(), { day: "numeric", month: "short" })}</span>
       <div class="sets-p">${h.sets.map(s => `<span>${s.weight ? s.weight + "×" : ""}${s.reps}</span>`).join("")}</div></div>`).join("") || `<div class="empty">Pas encore d'historique.</div>`}</div>`);
   mountAnims(sh.el);
 }
@@ -702,11 +706,14 @@ const SIC = {
   up: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5.5 12h3l1.5-3 2.5 6 1.5-3h4.5"/>',
   trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.6 3.5 5.4 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.4-3.5-8.5s1.1-5.9 3.5-8.5z"/>',
   face: '<path d="M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2M15.5 4h2A2.5 2.5 0 0 1 20 6.5v2M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M8.5 20h-2A2.5 2.5 0 0 1 4 17.5v-2M9 9.5v1.2M15 9.5v1.2M12 9.5v3.6h-1M9.4 15.6c1.6 1.3 3.6 1.3 5.2 0"/>',
   idea: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
   inbox: '<path d="M4 13.5 6.5 5h11l2.5 8.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13.5h4.5l1 2h5l1-2H20"/>',
 };
-const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "spider" ? spider() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
+// noms des couleurs (lecteur d'écran)
+const COLOR_NAMES = { rouge: "Rouge", bleu: "Bleu", violet: "Violet", vert: "Vert", orange: "Orange", rose: "Rose", jaune: "Jaune", cyan: "Cyan" };
+const sic = (k, c) => `<span class="set-ic" style="--c:${c}">${k === "coach" ? coachIcon() : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SIC[k]}</svg>`}</span>`;
 
 /* =========================================================
    Profil
@@ -720,7 +727,7 @@ function memorySheet() {
     <button class="btn btn-primary btn-block mt-s" id="mem-add">${I.plus} Ajouter</button>`);
   const draw = () => {
     const list = state.memory || [];
-    $("#mem-list", sh.el).innerHTML = list.length ? list.slice().reverse().map(m => `<div class="mem-row"><span class="grow">${esc(m.text)}<small class="xs muted">${m.src === "ai" ? "retenu par le coach" : "ajouté par toi"} · ${new Date(m.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</small></span>
+    $("#mem-list", sh.el).innerHTML = list.length ? list.slice().reverse().map(m => `<div class="mem-row"><span class="grow">${esc(m.text)}<small class="xs muted">${m.src === "ai" ? "retenu par le coach" : "ajouté par toi"} · ${new Date(m.at).toLocaleDateString(LOC(), { day: "numeric", month: "short" })}</small></span>
       <button class="icon-btn plain" data-del="${m.id}" aria-label="Oublier">${I.trash}</button></div>`).join("") : `<div class="a-empty">${I.info}<b>Rien pour l'instant</b><span>Blessures, matériel, préférences, horaires : tout ce qui aide le coach à te connaître.</span></div>`;
     $$("[data-del]", sh.el).forEach(b => b.onclick = () => { removeMemory(state, b.dataset.del); save(); draw(); toast("Oublié"); });
   };
@@ -761,9 +768,9 @@ function profile() {
 
     <h2 class="set-title">Coach & sons</h2>
     <div class="card card-list set-list">
-      <label class="toggle set-row">${sic("spider", "var(--red)")}<div class="grow"><b>Personnages</b><span class="xs muted">Ton coach animé se balade et te parle. Désactive pour une app sans personnage.</span></div><input type="checkbox" id="p-mascot" ${p.mascot !== false ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("coach", "var(--red)")}<div class="grow"><b>Personnages</b><span class="xs muted">Ton coach animé se balade et te parle. Désactive pour une app sans personnage.</span></div><input type="checkbox" id="p-mascot" ${p.mascot !== false ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
-      <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, toile</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, effets</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
       <button class="set-row set-act" id="p-memory">${sic("user", "#0ea5e9")}<div class="grow"><b>Ce que le coach sait de toi</b><span class="xs muted">${(state.memory || []).length ? `${state.memory.length} info${state.memory.length > 1 ? "s" : ""} retenue${state.memory.length > 1 ? "s" : ""}` : "Blessures, matériel, préférences…"}</span></div>${I.chev}</button>
       <button class="set-row set-act" id="p-nutri">${sic("scale", "#22c55e")}<div class="grow"><b>Objectifs nutrition</b><span class="xs muted">Calories, protéines, eau</span></div>${I.chev}</button>
     </div>
@@ -771,11 +778,13 @@ function profile() {
     <h2 class="set-title">Apparence</h2>
     <div class="card card-list set-list">
       <div class="set-row stack"><div class="set-lbl">${sic("palette", "#f97316")}<b>Couleur</b></div>
-        <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${k}"></button>`).join("")}</div></div>
+        <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${COLOR_NAMES[k] || k}"></button>`).join("")}</div></div>
       <div class="set-row stack"><div class="set-lbl">${sic("half", "#64748b")}<b>Fond</b></div>
         <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
       <div class="set-row stack"><div class="set-lbl">${sic("text", "#0ea5e9")}<b>Taille du texte</b></div>
         <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div></div>
+      ${EN_READY ? `<div class="set-row stack" translate="no"><div class="set-lbl">${sic("globe", "#22c55e")}<b>Langue · Language</b></div>
+        <div class="seg" id="lang"><button data-v="fr" lang="fr" class="${getLang() === "fr" ? "on" : ""}">Français</button><button data-v="en" lang="en" class="${getLang() === "en" ? "on" : ""}">English</button></div></div>` : ""}
     </div>
     <p class="set-note">Astuce : demande au coach « passe l'app en vert » ou « mode clair ».</p>
 
@@ -821,16 +830,16 @@ function profile() {
     <div class="card card-list set-list mt-l">
       <button class="set-row set-act" id="feedback">${sic("idea", "#f59e0b")}<div class="grow"><b>Une idée ? Un souci ?</b><span class="xs muted">Écris-nous directement depuis l'app</span></div>${I.chev}</button>
       <button class="set-row set-act hidden" id="inbox">${sic("inbox", "#8b5cf6")}<div class="grow"><b>Retours reçus</b><span class="xs muted">Messages des utilisateurs et plantages (administrateur)</span></div><span class="chip red hidden" id="inbox-n"></span>${I.chev}</button>
-      <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${spider()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
+      <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${coachIcon()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
       <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
     </div>
-    <p class="set-foot">${spider()}GREATNESS · ton sympathique coach de quartier · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
+    <p class="set-foot">${coachIcon()}GREATNESS · ton coach de poche · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
   animateRings(view);
   bindProgressSeg();
   coachCard($("#coach-card"), { open: params.coach === "1" });
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
 
-  $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); spidey.react("happy"); });
+  $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); mascot.react("happy"); });
   $$("#days button").forEach(b => b.onclick = () => { p.days = +b.dataset.v; save(); $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#equip button").forEach(b => b.onclick = () => { p.equipment = b.dataset.v; save(); $$("#equip button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("[data-accent]").forEach(b => b.onclick = () => { p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b)); });
@@ -853,7 +862,7 @@ function profile() {
     const n = downloadIcs();
     toast(n ? `${n} séance(s) par semaine ajoutée(s) : ouvre le fichier pour les mettre dans ton calendrier.` : "Aucune séance prévue dans ton programme.", 4500);
   };
-  $("#regen").onclick = () => { state.weekPlan = generateWeekPlan(); save(); toast("Nouveau programme prêt"); spidey.say(`Programme de ${p.days} séances créé. Regarde l'accueil !`, { mood: "happy" }); };
+  $("#regen").onclick = () => { state.weekPlan = generateWeekPlan(); save(); toast("Nouveau programme prêt"); mascot.say(`Programme de ${p.days} séances créé. Regarde l'accueil !`, { mood: "happy" }); };
   const bind = (id, fn) => $(id).addEventListener("change", e => { fn(e.target); save(); });
   bind("#p-name", t => (p.name = t.value.trim().slice(0, 30) || p.name));
   bind("#p-bw", t => (p.bodyweight = +t.value || 75));
@@ -877,6 +886,8 @@ function profile() {
   $("#exp").onclick = () => import("./import-ui.js").then(m => m.openExport());
   $("#imp").onclick = () => import("./import-ui.js").then(m => m.openImport(() => route()));
 
+  // Langue : gardée sur l'appareil et sur le compte (notifications envoyées dans la bonne langue), l'app se recharge
+  $$("#lang button").forEach(b => b.onclick = () => { if (b.dataset.v === getLang()) return; p.lang = b.dataset.v; save(); setTimeout(() => setLang(b.dataset.v), 150); });
   // Compte
   bioName().then(name => {
     const row = $("#bio-row");
@@ -956,7 +967,7 @@ function onboarding(step = 1) {
         <p class="muted center onb-lead">Ton coach pilote tes séances : il ajuste tes charges à chaque série, gère tes repos et te donne les consignes. Gratuit et hors ligne.</p></div>
       <label class="field onb-name"><span>Comment je t'appelle ?</span><input class="input" id="name" placeholder="Ton prénom" value="${esc(draft.name)}" maxlength="30" autocomplete="given-name"/></label>
       <div class="onb-foot"><button class="btn btn-primary btn-lg btn-block" id="next">Continuer</button></div></div>`;
-    setTimeout(() => spidey.say("Salut ! Je suis ton nouveau coach. On fait connaissance ?", { mood: "happy" }), 1200);
+    setTimeout(() => mascot.say("Salut ! Je suis ton nouveau coach. On fait connaissance ?", { mood: "happy" }), 1200);
     $("#next").onclick = () => { const n = $("#name").value.trim(); if (!n) return toast("Il me faut ton prénom !"); draft.name = n; onboarding(2); };
     $("#name").onkeydown = e => { if (e.key === "Enter") $("#next").click(); };
   } else if (step === 2) {
@@ -965,7 +976,7 @@ function onboarding(step = 1) {
       <p class="muted onb-lead">Il t'accompagne à chaque séance et se déplace à sa façon. Tu pourras en changer quand tu veux dans Réglages.</p>
       <div id="onb-coach" class="onb-coach"></div>
       <div class="onb-foot grid2"><button class="btn btn-soft btn-lg" id="prev">Retour</button><button class="btn btn-primary btn-lg" id="next">Continuer</button></div></div>`;
-    spidey.hideBubble(); // le bonjour de l'étape 1 ne doit pas masquer la galerie
+    mascot.hideBubble(); // le bonjour de l'étape 1 ne doit pas masquer la galerie
     coachGallery($("#onb-coach"), { compact: true });
     $("#prev").onclick = () => onboarding(1);
     $("#next").onclick = () => onboarding(3);
@@ -995,9 +1006,9 @@ function onboarding(step = 1) {
       Object.assign(p, draft, { onboarded: true });
       state.weekPlan = generateWeekPlan();
       save();
-      thwip(0.3);
+      whoosh(0.3);
       if (location.hash && location.hash !== "#/") location.hash = "#/"; else route();
-      setTimeout(() => { spidey.react("party"); if (!p.toured) startTour(); else spidey.say(`Programme prêt, ${p.name} ! Ta mission du jour t'attend.`, { mood: "party" }); }, 900);
+      setTimeout(() => { mascot.react("party"); if (!p.toured) startTour(); else mascot.say(`Programme prêt, ${p.name} ! Ta mission du jour t'attend.`, { mood: "party" }); }, 900);
     };
   }
 }
@@ -1047,16 +1058,16 @@ document.addEventListener("visibilitychange", () => {
 /* =========================================================
    Démarrage
    ========================================================= */
-$("#corner-web").outerHTML = webSvg("corner-web");
-spidey.tip = () => idleTip(current);
-spidey.onWeb = () => thwip(0.12);
-spidey.onTap = () => {
+$("#corner-orn").outerHTML = ringsSvg("corner-orn");
+mascot.tip = () => idleTip(current);
+mascot.onWhoosh = () => whoosh(0.12);
+mascot.onTap = () => {
   const live = document.querySelector(".live .live-head");
-  spidey.react(Math.random() < 0.5 ? "party" : "happy");
-  if (live) return spidey.say("Concentre-toi, je surveille tes séries !");
-  spidey.say(idleTip(current), current === "coach" ? {} : { action: { label: "Pose-moi une question", fn: () => (location.hash = "#/coach") } });
+  mascot.react(Math.random() < 0.5 ? "party" : "happy");
+  if (live) return mascot.say("Concentre-toi, je surveille tes séries !");
+  mascot.say(idleTip(current), current === "coach" ? {} : { action: { label: "Pose-moi une question", fn: () => (location.hash = "#/coach") } });
 };
-spidey.init();
+mascot.init();
 route();
 setTimeout(() => flushFeedback(), 6000); // retours écrits hors réseau
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});

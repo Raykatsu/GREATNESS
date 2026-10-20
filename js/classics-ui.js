@@ -6,6 +6,7 @@ import { generateWeekPlan } from "./planner.js";
 import { EXERCISES } from "./data.js";
 import { state, save } from "./store.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 const SHORT = { squat: "Squat", bench: "Couché", deadlift: "Terre", ohp: "Militaire", row: "Rowing" };
 const kgs = w => String(w).replace(".", ",");
@@ -92,7 +93,7 @@ export function openClassicDetails(refresh) {
   if (!c) return;
   const P = CLASSICS[c.id], next = classicSession(c, state), ref = refWeights(c);
   const sh = sheet(`<div class="eyebrow">${I.flame} ${esc(P.name)}</div><h2 class="h2">${esc(classicStatus(c).label)}</h2>
-    <p class="muted small">${c.n} séance${c.n > 1 ? "s" : ""} faite${c.n > 1 ? "s" : ""} depuis le ${new Date(c.start).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.</p>
+    <p class="muted small">${c.n} séance${c.n > 1 ? "s" : ""} faite${c.n > 1 ? "s" : ""} depuis le ${new Date(c.start).toLocaleDateString(LOC(), { day: "numeric", month: "long" })}.</p>
     <h3 class="demo-h">Prochaine séance</h3>
     <div class="card cl-next"><b>${esc(next.name)}</b><ol>${next.exercises.map(e => `<li><span>${esc(EXERCISES[e.id].name)}</span><span class="xs muted">${esc(e.scheme ? schemeText(e) : `${e.sets} × ${e.reps[0]}–${e.reps[1]}`)}</span></li>`).join("")}</ol></div>
     <h3 class="demo-h">${esc(ref.label)}</h3>

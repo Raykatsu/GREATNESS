@@ -212,7 +212,7 @@ export class Session {
     const beat = prev && ((ex.type === "load" && e1rm(w, reps) > (prev.best || 0) + 0.01) || (ex.type !== "load" && reps > (prev.bestReps || 0)));
     if (beat && !this.prs.includes(ex.id)) {
       this.prs.push(ex.id);
-      events.push(this.push({ kind: "pr", mood: "party", title: "Nouveau record !", text: `${ex.name} : ${w ? w + " kg × " : ""}${reps}${ex.type === "time" ? " s" : ""}. Le quartier est fier de toi.`,
+      events.push(this.push({ kind: "pr", mood: "party", title: "Nouveau record !", text: `${ex.name} : ${w ? w + " kg × " : ""}${reps}${ex.type === "time" ? " s" : ""} Bravo, quelle progression !`,
         say: "Nouveau record personnel ! Incroyable." }));
     }
 
@@ -347,7 +347,7 @@ export class Session {
       events.push(this.push({ kind: "info", title: "Et maintenant ?", text: "Ajoute un exercice, ou termine ta séance libre.", say: "Ajoute un exercice ou termine la séance." }));
     } else {
       this.idx = this.plan.length;
-      events.push(this.push({ kind: "pr", mood: "party", title: "Séance terminée", text: "Mission accomplie. Le quartier est en sécurité.", say: "Séance terminée. Mission accomplie !" }));
+      events.push(this.push({ kind: "pr", mood: "party", title: "Séance terminée", text: "Mission accomplie. Belle séance !", say: "Séance terminée. Mission accomplie !" }));
     }
   }
 

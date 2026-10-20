@@ -13,10 +13,11 @@ import { goalsContext } from "./goals.js";
 import { healthContext } from "./health.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
+import { LOC } from "./i18n.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const fmt = n => Math.round(n).toLocaleString("fr-FR");
+const fmt = n => Math.round(n).toLocaleString(LOC());
 
 // Trouve un exercice cité dans la question (nom complet ou mots-clés).
 const ALIASES = {
@@ -150,13 +151,13 @@ const INTENTS = [
     return `Aujourd'hui : ${m.rest ? "récupération active (Mobilité)" : m.program.name}${m.doneToday ? " (déjà faite, bravo)" : ""}.\nTon programme de la semaine est sur l'Accueil : touche un jour pour changer sa séance, ou régénère-le dans Profil selon ton objectif et tes jours dispo.`; },
     actions: [{ label: "Voir mon programme", route: "#/" }] },
   { re: /(motiv|flemme|envie|pas le courage|demotiv)/, fn: () => pick([
-    coach().id === "spider" ? "Un grand pouvoir implique de grandes responsabilités, et ta seule responsabilité aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit." : "Ta seule mission aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit.",
+    "Ta seule mission aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit.",
     "Même les jours sans, une séance courte vaut mieux que zéro. Prends « Abdos & gainage » (20 min) et je m'occupe du reste.",
     `Tu as déjà ${state.sessions.length} séance(s) au compteur. Le toi de dans 3 mois te remerciera pour celle-là.`]) },
   { re: /(debut|commence|novice|premiere fois)/, fn: () =>
     "Bienvenue ! Pour bien démarrer :\n• 3 séances par semaine (Full body A/B ou Push/Pull/Legs).\n• Charges légères les 2 premières semaines : la technique d'abord.\n• Note honnêtement ton ressenti après chaque série, je m'occupe d'ajuster.\n• La régularité compte plus que l'intensité." },
-  { re: /(bonjour|salut|hello|coucou|\byo\b)/, fn: () => `Salut ${state.profile.name || "héros"} ! ${coach().id === "spider" ? "Prêt à grimper aux murs ?" : `Ici ${coachName()}, ton coach.`} Demande-moi ce que tu veux : technique, nutrition, programme, bilan…` },
-  { re: /(merci|top|genial|cool)/, fn: () => pick([coach().id === "spider" ? "Avec plaisir. Ton sympathique coach de quartier." : `Avec plaisir. ${coachName()}, toujours dans ton coin.`, "Toujours là pour toi. Allez, au boulot !"]) },
+  { re: /(bonjour|salut|hello|coucou|\byo\b)/, fn: () => `Salut ${state.profile.name || "toi"} ! Ici ${coachName()}, ton coach. Demande-moi ce que tu veux : technique, nutrition, programme, bilan…` },
+  { re: /(merci|top|genial|cool)/, fn: () => pick([`Avec plaisir. ${coachName()}, toujours dans ton coin.`, "Toujours là pour toi. Allez, au boulot !"]) },
 ];
 
 export function answer(q) {
@@ -217,7 +218,7 @@ export function idleTip(route) {
 }
 
 /* ---------- Contexte pour l'IA locale ---------- */
-// La personnalité suit le coach choisi (Spider-Man par défaut).
+// La personnalité suit le coach choisi (Alex par défaut).
 const system = (online = false) => `Tu es ${coachName()}, le coach sportif de l'app GREATNESS. Ta personnalité : ${coachPersona() || "drôle, bienveillant et motivant"}
 Garde ta voix de personnage, mais reste toujours un coach sérieux, juste et bienveillant.
 Tu tutoies et tu réponds toujours en français, de façon claire, juste et utile.
@@ -237,12 +238,12 @@ export function athleteContext({ full = false } = {}) {
   const recent = state.sessions.slice(full ? -15 : -5).reverse().map(s => {
     const by = {};
     s.sets.forEach(x => (by[x.name] ||= []).push(x.weight ? `${x.weight}×${x.reps}@${x.rpe}` : `${x.reps}@${x.rpe}`));
-    const day = new Date(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    const day = new Date(s.date).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" });
     if (s.iv) return `- ${day} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${ivSummary(s)}.`;
     return `- ${day} : ${s.name}, ${Math.round(s.durationSec / 60)} min, ${s.volume} kg. ${Object.entries(by).map(([n, a]) => `${n} ${a.join(" ")}`).join(" ; ")}`;
   });
   return [
-    `Aujourd'hui : ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,
+    `Aujourd'hui : ${new Date().toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,
     `Athlète : ${p.name || "inconnu"}, ${p.bodyweight} kg, objectif « ${GOALS[p.goal].name} », ${p.days} séances/semaine, matériel : ${{ gym: "salle", db: "haltères", home: "sans matériel" }[p.equipment]}.`,
     `Programme de la semaine : ${DAYS.map((d, i) => `${d} ${plan[i] ? getProgram(plan[i])?.name : "repos"}`).join(", ")}.`,
     `Cette semaine : ${w.count} séance(s), ${w.volume} kg, ${w.minutes} min. Série en cours : ${streak()} jour(s). Rang : ${rankInfo().rank.name}.`,
@@ -265,15 +266,15 @@ function fullExtras() {
   if (total) {
     const first = state.sessions[0].date;
     const weeks = Math.max(1, (Date.now() - first) / (7 * 864e5));
-    out.push(`Historique : ${total} séances depuis le ${new Date(first).toLocaleDateString("fr-FR")}, soit ${(total / weeks).toFixed(1)} par semaine en moyenne.`);
+    out.push(`Historique : ${total} séances depuis le ${new Date(first).toLocaleDateString(LOC())}, soit ${(total / weeks).toFixed(1)} par semaine en moyenne.`);
   }
   const body = (state.body || []).slice(-6);
-  if (body.length) out.push(`Mensurations (les plus récentes en dernier) : ${body.map(b => `${new Date(b.date).toLocaleDateString("fr-FR")} ${[b.weight && b.weight + " kg", b.waist && "taille " + b.waist + " cm", b.chest && "poitrine " + b.chest + " cm", b.arm && "bras " + b.arm + " cm", b.thigh && "cuisse " + b.thigh + " cm"].filter(Boolean).join(", ")}`).join(" ; ")}.`);
+  if (body.length) out.push(`Mensurations (les plus récentes en dernier) : ${body.map(b => `${new Date(b.date).toLocaleDateString(LOC())} ${[b.weight && b.weight + " kg", b.waist && "taille " + b.waist + " cm", b.chest && "poitrine " + b.chest + " cm", b.arm && "bras " + b.arm + " cm", b.thigh && "cuisse " + b.thigh + " cm"].filter(Boolean).join(", ")}`).join(" ; ")}.`);
   const notes = Object.entries(state.exNotes || {}).filter(([id]) => EXERCISES[id]).slice(0, 12);
   if (notes.length) out.push(`Notes de l'athlète sur ses exercices : ${notes.map(([id, n]) => `${exName(id)} : ${n}`).join(" ; ")}.`);
   const custom = state.customPrograms || [];
   if (custom.length) out.push(`Ses séances perso : ${custom.map(c => `${c.name} (${c.exercises.map(e => exName(e.id)).join(", ")})`).join(" ; ")}.`);
-  const sessNotes = state.sessions.slice(-10).filter(x => x.note).map(x => `${new Date(x.date).toLocaleDateString("fr-FR")} : ${x.note}`);
+  const sessNotes = state.sessions.slice(-10).filter(x => x.note).map(x => `${new Date(x.date).toLocaleDateString(LOC())} : ${x.note}`);
   if (sessNotes.length) out.push(`Ses notes de séance : ${sessNotes.join(" ; ")}.`);
   return out;
 }

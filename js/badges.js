@@ -8,8 +8,8 @@ const hour = h => S().some(s => { const x = new Date(s.date).getHours(); return 
 const cats = () => new Set(S().map(s => s.programId));
 
 export const BADGES = [
-  { id: "first", icon: "🕷️", name: "Première mission", desc: "Terminer ta première séance", test: () => S().length >= 1 },
-  { id: "s10", icon: "🎯", name: "Habitué du quartier", desc: "10 séances", test: () => S().length >= 10 },
+  { id: "first", icon: "🏁", name: "Première mission", desc: "Terminer ta première séance", test: () => S().length >= 1 },
+  { id: "s10", icon: "🎯", name: "Pilier de la salle", desc: "10 séances", test: () => S().length >= 10 },
   { id: "s50", icon: "🏙️", name: "Gardien de New York", desc: "50 séances", test: () => S().length >= 50 },
   { id: "s100", icon: "👑", name: "Légende", desc: "100 séances", test: () => S().length >= 100 },
   { id: "streak3", icon: "🔥", name: "Lancé", desc: "3 jours d'affilée", test: () => streak() >= 3 },

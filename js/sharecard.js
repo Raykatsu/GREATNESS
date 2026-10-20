@@ -7,6 +7,7 @@ import { costumeOf } from "./costumes.js";
 import { state, rankInfo, streak, exName } from "./store.js";
 import { isNative } from "./native.js";
 import { $, esc, I, sheet, toast, fmtNum } from "./ui.js";
+import { LOC } from "./i18n.js";
 
 export const W = 1080, H = 1920;
 
@@ -23,7 +24,7 @@ export function cardData(sum, { rank = "", streakDays = 0 } = {}) {
   });
   return {
     title: sum.name || "Séance",
-    date: new Date(sum.date || Date.now()).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+    date: new Date(sum.date || Date.now()).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" }),
     stats: [
       { v: durTxt(sum.durationSec), l: "Durée" },
       sum.volume > 0 ? { v: `${fmtNum(sum.volume)} kg`, l: "Volume soulevé" } : { v: fmtNum(reps), l: "Répétitions" },
@@ -49,8 +50,8 @@ export function coachSvg(c, costume) {
   const f = svgFilter(costumeOf(costume)?.filter);
   return figure(c, { costume })
     .replace(/ style="filter:[^"]*"/, "")
-    .replace(/ viewBox="[^"]*"/, ' viewBox="-8 -10 76 94"')
-    .replace(/^<svg /, '<svg xmlns="http://www.w3.org/2000/svg" width="760" height="940" ')
+    .replace(/ viewBox="[^"]*"/, ' viewBox="-10 -16 80 98"')
+    .replace(/^<svg /, '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="980" ')
     .replace(/(<svg[^>]*>)([\s\S]*)(<\/svg>)$/, (m, a, body, z) =>
       `${a}<style>.sp-db,.sp-zzz{display:none}${c.css || ""}</style>${f ? `<defs>${f}</defs><g filter="url(#cf)">${body}</g>` : body}${z}`);
 }
@@ -96,7 +97,7 @@ export async function drawCard(sum) {
   g.fillText(d.date.charAt(0).toUpperCase() + d.date.slice(1), W - 80, 130); g.textAlign = "left";
   // le coach (ou un badge s'il n'y a pas de personnage)
   if (c.id !== "none") {
-    try { const img = await loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(coachSvg(c, costume))}`); g.drawImage(img, (W - 540) / 2, 180, 540, 668); }
+    try { const img = await loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(coachSvg(c, costume))}`); g.drawImage(img, (W - 540) / 2, 180, 540, 662); }
     catch { /* pas d'image : la carte reste lisible */ }
   } else {
     g.strokeStyle = accent; g.lineWidth = 22; g.beginPath(); g.arc(W / 2, 520, 190, 0, Math.PI * 2); g.stroke();

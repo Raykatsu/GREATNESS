@@ -16,7 +16,7 @@ import { debrief, athleteContext, answer } from "./brain.js";
 import { parseActions, streamText, applyAction, actionsGuide, resolveExercise } from "./aiact.js";
 import * as llm from "./llm.js";
 import { onlineReady, onlineChat } from "./online.js";
-import { speak, stopSpeaking, beep, success, vibrate, webPop, speechHooks } from "./fx.js";
+import { speak, stopSpeaking, beep, success, vibrate, ringPop, speechHooks } from "./fx.js";
 import { Listener, voiceSupported } from "./voice.js";
 import { openCam, camFor, summaryText, velText } from "./cam.js";
 import { watchRest, unwatchRest } from "./resttimer.js";
@@ -24,8 +24,9 @@ import { openDuo, duoActive, duoAvailable, duoBarHtml, bindDuoBar, startDuo, sto
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
-import { spidey } from "./spidey.js";
-import { $, $$, esc, md, I, spider, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
+import { mascot } from "./mascot.js";
+import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
+import { voiceLang } from "./i18n.js";
 
 let S = null, ui = null, tick = null, wakeLock = null, rest = null, showCues = false, onExit = null, justDone = -1;
 const overlay = () => $("#overlay");
@@ -96,14 +97,14 @@ export function startLive(program, readiness, exit) {
   const rest = S.recoveryNote();
   begin(exit);
   const intro = S.intro();
-  if (S.current) setTimeout(() => spidey.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
-  else setTimeout(() => spidey.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
+  if (S.current) setTimeout(() => mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
+  else setTimeout(() => mascot.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
   speak(`${S.verdict.text} ${rest?.say || ""} ${intro?.say || ""}`, { interrupt: true });
   if (aiReady() && S.current) {
     aiBrief(S).then(txt => {
       if (!txt || !S) return;
       S.push({ kind: "ai", title: "Briefing du coach", text: txt });
-      render(); spidey.say(txt); speak(txt);
+      render(); mascot.say(txt); speak(txt);
     }).catch(err => console.warn("brief", err));
   }
 }
@@ -113,7 +114,7 @@ export function resumeLive(data, exit) {
   begin(exit);
   S.push({ kind: "info", title: "Séance reprise", text: "On reprend exactement où tu t'étais arrêté." });
   render();
-  setTimeout(() => spidey.say("Te revoilà ! On reprend la séance.", { mood: "happy" }), 700);
+  setTimeout(() => mascot.say("Te revoilà ! On reprend la séance.", { mood: "happy" }), 700);
 }
 
 function begin(exit) {
@@ -130,7 +131,7 @@ function begin(exit) {
   if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
   resetInputs();
   render();
-  spidey.setContext("live");
+  mascot.setContext("live");
   clearInterval(tick);
   tick = setInterval(() => { const t = $("#elapsed"); if (t && S) t.textContent = fmtTime(S.elapsed); }, 1000);
 }
@@ -227,7 +228,7 @@ function render() {
 
     <div class="tools scroll-x">${tools}</div>
 
-    ${msg ? `<div class="coach-line ${msg.kind} ${freshMsg ? "new" : ""}"><div class="av">${spider()}</div><div class="grow"><b>${esc(msg.title)}</b><p>${esc(msg.text)}</p>
+    ${msg ? `<div class="coach-line ${msg.kind} ${freshMsg ? "new" : ""}"><div class="av">${coachIcon()}</div><div class="grow"><b>${esc(msg.title)}</b><p>${esc(msg.text)}</p>
       ${msg.swap && EXERCISES[msg.swap] ? `<button class="btn btn-soft btn-sm mt-s" id="add-alt">${I.plus} Ajouter ${esc(EXERCISES[msg.swap].name)}</button>` : ""}</div></div>` : ""}
   </div></div>
   <div class="dock"><div class="dock-in" id="dock"></div></div>`;
@@ -276,7 +277,7 @@ function renderFreeEmpty() {
       <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div><div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span></div></div>
       <div class="lh-side end"><button class="icon-btn plain" id="menu" aria-label="Options">${I.more}</button></div></div></header>
     <div class="free-empty stagger">
-      <div class="empty">${spider()}<b>${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><span>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</span></div>
+      <div class="empty">${coachIcon()}<b>${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><span>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</span></div>
       <button class="btn btn-primary btn-lg btn-block" id="free-add">${I.plus} Ajouter un exercice</button>
       ${S.plan.length ? `<div class="eyebrow free-done-h">Déjà fait</div><div class="card card-list">${S.plan.map(e => `<div class="cmp"><span class="ellipsis">${esc(e.name)}</span><span class="small muted">${e.done.length} série${e.done.length > 1 ? "s" : ""}</span><span class="delta p">${I.check}</span></div>`).join("")}</div>` : ""}
     </div>
@@ -364,7 +365,7 @@ function bind(ex) {
     }
     const q = [summaryText(form), velText(form?.vbt), rpe ? `ressenti ${rpe} proposé` : ""].filter(Boolean).join(" · ");
     toast(ex.type === "time" ? `${n} s ${q ? `· ${q.replace(/^\d+ s tenues · /, "")}` : "mesurées"} : valide la série.` : `${n} reps comptées${q ? ` · ${q}` : ""}. Valide la série.`, q ? 5200 : 3000);
-    if (form?.tip && form.score != null && form.score < 80) setTimeout(() => spidey.say(form.tip, { mood: "alert" }), 600);
+    if (form?.tip && form.score != null && form.score < 80) setTimeout(() => mascot.say(form.tip, { mood: "alert" }), 600);
   } }));
   $$(".ex-tab").forEach(b => b.onclick = () => {
     const i = +b.dataset.i;
@@ -422,7 +423,7 @@ function announce(events) {
   const say = events.map(e => e.say).filter(Boolean).slice(0, 3).join(" ");
   speak(say, { interrupt: true });
   const main = events.find(e => e.kind === "pr") || events.find(e => ["warn", "down", "up"].includes(e.kind)) || events[0];
-  if (main) spidey.say(main.text, { mood: main.mood || (main.kind === "warn" || main.kind === "down" ? "alert" : main.kind === "up" ? "happy" : undefined) });
+  if (main) mascot.say(main.text, { mood: main.mood || (main.kind === "warn" || main.kind === "down" ? "alert" : main.kind === "up" ? "happy" : undefined) });
 }
 
 function logSet(e) {
@@ -437,9 +438,9 @@ function logSet(e) {
   const pr = events.some(ev => ev.kind === "pr" && ev.title.startsWith("Nouveau"));
 
   success(); vibrate(pr ? [30, 40, 80] : 25);
-  webPop(btn.left + btn.width / 2, btn.top + btn.height / 2, pr ? "#f5b83d" : "#ff3b4e");
+  ringPop(btn.left + btn.width / 2, btn.top + btn.height / 2, pr ? "#f5b83d" : "#ff3b4e");
   announce(events);
-  if (pr) spidey.react("pr");
+  if (pr) mascot.react("pr");
 
   if (S.finished) { rest = null; return setTimeout(finish, 600); }
   justDone = S.current === ex ? doneIdx : -1;
@@ -457,7 +458,7 @@ function logSet(e) {
       if (rest && Number.isFinite(rec.rest_seconds)) { const s = Math.min(300, Math.max(20, rec.rest_seconds)); rest.end = Date.now() + s * 1000; rest.total = s; liveRest(); }
       S.push({ kind: "ai", title: changed ? "Ajustement du coach (IA)" : "Conseil du coach (IA)", text: rec.message });
       resetInputs(); render();
-      spidey.say(rec.message); speak(rec.message);
+      mascot.say(rec.message); speak(rec.message);
     }).catch(err => console.warn("adjust", err));
   }
 }
@@ -467,7 +468,7 @@ function startRest(sec) {
   clearInterval(rest?.timer);
   rest = { end: Date.now() + sec * 1000, total: sec, said10: false, beeped: new Set() };
   rest.timer = setInterval(paintRest, 250);
-  spidey.hang(true);
+  mascot.hang(true);
   liveRest();
 }
 // App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit
@@ -503,11 +504,11 @@ function endRest(announceNext) {
   clearInterval(rest.timer);
   rest = null;
   liveRest();
-  spidey.hang(false);
+  mascot.hang(false);
   renderDock();
   if (announceNext && S?.current) {
     beep(1320, 0.22, "square", 0.08); vibrate([60, 40, 60]);
-    setTimeout(() => spidey.lift(), 900);
+    setTimeout(() => mascot.lift(), 900);
     const n = S.current;
     if (!n.introduced) { const intro = S.intro(); render(); speak(intro.say, { interrupt: true }); return; }
     speak(`C'est reparti. Série ${n.done.length + 1}. ${n.type === "load" ? n.weight + " kilos, " : ""}${n.goal} ${n.type === "time" ? "secondes" : "répétitions"}.`, { interrupt: true });
@@ -609,7 +610,7 @@ function askCoach({ q: asked = "", voice = false } = {}) {
     const R = window.SpeechRecognition || window.webkitSpeechRecognition, b = $("#ak-mic", sh.el);
     if (b.classList.contains("on")) return;
     const rec = new R();
-    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = false;
+    rec.lang = voiceLang(); rec.interimResults = true; rec.continuous = false;
     b.classList.add("on"); listener?.pause(); stopSpeaking();
     rec.onresult = e => { input.value = e.results[e.results.length - 1][0].transcript; };
     rec.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") toast("Autorise le micro pour parler au coach.", 3500); };
@@ -647,7 +648,7 @@ function finish() {
   stopVoice();
   clearInterval(tick); clearInterval(rest?.timer); rest = null;
   liveRest();
-  spidey.hang(false);
+  mascot.hang(false);
   const before = rankInfo();
   const sum = S.summary();
   const done = { program: S.program, readiness: S.readiness }, next = chain;
@@ -686,14 +687,14 @@ function finish() {
   overlay().innerHTML = `
   <div class="live fin"><div class="live-wrap stagger">
     <div class="done-hero">
-      <div class="badge-wrap"><div class="burst" aria-hidden="true">${burst}</div><div class="ring" aria-hidden="true"></div><div class="badge">${spider()}</div></div>
+      <div class="badge-wrap"><div class="burst" aria-hidden="true">${burst}</div><div class="ring" aria-hidden="true"></div><div class="badge">${coachIcon()}</div></div>
       <div class="eyebrow">${esc(sum.name)} · terminée</div>
       <h1>Mission accomplie</h1>
       <div class="xp-pill">${I.bolt}<span>+<span data-count="${sum.xp}">${sum.xp}</span> XP</span></div>
       ${after.level > before.level ? `<div class="chip amber rank-up">${I.trophy} Nouveau rang : ${esc(after.rank.name)}</div>` : ""}
     </div>
     <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
-    <div class="coach-line ai"><div class="av">${spider()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
+    <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
@@ -713,8 +714,8 @@ function finish() {
   $("#share-sess")?.addEventListener("click", () => import("./sharecard.js").then(m => m.openShare(sum)));
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
-  spidey.setContext("app");
-  setTimeout(() => { spidey.react("party"); spidey.say(`Mission accomplie ! +${sum.xp} XP.`, { mood: "party" }); }, 500);
+  mascot.setContext("app");
+  setTimeout(() => { mascot.react("party"); mascot.say(`Mission accomplie ! +${sum.xp} XP.`, { mood: "party" }); }, 500);
   speak(`Séance terminée. ${local}`, { interrupt: true });
   $("#home").onclick = () => { close(); if (location.hash && location.hash !== "#/") location.hash = "#/"; };
 
@@ -781,8 +782,8 @@ function close() {
   mounted = false;
   overlay().innerHTML = "";
   document.body.classList.remove("hide-tabs");
-  spidey.hang(false);
-  spidey.setContext("app");
+  mascot.hang(false);
+  mascot.setContext("app");
   onExit?.();
 }
 

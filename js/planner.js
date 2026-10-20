@@ -2,6 +2,7 @@
 import { GOALS, EXERCISES } from "./data.js";
 import { state, save, getProgram, todayIndex, sessionsOn, weekStart } from "./store.js";
 import { CLASSICS, CLASSIC_DAYS } from "./classics.js";
+import { LOC } from "./i18n.js";
 
 // Jours (0 = lundi) et séances selon le nombre de jours et le matériel.
 const LAYOUTS = {
@@ -73,7 +74,7 @@ export function weekStrip() {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const done = sessionsOn(d);
     return {
-      i, date: d, label: d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""),
+      i, date: d, label: d.toLocaleDateString(LOC(), { weekday: "short" }).replace(".", ""),
       num: d.getDate(), program: plan[i] ? getProgram(plan[i]) : null, done: done.length > 0,
       today: i === todayIndex(), past: i < todayIndex(),
     };

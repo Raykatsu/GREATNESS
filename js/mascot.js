@@ -1,6 +1,7 @@
-// Le coach animé : il se balade sur l'écran selon son mode de déplacement — toile (Spider-Man),
-// vol, petits sauts, course de ninja ou marche —, parle via des bulles, réagit aux séances
-// (records, repos, sommeil) et se laisse attraper. Le personnage vient du registre js/chars/.
+// Le coach animé : il se balade sur l'écran selon son mode de déplacement — vol, petits sauts,
+// course rapide (avec une corde pour les grimpeurs), marche ou roues (fauteuil, planche) —, parle via
+// des bulles, réagit aux séances (records, repos, sommeil) et se laisse attraper. Le personnage vient
+// du registre js/chars/.
 import { state } from "./store.js";
 import { current, coachLine, figure, coachFace, fxRgb, onCoachChange, sync as syncCoach, loadAll } from "./chars/index.js";
 
@@ -31,6 +32,7 @@ const SHAPES = {
   stars: '<svg viewBox="0 0 10 10"><path d="m5 .4 1.4 2.9 3.2.5-2.3 2.2.5 3.2L5 7.7 2.2 9.2l.5-3.2L.4 3.8l3.2-.5z" fill="currentColor"/></svg>',
   hearts: '<svg viewBox="0 0 10 10"><path d="M5 9.2S.3 6.3.3 3.3A2.4 2.4 0 0 1 5 2.3a2.4 2.4 0 0 1 4.7 1C9.7 6.3 5 9.2 5 9.2z" fill="currentColor"/></svg>',
   leaves: '<svg viewBox="0 0 10 10"><path d="M1 9C1 4.2 4.2 1 9 1c0 4.8-3.2 8-8 8z" fill="currentColor"/><path d="M1.8 8.2 6.8 3.2" stroke="rgba(0,0,0,.25)" stroke-width=".7"/></svg>',
+  snow: '<svg viewBox="0 0 10 10"><path d="M5 .6v8.8M1.2 2.8l7.6 4.4M1.2 7.2l7.6-4.4M3.6 1.4 5 2.6l1.4-1.2M3.6 8.6 5 7.4l1.4 1.2" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/></svg>',
 };
 const TRAIL = {
   sparks: () => ({ dx: rnd(-14, 14), dy: rnd(-14, 10), s0: rnd(0.7, 1), s1: 0.2, spin: rnd(-90, 90), ms: 460 }),
@@ -39,6 +41,7 @@ const TRAIL = {
   smoke: () => ({ dx: rnd(-8, 8), dy: rnd(-14, -4), s0: 0.55, s1: 1.7, ms: 700 }),
   bubbles: () => ({ dx: rnd(-10, 10), dy: rnd(-40, -24), s0: 0.4, s1: 1, ms: 950 }),
   leaves: () => ({ dx: rnd(-20, 20), dy: rnd(14, 30), s0: rnd(0.7, 1), s1: 0.8, spin: rnd(-220, 220), ms: 1050 }),
+  snow: () => ({ dx: rnd(-16, 16), dy: rnd(12, 26), s0: rnd(0.6, 0.9), s1: 0.7, spin: rnd(-120, 120), ms: 1100 }),
   aura: () => ({ dx: rnd(-6, 6), dy: rnd(-26, -14), s0: 0.5, s1: 1.5, ms: 640 }),
 };
 
@@ -50,27 +53,28 @@ class Coach {
     this.pts = []; this.pi = 0; this.lastTrail = 0; this.lastStreak = 0;
   }
 
-  get travel() { return this.char?.travel || "web"; }
+  get travel() { return this.char?.travel || "walk"; }
   get climbs() { return !!this.char?.climb; }
 
   init() {
     if (this.el) return;
     this.el = document.createElement("div");
-    this.el.className = "spidey";
-    this.el.innerHTML = `<div class="spidey-rot"><div class="spidey-pop"></div></div>`;
+    this.el.className = "mascot";
+    this.el.innerHTML = `<div class="mascot-rot"><div class="mascot-pop"></div></div>`;
     this.rotEl = this.el.firstElementChild;
     this.pop = this.rotEl.firstElementChild;
-    this.web = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.web.classList.add("spidey-web");
-    this.web.innerHTML = `<line class="glow"/><line class="core"/>`;
-    this.lines = [...this.web.children];
+    // la corde des grimpeurs (lancée vers le plafond)
+    this.rope = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    this.rope.classList.add("mascot-rope");
+    this.rope.innerHTML = `<line class="glow"/><line class="core"/>`;
+    this.lines = [...this.rope.children];
     this.fxBox = document.createElement("div");
-    this.fxBox.className = "spidey-fx";
+    this.fxBox.className = "mascot-fx";
     this.bubble = document.createElement("div");
-    this.bubble.className = "spidey-bubble";
+    this.bubble.className = "mascot-bubble";
     this.bubble.innerHTML = `<div class="sb-in"></div>`;
     this.bubbleIn = this.bubble.firstElementChild;
-    document.body.append(this.web, this.fxBox, this.el, this.bubble);
+    document.body.append(this.rope, this.fxBox, this.el, this.bubble);
 
     this.build(current());
     this.bindPointer();
@@ -79,7 +83,7 @@ class Coach {
     document.addEventListener("scroll", () => this.onScroll(), { capture: true, passive: true });
     this.bubble.addEventListener("click", () => { const a = this.bubbleAction; this.hideBubble(); a?.(); });
     onCoachChange((c, why) => this.swap(c, why));
-    loadAll(); // le reste du catalogue arrive en arrière-plan (dont le coach choisi s'il n'est pas Spider-Man)
+    loadAll(); // le reste du catalogue arrive en arrière-plan (dont le coach choisi s'il n'est pas le coach par défaut)
     // avant la connexion : le dernier choix fait sur cet appareil (personnages masqués ou non)
     let device = true;
     try { device = localStorage.getItem("greatness.chars") !== "off"; } catch { /* mode privé */ }
@@ -93,7 +97,7 @@ class Coach {
     this.svg = this.pop.firstElementChild;
     this.poseName = "";
     this.el.dataset.travel = c.travel;
-    for (const n of [this.web, this.fxBox]) { n.style.setProperty("--fx", c.fx.color); n.style.setProperty("--fx-rgb", fxRgb(c)); }
+    for (const n of [this.rope, this.fxBox]) { n.style.setProperty("--fx", c.fx.color); n.style.setProperty("--fx-rgb", fxRgb(c)); }
     this.setTab(c);
   }
 
@@ -168,7 +172,7 @@ class Coach {
 
   setEnabled(on) {
     this.enabled = on;
-    this.el.style.display = this.web.style.display = this.fxBox.style.display = on ? "" : "none";
+    this.el.style.display = this.rope.style.display = this.fxBox.style.display = on ? "" : "none";
     if (!on) { this.hideBubble(); clearTimeout(this.timer); clearTimeout(this.blinkT); return; }
     const fly = this.travel === "fly";
     const p = this.perch(fly ? "air" : "floor");
@@ -205,7 +209,6 @@ class Coach {
   }
 
   surfaces() {
-    if (this.travel === "web") return ["floor", "floor", "wallR", "wallL", "ceiling"];
     if (this.travel === "fly") return this.climbs ? ["floor", "air", "air", "wallR", "wallL"] : ["floor", "air", "air"];
     return this.climbs ? ["floor", "floor", "wallR", "wallL", "ceiling"] : ["floor"];
   }
@@ -218,7 +221,7 @@ class Coach {
       case "wallL": return { x: H / 2 + 1, y: midY, rot: 90, surface };
       case "ceiling": return { x: rnd(60, innerWidth - 60), y: b.top + H / 2, rot: 180, surface };
       case "air": {
-        // en séance : plane à droite du titre (comme Spider-Man suspendu), jamais devant les réglages
+        // en séance : plane à droite du titre, jamais devant les réglages
         if (this.ctx === "live") return { x: clamp(innerWidth * 0.82 + rnd(-10, 6), 50, innerWidth - 40), y: b.top + rnd(104, 128), rot: 0, surface };
         const y = rnd(b.top + 90, Math.max(b.top + 100, b.floor - 190));
         return { x: pick([rnd(40, 100), rnd(innerWidth - 100, innerWidth - 40)]), y, rot: 0, surface };
@@ -235,7 +238,7 @@ class Coach {
 
   idlePose() { return this.peekDepth ? (this.peekDepth === "rest" ? "peek" : "lurk") : this.surface === "air" ? "float" : "idle"; }
 
-  // Ni toile, ni vol, ni murs : en séance, il se cache derrière la barre du bas et seule sa tête dépasse.
+  // Ni vol, ni murs : en séance, il se cache derrière la barre du bas et seule sa tête dépasse.
   get peeker() { return !this.climbs && this.travel !== "fly"; }
   async lurk(rest = false) {
     const R = reduced(), seat = this.seat();
@@ -273,7 +276,7 @@ class Coach {
     this.render();
   }
 
-  // Point d'attache de la toile : main levée (au-dessus de la tête) ou pieds.
+  // Point d'attache de la corde : main levée (au-dessus de la tête) ou pieds.
   attachPoint(from = this.lineFrom) {
     const a = (this.rot * Math.PI) / 180;
     const d = from === "feet" ? H / 2 - 2 : -H / 2 + 2;
@@ -289,8 +292,8 @@ class Coach {
     if (this.anchor) {
       const p = this.attachPoint();
       for (const l of this.lines) { l.setAttribute("x1", this.anchor.x); l.setAttribute("y1", this.anchor.y); l.setAttribute("x2", p.x); l.setAttribute("y2", p.y); }
-      this.web.classList.add("on");
-    } else this.web.classList.remove("on");
+      this.rope.classList.add("on");
+    } else this.rope.classList.remove("on");
     if (this.bubble.classList.contains("show")) this.placeBubble();
   }
 
@@ -352,7 +355,6 @@ class Coach {
   // Va jusqu'à un point d'accroche à la manière du personnage.
   moveTo(p) {
     const t = this.travel;
-    if (t === "web") return this.zip(p);
     if (t === "fly") return this.flyTo(p);
     if (p.surface === this.surface) return this.alongTo(vertical(p.surface) ? p.y : p.x);
     if (t === "dash" && p.surface === "ceiling") return this.zip(p, { grapple: true });
@@ -395,6 +397,14 @@ class Coach {
       });
       this.rot = base;
       return this.squash(0.9, 220);
+    }
+    if (t === "roll") {
+      // roues : élan, glisse, petit freinage
+      const s = { x: this.x, y: this.y };
+      this.pose("roll");
+      await this.tween(Math.max(320, dist / 0.11), k => { const e = ease.inOut(k); this.x = lerp(s.x, to.x, e); this.y = lerp(s.y, to.y, e); this.trail(); });
+      this.pose(this.idlePose());
+      return;
     }
     this.pose(t === "walk" ? "walk" : "crawl");
     await this.goto(to, dist / (t === "walk" ? 0.055 : 0.07), x => x);
@@ -495,7 +505,7 @@ class Coach {
     this.pose(this.idlePose());
   }
 
-  // Lance une toile (ou un grappin) vers la destination puis s'y fait tirer.
+  // Lance une corde (grimpeurs) vers la destination puis s'y fait tirer.
   async zip(p, { grapple = false } = {}) {
     const start = { x: this.x, y: this.y };
     this.facing = p.x >= this.x ? 1 : -1;
@@ -520,34 +530,24 @@ class Coach {
     this.pose(this.idlePose());
   }
 
-  // Grand balancement d'un côté à l'autre de l'écran (toile).
-  async swing() {
-    const b = this.bounds();
-    if (this.surface !== "floor") { await this.zip(this.perch("floor")); }
-    const fromX = this.x, toX = fromX > innerWidth / 2 ? 46 : innerWidth - 46;
-    const ax = (fromX + toX) / 2, ay = Math.max(b.top - 30, -30);
-    const L = Math.hypot(this.x - ax, this.y - ay);
-    const th0 = Math.atan2(this.x - ax, this.y - ay);
-    this.anchor = { x: ax, y: ay }; this.lineFrom = "hand";
-    this.facing = toX > fromX ? 1 : -1;
-    this.pose("swing"); this.sound();
-    await this.tween(1500, t => {
-      const th = th0 + (-th0 - th0) * ease.sine(t);
-      this.x = ax + L * Math.sin(th);
-      this.y = ay + L * Math.cos(th);
-      this.rot = (-th * 180) / Math.PI;
+  // Roue arrière (fauteuil, planche) : on bascule en arrière sur les roues, puis on retombe.
+  async wheelie() {
+    const r0 = this.rot, y0 = this.y;
+    this.pose("roll", "party");
+    await this.tween(reduced() ? 0 : 900, t => {
+      const k = Math.sin(Math.PI * t);
+      this.rot = r0 - this.facing * 18 * k; this.y = y0 - 4 * k;
     });
-    this.anchor = null;
-    await this.goto({ x: toX, y: b.floor - H / 2, rot: 0, surface: "floor" }, 260, ease.out);
-    this.pose("land"); await sleep(260); this.pose("idle");
+    this.rot = r0; this.y = y0; this.render();
+    this.pose(this.idlePose());
   }
 
   // Le « numéro » propre à chaque mode de déplacement.
   showoff() {
     const b = this.bounds(), far = this.safeX(this.x > innerWidth / 2 ? 50 : innerWidth - 50);
     switch (this.travel) {
-      case "web": return this.swing();
       case "fly": return this.loop();
+      case "roll": return this.surface === "floor" ? this.alongTo(far).then(() => this.wheelie()) : this.wave();
       case "dash": return this.alongTo(vertical(this.surface) ? (this.y > innerHeight / 2 ? b.top + 90 : b.floor - 90) : far);
       case "hop": return this.surface === "floor" ? this.hopTo(far) : this.flip();
       default: return this.surface === "floor" ? this.alongTo(far) : this.wave();
@@ -557,6 +557,7 @@ class Coach {
   // Salto (s'éloigne de son support, tourne, revient).
   async flip(force) {
     if (this.surface === "air" && !force) return this.loop();
+    if (this.travel === "roll") return this.wheelie();
     const x0 = this.x, y0 = this.y, r0 = this.rot;
     const [nx, ny] = UP[this.surface] || UP.floor;
     this.pose("flip", "party");
@@ -616,14 +617,13 @@ class Coach {
     return this.hangWorker;
   }
 
-  // Toile : suspendu au fil · vol : plane en haut · ninja grimpeur : accroché au plafond · autres : assis sur le rebord.
+  // Vol : plane en haut · grimpeur : accroché au plafond · autres : assis sur le rebord.
   restMode() {
-    if (this.travel === "web") return "web";
     if (this.travel === "fly") return "float";
-    if (this.travel === "dash" && this.climbs) return "cling";
+    if (this.climbs) return "cling";
     return "sit";
   }
-  restPose() { return { web: "hang", float: "float", cling: "crouch", sit: "peek" }[this.restMode()]; }
+  restPose() { return { float: "float", cling: "crouch", sit: "peek" }[this.restMode()]; }
 
   async _hang(on) {
     const R = reduced();
@@ -635,15 +635,7 @@ class Coach {
       const b = this.bounds();
       const x = Math.min(innerWidth - 50, Math.max(50, innerWidth * 0.82));
       const mode = (this.restKind = this.restMode());
-      if (mode === "web") {
-        if (!R) await this.zip({ x, y: b.top + H / 2, rot: 180, surface: "ceiling" });
-        else Object.assign(this, { x, y: b.top + H / 2, rot: 180, surface: "ceiling" });
-        this.anchor = { x, y: b.top - 4 }; this.lineFrom = "feet";
-        this.pose("hang");
-        const y0 = this.y, yT = b.top + 120;
-        await this.tween(R ? 0 : 900, t => { this.y = y0 + (yT - y0) * ease.back(t); });
-        if (this.hanging && !R) this.sway(true); // léger balancement, en CSS : rien ne tourne en JS
-      } else if (mode === "float") {
+      if (mode === "float") {
         const p = { x, y: b.top + 116, rot: 0, surface: "air" };
         if (!R) await this.flyTo(p); else Object.assign(this, p);
         this.pose("float");
@@ -661,45 +653,20 @@ class Coach {
       this.hanging = false;
       clearTimeout(this.restT);
       this.el.classList.remove("resting");
-      if (this.restKind === "web") {
-        this.sway(false);
-        const b = this.bounds(), y0 = this.y;
-        await this.tween(R ? 0 : 450, t => { this.y = y0 + (b.top + H / 2 - y0) * ease.inOut(t); this.rot = 180; });
-        this.anchor = null; this.surface = "ceiling";
-        this.pose("idle"); this.busy = false;
-        if (!R && !this.wantHang) await this.run(() => this.zip(this.perch(this.ctx === "live" ? pick(["wallR", "wallL"]) : "floor")));
-      } else {
-        if (this.restKind === "sit" && this.ctx === "live" && this.peeker) {
-          await sleep(80); // le bouton Valider remplace le minuteur
-          await this.lurk(false);
-        } else if (this.restKind === "sit") {
-          const y0 = this.y, yT = this.bounds().floor - H / 2;
-          this.peekDepth = null;
-          this.pose("idle");
-          await this.tween(R ? 0 : 240, t => { this.y = lerp(y0, yT, ease.out(t)); });
-          this.el.classList.remove("peek");
-        } else this.pose(this.idlePose());
-        this.busy = false;
-        if (this.ctx !== "live" && !R && !this.wantHang) await this.run(() => this.moveTo(this.perch(this.travel === "fly" ? "air" : "floor")));
-      }
+      if (this.restKind === "sit" && this.ctx === "live" && this.peeker) {
+        await sleep(80); // le bouton Valider remplace le minuteur
+        await this.lurk(false);
+      } else if (this.restKind === "sit") {
+        const y0 = this.y, yT = this.bounds().floor - H / 2;
+        this.peekDepth = null;
+        this.pose("idle");
+        await this.tween(R ? 0 : 240, t => { this.y = lerp(y0, yT, ease.out(t)); });
+        this.el.classList.remove("peek");
+      } else this.pose(this.idlePose());
+      this.busy = false;
+      if (this.ctx !== "live" && !R && !this.wantHang) await this.run(() => this.moveTo(this.perch(this.travel === "fly" ? "air" : "floor")));
       this.schedule();
       this.checkCover();
-    }
-  }
-
-  // Balancement du pendule autour du point d'accroche : animation CSS de `rotate` (sur le compositeur).
-  sway(on) {
-    const nodes = [this.el, this.web];
-    if (on && this.anchor) {
-      const o = `${this.anchor.x}px ${this.anchor.y}px`;
-      nodes.forEach(n => { n.style.transformOrigin = o; n.classList.add("sway"); });
-    } else {
-      nodes.forEach(n => {
-        if (!n.classList.contains("sway")) return;
-        const r = getComputedStyle(n).rotate;
-        n.classList.remove("sway");
-        if (r && r !== "none" && parseFloat(r)) n.animate([{ rotate: r }, { rotate: "0deg" }], { duration: 240, easing: "ease-out" });
-      });
     }
   }
 
@@ -709,7 +676,7 @@ class Coach {
     // le conteneur fixe (pas le minuteur, qui glisse encore pendant son apparition)
     const r = document.getElementById("dock")?.getBoundingClientRect();
     if (!r || !r.width) return { x: innerWidth * 0.5, ledge: this.bounds().floor };
-    const y = r.top - 16, mine = e => e.closest(".spidey, .spidey-bubble, .spidey-web, .spidey-fx");
+    const y = r.top - 16, mine = e => e.closest(".mascot, .mascot-bubble, .mascot-rope, .mascot-fx");
     const busy = x => {
       const e = document.elementsFromPoint(x, y).find(n => !mine(n) && !n.closest(".dock")); // le dégradé de la barre ne compte pas
       if (!e || e === document.body || e === document.documentElement) return false;
@@ -883,7 +850,7 @@ class Coach {
 
   sound() {
     if (!state.profile.sound) return;
-    this.onWeb?.();
+    this.onWhoosh?.();
   }
 
   /* ---------- Vie autonome ---------- */
@@ -904,9 +871,7 @@ class Coach {
       ? [[() => this.lurk(), 3], [() => this.look(), 3]]
       : live
       ? [[() => this.stroll(), 4], [() => this.look(), 3], [() => this.moveTo(this.livePerch()), 2]]
-      : t === "web"
-        ? [[() => this.crawl(), 4], [() => this.zip(this.perch()), 3], [() => this.swing(), 2], [() => this.look(), 2], [() => this.wave(), 1], [() => this.flip(), 1], tip]
-        : t === "fly"
+      : t === "fly"
           ? [[() => this.stroll(), 4], [() => this.moveTo(this.perch()), 2], [() => this.loop(), 2], [() => this.look(), 2], [() => this.wave(), 1], tip]
           : [[() => this.stroll(), 4], [() => this.moveTo(this.perch()), this.climbs ? 3 : 1], [() => this.showoff(), 2], [() => this.look(), 2], [() => this.wave(), 1], [() => this.flip(), 1], tip];
     const total = options.reduce((a, o) => a + o[1], 0);
@@ -955,7 +920,7 @@ class Coach {
     this.onTap?.();
   }
 
-  // Relâché : la toile vers le bord le plus proche, un bond vers un mur, le vol sur place… ou la chute.
+  // Relâché : un bond vers un mur (grimpeurs), le vol sur place… ou la chute.
   async release() {
     const b = this.bounds();
     this.x = clamp(this.x, 26, innerWidth - 26);
@@ -971,7 +936,7 @@ class Coach {
       const p = this.perch(surface);
       if (surface === "wallL" || surface === "wallR") p.y = Math.min(b.floor - 80, Math.max(b.top + 80, this.y));
       else p.x = Math.min(innerWidth - 40, Math.max(40, surface === "floor" ? this.safeX(this.x) : this.x));
-      return this.travel === "web" ? this.zip(p) : this.leap(p, { apex: 30 });
+      return this.leap(p, { apex: 30 });
     }
     // chute libre jusqu'au sol, puis atterrissage écrasé
     const y0 = this.y, d = Math.max(0, b.floor - H / 2 - y0);
@@ -982,4 +947,4 @@ class Coach {
   }
 }
 
-export const spidey = new Coach();
+export const mascot = new Coach();
