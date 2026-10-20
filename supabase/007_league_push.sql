@@ -26,7 +26,7 @@ declare
   t text; b text; k text;
 begin
   for u in
-    select a.username, a.public as p, min(ps.tz) as tz
+    select a.username, a.public as p, min(ps.tz) as tz, bool_or(coalesce(a.data->'profile'->>'lang', 'fr') = 'en') as en
       from gt_accounts a join gt_push_subs ps on ps.username = a.username
      where a.public ? 'league'
      group by a.username, a.public
@@ -53,8 +53,9 @@ begin
          and exists (select 1 from gt_social_sent x where x.username = u.username and x.key = 'lg-ahead:' || f.friend || ':' || s)
          and not exists (select 1 from gt_social_sent x where x.username = u.username and x.key = 'lg-over:' || f.friend || ':' || s) then
         k := 'lg-over:' || f.friend || ':' || s;
-        t := '🎖️ ' || f.fname || ' te passe devant en ligue';
-        b := f.fname || ' : ' || fp::int || ' pts cette saison, toi ' || myp::int || ' pts. Une séance pour reprendre ta place ?';
+        t := '🎖️ ' || f.fname || case when u.en then ' passed you in the league' else ' te passe devant en ligue' end;
+        b := case when u.en then f.fname || ': ' || fp::int || ' pts this season, you ' || myp::int || ' pts. One workout to take your spot back?'
+             else f.fname || ' : ' || fp::int || ' pts cette saison, toi ' || myp::int || ' pts. Une séance pour reprendre ta place ?' end;
         exit;
       end if;
     end loop;
@@ -71,8 +72,9 @@ begin
       zone := greatest(1, round(n / 3.0));
       if n >= 3 and rnk > n - zone and myp < 160 then
         k := 'lg-end:' || s;
-        t := '⏳ Dernier jour de la saison';
-        b := 'Tu es en zone de descente : ' || (160 - myp)::int || ' pts pour assurer ton maintien. Une séance ce soir ?';
+        t := case when u.en then '⏳ Last day of the season' else '⏳ Dernier jour de la saison' end;
+        b := case when u.en then 'You''re in the relegation zone: ' || (160 - myp)::int || ' pts to stay up. A workout tonight?'
+             else 'Tu es en zone de descente : ' || (160 - myp)::int || ' pts pour assurer ton maintien. Une séance ce soir ?' end;
       elsif n >= 3 and rnk = zone + 1 then
         with fr as (
           select coalesce(acc.public->>'name', x.friend) as fname, gt_league_pts(acc.public, s) as pts
@@ -82,8 +84,9 @@ begin
         )
         select fr.pts, fr.fname into nextp, nextname from fr order by fr.pts desc offset zone - 1 limit 1;
         k := 'lg-end:' || s;
-        t := '⏳ Dernier jour de la saison';
-        b := 'Plus que ' || (nextp - myp + 1)::int || ' pts pour passer devant ' || nextname || ' et monter de division !';
+        t := case when u.en then '⏳ Last day of the season' else '⏳ Dernier jour de la saison' end;
+        b := case when u.en then 'Only ' || (nextp - myp + 1)::int || ' pts to pass ' || nextname || ' and move up a division!'
+             else 'Plus que ' || (nextp - myp + 1)::int || ' pts pour passer devant ' || nextname || ' et monter de division !' end;
       end if;
     end if;
     if t is not null then

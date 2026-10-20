@@ -6,7 +6,7 @@ import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, d
 import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
 import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
-import { LOC } from "./i18n.js";
+import { LOC, tr } from "./i18n.js";
 
 export { weeklyChallenge };
 // Les stats "semaine" d'un ami ne comptent que si elles datent de cette semaine.
@@ -318,6 +318,7 @@ function friendSheet(f, reload, friends = []) {
 
 const appUrl = () => location.origin + location.pathname;
 async function shareText(text, url) {
+  text = tr(text); // partagé hors de l'app : dans sa langue
   if (navigator.share) { try { await navigator.share({ title: "GREATNESS", text, url }); return; } catch { /* annulé */ } }
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Lien copié ✓ Colle-le dans un message."); }
   catch { prompt("Copie ce lien :", url); }

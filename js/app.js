@@ -40,7 +40,7 @@ import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
-import { LOC, initLang, getLang, setLang, EN_READY } from "./i18n.js";
+import { LOC, initLang, getLang, setLang, EN_READY, tr } from "./i18n.js";
 
 // Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
 await initLang();
@@ -607,8 +607,8 @@ function downloadIcs() {
     start.setDate(start.getDate() + ((+d - ((today.getDay() + 6) % 7) + 7) % 7));
     const end = new Date(start.getTime() + estimateMinutes(prog) * 60000);
     return ["BEGIN:VEVENT", `UID:greatness-${d}-${id}@raykatsu.github.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
-      `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[d]}`, `SUMMARY:💪 GREATNESS · ${prog?.name || "Séance"}`, "DESCRIPTION:Ta mission t'attend : https://raykatsu.github.io/GREATNESS/",
-      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Ta séance commence bientôt !", `TRIGGER:-PT${p.remindBefore ?? 15}M`, "END:VALARM", "END:VEVENT"].join("\r\n");
+      `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[d]}`, `SUMMARY:💪 GREATNESS · ${tr(prog?.name || "Séance")}`, `DESCRIPTION:${tr("Ta mission t'attend !")} https://raykatsu.github.io/GREATNESS/`,
+      "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${tr("Ta séance commence bientôt !")}`, `TRIGGER:-PT${p.remindBefore ?? 15}M`, "END:VALARM", "END:VEVENT"].join("\r\n");
   });
   if (!events.length) return 0;
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//GREATNESS//FR", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");

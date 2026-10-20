@@ -19,14 +19,26 @@
   ul { padding-left: 20px; }
   li { margin: 6px 0; }
   a { color: var(--accent); }
-  .eyebrow { text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 700; color: var(--accent); }
+  .eyebrow { text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 700; color: var(--accent); display: flex; justify-content: space-between; align-items: center; }
+  .eyebrow a { text-transform: none; letter-spacing: 0; font-weight: 600; }
+  main[hidden] { display: none; }
 </style>
+<script>
+  // Français ou anglais : la langue choisie dans l'app, sinon celle du téléphone ; ?lang=en ou ?lang=fr pour forcer
+  (() => {
+    let l = new URLSearchParams(location.search).get("lang");
+    if (l !== "fr" && l !== "en") { try { l = localStorage.getItem("greatness.lang"); } catch { l = null; } }
+    if (l !== "fr" && l !== "en") l = /^fr/i.test(navigator.language || "fr") ? "fr" : "en";
+    document.documentElement.lang = l;
+    addEventListener("DOMContentLoaded", () => document.querySelectorAll("main[lang]").forEach(m => { m.hidden = m.lang !== l; }));
+  })();
+</script>
 </head>
 <body>
-<main>
-  <div class="eyebrow">GREATNESS</div>
+<main lang="fr">
+  <div class="eyebrow">GREATNESS <a href="?lang=en" lang="en">English</a></div>
   <h1>Confidentialité</h1>
-  <p class="muted">Dernière mise à jour : 15 octobre 2026</p>
+  <p class="muted">Dernière mise à jour : 20 octobre 2026</p>
 
   <div class="card">En bref : tes données servent seulement à te coacher. Rien n'est vendu, rien n'est utilisé pour de la publicité, et tu peux tout exporter ou tout effacer depuis l'app.</div>
 
@@ -65,6 +77,49 @@
   </ul>
 
   <p class="muted">GREATNESS n'est pas un dispositif médical. Les conseils sont donnés à titre indicatif ; en cas de douleur ou de problème de santé, consulte un professionnel.</p>
+</main>
+<main lang="en" hidden>
+  <div class="eyebrow">GREATNESS <a href="?lang=fr" lang="fr">Français</a></div>
+  <h1>Privacy</h1>
+  <p class="muted">Last updated: October 20, 2026</p>
+
+  <div class="card">In short: your data is only used to coach you. Nothing is sold, nothing is used for advertising, and you can export or delete everything from the app.</div>
+
+  <h2>What the app stores</h2>
+  <ul>
+    <li><b>Your account</b>: a username and a PIN (stored as a hash, unreadable even to us).</li>
+    <li><b>Your training</b>: profile (first name, weight, goal, height and age if you give them), workouts, personal records, food log, body measurements, notes, goals.</li>
+    <li><b>Apple Health</b> (if you connect it): sleep, heart rate variability, resting heart rate, steps, weight, active energy. The app only reads these measurements; it never writes anything to Health.</li>
+    <li><b>Progress photos</b>: they stay on your phone.</li>
+  </ul>
+
+  <h2>Where this data goes</h2>
+  <ul>
+    <li><b>On your phone</b> first. With a local account, nothing leaves the device.</li>
+    <li><b>Online account</b>: a copy is synced to our server (Supabase) so you can find it on another phone. Your friends only see your public summary (first name, rank, workouts and volume for the week, main records, league points).</li>
+    <li><b>Online AI coach</b>: when you talk to it, your question and the useful context (profile, recent workouts, measurements) are sent to Google Gemini to generate the answer. Video analysis sends about a dozen frames from your video, never the whole video; meal analysis sends the photo of the meal.</li>
+    <li><b>Camera</b>: rep counting, bar speed and form correction run entirely on the phone; no image is sent.</li>
+    <li><b>Notifications</b>: your phone's subscription is stored to send you the reminders you chose.</li>
+    <li><b>Remote duo</b> (if you start one): during the workout, your partner sees your first name, the current exercise, your set, your weight and your cheers. The room is deleted at most 4 hours after it was created.</li>
+    <li><b>Face ID / Touch ID</b> (if you turn it on): the check happens entirely on your phone; your face or fingerprint is never sent, to us or to anyone.</li>
+    <li><b>“Got an idea? A problem?”</b>: the message you write, with the app version, the screen you were on and your phone model, and your username only if you choose to sign it. Only the app's administrators read it; it is deleted after one year (and your username is removed from it if you delete your account).</li>
+    <li><b>Crash reports</b>: if the app crashes, it sends an anonymous report (error message, place in the code, app version, browser type) so we can fix it. It contains neither your username nor your training data, and it is deleted after 30 days.</li>
+  </ul>
+
+  <h2>What we don't do</h2>
+  <ul>
+    <li>No advertising, no selling of data, no tracking across apps.</li>
+    <li>Apple Health data is only used for your coaching and is never shared with third parties for commercial purposes.</li>
+  </ul>
+
+  <h2>Your rights</h2>
+  <ul>
+    <li><b>Export</b>: Me → Settings → Data → Export my data.</li>
+    <li><b>Delete</b>: Me → Settings → Account → Permanently delete my account. Everything is erased from the server and the phone. Disconnecting Apple Health also deletes the measurements received.</li>
+    <li>For any question: open a request on <a href="https://github.com/Raykatsu/GREATNESS/issues">the project page</a>.</li>
+  </ul>
+
+  <p class="muted">GREATNESS is not a medical device. Advice is given for information only; if you have pain or a health problem, see a professional.</p>
 </main>
 </body>
 </html>

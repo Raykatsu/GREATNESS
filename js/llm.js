@@ -1,5 +1,7 @@
 // IA locale : un vrai modèle de langage (Qwen) qui tourne dans le navigateur grâce à WebGPU.
 // Gratuit, privé (rien ne quitte le téléphone), téléchargé une seule fois puis gardé en cache.
+import { isEn, aiLangNote } from "./i18n.js";
+
 const WEBLLM = "https://esm.run/@mlc-ai/web-llm@0.2.85";
 const PREF = "greatness.llm";
 
@@ -146,13 +148,18 @@ async function wipeFiles(which = () => true) {
 // Le modèle n'a pas d'avis sur le raisonnement à afficher : on retire les balises de réflexion.
 const clean = s => s.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").replace(/^\s+/, "");
 
+// App en anglais : la consigne (écrite en français) demande une réponse en anglais
+const withLang = messages => (isEn() && messages[0]?.role === "system"
+  ? [{ ...messages[0], content: messages[0].content.replace(/(tu )?réponds (toujours )?en français/gi, "réponds en anglais") + aiLangNote() }, ...messages.slice(1)]
+  : messages);
+
 let busy = Promise.resolve();
 export function chat(messages, { onDelta, maxTokens = isPhone() ? 450 : 700, temperature = 0.6 } = {}) {
   // une seule génération à la fois
   const run = busy.then(async () => {
     if (!engine) throw new Error("IA locale non chargée");
     const stream = await engine.chat.completions.create({
-      messages, stream: true, temperature, top_p: 0.9, max_tokens: maxTokens,
+      messages: withLang(messages), stream: true, temperature, top_p: 0.9, max_tokens: maxTokens,
       extra_body: { enable_thinking: false },
     });
     let raw = "";

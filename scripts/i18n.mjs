@@ -28,12 +28,22 @@ export function core(s) {
 // Est-ce du français à afficher ? (sinon : identifiant, classe CSS, code…)
 export function isText(s) {
   if (!s || s.length < 2 || !/\p{L}/u.test(s)) return false;
-  if (/[{};=<>]|=>|\bvar\(--|^https?:|^data:|^#|^\.[a-z]|^[\w-]+\/[\w./-]+$|\.(js|css|png|svg|json|html)$|\d+px\b|sans-serif|system-ui|rgba?\(|translate\(|cubic-bezier/i.test(s)) return false;
+  if (/[{};<>]|=>|(?<! )=|=(?! )|\bvar\(--|^https?:|^data:|^#|^\.[a-z]|^[\w-]+\/[\w./-]+$|\.(js|css|png|svg|json|html)$|\d+px\b|sans-serif|system-ui|rgba?\(|translate\(|cubic-bezier/i.test(s)) return false;
   if (/[à-ÿœæ«»]/i.test(s)) return true;
   if (FRENCH_WORDS.test(s) && /\s/.test(s)) return true;
-  if (/^\p{Lu}[\p{Ll}'’-]{2,}(\s+[\p{L}\p{N}'’-]+)*[.!?…]?$/u.test(s)) return true; // libellés : « Valider », « Mes séances »…
+  // libellés : « Valider », « Mes séances », « Dos plat ! », « Presse pectoraux (machine) », « Maison · Bas »
+  if (/^\p{Lu}[\p{Ll}'’-]{2,}([\s,·&/()+:%–!?.…-]+[\p{L}\p{N}'’-]+)*\)?\s?[.!?…]*$/u.test(s)) return true;
+  // répliques criées : « BUUUT ! Nouveau record ! »
+  if (/^\p{Lu}{2,}[\s!?.…]+\p{Lu}[\p{Ll}'’-]+([\s,!?.…]+[\p{L}'’-]+)*[\s!?.…]*$/u.test(s)) return true;
   return false;
 }
+// Petits mots collés à un nombre dans les gabarits (« ${n} jours », « ${a} sur ${b} ») : traduits eux aussi
+export const NUMBER_WORDS = new Set(["jour", "jours", "temps", "compte", "seconde", "secondes", "minute", "minutes", "heure", "heures", "mois", "an", "ans",
+  "perte", "vitesse", "sur", "fois", "semaine", "semaines", "rep", "reps", "kilos", "propre", "propres", "restantes", "restants", "environ",
+  "aliment", "aliments", "portion", "portions", "tranche", "tranches", "verre", "verres", "bol", "bols", "pot", "pots", "part", "parts", "assiette", "assiettes",
+  "tasse", "tasses", "poignée", "poignées", "sachet", "sachets", "boîte", "boîtes", "glucides", "lipides", "fibres", "sel", "courses", "facultatif", "points", "pts",
+  "exercice", "exercices", "ami", "amis", "défi", "défis", "record", "records", "tour", "tours", "round", "rounds", "kg", "lb"]);
+const numberWord = s => NUMBER_WORDS.has(s) && s !== "kg" && s !== "lb";
 
 // Textes d'un morceau de gabarit qui contient du HTML : texte entre les balises et attributs lisibles
 function pieces(raw) {
@@ -51,11 +61,13 @@ export function extract(code, file = "") {
   let ast;
   try { ast = acorn.parse(code, { ecmaVersion: "latest", sourceType: "module", allowHashBang: true }); }
   catch (e) { throw new Error(`${file} : ${e.message}`); }
-  const add = raw => { for (const p of pieces(raw)) { const c = core(p); if (isText(c)) found.set(c, (found.get(c) || 0) + 1); } };
+  const add = (raw, tpl = false) => { for (const p of pieces(raw)) { const c = core(p); if (isText(c) || (tpl && numberWord(c))) found.set(c, (found.get(c) || 0) + 1); } };
   const isCode = ancestors => {
     const node = ancestors.at(-1), parent = ancestors.at(-2);
     if (!parent) return false;
     if (parent.type === "Property" && parent.key === node) return true;
+    // voix des personnages pour l'IA (jamais affichée : l'IA reçoit une consigne de langue à part)
+    if (parent.type === "Property" && (parent.key?.name || parent.key?.value) === "persona") return true;
     if (parent.type === "ImportDeclaration" || parent.type === "ExportNamedDeclaration" || parent.type === "ExportAllDeclaration" || parent.type === "ImportExpression") return true;
     if (parent.type === "MemberExpression" && parent.property === node) return true;
     if (parent.type === "BinaryExpression" && ["===", "!==", "==", "!=", "in"].includes(parent.operator)) return true;
@@ -72,7 +84,7 @@ export function extract(code, file = "") {
       const parent = ancestors.at(-2);
       if (parent?.type === "TaggedTemplateExpression" && parent.tag?.name === "String") return;
       if (isCode(ancestors)) return;
-      for (const q of node.quasis) add(q.value.cooked ?? q.value.raw);
+      for (const q of node.quasis) add(q.value.cooked ?? q.value.raw, node.quasis.length > 1);
     },
   });
   return found;

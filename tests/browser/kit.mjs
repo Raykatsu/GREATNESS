@@ -16,10 +16,10 @@ const DEFAULTS = {
   gt_friends: () => ({ friends: [] }), gt_is_admin: () => ({ admin: false }),
 };
 
-export async function openApp({ online = false, rpc = {}, colorScheme = "dark", reducedMotion = "reduce", webauthn = false } = {}) {
+export async function openApp({ online = false, rpc = {}, colorScheme = "dark", reducedMotion = "reduce", webauthn = false, locale = "fr-FR" } = {}) {
   const srv = await serve(ROOT);
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ ...devices["iPhone 13"], serviceWorkers: "block", colorScheme, reducedMotion, locale: "fr-FR", timezoneId: "Europe/Paris" });
+  const ctx = await browser.newContext({ ...devices["iPhone 13"], serviceWorkers: "block", colorScheme, reducedMotion, locale, timezoneId: "Europe/Paris" });
   await ctx.route("**/js/config.js", r => r.fulfill({ contentType: "text/javascript",
     body: `export const SUPABASE_URL = "${online ? FAKE : ""}"; export const SUPABASE_ANON_KEY = "${online ? "sb_publishable_test" : ""}"; export const VAPID_PUBLIC_KEY = ""; export const AI_FUNCTION = "coach";` }));
   await ctx.route(/fonts\.(googleapis|gstatic)|jsdelivr|storage\.googleapis|unpkg|esm\.run/, r => r.abort());

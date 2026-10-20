@@ -1332,6 +1332,8 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 .auth-hero .auth-sub { font-size: var(--fs-base); margin-top: var(--s-3); }
 .auth-cta { animation: rise var(--dur-4) var(--ease-out) .3s backwards; }
 .auth-note { margin: var(--s-4) auto 0; max-width: 34ch; }
+.auth-lang { display: flex; align-items: center; gap: 6px; margin: var(--s-3) auto 0; }
+.auth-lang svg { width: 16px; height: 16px; }
 /* Choix du compte */
 .accounts { display: grid; gap: 10px; }
 .account { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--r-md); background: var(--card); border: 1px solid var(--line); box-shadow: var(--e-1); text-align: left; transition: transform var(--dur-4) var(--spring); }

@@ -1,5 +1,6 @@
 // Onglet Séances : liste des programmes, aperçu modifiable, check-in, création de séances.
 import { EXERCISES, CATEGORIES, GOALS, EQUIP } from "./data.js";
+import { isEn, tr } from "./i18n.js";
 import { demoBtn } from "./demo.js";
 import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
@@ -302,7 +303,7 @@ export function pickExercises(onDone, { single = false, title = "Ajouter des exe
         <span class="xs muted">${EQUIP[e.equip] || ""}${e.type === "time" ? " · chrono" : ""}</span></span>
         ${e.custom ? "" : `<span class="pk-demo" data-demo="${id}" aria-hidden="true">${I.play}</span>`}<span class="add">${single ? I.swap : `${I.plus}${I.check}`}</span></button>`).join("")}</section>`).join("");
     groups = $$(".pk-group", itemsEl);
-    rows = $$(".pick-item", itemsEl).map(el => { const e = EXERCISES[el.dataset.id]; return { el, e, hay: fold(`${e.name} ${e.muscle} ${EQUIP[e.equip] || ""}`) }; });
+    rows = $$(".pick-item", itemsEl).map(el => { const e = EXERCISES[el.dataset.id]; return { el, e, hay: fold(`${e.name} ${e.muscle} ${EQUIP[e.equip] || ""}${isEn() ? ` ${tr(e.name)} ${tr(e.muscle)}` : ""}`) }; });
   };
   const filter = () => {
     const nq = fold(q).split(/\s+/).filter(Boolean);

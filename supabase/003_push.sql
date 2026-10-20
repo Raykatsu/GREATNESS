@@ -44,7 +44,7 @@ returns table(endpoint text, sub jsonb, title text, body text)
 language sql security definer set search_path = public as $$
   with s as (
     select ps.endpoint, ps.sub, ps.tz, ps.last_sent, a.data->'reminders' as r, a.data->'sessions' as sess,
-           (p_now at time zone ps.tz) as lt
+           (p_now at time zone ps.tz) as lt, coalesce(a.data->'profile'->>'lang', 'fr') = 'en' as en
     from gt_push_subs ps join gt_accounts a on a.username = ps.username
     where a.data ? 'reminders'
   ), d as (
@@ -65,8 +65,9 @@ language sql security definer set search_path = public as $$
     update gt_push_subs p set last_sent = due.lt::date from due where p.endpoint = due.endpoint returning p.endpoint
   )
   select due.endpoint, due.sub,
-         'Séance du jour : ' || (due.r->'days'->>due.dow),
-         case when due.before > 0 then 'On commence dans ' || due.before || ' min. Prépare-toi !'
+         case when due.en then 'Today''s workout: ' else 'Séance du jour : ' end || (due.r->'days'->>due.dow),
+         case when due.en then case when due.before > 0 then 'Starting in ' || due.before || ' min. Get ready!' else 'It''s time. Let''s go!' end
+              when due.before > 0 then 'On commence dans ' || due.before || ' min. Prépare-toi !'
               else 'C''est l''heure. On y va ?' end
   from due join upd on upd.endpoint = due.endpoint;
 $$;

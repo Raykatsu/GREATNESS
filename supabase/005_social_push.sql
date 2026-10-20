@@ -34,7 +34,8 @@ declare
 begin
   delete from gt_social_sent where at < p_now - interval '21 days';
   for u in
-    select a.username, a.public as p, coalesce(a.data->'duels', '[]'::jsonb) as duels, min(ps.tz) as tz
+    select a.username, a.public as p, coalesce(a.data->'duels', '[]'::jsonb) as duels, min(ps.tz) as tz,
+           bool_or(coalesce(a.data->'profile'->>'lang', 'fr') = 'en') as en
       from gt_accounts a join gt_push_subs ps on ps.username = a.username
      group by a.username, a.public, a.data->'duels'
   loop
@@ -57,9 +58,12 @@ begin
          and not exists (select 1 from jsonb_array_elements(u.duels) m where m->>'u' = f.friend and abs((m->>'w')::double precision - ws) < 172800000)
          and not exists (select 1 from gt_social_sent s where s.username = u.username and s.key = 'inv:' || f.friend || ':' || wk) then
         k := 'inv:' || f.friend || ':' || wk;
-        t := '⚔️ ' || f.fname || ' te défie en duel';
-        b := 'Épreuve : ' || case d->>'m' when 'count' then 'nombre de séances' when 'minutes' then 'temps d''entraînement' when 'prs' then 'records battus' else 'volume soulevé' end
-             || ' jusqu''à dimanche. Ouvre GREATNESS pour relever le défi !';
+        t := '⚔️ ' || f.fname || case when u.en then ' challenged you to a duel' else ' te défie en duel' end;
+        b := case when u.en
+             then 'Event: ' || case d->>'m' when 'count' then 'number of workouts' when 'minutes' then 'training time' when 'prs' then 'PRs broken' else 'volume lifted' end
+               || ' until Sunday. Open GREATNESS to take on the challenge!'
+             else 'Épreuve : ' || case d->>'m' when 'count' then 'nombre de séances' when 'minutes' then 'temps d''entraînement' when 'prs' then 'records battus' else 'volume soulevé' end
+               || ' jusqu''à dimanche. Ouvre GREATNESS pour relever le défi !' end;
         exit;
       end if;
       -- 2. dépassé au classement (volume de la semaine), une fois par ami et par semaine
@@ -71,8 +75,9 @@ begin
          and exists (select 1 from gt_social_sent s where s.username = u.username and s.key = 'ahead:' || f.friend || ':' || wk)
          and not exists (select 1 from gt_social_sent s where s.username = u.username and s.key = 'over:' || f.friend || ':' || wk) then
         k := 'over:' || f.friend || ':' || wk;
-        t := '⚡ ' || f.fname || ' t''a dépassé';
-        b := f.fname || ' : ' || replace(to_char(fv, 'FM999,999,999'), ',', ' ') || ' kg cette semaine, toi ' || replace(to_char(myv, 'FM999,999,999'), ',', ' ') || ' kg. À toi de jouer !';
+        t := '⚡ ' || f.fname || case when u.en then ' passed you' else ' t''a dépassé' end;
+        b := case when u.en then f.fname || ': ' || to_char(fv, 'FM999,999,999') || ' kg this week, you ' || to_char(myv, 'FM999,999,999') || ' kg. Your move!'
+             else f.fname || ' : ' || replace(to_char(fv, 'FM999,999,999'), ',', ' ') || ' kg cette semaine, toi ' || replace(to_char(myv, 'FM999,999,999'), ',', ' ') || ' kg. À toi de jouer !' end;
         exit;
       end if;
       -- 3. dimanche soir : dernières heures d'un duel où l'on est derrière
@@ -84,8 +89,8 @@ begin
         if d is not null and gt_week_val(f.fp, ws, d->>'m') > gt_week_val(u.p, ws, d->>'m')
            and not exists (select 1 from gt_social_sent s where s.username = u.username and s.key = 'end:' || f.friend || ':' || wk) then
           k := 'end:' || f.friend || ':' || wk;
-          t := '⏳ Dernières heures du duel';
-          b := f.fname || ' mène encore. Une dernière séance ce soir pour repasser devant ?';
+          t := case when u.en then '⏳ Last hours of the duel' else '⏳ Dernières heures du duel' end;
+          b := f.fname || case when u.en then ' is still ahead. One last workout tonight to take the lead?' else ' mène encore. Une dernière séance ce soir pour repasser devant ?' end;
           exit;
         end if;
       end if;

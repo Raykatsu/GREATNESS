@@ -6,6 +6,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { mergeData, differs } from "./merge.js";
 import { state, setUser, clearUser, save, readLocal, setSaveHook, currentUser, publicSummary, reminderPlan } from "./store.js";
+import { getLang } from "./i18n.js";
 
 export const isOnlineMode = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const USERNAME_RE = /^[a-z0-9_.-]{3,20}$/;
@@ -210,6 +211,7 @@ export async function push() {
   clearTimeout(pushTimer);
   const data = structuredClone(state);
   data.profile.aiKey = "";
+  data.profile.lang = getLang(); // les notifications du serveur partent dans la langue de l'app
   data.public = publicSummary();
   data.reminders = reminderPlan();
   setStatus("syncing");

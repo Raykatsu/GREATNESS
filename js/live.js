@@ -26,7 +26,7 @@ import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
 import { mascot } from "./mascot.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
-import { voiceLang } from "./i18n.js";
+import { voiceLang, tr } from "./i18n.js";
 
 let S = null, ui = null, tick = null, wakeLock = null, rest = null, showCues = false, onExit = null, justDone = -1;
 const overlay = () => $("#overlay");
@@ -126,8 +126,9 @@ function begin(exit) {
   // duo à distance : l'autre voit où j'en suis, et moi où il en est
   startDuo(duoMine);
   // téléphone verrouillé pendant un repos : « Repos terminé » arrive en notification à la fin du repos
-  watchRest(() => rest && S?.current ? { end: rest.end, title: "Repos terminé : c'est reparti !",
-    body: `${S.current.name} · série ${S.current.done.length + 1}${S.current.type === "load" ? ` · ${fmtKg(S.current.weight)} kg` : ""} × ${S.current.goal}${S.current.type === "time" ? " s" : ""}` } : null);
+  // (hors de la page : traduit ici si l'app est en anglais)
+  watchRest(() => rest && S?.current ? { end: rest.end, title: tr("Repos terminé : c'est reparti !"),
+    body: tr(`${S.current.name} · série ${S.current.done.length + 1}${S.current.type === "load" ? ` · ${fmtKg(S.current.weight)} kg` : ""} × ${S.current.goal}${S.current.type === "time" ? " s" : ""}`) } : null);
   if (!S.log.length || S.log[0].title !== S.verdict.label) S.push({ kind: S.verdict.tone, title: S.verdict.label, text: S.verdict.text });
   resetInputs();
   render();
@@ -475,8 +476,8 @@ function startRest(sec) {
 function liveRest() {
   if (!isNative()) return;
   const n = S?.current;
-  nativeRestLive(rest && n ? { start: rest.end - rest.total * 1000, end: rest.end, title: n.name,
-    detail: `Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}` } : null);
+  nativeRestLive(rest && n ? { start: rest.end - rest.total * 1000, end: rest.end, title: tr(n.name),
+    detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`) } : null);
 }
 
 // La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.

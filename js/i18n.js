@@ -52,12 +52,22 @@ export function polish(s) {
     .replace(/(\d)[  ](\d{3})(?!\d)/g, "$1,$2");
 }
 
+// Pluriel anglais d'un mot traduit (« tranches » absent du dictionnaire → « tranche » → « slice » → « slices »)
+const plural = w => (/[^aeiou]y$/i.test(w) ? w.slice(0, -1) + "ies" : /(s|x|z|ch|sh)$/i.test(w) ? w + "es" : w + "s");
+const up = s => s.charAt(0).toUpperCase() + s.slice(1), low = s => s.charAt(0).toLowerCase() + s.slice(1);
+// Un texte entier connu, tel quel ou avec sa première lettre en majuscule (certains conseils sont mis en minuscule)
+function whole(c) {
+  const e = dict.get(c);
+  if (e !== undefined) return e;
+  if (/^\p{Ll}/u.test(c)) { const u = dict.get(up(c)); if (u !== undefined) return low(u); }
+  return undefined;
+}
 // Traduit un texte : en entier s'il est connu, sinon morceau par morceau (le plus long morceau connu à chaque mot)
 export function tr(s) {
   if (!dict || !s) return s;
   const hasWord = /\p{L}/u.test(s);
-  if (!hasWord) return /\d[, ]\d/.test(s) ? polish(s) : s;
-  const c = s.trim(), exact = dict.get(c);
+  if (!hasWord) return /\d[, ]\d/.test(s) ? polish(s) : s;
+  const c = s.trim(), exact = whole(c);
   if (exact !== undefined) return polish(s.replace(c, exact));
   let out = "", i = 0, changed = false;
   const n = s.length;
@@ -65,21 +75,30 @@ export function tr(s) {
     if (WORD.test(s[i]) && (i === 0 || !WORD.test(s[i - 1]))) {
       let j = i + 1;
       while (j < n && WORD.test(s[j])) j++;
-      const cands = index.get(s.slice(i, j));
-      let hit = null;
-      if (cands) for (const k of cands) {
-        if (!s.startsWith(k, i)) continue;
-        const after = s[i + k.length];
-        if (after && WORD.test(after) && WORD.test(k[k.length - 1])) continue; // mot entier seulement
-        hit = k; break;
+      const w = s.slice(i, j);
+      let hit = null, cap = false;
+      for (const [key, c2] of [[w, false], [/^\p{Ll}/u.test(w) ? up(w) : null, true]]) {
+        const cands = key && index.get(key);
+        if (!cands) continue;
+        for (const k of cands) {
+          const k2 = c2 ? low(k) : k;
+          if (!s.startsWith(k2, i)) continue;
+          const after = s[i + k2.length];
+          if (after && WORD.test(after) && WORD.test(k2[k2.length - 1])) continue; // mot entier seulement
+          hit = k; cap = c2; break;
+        }
+        if (hit) break;
       }
-      if (hit) { out += dict.get(hit); i += hit.length; changed = true; continue; }
-      out += s.slice(i, j); i = j;
+      if (hit) { const e = dict.get(hit); out += cap ? low(e) : e; i += hit.length; changed = true; continue; }
+      // pluriel d'un mot connu au singulier
+      const sing = w.length > 3 && /s$/.test(w) ? w.slice(0, -1) : null, e = sing ? dict.get(sing) ?? (/^\p{Ll}/u.test(sing) ? dict.get(up(sing)) : undefined) : undefined;
+      if (typeof e === "string" && !/\s/.test(e)) { out += plural(/^\p{Ll}/u.test(sing) && dict.get(sing) === undefined ? low(e) : e); i = j; changed = true; continue; }
+      out += w; i = j;
       continue;
     }
     out += s[i++];
   }
-  return changed ? polish(out) : /\d[, ]\d/.test(s) ? polish(s) : s;
+  return changed ? polish(out) : /\d[, ]\d/.test(s) ? polish(s) : s;
 }
 
 /* ---------- Écran ---------- */

@@ -4,7 +4,7 @@
 import { isOnlineMode, friendCall, MESSAGES } from "./cloud.js";
 import { vibrate } from "./fx.js";
 import { $, esc, I, sheet, toast } from "./ui.js";
-import { LOC } from "./i18n.js";
+import { LOC, tr } from "./i18n.js";
 
 const KEY = "greatness.duo";
 Object.assign(MESSAGES, { NO_ROOM: "Code inconnu ou duo terminé.", FULL: "Ce duo est déjà complet.", NOT_MEMBER: "Tu ne fais pas partie de ce duo.", BAD_EMOJI: "Encouragement inconnu." });
@@ -118,7 +118,7 @@ export function openDuo(onReady) {
         <div class="grid2 mt"><button class="btn btn-primary" id="duo-share">${I.send} Envoyer le code</button><button class="btn btn-soft" id="duo-ok">${I.check} C'est bon</button></div>
         <button class="btn btn-ghost btn-sm danger mt-s" id="duo-quit">${I.x} Quitter le duo</button>`;
       $("#duo-share", body).onclick = async () => {
-        const text = `On s'entraîne en duo sur GREATNESS ? Ouvre ta séance, touche « Duo » et tape le code ${duo.code}`;
+        const text = tr(`On s'entraîne en duo sur GREATNESS ? Ouvre ta séance, touche « Duo » et tape le code ${duo.code}`);
         try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast("Invitation copiée ✓"); } } catch { /* partage annulé */ }
       };
       $("#duo-ok", body).onclick = () => sh.close();

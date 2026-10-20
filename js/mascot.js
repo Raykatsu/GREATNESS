@@ -316,6 +316,7 @@ class Coach {
     if (!this.enabled || document.hidden) return;
     this.blinkT = setTimeout(() => {
       if (!this.sleeping) { this.svg.classList.add("blink"); setTimeout(() => this.svg.classList.remove("blink"), 130); }
+      if (!this.busy) this.checkCover(); // l'écran a pu changer sous lui (étape suivante, bouton apparu)
       this.blinkLoop();
     }, rnd(2400, 5600));
   }
@@ -703,22 +704,26 @@ class Coach {
     }, delay);
   }
 
-  /* ---------- En séance : ne jamais cacher les commandes ---------- */
+  /* ---------- Ne jamais bloquer un bouton ---------- */
   onScroll() {
-    if (this.ctx !== "live" || !this.enabled) return;
+    if (!this.enabled) return;
     clearTimeout(this.scrollT);
     this.scrollT = setTimeout(() => this.checkCover(), 140);
   }
 
-  // S'il se retrouve devant un réglage ou le bouton du bas, il s'efface (et laisse passer les doigts).
+  // S'il se retrouve devant un bouton, un champ ou un réglage, il s'efface et laisse passer les doigts
+  // (en séance : les réglages de la série et le bouton du bas ; ailleurs : tout ce qui se touche).
   checkCover() {
-    if (!this.enabled || this.ctx !== "live" || this.dragging) return this.ghost(false);
+    if (!this.enabled || this.dragging) return this.ghost(false);
+    const live = this.ctx === "live";
     const v = Math.abs(Math.sin((this.rot * Math.PI) / 180)) > 0.7;
     const w = (v ? H : W) * 0.78, h = (v ? W : H) * 0.78;
     const me = { l: this.x - w / 2, r: this.x + w / 2, t: this.y - h / 2, b: this.y + h / 2 };
     const onLedge = this.surface === "floor";
-    const hit = [...document.querySelectorAll(".stepper, [data-s], #dock button, #rest")].some(e => {
-      if (onLedge && e.closest("#dock")) return false; // posé dessus, pas devant
+    const sel = live ? ".stepper, [data-s], #dock button, #rest, .live-head button" : "button, a[href], input, select, textarea, [role=button], .tap";
+    const hit = [...document.querySelectorAll(sel)].some(e => {
+      if (live && onLedge && e.closest("#dock")) return false; // posé dessus, pas devant
+      if (e.closest(".tabbar, .mascot, .mascot-bubble")) return false; // la barre d'onglets lui sert de sol
       const q = e.getBoundingClientRect();
       return q.width && me.l < q.right && me.r > q.left && me.t < q.bottom && me.b > q.top;
     });
@@ -825,9 +830,10 @@ class Coach {
     if (ctx === "live") this.wake();
     else { this.ghost(false); this.unpeek(); }
     if (!this.enabled || this.hanging) return;
-    if (ctx === "live" && this.peeker) return this.run(() => this.lurk());
+    // (s'il est en plein mouvement, on attend la fin plutôt que de rester au milieu des commandes)
+    if (ctx === "live" && this.peeker) return this.waitIdle().then(() => this.run(() => this.lurk()));
     const p = ctx === "live" ? this.livePerch() : this.perch(this.travel === "fly" ? pick(["air", "floor"]) : "floor");
-    this.run(async () => { await (reduced() ? this.goto(p, 0) : this.moveTo(p)); this.checkCover(); });
+    this.waitIdle().then(() => this.run(async () => { await (reduced() ? this.goto(p, 0) : this.moveTo(p)); }));
   }
 
   // Après un changement d'écran : se repose sur le "sol" (au-dessus de la barre d'onglets).
@@ -840,12 +846,13 @@ class Coach {
     if (this.surface === "air") { if (this.y > b.floor - H / 2 - 30) this.run(() => this.moveTo(this.perch("air"))); return; }
     if (this.surface === "floor" && Math.abs(this.y - (b.floor - H / 2)) > 3) this.run(() => this.goto({ x: this.x, y: b.floor - H / 2, rot: 0, surface: "floor" }, 350, ease.out));
     else if (this.y > b.floor - H / 2 + 3) this.run(() => this.moveTo(this.perch("floor")));
+    else setTimeout(() => this.checkCover(), 120); // nouvel écran : peut-être un bouton juste sous lui
   }
 
   async run(fn) {
     if (this.busy) return;
     this.busy = true;
-    try { await fn(); } finally { this.busy = false; }
+    try { await fn(); } finally { this.busy = false; this.checkCover(); }
   }
 
   sound() {
@@ -878,7 +885,6 @@ class Coach {
     let r = Math.random() * total;
     const fn = options.find(o => (r -= o[1]) < 0)[0];
     await this.run(fn);
-    if (live) this.checkCover();
     this.schedule();
   }
 

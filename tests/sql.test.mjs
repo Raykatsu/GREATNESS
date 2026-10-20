@@ -430,3 +430,21 @@ test("retours des utilisateurs : envoi signé ou anonyme, bornés, lisibles seul
   await db.exec("delete from gt_accounts where username = 'fbuser'");
   assert.equal((await call("gt_feedback_list", boss, 50)).feedback.find(f => f.kind === "bug").username, "");
 });
+
+test("notifications en anglais pour un compte dont l'app est en anglais", async () => {
+  const k = (await call("gt_signup", "kai", "2580")).token;
+  await call("gt_push_subscribe", k, { endpoint: "https://push.example/kai", keys: { p256dh: "x", auth: "y" } }, "Europe/London");
+  const due = async iso => (await db.query("select * from gt_push_due($1)", [iso])).rows.filter(r => r.endpoint.endsWith("/kai"));
+  const water = async iso => (await db.query("select * from gt_push_water($1)", [iso])).rows.filter(r => r.endpoint.endsWith("/kai"));
+  // lundi 19 octobre 2026, séance à 18:00 (heure de Londres), rappel 15 min avant
+  await call("gt_push", k, JSON.stringify({ profile: { lang: "en" }, sessions: [], food: { "2026-10-19": { items: [], water: 0 } },
+    reminders: { at: "18:00", before: 15, days: { 0: "Upper body" }, water: { from: "09:00", to: "21:00", every: 2, goal: 10 } } }));
+  const r = await due("2026-10-19T16:50:00Z");
+  assert.equal(r.length, 1);
+  assert.equal(r[0].title, "Today's workout: Upper body");
+  assert.equal(r[0].body, "Starting in 15 min. Get ready!");
+  const w = await water("2026-10-19T10:00:00Z");
+  assert.equal(w[0].title, "Time to drink 💧");
+  assert.equal(w[0].body, "You're at 0 L of 2.5 L today. A big glass?");
+  await db.query("select gt_push_gone($1)", [["https://push.example/kai"]]);
+});

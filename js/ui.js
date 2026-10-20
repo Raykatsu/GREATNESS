@@ -16,6 +16,7 @@ export const fmtNum = n => Math.round(n).toLocaleString(LOC());
 
 const ic = (d, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
 export const I = {
+  globe: ic('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.6 3.5 5.4 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.4-3.5-8.5s1.1-5.9 3.5-8.5z"/>'),
   chev: ic('<path d="m9 6 6 6-6 6"/>'),
   back: ic('<path d="m15 6-6 6 6 6"/>'),
   x: ic('<path d="M18 6 6 18M6 6l12 12"/>'),

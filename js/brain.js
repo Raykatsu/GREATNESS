@@ -13,7 +13,7 @@ import { goalsContext } from "./goals.js";
 import { healthContext } from "./health.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
-import { LOC } from "./i18n.js";
+import { LOC, isEn, tr } from "./i18n.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -28,7 +28,7 @@ const ALIASES = {
 };
 export function findExercise(q) {
   const t = norm(q);
-  for (const [id, ex] of Object.entries(EXERCISES)) if (t.includes(norm(ex.name))) return id;
+  for (const [id, ex] of Object.entries(EXERCISES)) if (t.includes(norm(ex.name)) || (isEn() && t.includes(norm(tr(ex.name))))) return id;
   for (const [id, keys] of Object.entries(ALIASES)) if (keys.some(k => t.includes(k))) return id;
   return null;
 }

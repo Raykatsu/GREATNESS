@@ -5,6 +5,7 @@ import { legacyData, LEGACY_KEY } from "./store.js";
 import { mascot } from "./mascot.js";
 import { ringsSvg } from "./fx.js";
 import { $, $$, esc, I, coachIcon, toast, confirmSheet, sheet } from "./ui.js";
+import { EN_READY, getLang, setLang } from "./i18n.js";
 
 let view, done, mode, ctx, sayTimer;
 // Petite phrase du coach, annulée si on change d'écran entre-temps.
@@ -47,9 +48,11 @@ function welcome() {
       <button class="btn btn-primary btn-lg btn-block" id="new">Créer mon compte</button>
       <button class="btn btn-soft btn-lg btn-block mt-s" id="have">J'ai déjà un compte</button>
       <p class="xs dim center auth-note">${isOnlineMode() ? "Ton compte est synchronisé : retrouve-le sur n'importe quel téléphone." : "Les comptes sont enregistrés sur cet appareil, protégés par un code secret."}</p>
+      ${EN_READY ? `<button class="btn btn-ghost btn-sm auth-lang" id="lang" translate="no" lang="${getLang() === "en" ? "fr" : "en"}">${I.globe}${getLang() === "en" ? "Version française" : "English version"}</button>` : ""}
     </div></div>`;
   $("#new").onclick = () => go("signup");
   $("#have").onclick = () => go("login");
+  $("#lang")?.addEventListener("click", () => setLang(getLang() === "en" ? "fr" : "en"));
   sayLater("Salut ! Crée ton compte, je m'occupe du reste.", 900, { mood: "happy" });
 }
 
