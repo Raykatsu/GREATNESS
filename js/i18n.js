@@ -13,6 +13,17 @@ export const LOC = () => (lang === "en" ? "en-US" : "fr-FR"); // dates et nombre
 export const voiceLang = () => (lang === "en" ? "en-US" : "fr-FR");
 // nombre décimal à afficher : 77,5 en français, 77.5 en anglais
 export const dec = x => (lang === "en" ? String(x) : String(x).replace(".", ","));
+// rang : « 1er », « 2e » / « 1st », « 2nd »
+export const ordinal = n => {
+  if (lang !== "en") return n === 1 ? "1er" : `${n}e`;
+  const t = n % 100, u = n % 10;
+  return `${n}${t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"}`;
+};
+// il y a… : « il y a 5 min » / « 5 min. ago » (secondes écoulées)
+export function ago(sec) {
+  const f = new Intl.RelativeTimeFormat(LOC(), { style: "short", numeric: "always" }), s = Math.max(0, Math.round(sec));
+  return s < 60 ? f.format(-s, "second") : s < 3600 ? f.format(-Math.round(s / 60), "minute") : s < 86400 ? f.format(-Math.round(s / 3600), "hour") : f.format(-Math.round(s / 86400), "day");
+}
 
 // Langue choisie sur cet appareil, sinon celle du téléphone (français si elle est française, anglais sinon)
 export function detectLang(stored = readStored(), nav = typeof navigator !== "undefined" ? (navigator.languages?.[0] || navigator.language || "fr") : "fr", ready = EN_READY) {
@@ -53,11 +64,14 @@ export function polish(s) {
 }
 
 // Pluriel anglais d'un mot traduit (« tranches » absent du dictionnaire → « tranche » → « slice » → « slices »)
-const plural = w => (/[^aeiou]y$/i.test(w) ? w.slice(0, -1) + "ies" : /(s|x|z|ch|sh)$/i.test(w) ? w + "es" : w + "s");
-const up = s => s.charAt(0).toUpperCase() + s.slice(1), low = s => s.charAt(0).toLowerCase() + s.slice(1);
+// (les adjectifs et participes ne prennent pas de « s » en anglais : « récupérés » → « recovered »)
+const plural = w => (/(ed|ing|ly|ful|ive|al|ous|able|ible|ic|less|est|er)$/i.test(w) ? w : /[^aeiou]y$/i.test(w) ? w.slice(0, -1) + "ies" : /(s|x|z|ch|sh)$/i.test(w) ? w + "es" : w + "s");
+// (sauf sigles et noms propres anglais : « PRs », « Saturday », « I »)
+const up = s => s.charAt(0).toUpperCase() + s.slice(1);
+const low = s => (/^(\p{Lu}{2}|(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December|I|GREATNESS|Apple|Face ID|Coach)\b)/u.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 // Un texte entier connu, tel quel ou avec sa première lettre en majuscule (certains conseils sont mis en minuscule)
 function whole(c) {
-  const e = dict.get(c);
+  const e = dict.get(c) ?? (/\s\s|\n/.test(c) ? dict.get(c.replace(/\s+/g, " ")) : undefined);
   if (e !== undefined) return e;
   if (/^\p{Ll}/u.test(c)) { const u = dict.get(up(c)); if (u !== undefined) return low(u); }
   return undefined;

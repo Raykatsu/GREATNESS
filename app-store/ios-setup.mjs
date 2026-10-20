@@ -20,6 +20,21 @@ const KEYS = {
   NSHealthUpdateUsageDescription: "GREATNESS n'écrit rien dans Santé.",
   NSFaceIDUsageDescription: "Face ID déverrouille ton compte GREATNESS à la place de ton code secret. Rien ne quitte ton téléphone.",
 };
+// Les mêmes textes en anglais (iPhone réglé en anglais) : en.lproj/InfoPlist.strings, ajouté au projet par ios-widgets.rb
+const KEYS_EN = {
+  NSCameraUsageDescription: "The camera counts your reps, measures your bar speed and corrects your form live. Images stay on your phone.",
+  NSMicrophoneUsageDescription: "The microphone powers hands-free mode: say “set done” or “go” without touching the screen.",
+  NSSpeechRecognitionUsageDescription: "Speech recognition understands your commands during the workout (hands-free mode).",
+  NSPhotoLibraryUsageDescription: "To pick a video of your set (form analysis), a meal photo or a progress photo.",
+  NSHealthShareUsageDescription: "GREATNESS reads your sleep, heart rate variability, resting heart rate, steps, weight and active energy to prefill your readiness check and adapt your workouts.",
+  NSHealthUpdateUsageDescription: "GREATNESS doesn't write anything to Health.",
+  NSFaceIDUsageDescription: "Face ID unlocks your GREATNESS account instead of your PIN. Nothing leaves your phone.",
+};
+const strings = keys => Object.entries(keys).map(([k, v]) => `"${k}" = "${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}";`).join("\n") + "\n";
+for (const [l, keys] of [["fr", KEYS], ["en", KEYS_EN]]) {
+  fs.mkdirSync(path.join(app, "App", `${l}.lproj`), { recursive: true });
+  fs.writeFileSync(path.join(app, "App", `${l}.lproj`, "InfoPlist.strings"), strings(keys));
+}
 let p = fs.readFileSync(plist, "utf8");
 const setKey = (k, xml) => {
   const re = new RegExp(`\\s*<key>${k}</key>\\s*(<string>[\\s\\S]*?</string>|<true/>|<false/>|<array>[\\s\\S]*?</array>)`);

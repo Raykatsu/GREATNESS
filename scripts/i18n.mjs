@@ -18,7 +18,7 @@ const CODE_CALLS = new Set(["$", "$$", "querySelector", "querySelectorAll", "get
   "friendCall", "import", "createElement", "setProperty", "getPropertyValue", "dispatchEvent", "plugin", "registerPlugin", "postMessage", "require", "load",
   "startsWith", "endsWith", "includes", "indexOf", "split", "join", "replace", "replaceAll", "match", "test", "padStart", "padEnd", "toLocaleString",
   "toLocaleDateString", "toLocaleTimeString", "Intl", "DateTimeFormat", "NumberFormat", "getContext", "toDataURL", "toBlob", "insertAdjacentHTML", "cpSync"]);
-const FRENCH_WORDS = /\b(le|la|les|des|du|de|un|une|et|ou|pour|avec|sans|ton|ta|tes|mon|ma|mes|est|sur|pas|plus|au|aux|en|ce|cette|ces|il|elle|on|je|tu|nous|vous|qui|que|quoi|dans|par|son|sa|ses|leur|chaque|tout|tous|toute|toutes|déjà|encore|aussi|très|bien|fois|jour|jours|semaine|séance|séances|série|séries|repos|charge|objectif|minutes|secondes|kilos)\b/i;
+const FRENCH_WORDS = /\b(le|la|les|des|du|de|un|une|et|ou|pour|avec|sans|ton|ta|tes|mon|ma|mes|est|sur|pas|plus|au|aux|en|ce|cette|ces|il|elle|on|je|tu|nous|vous|qui|que|quoi|dans|par|son|sa|ses|leur|chaque|tout|tous|toute|toutes|déjà|encore|aussi|très|bien|fois|jour|jours|semaine|séance|séances|série|séries|repos|charge|objectif|minutes|secondes|kilos|exercice|exercices|restant|restants|restante|restantes)\b/i;
 
 // Morceau de texte → sa forme de référence (espaces réduits, ponctuation de bord retirée)
 export function core(s) {
@@ -29,7 +29,7 @@ export function core(s) {
 export function isText(s) {
   if (!s || s.length < 2 || !/\p{L}/u.test(s)) return false;
   if (/[{};<>]|=>|(?<! )=|=(?! )|\bvar\(--|^https?:|^data:|^#|^\.[a-z]|^[\w-]+\/[\w./-]+$|\.(js|css|png|svg|json|html)$|\d+px\b|sans-serif|system-ui|rgba?\(|translate\(|cubic-bezier/i.test(s)) return false;
-  if (/[à-ÿœæ«»]/i.test(s)) return true;
+  if (/[à-ÿœæ«»]/i.test(s) || /\p{L}\(s\)/u.test(s)) return true; // accents, ou pluriel « exercice(s) »
   if (FRENCH_WORDS.test(s) && /\s/.test(s)) return true;
   // libellés : « Valider », « Mes séances », « Dos plat ! », « Presse pectoraux (machine) », « Maison · Bas »
   if (/^\p{Lu}[\p{Ll}'’-]{2,}([\s,·&/()+:%–!?.…-]+[\p{L}\p{N}'’-]+)*\)?\s?[.!?…]*$/u.test(s)) return true;
@@ -46,8 +46,9 @@ export const NUMBER_WORDS = new Set(["jour", "jours", "temps", "compte", "second
 const numberWord = s => NUMBER_WORDS.has(s) && s !== "kg" && s !== "lb";
 
 // Textes d'un morceau de gabarit qui contient du HTML : texte entre les balises et attributs lisibles
+// (un texte sur plusieurs lignes s'affiche ligne par ligne : une clé par ligne)
 function pieces(raw) {
-  if (!raw.includes("<") && !raw.includes(">")) return [raw];
+  if (!raw.includes("<") && !raw.includes(">")) return raw.split(/\n+/);
   const out = [];
   for (const m of raw.matchAll(/\b(?:placeholder|aria-label|title|alt|data-label)="([^"$]*)"/g)) out.push(m[1]);
   // texte hors balises (un morceau peut commencer ou finir au milieu d'une balise : on retire ces bouts)
@@ -56,12 +57,14 @@ function pieces(raw) {
   return out;
 }
 
+// Textes sur plusieurs lignes vus pendant l'extraction : forme aplatie → texte d'origine (pour découper leurs traductions)
+export const MULTI = new Map();
 export function extract(code, file = "") {
   const found = new Map();
   let ast;
   try { ast = acorn.parse(code, { ecmaVersion: "latest", sourceType: "module", allowHashBang: true }); }
   catch (e) { throw new Error(`${file} : ${e.message}`); }
-  const add = (raw, tpl = false) => { for (const p of pieces(raw)) { const c = core(p); if (isText(c) || (tpl && numberWord(c))) found.set(c, (found.get(c) || 0) + 1); } };
+  const add = (raw, tpl = false) => { if (/\n/.test(raw)) MULTI.set(core(raw), raw); for (const p of pieces(raw)) { const c = core(p); if (isText(c) || (tpl && numberWord(c))) found.set(c, (found.get(c) || 0) + 1); } };
   const isCode = ancestors => {
     const node = ancestors.at(-1), parent = ancestors.at(-2);
     if (!parent) return false;

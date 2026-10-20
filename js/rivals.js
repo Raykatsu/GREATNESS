@@ -1,7 +1,7 @@
 // Défis entre amis, sans serveur dédié : chacun publie dans son résumé public sa semaine en cours, sa
 // semaine passée, ses duels et ses derniers records. Ici, la logique pure (testée dans Node) : défi de la
 // semaine, duels 1 contre 1, et fil d'actus calculé en comparant avec ce qu'on avait déjà vu.
-import { LOC } from "./i18n.js";
+import { LOC, ordinal } from "./i18n.js";
 const DAY = 864e5, WEEK = 7 * DAY;
 const fmt = n => Math.round(n || 0).toLocaleString(LOC());
 
@@ -107,8 +107,8 @@ export function computeEvents(social = {}, { me, mine, myDuels = [], friends = [
       ...friends.map(f => ({ u: f.username, name: nameOf(f), v: M.val(weekOf(f.public, prevWeek)) }))].sort((a, b) => b.v - a.v);
     if (rows[0].v > 0) {
       const rank = rows.findIndex(r => r.u === me) + 1, top = rows[0];
-      events.push(mk("weekly", me, rank === 1 ? `Défi de la semaine dernière (${ch.name.replace(" cette semaine", "")}) : tu termines 1er sur ${rows.length} 👑 ${M.fmt(top.v)}.`
-        : `Défi de la semaine dernière (${ch.name.replace(" cette semaine", "")}) : tu termines ${rank}e sur ${rows.length}. Victoire de ${top.name} avec ${M.fmt(top.v)}.`, now, { rank }));
+      events.push(mk("weekly", me, rank === 1 ? `Défi de la semaine dernière (${ch.name.replace(" cette semaine", "")}) : tu termines ${ordinal(1)} sur ${rows.length} 👑 ${M.fmt(top.v)}.`
+        : `Défi de la semaine dernière (${ch.name.replace(" cette semaine", "")}) : tu termines ${ordinal(rank)} sur ${rows.length}. Victoire de ${top.name} avec ${M.fmt(top.v)}.`, now, { rank }));
     }
   }
   const feed = [...events, ...(social.feed || [])].filter((e, i, a) => a.findIndex(x => x.id === e.id) === i).sort((a, b) => b.at - a.at).slice(0, 30);

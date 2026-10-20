@@ -6,7 +6,7 @@ import { weeklyChallenge, METRICS, duelWith, duelScore, computeEvents, unread, d
 import { DIVS, PTS, SAFE, MIN_UP, SOLO_UP, SEASON_WEEKS, seasonOf, seasonPoints, standings, settleLeague, resultText, nextStep, daysLeft as seasonDaysLeft } from "./league.js";
 import { mascot } from "./mascot.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, fmtTime } from "./ui.js";
-import { LOC, tr } from "./i18n.js";
+import { LOC, tr, ordinal, ago as agoTxt } from "./i18n.js";
 
 export { weeklyChallenge };
 // Les stats "semaine" d'un ami ne comptent que si elles datent de cette semaine.
@@ -107,7 +107,7 @@ function leagueRules() {
       <div><span>Défi de la semaine réussi</span><b>+${PTS.challenge}</b></div></div>
     <p class="small mt">En fin de saison, le premier tiers du classement entre amis monte d'une division (avec au moins ${MIN_UP} points), le dernier tiers descend (sauf à partir de ${SAFE} points). À moins de 3, tu montes en atteignant le palier de ta division.</p>
     <div class="lg-ladder mt">${DIVS.map((d, i) => `<div class="${i === div ? "on" : ""}"><span>${d.icon}</span><b>${d.name}</b><small class="muted">${i === div ? "ta division" : Number.isFinite(SOLO_UP[i]) ? `palier ${SOLO_UP[i]} pts` : "le sommet"}</small></div>`).join("")}</div>
-    ${hist.length ? `<div class="eyebrow mt">Tes saisons</div><div class="card card-list">${hist.map(h => `<div class="lg-h"><span>Saison ${h.s}</span><span class="grow muted small">${h.n >= 3 ? `${h.rank === 1 ? "1er" : `${h.rank}e`} sur ${h.n} · ` : ""}${h.pts} pts</span><b>${h.move > 0 ? "⬆️" : h.move < 0 ? "⬇️" : "＝"} ${DIVS[h.to].icon}</b></div>`).join("")}</div>` : ""}`, { z: 70 });
+    ${hist.length ? `<div class="eyebrow mt">Tes saisons</div><div class="card card-list">${hist.map(h => `<div class="lg-h"><span>Saison ${h.s}</span><span class="grow muted small">${h.n >= 3 ? `${ordinal(h.rank)} sur ${h.n} · ` : ""}${h.pts} pts</span><b>${h.move > 0 ? "⬆️" : h.move < 0 ? "⬇️" : "＝"} ${DIVS[h.to].icon}</b></div>`).join("")}</div>` : ""}`, { z: 70 });
 }
 
 export function markSocialRead() {
@@ -127,8 +127,7 @@ function feedHtml() {
 const ago = t => {
   const m = Math.round((Date.now() - t) / 60000);
   if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
-  if (m < 1440) return `il y a ${Math.round(m / 60)} h`;
+  if (m < 1440) return agoTxt((Date.now() - t) / 1000);
   return new Date(t).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "short" });
 };
 

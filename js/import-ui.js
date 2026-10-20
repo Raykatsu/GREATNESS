@@ -79,7 +79,7 @@ function preview(sh, out, name, text, onDone) {
       if (!w.sessions.length) { out.innerHTML = errBox("Aucune séance trouvée dans ce fichier."); return; }
       const sets = w.sessions.reduce((a, s) => a + s.sets.length, 0), exos = new Set(w.sessions.flatMap(s => s.sets.map(x => x.exId))).size;
       lines = [[I.flame, plural(w.sessions.length, "séance"), `du ${fmtD(w.sessions[0].date)} au ${fmtD(w.sessions.at(-1).date)} · ${plural(sets, "série")}`],
-        [I.check, plural(exos - w.unknown.length, "exercice reconnu", "exercices reconnus"), w.unknown.length ? `${plural(w.unknown.length, "nouveau", "nouveaux")} créé${w.unknown.length > 1 ? "s" : ""} comme exercice${w.unknown.length > 1 ? "s" : ""} perso` : "tous reconnus"]];
+        [I.check, plural(exos - w.unknown.length, "exercice reconnu", "exercices reconnus"), w.unknown.length ? plural(w.unknown.length, "nouveau créé comme exercice perso", "nouveaux créés comme exercices perso") : "tous reconnus"]];
       res = w;
     }
     out.innerHTML = `<div class="card imp-sum"><div class="imp-app"><b>${esc(APPS[format])}</b><span class="xs muted ellipsis">${esc(name)}</span></div>
