@@ -20,7 +20,7 @@ export const BADGES = [
   { id: "vol10", icon: "💪", name: "10 tonnes", desc: "10 000 kg soulevés au total", test: () => vol() >= 10000 },
   { id: "vol100", icon: "🦾", name: "100 tonnes", desc: "100 000 kg soulevés au total", test: () => vol() >= 100000 },
   { id: "early", icon: "🌅", name: "Lève-tôt", desc: "Une séance avant 8 h", test: () => hour(h => h < 8) },
-  { id: "night", icon: "🌙", name: "Patrouille de nuit", desc: "Une séance après 21 h", test: () => hour(h => h >= 21) },
+  { id: "night", icon: "🌙", name: "Oiseau de nuit", desc: "Une séance après 21 h", test: () => hour(h => h >= 21) },
   { id: "explorer", icon: "🧭", name: "Explorateur", desc: "5 programmes différents essayés", test: () => cats().size >= 5 },
   { id: "creator", icon: "🛠️", name: "Inventeur", desc: "Créer ta propre séance", test: () => state.customPrograms.length >= 1 },
   { id: "body", icon: "📏", name: "Mesuré", desc: "Enregistrer ton poids ou tes mensurations", test: () => (state.body || []).length >= 1 },

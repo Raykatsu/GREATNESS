@@ -3,6 +3,7 @@
 // poids du corps vaut la fonte. En fin de saison, le haut du classement entre amis monte d'une division, le bas
 // descend (sauf avec un minimum d'activité) ; sans amis, on monte en atteignant un palier. Aucun serveur dédié :
 // chacun publie ses points dans son résumé public. Logique pure, testée dans Node.
+import { ordinal } from "./i18n.js";
 import { weeklyChallenge } from "./rivals.js";
 
 const DAY = 864e5;
@@ -93,7 +94,7 @@ export function settleLeague(st, friends = [], now = Date.now()) {
   Object.assign(L, { div: o.to, season: cur, at: now, history: [...(L.history || []), res].slice(-24) });
   return res;
 }
-const ord = n => (n === 1 ? "1er" : `${n}e`);
+const ord = n => ordinal(n);
 export function resultText(r) {
   const d = DIVS[r.to], rank = r.n >= 3 ? ` ${ord(r.rank)} sur ${r.n},` : "";
   if (r.move > 0) return `Saison ${r.s} terminée :${rank} tu montes en ${d.name} ${d.icon} !`;

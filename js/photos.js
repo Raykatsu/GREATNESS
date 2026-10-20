@@ -135,7 +135,7 @@ function ghostCam({ ghost, pose, onShot }) {
     <div class="gc-count" aria-live="assertive"></div>
     <div class="cam-bottom gc-bottom"><div class="seg gc-timer" style="--n:3"><button data-t="0">0 s</button><button data-t="3">3 s</button><button data-t="10" class="on">10 s</button></div>
       <button class="gc-shoot" aria-label="Prendre la photo"></button></div>
-    <div class="gc-review" hidden><img alt="Aperçu"><div class="cam-bottom"><button class="btn btn-soft" data-redo>${I.undo} Reprendre</button><button class="btn btn-primary" data-keep>${I.check} Garder</button></div></div>`;
+    <div class="gc-review" hidden><img alt="Aperçu"><div class="cam-bottom"><button class="btn btn-soft" data-redo>${I.undo} Refaire</button><button class="btn btn-primary" data-keep>${I.check} Garder</button></div></div>`;
   document.body.appendChild(wrap);
   const video = $("video", wrap);
   let stream = null, facing = "user", timer = 10, counting = null, shot = null;

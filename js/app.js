@@ -40,7 +40,7 @@ import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
-import { LOC, initLang, getLang, setLang, EN_READY, tr } from "./i18n.js";
+import { LOC, initLang, getLang, setLang, EN_READY, tr, dayUnit } from "./i18n.js";
 
 // Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
 await initLang();
@@ -175,10 +175,9 @@ onCoachChange(() => applyChars());
 /* =========================================================
    Accueil
    ========================================================= */
-const DAYS_FULL = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 // Salutation selon l'heure, petite phrase selon l'état de la journée
 function greeting(hour) {
-  return hour < 5 ? "Patrouille de nuit" : hour < 12 ? "Bonjour" : hour < 18 ? "Salut" : hour < 22 ? "Bonsoir" : "Patrouille de nuit";
+  return hour < 5 ? "Encore debout" : hour < 12 ? "Bonjour" : hour < 18 ? "Salut" : "Bonsoir";
 }
 function homeSubline(m, hasSessions) {
   if (m.doneToday) return "Mission accomplie. Ton corps te dit merci.";
@@ -244,7 +243,7 @@ function home() {
   const st = streak();
   const has = state.sessions.length > 0;
   const recentPRs = state.sessions.slice().reverse().flatMap(s => s.prs.map(id => ({ id, set: s.sets.filter(x => x.exId === id).sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps) || b.reps - a.reps)[0] }))).slice(0, 3);
-  const dateLabel = `${DAYS_FULL[now.getDay()]} ${now.getDate()} ${now.toLocaleDateString(LOC(), { month: "long" })}`;
+  const dateLabel = now.toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" });
   const kind = m.doneToday ? "done" : m.rest ? "rest" : "go";
   const shown = prog.exercises.length > 5 ? 4 : prog.exercises.length;
   const left = Math.max(0, planned - ws.count);
@@ -323,7 +322,7 @@ function home() {
     ${has ? `<div class="section"><h2>Cette semaine</h2><a href="#/progress">Stats</a></div>
     <div class="hstats">
       <div class="card hs hs-red">${ring(Math.min(1, ws.count / planned), I.play, 52)}<div class="hs-v"><span data-count="${ws.count}">0</span><small>/${planned}</small></div><div class="hs-l">Séances</div></div>
-      <div class="card hs hs-amber">${ring(Math.min(1, st / 7), I.flame, 52)}<div class="hs-v"><span data-count="${st}">0</span><small>j</small></div><div class="hs-l">D'affilée</div></div>
+      <div class="card hs hs-amber">${ring(Math.min(1, st / 7), I.flame, 52)}<div class="hs-v"><span data-count="${st}">0</span><small>${dayUnit()}</small></div><div class="hs-l">D'affilée</div></div>
       <div class="card hs hs-green">${ring(volPct, I.bolt, 52)}<div class="hs-v"><span data-count="${tons ? ws.volume / 1000 : ws.volume}" ${tons ? 'data-dec="1"' : ""}>0</span><small>${tons ? "t" : "kg"}</small></div><div class="hs-l">Volume</div></div>
     </div>` : `<div class="card home-empty mt">
       <span class="he-ic">${I.flame}</span>
@@ -466,7 +465,7 @@ function progress() {
         <div><b class="num">${all.length}</b><span>Séances</span></div>
         <div><b class="num">${totalVol >= 10000 ? dec(totalVol / 1000) + "<small>t</small>" : fmtNum(totalVol) + "<small>kg</small>"}</b><span>Volume</span></div>
         <div><b class="num">${totalMin >= 120 ? dec(totalMin / 60) + "<small>h</small>" : totalMin + "<small>min</small>"}</b><span>Temps</span></div>
-        <div class="${st ? "hot" : ""}"><b class="num">${st}<small>j</small></b><span>Série</span></div>
+        <div class="${st ? "hot" : ""}"><b class="num">${st}<small>${dayUnit()}</small></b><span>D'affilée</span></div>
       </div>
     </section>
 
@@ -637,7 +636,7 @@ function calendar() {
   const st = streak();
   return `<div class="cal-head"><b class="h3">${ref.toLocaleDateString(LOC(), { month: "long", year: "numeric" })}</b>
       <div class="row" style="gap:2px"><button class="icon-btn plain" id="mp" aria-label="Mois précédent">${I.back}</button><button class="icon-btn plain" id="mn" aria-label="Mois suivant" ${monthOffset >= 0 ? "disabled" : ""}>${I.chev}</button></div></div>
-    <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<div class="h">${d}</div>`).join("")}${cells.join("")}</div>
+    <div class="cal">${Array.from({ length: 7 }, (_, i) => `<div class="h">${new Date(2024, 0, 1 + i).toLocaleDateString(LOC(), { weekday: "narrow" })}</div>`).join("")}${cells.join("")}</div>
     <div class="cal-foot"><span><i class="lg on"></i>${done.size} jour${done.size > 1 ? "s" : ""} d'entraînement</span>${monthOffset === 0 ? `<span><i class="lg plan"></i>Prévu</span>` : ""}${monthOffset === 0 && st ? `<span class="hot">${I.flame}${st} j d'affilée</span>` : ""}</div>`;
 }
 

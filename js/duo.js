@@ -4,7 +4,7 @@
 import { isOnlineMode, friendCall, MESSAGES } from "./cloud.js";
 import { vibrate } from "./fx.js";
 import { $, esc, I, sheet, toast } from "./ui.js";
-import { LOC, tr } from "./i18n.js";
+import { LOC, tr, ago as agoTxt } from "./i18n.js";
 
 const KEY = "greatness.duo";
 Object.assign(MESSAGES, { NO_ROOM: "Code inconnu ou duo terminé.", FULL: "Ce duo est déjà complet.", NOT_MEMBER: "Tu ne fais pas partie de ce duo.", BAD_EMOJI: "Encouragement inconnu." });
@@ -19,7 +19,7 @@ export const duoAvailable = () => isOnlineMode();
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const PAIR = svg('<circle cx="8.5" cy="8" r="3.2"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M2.5 20c0-3.4 2.7-6 6-6s6 2.6 6 6M14.5 14.6c3.2-.4 6.5 1.6 7 5.4"/>');
-const ago = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 8 ? "à l'instant" : s < 60 ? `il y a ${s} s` : `il y a ${Math.round(s / 60)} min`; };
+const ago = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 8 ? "à l'instant" : agoTxt(s); };
 const kg = w => String(w).replace(".", ",");
 
 // Ce que voit le partenaire de ma séance : { ex, set, of, w, r, done, rest, fin, vol, min }

@@ -57,5 +57,17 @@ shared = ref(wgroup, 'RestAttributes.swift')
 add_sources(widget, [shared])
 add_sources(app, [shared])
 
+# Textes des autorisations par langue (fr, en) : InfoPlist.strings localisé, écrit par ios-setup.mjs
+strings = app_group.children.find { |c| c.isa == 'PBXVariantGroup' && c.display_name == 'InfoPlist.strings' } || app_group.new_variant_group('InfoPlist.strings')
+%w[fr en].each do |l|
+  path = "#{l}.lproj/InfoPlist.strings"
+  next if strings.children.any? { |c| c.path == path }
+  r = strings.new_reference(path)
+  r.name = l
+  r.last_known_file_type = 'text.plist.strings'
+end
+app.resources_build_phase.add_file_reference(strings, true) unless app.resources_build_phase.files_references.include?(strings)
+project.root_object.known_regions = (project.root_object.known_regions | %w[fr en])
+
 project.save
-puts "Projet iPhone : pont natif et extension GreatnessWidgets (#{BUNDLE}.widgets) ajoutés."
+puts "Projet iPhone : pont natif, extension GreatnessWidgets (#{BUNDLE}.widgets) et textes en anglais ajoutés."

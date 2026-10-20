@@ -121,7 +121,7 @@ export function classicSession(c, st = {}) {
   } else if (c.id === "nsuns") {
     const d = NS_DAYS[c.n % 5];
     ex.push(fixedEx(d.t1, S(d.t1s, c.tm[d.t1], d.t1), 150, `Max d'entraînement ${kg(c.tm[d.t1])}.${d.t1s.some(x => x[1] === 1) ? " La série « 1+ » décide de la suite." : " Séance de volume."}`));
-    ex.push(fixedEx(d.t2, S(d.t2s, c.tm[d.t2base], d.t2), 90, `Secondaire : 8 séries de ${Math.round(d.t2s[0][0] * 100)} à ${Math.round(d.t2s.at(-1)[0] * 100)} % du max d'entraînement ${d.t2 === d.t2base ? "" : `de ${name(d.t2base).toLowerCase()} `}(${kg(c.tm[d.t2base])}).`));
+    ex.push(fixedEx(d.t2, S(d.t2s, c.tm[d.t2base], d.t2), 90, `Secondaire : 8 séries de ${Math.round(d.t2s[0][0] * 100)}–${Math.round(d.t2s.at(-1)[0] * 100)} % du max d'entraînement ${d.t2 === d.t2base ? "" : `de ${name(d.t2base).toLowerCase()} `}(${kg(c.tm[d.t2base])}).`));
     for (const [a, sets, lo, hi] of d.acc) ex.push(acc(a, sets, lo, hi, lastW(a)));
     const one = d.t1s.findIndex(x => x[1] === 1 && x[2]);
     main.push({ lift: d.t1, oneIdx: one });
@@ -202,7 +202,7 @@ export function schemeText(e) {
   if (same) return `${sc.length} × ${sc[0].reps} à ${kgsT(sc[0].weight)} kg${max ? ", dernière au max" : ""}`;
   if (sc.length <= 4) return `${sc.map(x => `${kgsT(x.weight)}×${x.reps}${x.amrap ? "+" : ""}`).join(" · ")} kg`;
   const ws = sc.map(x => x.weight);
-  return `${sc.length} séries de ${kgsT(Math.min(...ws))} à ${kgsT(Math.max(...ws))} kg${max ? ", avec série au max" : ""}`;
+  return `${sc.length} séries de ${kgsT(Math.min(...ws))}–${kgsT(Math.max(...ws))} kg${max ? ", avec série au max" : ""}`;
 }
 const kgsT = w => String(w).replace(".", ",");
 
