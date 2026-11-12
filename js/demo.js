@@ -5,6 +5,7 @@ import { patternOf } from "./motion.js";
 import { figure, bodyMap, muscleNames } from "./body.js";
 import { moveOf, sayOf, viewLabel, effortOf, fastOf } from "./moves.js";
 import { phaseAt, stageAt } from "./anim.js";
+import { roles, roleClass, activation } from "./biomech.js";
 import { camFor, openCam } from "./cam.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
@@ -92,6 +93,7 @@ export function openDemo(id) {
   const ex = EXERCISES[id];
   if (!ex) return;
   const move = moveOf(id), g = guideOf(id), fast = fastOf(id), view = viewLabel(move), mus = move.mus || {};
+  const R = roles(id); // biomécanique : agoniste / synergiste / stabilisateur / antagoniste (null hors mouvement de force)
   // étapes : aller (1) et retour (2), ou les phases d'un mouvement en boucle (course, sauts…)
   const steps = move.loop ? (g.steps || [[0, g.go]]).map(([at, t], i) => [String(i), t, at]) : [["go", g.go], ["back", g.back]];
   const sh = sheet(`<div class="demo">
@@ -102,7 +104,13 @@ export function openDemo(id) {
       <div class="seg" id="dm-speed" style="--n:2"><button data-s="0.5">Ralenti</button><button data-s="1" class="on">Normal</button></div></div>
     <div class="eyebrow mt">${esc(ex.muscle)} · ${esc(EQUIP[ex.equip] || "")}</div>
     <h2 class="h2" style="margin-top:2px">${esc(ex.name)}</h2>
-    ${mus.p?.length ? `<div class="demo-mus">${bodyMap(mus)}<div class="dm-leg">
+    ${R ? `<div class="demo-mus">${bodyMap({}, { cls: roleClass(R), label: "Muscles en action" })}<div class="dm-leg">
+      ${R.agonist.length ? `<div><i class="lg p"></i><span><b>Agoniste</b><em>moteur du mouvement</em>${names(R.agonist)}</span></div>` : ""}
+      ${R.synergist.length ? `<div><i class="lg s"></i><span><b>Synergistes</b><em>aident</em>${names(R.synergist)}</span></div>` : ""}
+      ${R.stabil.length ? `<div><i class="lg st"></i><span><b>Stabilisateurs</b><em>gainent, protègent</em>${names(R.stabil)}</span></div>` : ""}
+      ${R.antagonist.length ? `<div><i class="lg an"></i><span><b>Antagoniste</b><em>s'étire, freine</em>${names(R.antagonist)}</span></div>` : ""}</div></div>
+    <p class="demo-how"><b>Comment ça marche —</b> ${esc(R.how)}</p>`
+    : mus.p?.length ? `<div class="demo-mus">${bodyMap(mus)}<div class="dm-leg">
       <div><i class="lg p"></i><span><b>Travaille surtout</b>${names(mus.p)}</span></div>
       ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>` : ""}
     ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
@@ -118,6 +126,15 @@ export function openDemo(id) {
   </div>`, { z: 85, onClose: () => { closed = true; cancelAnimationFrame(raf); } });
   const svgEl = $(".demo-anim", sh.el), phase = $(".demo-phase", sh.el);
   const draw = figure(svgEl, move, { big: true });
+  // Contraction en direct : le muscle agoniste s'illumine à l'effort, se relâche au retour.
+  let agonEls = null;
+  const pulse = (c, p) => {
+    if (!R) return;
+    agonEls ??= [...svgEl.querySelectorAll(".mus.p")];
+    if (!agonEls.length) return;
+    const o = (0.5 + 0.5 * activation(stageAt(c, fast), p, move.loop, c)).toFixed(2);
+    for (const el of agonEls) el.style.opacity = o;
+  };
   // un aller-retour en 3,2 s (6,4 s au ralenti) ; une boucle un peu plus lente que dans les vignettes
   const cyc = move.loop ? (move.dur || 1600) * 1.25 : 3200;
   let closed = false, raf = 0, speed = 1, playing = true, t0 = performance.now(), offset = 0, lastLabel = "";
@@ -130,6 +147,7 @@ export function openDemo(id) {
     if (closed || !sh.el.isConnected) return;
     const c = ((offset + (playing ? (now - t0) : 0) * speed) % cyc) / cyc, p = phaseAt(move, c, fast);
     draw(p);
+    pulse(c, p);
     const [k, txt] = label(c, p);
     if (txt !== lastLabel) {
       lastLabel = txt;

@@ -2485,6 +2485,11 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .dm-leg b { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; }
 .dm-leg .lg { width: 12px; height: 12px; flex: none; border-radius: 4px; margin-top: 3px; }
 .dm-leg .lg.p { background: var(--mus1); } .dm-leg .lg.s { background: var(--mus2); }
+.dm-leg .lg.st { background: var(--mus-st); } .dm-leg .lg.an { background: var(--mus-an); }
+.dm-leg em { display: block; font-size: 11px; font-style: normal; color: var(--dim); margin-bottom: 2px; }
+.demo-how { margin: 10px 2px 0; font-size: 13.5px; line-height: 1.45; color: var(--text); }
+.demo-how b { color: var(--muted); }
+.anat-map .mus.st { fill: var(--mus-st); } .anat-map .mus.an { fill: var(--mus-an); }
 .demo-phase { margin: 0 10px 10px; padding: 9px 12px; border-radius: 12px; background: rgba(0, 0, 0, .4); color: #fff; font-weight: 650; font-size: 14px; line-height: 1.3; text-align: center; min-height: 3.2em; display: grid; place-items: center; }
 .demo-ctrl { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 10px; }
 .demo-ctrl .icon-btn svg { width: 17px; height: 17px; }
@@ -2682,10 +2687,10 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 /* ---------- Démos dessinées (body.js) ---------- */
 :root { --fig: #c9d2e3; --fig-far: #7d8699; --fig-edge: rgba(8, 10, 18, .55); --fig-shoe: #4b5363; --mus1: #ff3b4e; --mus2: #ff9f43;
   --gear: #2b303c; --gear-hi: #6b7385; --gear-edge: #9aa3b5; --pad: #3a4150; --frame: #5b6375; --aid: #4fe3a0;
-  --anat-mus: #8a97ad; --anat-groove: rgba(8, 10, 18, .55); --anat-rim: rgba(222, 230, 246, .12); }
+  --anat-mus: #8a97ad; --anat-groove: rgba(8, 10, 18, .55); --anat-rim: rgba(222, 230, 246, .12); --mus-st: #3e86ff; --mus-an: #2bc7b4; }
 :root[data-mode="light"] { --fig: #a7b1c4; --fig-far: #d2d8e3; --fig-edge: rgba(30, 36, 52, .55); --fig-shoe: #6b7487; --gear: #3a404d; --gear-hi: #8a93a6;
   --gear-edge: #505869; --pad: #59606e; --frame: #8a92a3; --aid: #0f9d63;
-  --anat-mus: #9299ab; --anat-groove: rgba(40, 46, 62, .3); --anat-rim: rgba(255, 255, 255, .55); }
+  --anat-mus: #9299ab; --anat-groove: rgba(40, 46, 62, .3); --anat-rim: rgba(255, 255, 255, .55); --mus-st: #2f6ef0; --mus-an: #12a593; }
 .fig { overflow: visible; }
 .fig .bd { fill: var(--fig); stroke: var(--fig-edge); stroke-width: .45; stroke-linejoin: round; }
 .fig .far .bd { fill: var(--fig-far); }

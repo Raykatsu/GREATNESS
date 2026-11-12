@@ -87,7 +87,8 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 
 - **un vrai corps** aux proportions humaines (os de longueur fixe : le corps ne se déforme jamais), animé de profil, de face, de dos ou de dessus selon ce qui montre le mieux le geste ;
 - **le matériel** : barre et disques, haltères, kettlebell, bancs plats ou inclinés, machines (presse, leg extension, leg curl, pec deck, poulies et câbles), barre de traction, barres de dips, box, élastiques, rouleau, tapis, vélo, rameur, tapis de course… ;
-- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), et une **carte du corps face / dos** avec la légende ;
+- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), et une **planche d'anatomie face / dos** avec la légende ;
+- **la biomécanique du mouvement** : la planche colore chaque muscle selon son rôle — **agoniste** (moteur, rouge), **synergiste** (aide, orange), **stabilisateur** (gainage, bleu), **antagoniste** (s'étire et freine, turquoise) —, avec une explication « comment ça marche » (concentrique / excentrique). Pendant l'animation, le muscle agoniste **se contracte en direct** (il s'illumine à l'effort). Voir `js/biomech.js` ;
 - **des repères** : trajectoire de la barre, « cuisses parallèles », dos plat, angle du genou ou du coude, articulation qui reste fixe, flèche du mouvement ;
 - les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
 
@@ -294,6 +295,7 @@ js/body.js        démos dessinées : corps, matériel, muscles, repères, carte
 js/moves.js       les 183 mouvements (positions clés) et leurs consignes
 js/anim.js        petites démos animées (vignettes)
 js/demo.js        fiche Démo des exercices
+js/biomech.js     biomécanique : rôle de chaque muscle (agoniste/antagoniste/synergiste/stabilisateur) par exercice
 js/manual.js      manuel des exercices : bibliothèque par muscle (silhouette) + recherche
 js/cam.js         compteur de reps à la caméra (MediaPipe)
 js/push.js        abonnement aux notifications de rappel
