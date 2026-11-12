@@ -10,6 +10,7 @@ import { readinessScore, readinessVerdict } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
+import { manualCard, openManual } from "./manual.js";
 import { schemeText } from "./classics.js";
 import { classicsSection, bindClassics } from "./classics-ui.js";
 import { goalFix } from "./goals.js";
@@ -73,6 +74,7 @@ export function renderTrain(view, startLive) {
       <span class="grow"><b>Séance libre</b><span class="xs muted">Choisis tes exercices au fur et à mesure</span></span>
       <span class="chev">${I.chev}</span>
     </button>
+    ${manualCard()}
     ${intervalCard()}
     ${goalCard({ invite: true })}
     ${classicsSection()}
@@ -107,6 +109,7 @@ export function renderTrain(view, startLive) {
   requestAnimationFrame(() => $(".tr-f.on", view)?.scrollIntoView({ block: "nearest", inline: "center" }));
   $(".fab", view).onclick = () => (location.hash = "#/create");
   $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
+  $("#manual-start", view).onclick = () => openManual();
   $("#iv-start", view).onclick = () => openIntervals();
   bindGoalCard(view, () => { if (location.hash.startsWith("#/train")) renderTrain(view, startLive); });
   bindClassics(view, () => { if (location.hash.startsWith("#/train")) renderTrain(view, startLive); });

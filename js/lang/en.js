@@ -1,6 +1,21 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  "Aucun exercice trouvé": "No exercise found",
+  "Buste": "Chest",
+  "Chercher un exercice ou un muscle": "Search an exercise or a muscle",
+  "Chercher un exercice ou un muscle…": "Search an exercise or a muscle…",
+  "Cuisses": "Thighs",
+  "Essaie un autre mot : un muscle, un matériel, le nom du mouvement.": "Try another word: a muscle, a piece of equipment, the name of the movement.",
+  "Haut du dos": "Upper back",
+  "Le fait aussi travailler": "Also trains this muscle",
+  "Manuel": "Guide",
+  "Manuel des exercices": "Exercise guide",
+  "Sangle": "Core",
+  "Tous les muscles": "All muscles",
+  "en soutien": "secondary",
+  "exercices principaux": "primary exercises",
+  "mouvements, muscle par muscle, avec la démo animée": "movements, muscle by muscle, with the animated demo",
   "1 à 5 répétitions, 5 à 15 secondes suffisent.": "1 to 5 reps, 5 to 15 seconds is enough.",
   "1. 2 à 3 min de cardio léger (corde, jumping jacks).": "1. 2 to 3 min of light cardio (jump rope, jumping jacks).",
   "10 = échec, impossible d'en faire une de plus.": "10 = failure, you couldn't do one more.",
