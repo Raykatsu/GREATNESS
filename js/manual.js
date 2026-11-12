@@ -4,10 +4,12 @@
 import { EXERCISES, EQUIP } from "./data.js";
 import { MUSCLES, bodyMap } from "./body.js";
 import { musclesOf } from "./recovery.js";
+import { supports3D, open3D } from "./body3d.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const BOOK = svg('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H18a1.5 1.5 0 0 1 1.5 1.5v13"/><path d="M4 5.5v13A1.5 1.5 0 0 0 5.5 20H18"/><path d="M8 8.5h7M8 12h7"/>');
+const CUBE = svg('<path d="M12 2.6 20 7v10l-8 4.4L4 17V7z"/><path d="M4 7l8 4.4L20 7"/><path d="M12 11.4V21.4"/>');
 const fold = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // Muscles du haut vers le bas du corps, avec un petit libellé de zone
@@ -58,15 +60,20 @@ export function openManual() {
     <div class="mnl-body" id="mnl-body"></div>
   </div>`, { z: 70 });
   const body = $("#mnl-body", sh.el), q = $("#mnl-q", sh.el);
+  const has3D = supports3D();
+  // Modèle 3D : muscle visé en rouge (ou tout gris pour explorer) ; depuis le 3D on saute aux exercices du muscle touché.
+  const view3D = m => open3D({ cls: m ? (x => (x === m ? "mus p" : "mz")) : null, title: m ? MUSCLES[m] : "Explorer le corps", onExercises: muscle });
 
   // Grille des muscles : chaque carte éclaire son muscle sur la silhouette
   const grid = () => {
-    body.innerHTML = `<div class="mnl-grid">${ORDER.filter(([m]) => idx[m].p.length).map(([m, zone]) => `
+    body.innerHTML = `${has3D ? `<button type="button" class="mnl-3d" id="mnl-3d">${CUBE}<span>Explorer le corps en 3D</span>${I.chev}</button>` : ""}
+      <div class="mnl-grid">${ORDER.filter(([m]) => idx[m].p.length).map(([m, zone]) => `
       <button type="button" class="mnl-mus" data-m="${m}">
         <span class="mnl-fig">${bodyMap({}, { cls: only(m), label: MUSCLES[m] })}</span>
         <b>${esc(MUSCLES[m])}</b><span class="xs muted">${esc(zone)} · ${idx[m].p.length} exercices</span>
       </button>`).join("")}</div>`;
     $$(".mnl-mus", body).forEach(b => b.onclick = () => muscle(b.dataset.m));
+    $("#mnl-3d", body)?.addEventListener("click", () => view3D(null));
   };
 
   // Détail d'un muscle : silhouette en grand + exercices principaux puis de soutien
@@ -75,10 +82,12 @@ export function openManual() {
     body.scrollTop = 0;
     body.innerHTML = `<button type="button" class="mnl-back" id="mnl-back">${I.back} Tous les muscles</button>
       <div class="mnl-head"><span class="mnl-fig big">${bodyMap({}, { cls: only(m), label: MUSCLES[m] })}</span>
-        <div><h3 class="h3">${esc(MUSCLES[m])}</h3><span class="xs muted">${p.length} exercices principaux${s.length ? ` · ${s.length} en soutien` : ""}</span></div></div>
+        <div><h3 class="h3">${esc(MUSCLES[m])}</h3><span class="xs muted">${p.length} exercices principaux${s.length ? ` · ${s.length} en soutien` : ""}</span>
+        ${has3D ? `<button type="button" class="mnl-3d sm" id="mnl-3d-m">${CUBE}<span>Voir en 3D</span></button>` : ""}</div></div>
       <div class="mnl-list">${p.map(row).join("")}</div>
       ${s.length ? `<h4 class="demo-h">Le fait aussi travailler</h4><div class="mnl-list">${s.map(row).join("")}</div>` : ""}`;
     $("#mnl-back", body).onclick = grid;
+    $("#mnl-3d-m", body)?.addEventListener("click", () => view3D(m));
   };
 
   // Recherche : à plat, dans le nom, le muscle et le matériel

@@ -98,6 +98,8 @@ Des **mouvements humains et fidèles** : chaque articulation suit une courbe dou
 
 Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **silhouette anatomique** (face et dos) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout est dessiné (aucune image sous licence), hors ligne, et suit la langue de l'app.
 
+**Modèle 3D interactif** (bouton « Explorer le corps en 3D ») : un vrai corps en 3D qu'on **fait pivoter au doigt** (WebGL, aucune dépendance), avec les muscles qui s'allument ; on **touche un muscle** pour le choisir et voir ses exercices. Si l'appareil n'a pas de WebGL, l'app retombe sur la planche 2D. Code dans `js/body3d.js`.
+
 ## Minuteur d'intervalles
 
 Onglet Séances → **Minuteur d'intervalles** : **Tabata** (20 s / 10 s × 8), **EMOM** (tes répétitions au début de chaque minute), **AMRAP** (le plus de tours possible dans le temps donné) et **circuits** (chaque exercice en temps, repos entre les tours), avec des préréglages et tes propres exercices.
@@ -297,6 +299,7 @@ js/anim.js        petites démos animées (vignettes)
 js/demo.js        fiche Démo des exercices
 js/biomech.js     biomécanique : rôle de chaque muscle (agoniste/antagoniste/synergiste/stabilisateur) par exercice
 js/manual.js      manuel des exercices : bibliothèque par muscle (silhouette) + recherche
+js/body3d.js      modèle anatomique 3D interactif (WebGL pur, muscles cliquables)
 js/cam.js         compteur de reps à la caméra (MediaPipe)
 js/push.js        abonnement aux notifications de rappel
 js/recovery.js    récupération musculaire (+ recovery-ui.js : carte et fiche)

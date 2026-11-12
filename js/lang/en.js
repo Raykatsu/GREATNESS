@@ -1,6 +1,13 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  "Explorer le corps": "Explore the body",
+  "Explorer le corps en 3D": "Explore the body in 3D",
+  "Fais pivoter · touche un muscle": "Drag to rotate · tap a muscle",
+  "Modèle 3D": "3D model",
+  "Modèle anatomique 3D": "3D anatomy model",
+  "Voir en 3D": "View in 3D",
+  "Voir les exercices": "See the exercises",
   "Agoniste": "Agonist",
   "Antagoniste": "Antagonist",
   "Synergistes": "Synergists",
