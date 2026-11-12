@@ -2748,6 +2748,33 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .rec-card .chev { color: var(--muted); flex: none; }
 .rec-card .chev svg { width: 18px; height: 18px; }
 .rec-big { margin: 12px auto 6px; max-width: 320px; }
+
+/* ---------- Manuel des exercices ---------- */
+.manual .eyebrow { display: inline-flex; align-items: center; gap: 6px; }
+.manual .eyebrow svg { width: 15px; height: 15px; }
+.mnl-search { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; padding: 0 14px; border-radius: 14px; background: var(--card-2); }
+.mnl-search svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+.mnl-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; padding: 12px 0; outline: none; }
+.mnl-body { margin-top: 8px; }
+.mnl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mnl-mus { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 12px 8px 10px; border-radius: 16px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.mnl-mus:active { background: var(--card-2); }
+.mnl-mus b { font-size: var(--fs-base); }
+.mnl-fig { display: block; width: 118px; margin-bottom: 4px; }
+.mnl-fig .body-map { max-width: 100%; }
+.mnl-fig .body-map text { display: none; }
+.mnl-fig.big { width: 150px; }
+.mnl-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 650; font-size: 14px; padding: 4px 0 2px; }
+.mnl-back svg { width: 17px; height: 17px; }
+.mnl-head { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
+.mnl-head .mnl-fig { flex: none; margin: 0; }
+.mnl-list { display: grid; gap: 7px; }
+.mnl-ex { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 11px 14px; border-radius: 13px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.mnl-ex:active { background: var(--card-2); }
+.mnl-ex .grow { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mnl-ex b { font-size: var(--fs-base); line-height: 1.25; }
+.mnl-ex > svg { width: 17px; height: 17px; color: var(--accent-ink); flex: none; }
+.manual-card .bi { background: linear-gradient(160deg, var(--blue), #2a52c9); color: #fff; box-shadow: var(--e-accent); }
 .rec-leg { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
 .rec-leg span { display: inline-flex; align-items: center; gap: 6px; }
 .rec-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }

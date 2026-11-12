@@ -93,6 +93,10 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 
 Des **mouvements humains et fidèles** : chaque articulation suit une courbe douce et plie toujours dans le bon sens (des tests vérifient les amplitudes d'un vrai corps sur tout le mouvement), le corps garde son **équilibre** (centre de gravité au-dessus du milieu du pied, barre de soulevé de terre sur une trajectoire verticale), et le **tempo** est celui d'une vraie répétition : la phase d'effort va plus vite que la phase freinée.
 
+## Manuel des exercices
+
+Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **silhouette anatomique** (face et dos) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout est dessiné (aucune image sous licence), hors ligne, et suit la langue de l'app.
+
 ## Minuteur d'intervalles
 
 Onglet Séances → **Minuteur d'intervalles** : **Tabata** (20 s / 10 s × 8), **EMOM** (tes répétitions au début de chaque minute), **AMRAP** (le plus de tours possible dans le temps donné) et **circuits** (chaque exercice en temps, repos entre les tours), avec des préréglages et tes propres exercices.
@@ -290,6 +294,7 @@ js/body.js        démos dessinées : corps, matériel, muscles, repères, carte
 js/moves.js       les 183 mouvements (positions clés) et leurs consignes
 js/anim.js        petites démos animées (vignettes)
 js/demo.js        fiche Démo des exercices
+js/manual.js      manuel des exercices : bibliothèque par muscle (silhouette) + recherche
 js/cam.js         compteur de reps à la caméra (MediaPipe)
 js/push.js        abonnement aux notifications de rappel
 js/recovery.js    récupération musculaire (+ recovery-ui.js : carte et fiche)
