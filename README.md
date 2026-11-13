@@ -87,7 +87,7 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 
 - **un vrai corps** aux proportions humaines (os de longueur fixe : le corps ne se déforme jamais), animé de profil, de face, de dos ou de dessus selon ce qui montre le mieux le geste ;
 - **le matériel** : barre et disques, haltères, kettlebell, bancs plats ou inclinés, machines (presse, leg extension, leg curl, pec deck, poulies et câbles), barre de traction, barres de dips, box, élastiques, rouleau, tapis, vélo, rameur, tapis de course… ;
-- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), et une **planche d'anatomie face / dos** avec la légende ;
+- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), et une **planche d'anatomie réaliste face / dos** (muscles en relief avec dégradés de lumière/ombre, fibres et tendons) avec la légende ;
 - **la biomécanique du mouvement** : la planche colore chaque muscle selon son rôle — **agoniste** (moteur, rouge), **synergiste** (aide, orange), **stabilisateur** (gainage, bleu), **antagoniste** (s'étire et freine, turquoise) —, avec une explication « comment ça marche » (concentrique / excentrique). Pendant l'animation, le muscle agoniste **se contracte en direct** (il s'illumine à l'effort). Voir `js/biomech.js` ;
 - **des repères** : trajectoire de la barre, « cuisses parallèles », dos plat, angle du genou ou du coude, articulation qui reste fixe, flèche du mouvement ;
 - les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
@@ -96,7 +96,7 @@ Des **mouvements humains et fidèles** : chaque articulation suit une courbe dou
 
 ## Manuel des exercices
 
-Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **silhouette anatomique** (face et dos) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout est dessiné (aucune image sous licence), hors ligne, et suit la langue de l'app.
+Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **planche d'anatomie réaliste** (face et dos, muscles en relief avec ombres, fibres et tendons) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout est dessiné (aucune image sous licence), hors ligne, et suit la langue de l'app.
 
 ## Minuteur d'intervalles
 

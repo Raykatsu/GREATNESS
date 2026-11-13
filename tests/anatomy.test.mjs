@@ -24,15 +24,16 @@ test("SVG bien formé, à vide et pour chaque muscle allumé", () => {
   for (const m of Object.keys(MUSCLES)) assert.equal(malformed(bodyMap({ p: [m] })), "", m);
 });
 
-test("le muscle principal est en rouge, le secondaire en orange, les autres en gris", () => {
+test("le muscle principal prend le dégradé rouge, le secondaire l'orange, les autres le gris", () => {
   const svg = bodyMap({ p: ["pecs"], s: ["delts"] });
-  assert.match(svg, /class="mus p"/);
-  assert.match(svg, /class="mus s"/);
-  assert.match(svg, /class="mz"/); // au moins un muscle non sollicité reste gris
+  assert.match(svg, /fill="url\(#mg\d+-p\)"/);  // un muscle en rouge (dégradé principal)
+  assert.match(svg, /fill="url\(#mg\d+-s\)"/);  // un muscle en orange
+  assert.match(svg, /fill="url\(#mg\d+-g\)"/);  // au moins un muscle non sollicité reste gris
+  assert.match(svg, /<radialGradient /);         // les dégradés de relief sont définis
 });
 
 test("carte de récupération : une classe libre par muscle est respectée", () => {
   const svg = bodyMap({}, { cls: m => (m === "quads" ? "mus rc0" : "mz"), label: "Récupération" });
-  assert.match(svg, /class="mus rc0"/);
+  assert.match(svg, /fill="url\(#mg\d+-rc0\)"/);
   assert.match(svg, /aria-label="Récupération"/);
 });
