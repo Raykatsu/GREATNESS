@@ -1,5 +1,5 @@
 // Cache hors ligne de l'app (le coach local marche sans réseau).
-const CACHE = "greatness-v31";
+const CACHE = "greatness-v32";
 const ASSETS = ["./", "index.html", "css/style.css", "assets/icon.svg", "manifest.webmanifest",
   "assets/fonts/inter-latin-wght.woff2", "assets/fonts/outfit-latin-wght.woff2",
   ...["actions", "ai", "anim", "app", "auth", "badges", "brain", "cam", "cloud", "coach", "config", "create", "data", "engine", "fx", "live", "llm", "llm-worker", "merge", "motion", "planner", "push", "social", "mascot", "store", "train", "ui", "voice", "coach-picker", "chars/index", "chars/kit", "chars/base", "online", "foods", "nutrition", "off", "scan", "food", "demo", "memory", "aiact", "weekly", "review", "form", "chart", "records", "photos", "rivals", "body", "moves", "recovery", "recovery-ui", "adaptive", "mealplan", "mealplan-ui", "intervals", "intervals-ui", "goals", "goals-ui", "league", "health", "health-ui", "importer", "import-ui", "vbt", "videocoach", "resttimer", "native", "costumes", "story", "story-ui", "duo", "errors", "version", "bio", "feedback", "sharecard", "classics", "classics-ui", "widgetdata", "manual", "anatomy", "biomech", "i18n", "lang/en"].map(f => `js/${f}.js`)];
