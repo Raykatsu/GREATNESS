@@ -292,6 +292,7 @@ export const muscleNames = ids => ids.filter(m => MUSCLES[m]).map(m => MUSCLES[m
 /* ---------- Dessin ---------- */
 const NS = "http://www.w3.org/2000/svg";
 const f = p => `${r1(p[0])} ${r1(p[1])}`;
+let figN = 0; // identifiants uniques des dégradés de volume d'une figure
 // Courbe fermée lisse passant par tous les points (Catmull-Rom)
 export function closed(pts) {
   const n = pts.length;
@@ -400,6 +401,23 @@ export function figure(svg, move, { big = false } = {}) {
   if (move.view === "front") return frontFigure(svg, move, box, { big });
   const primary = new Set(move.mus?.p || []), second = new Set(move.mus?.s || []);
   const cls = m => (primary.has(m) ? "mus p" : second.has(m) ? "mus s" : "");
+  // Volume : un dégradé « cylindre » par membre/tronc, orienté en direct (lumière en haut à gauche) → relief 3D.
+  const GID = `fg${figN++}-`, gdefs = el("defs", "", svg), grads = {};
+  const RADOF = { thigh: 6, shin: 3.8, uarm: 4, farm: 2.9, torso: 8 };
+  const makeGrad = (key, far) => {
+    const g = el("linearGradient", "", gdefs); g.setAttribute("id", GID + key); g.setAttribute("gradientUnits", "userSpaceOnUse");
+    const v = far ? ["--fig-far-hi", "--fig-far", "--fig-far-lo"] : ["--fig-hi", "--fig", "--fig-lo"];
+    [0, 0.5, 1].forEach((o, i) => { const s = el("stop", "", g); s.setAttribute("offset", o); s.setAttribute("stop-color", `var(${v[i]})`); });
+    grads[key] = g;
+  };
+  const LX = -0.7, LY = -0.7; // le corps est éclairé du haut à gauche
+  const shade = (key, P1, P2, r) => {
+    const g = grads[key]; if (!g) return;
+    const dx = P2[0] - P1[0], dy = P2[1] - P1[1], l = Math.hypot(dx, dy) || 1, nx = dy / l, ny = -dx / l;
+    const cx = (P1[0] + P2[0]) / 2, cy = (P1[1] + P2[1]) / 2, sgn = (nx * LX + ny * LY) >= 0 ? 1 : -1;
+    g.setAttribute("x1", r1(cx + nx * r * sgn)); g.setAttribute("y1", r1(cy + ny * r * sgn));
+    g.setAttribute("x2", r1(cx - nx * r * sgn)); g.setAttribute("y2", r1(cy - ny * r * sgn));
+  };
   // sol et ombre
   if (!move.noFloor) { const fl = el("line", "fig-floor", svg); fl.setAttribute("x1", box[0]); fl.setAttribute("x2", box[0] + box[2]); fl.setAttribute("y1", FLOOR); fl.setAttribute("y2", FLOOR); }
   const shadow = el("ellipse", "fig-shadow", svg);
@@ -410,6 +428,7 @@ export function figure(svg, move, { big = false } = {}) {
   const part = (name, group, bone, far = false) => {
     const g = el("g", far ? "fig-part far" : "fig-part", group);
     const body = el("path", "bd", g);
+    if (RADOF[bone]) { makeGrad(name, far); body.setAttribute("fill", `url(#${GID}${name})`); }
     const mus = [];
     for (const [m, z] of Object.entries(LZONE)) if (z[0] === bone && cls(m)) mus.push([el("path", cls(m), g), z]);
     parts[name] = { body, mus, bone };
@@ -418,6 +437,7 @@ export function figure(svg, move, { big = false } = {}) {
   part("uarm2", farG, "uarm", true); part("farm2", farG, "farm", true); const hand2 = el("path", "bd hand", el("g", "fig-part far", farG));
   part("thigh2", farG, "thigh", true); part("shin2", farG, "shin", true); const foot2 = el("path", "bd shoe", el("g", "fig-part far", farG));
   const torsoG = el("g", "fig-part", svg), torso = el("path", "bd", torsoG);
+  makeGrad("torso", false); torso.setAttribute("fill", `url(#${GID}torso)`);
   const tmus = Object.entries(TZONE).filter(([m]) => cls(m)).map(([m, z]) => [el("path", cls(m), torsoG), z]);
   const neckG = el("g", "fig-part", svg), neck = el("path", "bd", neckG), head = el("path", "bd head", neckG), ear = el("ellipse", "eye", neckG);
   const gearMid = el("g", "fig-gear", svg); // devant le buste, derrière le bras et la jambe proches
@@ -440,6 +460,7 @@ export function figure(svg, move, { big = false } = {}) {
   const limb = (name, P1, P2) => {
     const pr = parts[name], prf = PROF[pr.bone];
     pr.body.setAttribute("d", closed(limbPts(P1, P2, prf)));
+    shade(name, P1, P2, RADOF[pr.bone]);
     for (const [e, z] of pr.mus) e.setAttribute("d", closed(lensPts(P1, P2, prf, z[1], z[2], z[3], z[4])));
   };
   let lastP = 0;
@@ -448,6 +469,7 @@ export function figure(svg, move, { big = false } = {}) {
     limb("uarm2", j.S, j.E2); limb("farm2", j.E2, j.W2); hand2.setAttribute("d", closed(handPts(j.W2, j.q.farm2 + (j.q.hand2 ?? j.q.hand ?? 0))));
     limb("thigh2", j.H, j.K2); limb("shin2", j.K2, j.A2); foot2.setAttribute("d", closed(footPts(j.heel2, j.toe2, j.A2)));
     torso.setAttribute("d", closed(torsoPts(j.H, j.S, j.q.spine)));
+    shade("torso", j.H, j.S, RADOF.torso);
     for (const [e, z] of tmus) e.setAttribute("d", closed(zonePts(j.H, j.S, z, j.q.spine)));
     const ha = j.ha;
     neck.setAttribute("d", closed(limbPts(j.N, add(j.C, ha + 180, 3.6), [[2.6, 2.5, 2.5], [3, 2.8, 2.6]])));
@@ -655,15 +677,25 @@ const FPROF = { thigh: [[5, 5.1, 4.5, 3.7, 3.1], [5, 5.1, 4.5, 3.7, 3.1]], shin:
 function frontFigure(svg, move, box, { big }) {
   const primary = new Set(move.mus?.p || []), second = new Set(move.mus?.s || []);
   const cls = m => (primary.has(m) ? "mus p" : second.has(m) ? "mus s" : "");
+  // Volume : un dégradé « cylindre » par membre/tronc, orienté en direct (lumière en haut à gauche).
+  const GID = `fg${figN++}-`, gdefs = el("defs", "", svg), grads = {};
+  const mg = (key) => { const g = el("linearGradient", "", gdefs); g.setAttribute("id", GID + key); g.setAttribute("gradientUnits", "userSpaceOnUse");
+    [["--fig-hi", 0], ["--fig", 0.5], ["--fig-lo", 1]].forEach(([c, o]) => { const s = el("stop", "", g); s.setAttribute("offset", o); s.setAttribute("stop-color", `var(${c})`); }); grads[key] = g; };
+  const shade = (key, P1, P2, r) => { const g = grads[key]; if (!g) return;
+    const dx = P2[0] - P1[0], dy = P2[1] - P1[1], l = Math.hypot(dx, dy) || 1, nx = dy / l, ny = -dx / l, cx = (P1[0] + P2[0]) / 2, cy = (P1[1] + P2[1]) / 2, sg = (nx * -0.7 + ny * -0.7) >= 0 ? 1 : -1;
+    g.setAttribute("x1", r1(cx + nx * r * sg)); g.setAttribute("y1", r1(cy + ny * r * sg)); g.setAttribute("x2", r1(cx - nx * r * sg)); g.setAttribute("y2", r1(cy - ny * r * sg)); };
   if (!move.noFloor) { const fl = el("line", "fig-floor", svg); fl.setAttribute("x1", box[0]); fl.setAttribute("x2", box[0] + box[2]); fl.setAttribute("y1", FLOOR); fl.setAttribute("y2", FLOOR); }
   const fixedBack = el("g", "fig-gear", svg), gearBack = el("g", "fig-gear", svg); // matériel fixe (ne tourne pas avec le corps) / porté
   const g = el("g", "fig-part", svg);
   const mk = c => el("path", c, g);
   const legs = [mk("bd"), mk("bd"), mk("bd"), mk("bd")], feetE = [mk("bd shoe"), mk("bd shoe")];
+  ["l0", "l1", "l2", "l3"].forEach((k, i) => { mg(k); legs[i].setAttribute("fill", `url(#${GID}${k})`); });
   const legMus = ["quads", "adductors", "abductors", "calves"].filter(cls).map(m => [m, mk(cls(m)), mk(cls(m))]);
   const torso = mk("bd"), tmus = (move.back ? ["traps", "lats", "lowerback"] : ["pecs", "abs", "obliques", "traps"]).filter(cls).map(m => [m, mk(cls(m))]);
+  mg("torso"); torso.setAttribute("fill", `url(#${GID}torso)`);
   const neck = mk("bd"), head = el("ellipse", "bd head", g), eyes = move.back ? [] : [el("ellipse", "eye", g), el("ellipse", "eye", g)]; // vue de dos : pas de visage
   const arms = [mk("bd"), mk("bd"), mk("bd"), mk("bd")], hands = [el("circle", "bd hand", g), el("circle", "bd hand", g)];
+  ["a0", "a1", "a2", "a3"].forEach((k, i) => { mg(k); arms[i].setAttribute("fill", `url(#${GID}${k})`); });
   const armMus = ["delts", "biceps", "triceps", "forearms"].filter(cls).map(m => [m, mk(cls(m)), mk(cls(m))]);
   const gearFront = el("g", "fig-gear", svg), fixedFront = el("g", "fig-gear", svg);
   const gears = (move.gear || []).map(gd => makeFrontGear(gd, FIXED.has(gd.k) ? (gd.back ? fixedBack : fixedFront) : gd.back ? gearBack : gearFront));
@@ -673,6 +705,7 @@ function frontFigure(svg, move, box, { big }) {
     const j = solveFront(sampleFront(move, p)), q = j.q;
     const legsPts = [[j.HL, j.KL, j.AL], [j.HR, j.KR, j.AR]];
     legsPts.forEach(([H, K, A], i) => { legs[i * 2].setAttribute("d", lp(H, K, FPROF.thigh)); legs[i * 2 + 1].setAttribute("d", lp(K, A, FPROF.shin));
+      shade("l" + (i * 2), H, K, 6); shade("l" + (i * 2 + 1), K, A, 3.8);
       const s = i ? 1 : -1, u = frame(K, A), dn = [u.ux, u.uy], sd = [-u.uy * s, u.ux * s]; // pied dans l'axe du tibia
       const F = (a, c) => [A[0] + dn[0] * a + sd[0] * c, A[1] + dn[1] * a + sd[1] * c];
       feetE[i].setAttribute("d", closed([F(-1, -1.6), F(-0.6, 2.4), F(2.6, 3), F(2.9, -2.2)])); });
@@ -686,6 +719,7 @@ function frontFigure(svg, move, box, { big }) {
     }
     const up = -q.lean, side = up + 90, T = (a, c) => add(add(j.P, up, a * (L.torso + q.shrug) / L.torso), side, c);
     torso.setAttribute("d", closed([T(-2.2, -5.6), T(1, -6.4), T(8, -5.2), T(13.5, -4.8), T(19.5, -6.6), T(23.2, -8.6), T(25.4, -6), T(26.4, -2), T(26.4, 2), T(25.4, 6), T(23.2, 8.6), T(19.5, 6.6), T(13.5, 4.8), T(8, 5.2), T(1, 6.4), T(-2.2, 5.6), T(-3.4, 0)]));
+    shade("torso", j.P, add(j.P, up, L.torso), 9);
     for (const [m, e] of tmus) {
       const zone = { pecs: [[16.6, -6.4], [22.4, -6.8], [23.4, -1], [17.4, -0.6], [16.6, 0.6], [17.4, 0.6], [23.4, 1], [22.4, 6.8], [16.6, 6.4], [15.4, 0]],
         abs: [[4.4, -3.4], [14.6, -3.6], [15, 0], [14.6, 3.6], [4.4, 3.4], [2.6, 0]], obliques: [[3, -5.6], [12, -4.8], [12.4, -3.8], [3.8, -4.4], [3, 4.4], [12, 3.8], [12.4, 4.8], [3, 5.6]],
@@ -700,6 +734,7 @@ function frontFigure(svg, move, box, { big }) {
     eyes.forEach((e, i) => { const c = add(add(j.C, ha + 90, (i ? 2 : -2) + q.turn * 2.6), ha, 0.6); set(e, { cx: c[0], cy: c[1], rx: 0.7 * (1 - Math.abs(q.turn) * 0.35), ry: 1, transform: `rotate(${r1(ha)} ${r1(c[0])} ${r1(c[1])})` }); });
     [[j.SL, j.EL, j.WL], [j.SR, j.ER, j.WR]].forEach(([S, E, W], i) => {
       arms[i * 2].setAttribute("d", lp(S, E, FPROF.uarm)); arms[i * 2 + 1].setAttribute("d", lp(E, W, FPROF.farm));
+      shade("a" + (i * 2), S, E, 4); shade("a" + (i * 2 + 1), E, W, 2.9);
       const h = add(W, Math.atan2(W[0] - E[0], -(W[1] - E[1])) / RAD, 1.6); set(hands[i], { cx: h[0], cy: h[1], r: 2.3 });
     });
     for (const [m, e1, e2] of armMus) {
