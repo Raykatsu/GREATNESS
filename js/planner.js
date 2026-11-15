@@ -81,10 +81,12 @@ export function weekStrip() {
   });
 }
 
-// Adapte reps / repos / RPE à l'objectif. Les 2 premiers exercices "charge" sont les mouvements principaux.
-export function adaptToGoal(program, goal = state.profile.goal) {
+// Adapte reps / repos / RPE à l'objectif et au niveau. Les 2 premiers exercices "charge" sont les mouvements principaux.
+// Le niveau règle l'intensité : un débutant garde de la marge (RPE plus bas), un avancé pousse un peu plus près de l'échec.
+export function adaptToGoal(program, goal = state.profile.goal, experience = state.profile.experience) {
   const g = GOALS[goal];
   if (!g || program.simple || program.cat === "cardio" || program.cat === "custom" || program.classic) return program; // programme célèbre : ses propres séries
+  const expDelta = experience === "debutant" ? -1 : experience === "avance" ? 0.5 : 0;
   let mains = 0;
   return {
     ...program,
@@ -95,7 +97,7 @@ export function adaptToGoal(program, goal = state.profile.goal) {
         ...e,
         reps: main ? g.mainReps : g.accReps,
         rest: main ? g.mainRest : Math.min(e.rest, g.accRest + 15),
-        rpe: Math.min(e.rpe, g.rpe + (main ? 0 : 0.5)),
+        rpe: Math.max(5, Math.min(9.5, Math.min(e.rpe, g.rpe + (main ? 0 : 0.5)) + expDelta)),
       };
     }),
   };

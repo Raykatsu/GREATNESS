@@ -59,11 +59,13 @@ export async function signup(page, user = "test", code = "1357") {
   await page.click("#next");
   await pin(page, code); await page.click("#go");
   await pin(page, code);
-  await page.waitForSelector("#next, #done", { timeout: 15000 }); // première ouverture
-  for (let i = 0; i < 8; i++) {
+  await page.waitForSelector("#next, #done", { timeout: 15000 }); // première ouverture (quiz)
+  for (let i = 0; i < 14; i++) { // on traverse le quiz jusqu'à la fin
     const btn = await page.$("#next, #done");
     if (!btn) break;
-    await btn.click(); await sleep(350);
+    const nm = await page.$("#name"); // 1re étape : il faut un prénom
+    if (nm) await nm.fill(user);
+    await btn.click(); await sleep(300);
   }
   await closeSheets(page);
 }
