@@ -1410,6 +1410,10 @@ html:has(> body > .sheet-wrap:not(.closing)) .toast { bottom: auto; top: calc(va
 .onb-list .opt i { margin: 0; width: 42px; height: 42px; flex: none; border-radius: 13px; display: grid; place-items: center; background: var(--card-2); font-size: 22px; }
 .onb-list .opt.on i { background: rgba(var(--accent-rgb), .16); }
 .onb-list .opt > div { min-width: 0; }
+.onb-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--s-5); grid-template-columns: none; }
+.onb-chips .opt { display: inline-flex; align-items: center; gap: 8px; min-height: 0; padding: 10px 14px; }
+.onb-chips .opt i { font-style: normal; font-size: 18px; line-height: 1; }
+.onb-chips .opt b { font-size: 14px; }
 .onb-foot { margin-top: auto; padding-top: var(--s-6); }
 .onb-flow > :not(.onb-top, .onb-foot) { animation: rise var(--dur-4) var(--ease-out) backwards; }
 .onb-flow > :nth-child(3) { animation-delay: 50ms; } .onb-flow > :nth-child(4) { animation-delay: 100ms; } .onb-flow > :nth-child(5) { animation-delay: 150ms; } .onb-flow > :nth-child(6) { animation-delay: 200ms; }
