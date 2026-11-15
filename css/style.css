@@ -629,6 +629,20 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .verdict .small { line-height: 1.45; margin-top: 2px; }
 .vd-bar { height: 6px; border-radius: 6px; background: var(--line); margin-top: 12px; overflow: hidden; }
 .vd-bar i { display: block; height: 100%; border-radius: inherit; background: var(--v); transform-origin: left; transition: transform var(--dur-5) var(--spring-soft); }
+/* Conseils du coach (avant la séance au check-in, après la séance sur l'écran de fin) */
+.tips-h { display: flex; align-items: center; gap: 7px; margin: var(--s-5) 2px var(--s-2); font-size: var(--fs-sm); font-weight: 650; color: var(--muted); }
+.tips-h svg { width: 16px; height: 16px; color: var(--accent-ink); }
+.tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tip { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-md); background: var(--card); border: 1px solid var(--line); --t-soft: var(--blue-soft); --t-ink: var(--blue-ink); }
+.tip-ic { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--t-soft); color: var(--t-ink); }
+.tip-ic svg { width: 18px; height: 18px; }
+.tip > div { min-width: 0; }
+.tip b { display: block; font-family: var(--display); font-size: 14.5px; line-height: 1.25; }
+.tip p { margin: 3px 0 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+.tip:is(.tip-zone, .tip-pain, .tip-sore, .tip-sleep, .tip-energy, .tip-fuel) { --t-soft: var(--amber-soft); --t-ink: var(--amber-ink); }
+.tip:is(.tip-green, .tip-rec, .tip-next, .tip-soft, .tip-cool) { --t-soft: var(--green-soft); --t-ink: var(--green-ink); }
+.tip:is(.tip-ramp, .tip-focus, .tip-goal, .tip-level, .tip-food, .tip-doms) { --t-soft: var(--red-soft); --t-ink: var(--accent-ink); }
+.fin .tips { margin-top: var(--s-2); }
 .ci-warm { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; text-align: left; box-shadow: none; }
 .ci-warm .bi { width: 38px; height: 38px; border-radius: 12px; background: var(--amber-soft); color: var(--amber-ink); }
 .ci-warm .grow { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -895,6 +909,8 @@ html:has(> body > .sheet-wrap:not(.closing)) { overflow: hidden; }
 .rest .ctr button:active { transform: scale(.94); transition-duration: var(--dur-1); }
 .rest .ctr .go { background: var(--blue); color: #fff; box-shadow: 0 8px 20px -10px rgba(59, 108, 246, .9); }
 .rest .ctr .go svg { width: 14px; height: 14px; }
+.rest-tip { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.4; color: var(--muted); }
+.rest-tip svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--blue-ink); }
 .rest.ending .rest-bar i { background: var(--red-soft); }
 .rest.ending .rest-bar i::after { background: var(--red); }
 .rest.ending .t { color: var(--accent-ink); animation: tickPulse 1s var(--ease-out) infinite; }

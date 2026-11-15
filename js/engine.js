@@ -48,6 +48,8 @@ function startingTarget(item) {
   }
   return { weight, goal };
 }
+// Ce que le coach prévoit pour la première série d'un exercice (aperçu de séance, conseils d'avant-séance)
+export const plannedTarget = startingTarget;
 
 // rec : récupération des muscles (recovery.js) ; un exercice dont les muscles principaux ne sont pas remis
 // (sous 50 %) perd une série et 5 % de charge : on ne recharge pas un muscle encore fatigué.
@@ -224,6 +226,7 @@ export class Session {
     if (pain) {
       const alt = (EXERCISES[ex.id].alts || [])[0];
       ex.status = "skipped";
+      (this.flags.pain ||= []).push(ex.id); // pour les conseils d'après-séance
       events.push(this.push({ kind: "warn", mood: "alert", title: "Stop, on arrête", text: `Douleur signalée : on arrête ${ex.name}.${alt ? ` Tu peux le remplacer par ${EXERCISES[alt].name}.` : ""} Ne force jamais sur une douleur.`,
         say: `Stop. On arrête ${ex.name}. Ne force jamais sur une douleur.`, swap: alt || null }));
       this.advance(events);
@@ -457,6 +460,7 @@ export class Session {
       date: this.startedAt, programId: this.program.id, name: this.program.name,
       durationSec: this.elapsed, volume: Math.round(volume), sets, prs: [...this.prs], xp,
       readiness: this.readiness, fatigue: Math.round(this.fatigue), compare, cut: this.flags.cut,
+      ...(this.flags.pain?.length ? { pain: [...new Set(this.flags.pain)] } : {}),
     };
   }
 }

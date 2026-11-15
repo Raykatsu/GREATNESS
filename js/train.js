@@ -15,6 +15,7 @@ import { schemeText } from "./classics.js";
 import { classicsSection, bindClassics } from "./classics-ui.js";
 import { goalFix } from "./goals.js";
 import { healthReadiness, HEART } from "./health-ui.js";
+import { preTips } from "./advice.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
 
 let filter = "all";
@@ -210,6 +211,9 @@ export function openProgram(program, startLive, refresh) {
   };
 }
 
+// Liste de conseils du coach (check-in, fin de séance) : { k, icon, title, text }
+export const tipsHtml = tips => `<ul class="tips">${tips.map(t => `<li class="tip tip-${t.k}"><span class="tip-ic">${I[t.icon] || I.info}</span><div><b>${esc(t.title)}</b><p>${esc(t.text)}</p></div></li>`).join("")}</ul>`;
+
 /* ---------- Check-in de forme ---------- */
 const CI_IC = { sleep: I.moon, energy: I.bolt, soreness: I.flame };
 function checkIn(sh, program, startLive) {
@@ -232,12 +236,13 @@ function checkIn(sh, program, startLive) {
         <div class="lab"><span class="ci-ic">${CI_IC[k]}</span><span class="grow">${lab}</span><em id="l-${k}"></em></div>
         <div class="seg ci-seg" data-k="${k}">${[1, 2, 3, 4, 5].map(v => `<button data-v="${v}" aria-label="${lab} ${v} sur 5">${v}</button>`).join("")}</div></div>`).join("")}
       <div class="verdict" id="verdict" aria-live="polite"></div>
+      <div id="pre-tips"></div>
     </div>
     <div class="sheet-foot"><button class="btn btn-primary btn-lg btn-block" id="ci-go">${I.play} C'est parti</button>
       ${warm ? `<button class="card tap ci-warm mt-s" id="ci-warm"><span class="bi">${I.flame}</span>
         <span class="grow"><b>Échauffement d'abord</b><span class="xs muted">${esc(warm.name.replace("Échauffement ", "").replace(/^./, ch => ch.toUpperCase()))} · ~${estimateMinutes(warm)} min, puis ta séance</span></span>
         <span class="chev">${I.chev}</span></button>` : ""}</div>`;
-  let lastTone = "";
+  let lastTone = "", lastTips = null;
   const upd = (changed) => {
     rows.forEach(([k, , words, inverse]) => {
       const lab = $(`#l-${k}`, sh.el), v = vals[k], good = inverse ? 6 - v : v;
@@ -259,6 +264,9 @@ function checkIn(sh, program, startLive) {
     }
     $("#vd-pct", el).textContent = `${pct} %`;
     $(".vd-bar i", el).style.transform = `scaleX(${Math.max(0.04, pct / 100)})`;
+    // conseils d'avant-séance : selon la forme du jour, la séance, le profil et les gênes connues du coach
+    const tips = preTips(program, vals), key = tips.map(t => t.k + t.text).join("|");
+    if (key !== lastTips) { lastTips = key; $("#pre-tips", sh.el).innerHTML = tips.length ? `<div class="tips-h">${I.sparkle}Avant de commencer</div>${tipsHtml(tips)}` : ""; }
   };
   $$(".seg", sh.el).forEach(seg => $$("button", seg).forEach(b => b.onclick = () => {
     if (vals[seg.dataset.k] === +b.dataset.v) return;

@@ -8,7 +8,8 @@ import { classicAfter, CLASSICS } from "./classics.js";
 import { nativeRestLive, nativeWidget, isNative } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { cycleInfo, isWorkout } from "./planner.js";
-import { pickExercises } from "./train.js";
+import { pickExercises, tipsHtml } from "./train.js";
+import { restTip, quickAnswer, expressPlan, postTips } from "./advice.js";
 import { defaultItem } from "./create.js";
 import { checkBadges } from "./badges.js";
 import { aiReady, aiAdjust, aiBrief, aiDebrief } from "./ai.js";
@@ -313,6 +314,7 @@ function renderDock() {
         <div class="rest-time"><small>Repos</small><span class="t tnum" id="rest-t">${fmtTime(Math.max(0, Math.ceil((rest.end - Date.now()) / 1000)))}</span></div>
         <div class="nx"><small>Ensuite</small><b class="ellipsis">${esc(nx.name)}</b><span class="ellipsis">Série ${nx.done.length + 1} · ${target(nx)}</span></div>
       </div>
+      ${rest.tip ? `<p class="rest-tip">${I.sparkle}<span>${esc(rest.tip)}</span></p>` : ""}
       <div class="ctr"><button data-r="-15" aria-label="Moins 15 secondes">−15 s</button><button data-r="15" aria-label="Plus 15 secondes">+15 s</button>
         <button class="go" id="rest-skip">${I.play}<span>Go</span></button></div></div>`;
     $$("[data-r]", dock).forEach(b => b.onclick = () => {
@@ -433,7 +435,7 @@ function logSet(e) {
   const btn = (e?.currentTarget || $("#log"))?.getBoundingClientRect() || { left: innerWidth / 2, top: innerHeight - 80, width: 0, height: 0 };
   const doneIdx = ex.done.length;
   const lastSet = { exercice: ex.name, charge_kg: ex.type === "load" ? ui.weight : 0, reps: ui.reps, rpe: ui.rpe, douleur: ui.pain };
-  const prevW = ex.weight;
+  const prevW = ex.weight, before = S.progress, loggedRpe = S.program.simple ? 0 : ui.rpe;
   const { events, rest: restSec } = S.logSet({ reps: ui.reps, rpe: S.program.simple ? 6 : ui.rpe, pain: ui.pain, weight: ui.weight });
   lastLogged = { w: ex.type === "load" ? ui.weight : 0, r: ui.reps };
   const pr = events.some(ev => ev.kind === "pr" && ev.title.startsWith("Nouveau"));
@@ -446,7 +448,7 @@ function logSet(e) {
   if (S.finished) { rest = null; return setTimeout(finish, 600); }
   justDone = S.current === ex ? doneIdx : -1;
   resetInputs();
-  if (restSec > 0 && S.current) startRest(restSec);
+  if (restSec > 0 && S.current) startRest(restSec, { lastRpe: loggedRpe, half: before < 0.5 && S.progress >= 0.5 });
   render();
   // anime la charge qui change
   if (S.current === ex && ex.type === "load" && ex.weight !== prevW) $("#m-weight")?.classList.add(ex.weight > prevW ? "up" : "down");
@@ -465,9 +467,10 @@ function logSet(e) {
 }
 
 /* ---------- Repos ---------- */
-function startRest(sec) {
+// tip : le conseil du coach pour la série qui arrive (respiration, rappel technique, zone sensible…)
+function startRest(sec, { lastRpe = 0, half = false } = {}) {
   clearInterval(rest?.timer);
-  rest = { end: Date.now() + sec * 1000, total: sec, said10: false, beeped: new Set() };
+  rest = { end: Date.now() + sec * 1000, total: sec, said10: false, beeped: new Set(), tip: S?.current ? restTip(S.current, { n: S.totalDone, lastRpe, half }) : "" };
   rest.timer = setInterval(paintRest, 250);
   mascot.hang(true);
   liveRest();
@@ -529,7 +532,8 @@ function openSwap() {
 /* ---------- Coach pendant la séance ---------- */
 // Réponses immédiates (même hors ligne) aux cas courants ; une vraie question part à l'IA en ligne,
 // qui connaît la séance en cours et peut changer la charge (action set_weight, à valider d'un geste).
-const QUICK = [["harder", "Trop facile"], ["easier", "Trop dur"], ["pain", "Gêne ou douleur"], ["busy", "Machine prise"], ["rest", "Combien de repos ?"]];
+const QUICK = [["harder", "Trop facile"], ["easier", "Trop dur"], ["pain", "Gêne ou douleur"], ["busy", "Machine prise"], ["rest", "Combien de repos ?"],
+  ["tech", "Technique"], ["breath", "Respiration"], ["tempo", "Tempo"], ["time", "Plus le temps"], ["motiv", "Motive-moi"]];
 // Question à voix haute (bouton micro, ou « Coach, … ? » en mains libres) : la réponse est lue
 let askSheet = null;
 const plain = t => String(t).replace(/\*\*|[*_#>`]/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
@@ -571,6 +575,24 @@ function askCoach({ q: asked = "", voice = false } = {}) {
       acts.innerHTML = `<button class="chip red" id="ak-swap">${I.swap} Remplacer l'exercice</button>`;
       $("#ak-swap", sh.el).onclick = () => { sh.close(); openSwap(); };
     } else if (k === "busy") { sh.close(); openSwap(); }
+    else if (k === "tech" || k === "breath" || k === "tempo" || k === "motiv") {
+      const t = quickAnswer(k, ex, { left: S.plan.filter((e, i) => i !== S.idx && e.status === "todo").length });
+      say(t);
+      if (k === "motiv") speak(plain(t), { interrupt: true });
+    } else if (k === "time") {
+      // version express : on garde les gros exercices, moins de séries ailleurs, repos plus courts
+      const todo = S.plan.filter(e => e.status === "todo"), setsLeft = todo.reduce((a, e) => a + Math.max(0, e.sets - e.done.length), 0);
+      say(`Il reste **${setsLeft} série${setsLeft > 1 ? "s" : ""}** sur ${todo.length} exercice${todo.length > 1 ? "s" : ""}. En version express, je garde tes gros exercices, je réduis les autres à 2 séries et je raccourcis les repos.`);
+      acts.innerHTML = `<button class="chip red" id="ak-express">${I.bolt} Passer en version express</button>`;
+      $("#ak-express", sh.el).onclick = () => {
+        const r = expressPlan(S.plan, S.idx);
+        const txt = r.cut ? `${r.cut} série${r.cut > 1 ? "s" : ""} en moins et des repos plus courts : environ ${r.minutes} min gagnées.` : "Repos raccourcis : on va à l'essentiel.";
+        S.push({ kind: "info", title: "Version express", text: txt });
+        resetInputs(); render(); sub();
+        say(`**Version express activée.** ${txt}`); acts.innerHTML = "";
+        speak("Version express activée.", { interrupt: true });
+      };
+    }
     else say(`Repos conseillé : **${ex.rest} s** entre les séries de cet exercice. Plus long (jusqu'à ${Math.round(ex.rest * 1.5)} s) si la série d'avant était très dure, plus court sur les petits muscles.`);
   });
   const ask = async ({ spoken = false } = {}) => {
@@ -669,6 +691,7 @@ function finish() {
   wakeLock?.release?.(); wakeLock = null;
 
   const local = debrief(sum);
+  const tips = next ? [] : postTips(sum); // échauffement suivi de la séance : les conseils viendront à la fin
   const delta = c => {
     if (c.delta === null) return `<span class="delta n">nouveau</span>`;
     if (Math.abs(c.delta) < 0.5) return `<span class="delta n">=</span>`;
@@ -701,6 +724,7 @@ function finish() {
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
     ${goals.map(goalResultHtml).join("")}
     ${classic.length ? `<div class="card goal-res classic-res"><span class="gr-ic">${I.flame}</span><div class="grow"><b>${esc(CLASSICS[state.classic.id].name)}</b>${classic.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>` : ""}
+    ${tips.length ? `<div class="section"><h2>Et maintenant ?</h2><span class="xs dim">Les conseils de ${esc(coachName())}</span></div>${tipsHtml(tips)}` : ""}
     ${newBadges.length ? `<div class="section"><h2>Succès débloqués</h2></div><div class="badges">${newBadges.map(b => `<div class="badge-card on pop"><span class="bi">${b.icon}</span><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join("")}</div>` : ""}
     ${sum.sets.length ? `<label class="field fin-note"><span>Note de séance (facultatif)</span><textarea class="input" id="sess-note" rows="2" maxlength="300" placeholder="Sensations, énergie, ce que tu veux retenir…"></textarea></label>` : ""}
     <div class="fin-actions">${sum.sets.length ? `<button class="btn btn-soft btn-block" id="share-sess">${I.share} Partager ma séance</button>` : ""}${next ? `<button class="btn btn-soft btn-block" id="home">Retour à l'accueil</button>`
