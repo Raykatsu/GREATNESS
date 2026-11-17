@@ -89,6 +89,8 @@ Moi → **Amis & défis** :
 
 Un petit bouton **▶ Démo** à côté de chaque exercice (aperçu des séances, création, sélecteur, séance en cours, fiche exercice) ouvre une démonstration pour débutants : animation en grand, l'étape en cours écrite en direct, ralenti et pause, mise en place, respiration, points clés et erreurs à éviter.
 
+**Le corps anatomique en 3D fait le mouvement** : dans la démo, le modèle anatomique (voir « Planche d'anatomie 3D ») exécute l'exercice à la place du dessin, avec son matériel (barre et disques, haltères, kettlebell, banc, barre de traction, poulies et câbles, tapis, sièges et dossiers de machine). On tourne autour au doigt, on pince pour zoomer, double-toucher pour recadrer. Les muscles ont la couleur de leur rôle, et le muscle moteur s'allume pendant l'effort. Le bouton cube repasse au dessin (choix gardé sur l'appareil) ; sans WebGL ou en mode « économie de données », le dessin reste. Voir plus bas.
+
 Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 
 - **un vrai corps en volume** aux proportions humaines (os de longueur fixe : le corps ne se déforme jamais), **ombré en relief** (chaque membre et le tronc reçoivent un dégradé « cylindre » éclairé du haut, qui suit le mouvement image par image), animé de profil, de face, de dos ou de dessus selon ce qui montre le mieux le geste ;
@@ -117,6 +119,8 @@ le corps entier qu'on **fait tourner au doigt** (pincer pour zoomer, boutons Fac
 recadrer), aux mêmes couleurs que la planche. **Toucher un muscle** le nomme, avec un lien vers ses exercices. WebGL
 sans bibliothèque (`js/body3d.js`), ≈ 170 000 triangles, fichier de 3 Mo chargé à la première ouverture puis gardé
 hors ligne ; sans WebGL, la planche en images prend le relais.
+
+**Démos animées en 3D** (`js/demo3d.js`) : le corps a un squelette de 19 os (bassin, ventre, poitrine, cou, tête, clavicules, bras, avant-bras, mains, cuisses, jambes, pieds) placés sur les vrais os du modèle (tête du fémur par ajustement de sphère, genou entre fémur et tibia…), et chaque sommet suit deux os avec un poids (les os du squelette d'un seul bloc, les muscles en douceur près des articulations), calculés par `tools/anatomy/export_web.py` et rangés à la fin de `body.bin`. À chaque image, la position dessinée de la démo (angles des os, de profil ou de face) est relevée en 3D (un os raccourci dans le dessin sort du plan), le squelette prend ces directions (bassin et buste d'un bloc, bras et jambes pliés dans leur plan, sans vrille), le corps est posé là où le dessin le pose (chevilles, hanches sur le banc, mains sur la barre…), et la carte graphique déforme les 93 000 sommets. Les 183 mouvements sont vérifiés dans Node : valeurs finies, os de longueur fixe, positions clés (squat, développé couché, pompes, élévations, vue de dessus).
 
 Modèle : **BodyParts3D** (The Database Center for Life Science, CC BY-SA 2.1 Japan) et **Z-Anatomy** (CC BY-SA 4.0) ;
 les images dérivées sont sous CC BY-SA 4.0 (`assets/anatomy/LICENSE.md`), créditées dans l'app.

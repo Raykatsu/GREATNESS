@@ -30,7 +30,7 @@ python3 -m venv .venv && .venv/bin/pip install bpy pillow
 # 5. Conversion en WebP dans l'app
 .venv/bin/python -I tools/anatomy/pack_app.py out/raw assets/anatomy
 
-# 6. Corps 3D allégé de la vue interactive (≈ 170 000 triangles, 3 Mo) : body.bin + body.json
+# 6. Corps 3D allégé de la vue interactive (≈ 170 000 triangles, 3,4 Mo) et son squelette d'animation : body.bin + body.json
 .venv/bin/python -u -I tools/anatomy/export_web.py -- body.blend out-web 0.07 0.05
 cp out-web/body.bin out-web/body.json assets/anatomy/
 ```
@@ -54,3 +54,8 @@ cp out-web/body.bin out-web/body.json assets/anatomy/
   muscles, 5 % pour les os), puis écrit les positions sur 16 bits, les normales et le groupe de chaque sommet sur 8 bits
   (os, tendon, muscle « autre », ou l'un des 17 groupes) et les indices sur 32 bits. Toucher un muscle : la vue est
   redessinée hors écran avec le groupe de chaque sommet en couleur, et l'app lit le pixel touché.
+- Squelette des démos animées (`js/demo3d.js`) : `export_web.py` place 19 articulations sur les vrais os (tête du fémur et
+  de l'humérus par ajustement de sphère, genou entre fémur et tibia, cheville au dôme du talus, vertèbres L5, L1, T1,
+  atlas…) et donne à chaque sommet deux os et un poids. Les os du squelette suivent un seul segment (d'après leur nom) ;
+  muscles et tendons sont répartis à la distance des segments, dans la région du corps où ils se trouvent (bras, jambe,
+  tronc, tête), avec un passage doux près des articulations. Ces 4 octets par sommet sont rangés après les indices.

@@ -2510,7 +2510,21 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .demo-how { margin: 10px 2px 0; font-size: 13.5px; line-height: 1.45; color: var(--text); }
 .demo-how b { color: var(--muted); }
 .demo-phase { margin: 0 10px 10px; padding: 9px 12px; border-radius: 12px; background: rgba(0, 0, 0, .4); color: #fff; font-weight: 650; font-size: 14px; line-height: 1.3; text-align: center; min-height: 3.2em; display: grid; place-items: center; }
-.demo-ctrl { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 10px; }
+.demo-ctrl { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 10px; align-items: center; margin-top: 10px; }
+.demo-ctrl:has(.dm-3dt[hidden]) { grid-template-columns: 42px minmax(0, 1fr); }
+.dm-3dt.on { background: var(--red); color: var(--on-accent); border-color: transparent; }
+/* démo en 3D : le corps anatomique (js/demo3d.js) à la place du dessin, un peu plus haut */
+.demo-3d { display: block; width: 100%; aspect-ratio: 0.95; max-height: 50vh; touch-action: none; cursor: grab; }
+.demo-3d:active { cursor: grabbing; }
+.demo-stage.is-3d { background: radial-gradient(circle at 50% 38%, rgba(var(--accent-rgb), .1), transparent 68%), var(--bg-2); }
+.demo-hint { position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px;
+  background: rgba(0, 0, 0, .38); color: #fff; font-size: 11.5px; font-weight: 650; pointer-events: none; animation: hintOut 0.6s 3.2s var(--ease-out) forwards; }
+.demo-hint svg { width: 13px; height: 13px; }
+@keyframes hintOut { to { opacity: 0; } }
+.demo-load { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, .38); }
+.demo-load .spinner { width: 14px; height: 14px; }
+.demo-hint[hidden], .demo-load[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .demo-hint { animation: none; } }
 .demo-ctrl .icon-btn svg { width: 17px; height: 17px; }
 .demo-h { margin: var(--s-4) 0 6px; font-size: var(--fs-md); }
 .demo p { color: var(--muted); line-height: 1.5; }

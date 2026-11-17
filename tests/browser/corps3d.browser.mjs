@@ -42,3 +42,39 @@ test("corps 3D : ouverture depuis le manuel, muscle touché, retour à ses exerc
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });
+
+// Démos d'exercice : le corps anatomique fait le mouvement (WebGL), de profil, de face et vu de dessus ; le bouton cube
+// repasse au dessin et revient à la 3D ; sans WebGL, le dessin reste et le bouton disparaît.
+test("démos en 3D : le corps fait le mouvement, bascule 3D ↔ dessin", { timeout: 180000 }, async () => {
+  const app = await openApp();
+  const { page, errors } = app;
+  try {
+    await signup(page, "demo3d", "1357");
+    for (const id of ["squat", "lateral", "db_fly"]) {
+      await closeSheets(page);
+      await page.evaluate(id => import("/js/demo.js").then(m => m.openDemo(id)), id);
+      await page.waitForSelector(".demo-stage.is-3d, #dm-3dt[hidden]", { timeout: 60000 });
+      if (!(await page.$(".demo-stage.is-3d"))) { // pas de WebGL : le dessin reste
+        assert.ok(await page.$eval(".demo-anim", e => e.style.display !== "none"));
+        continue;
+      }
+      // la 3D remplace le dessin
+      assert.equal(await page.$eval(".demo-anim", e => e.style.display), "none");
+      assert.equal(await page.$eval(".demo-3d", e => e.hidden), false);
+      assert.equal(await page.getAttribute("#dm-3dt", "aria-pressed"), "true");
+      // lecture : le corps bouge, puis retour au dessin et à la 3D
+      await page.click("#dm-play"); await sleep(700); await page.click("#dm-play");
+      await page.click("#dm-3dt");
+      assert.equal(await page.$eval(".demo-anim", e => e.style.display), "");
+      assert.equal(await page.$eval(".demo-3d", e => e.hidden), true);
+      assert.equal(await page.getAttribute("#dm-3dt", "aria-pressed"), "false");
+      await page.click("#dm-3dt");
+      await page.waitForSelector(".demo-stage.is-3d");
+      // tourner autour du corps au doigt
+      const b = await page.$eval(".demo-3d", c => { const r = c.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+      await page.mouse.move(b.x, b.y); await page.mouse.down(); await page.mouse.move(b.x + 80, b.y + 10, { steps: 6 }); await page.mouse.up();
+    }
+    await closeSheets(page);
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});
