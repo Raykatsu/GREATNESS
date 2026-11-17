@@ -3,7 +3,8 @@
 // on touche un muscle pour savoir lequel c'est. Même code couleur que la planche (js/anatomy.js) : rôles d'un mouvement,
 // niveaux de récupération… Le fichier (≈ 3 Mo) n'est chargé qu'à l'ouverture, puis gardé hors ligne par sw.js.
 // Format de assets/anatomy/body.bin (décrit par body.json) : positions (3 × int16 quantifiés dans la boîte lo → hi),
-// normales + groupe (4 × int8 : nx, ny, nz sur ±127, puis l'index du groupe dans « parts »), indices (uint32).
+// normales + groupe (4 × int8 : nx, ny, nz sur ±127, puis l'index du groupe dans « parts »), indices (uint32), puis le
+// squelette des démos animées (4 × uint8 par sommet : ses deux os et le poids du premier ; os décrits dans « rig »).
 import { ANAT_DIR, ANAT_CREDIT, bodyMap } from "./anatomy.js";
 import { MUSCLES } from "./body.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
@@ -15,10 +16,11 @@ export function decodeBody(buf, meta) {
   const pos = new Int16Array(buf, off.pos, v * 3);
   const nor = new Int8Array(buf, off.nor, v * 4);
   const idx = new Uint32Array(buf, off.idx, t * 3);
-  return { pos, nor, idx, v, t, lo: meta.lo, hi: meta.hi, parts: meta.parts };
+  const skin = off.skin != null && buf.byteLength >= off.skin + v * 4 ? new Uint8Array(buf, off.skin, v * 4) : null;
+  return { pos, nor, idx, skin, rig: meta.rig || null, v, t, lo: meta.lo, hi: meta.hi, parts: meta.parts };
 }
 let loading = null;
-const loadBody = () => (loading ||= Promise.all([
+export const loadBody = () => (loading ||= Promise.all([
   fetch(`${ANAT_DIR}body.json`).then(r => { if (!r.ok) throw new Error("body.json"); return r.json(); }),
   fetch(`${ANAT_DIR}body.bin`).then(r => { if (!r.ok) throw new Error("body.bin"); return r.arrayBuffer(); }),
 ]).then(([meta, buf]) => decodeBody(buf, meta)).catch(e => { loading = null; throw e; }));
@@ -44,13 +46,13 @@ export function colorTable(parts, cls, css = v => "") {
 }
 
 /* ---------- Petites matrices (colonne d'abord, comme WebGL) ---------- */
-const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; };
-const perspective = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = (2 * f * n) / (n - f); return o; };
+export const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; };
+export const perspective = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = (2 * f * n) / (n - f); return o; };
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = a => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-function lookAt(eye, at, up) {
+export function lookAt(eye, at, up) {
   const z = norm(sub(eye, at)), x = norm(cross(up, z)), y = cross(z, x);
   return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1]);
 }

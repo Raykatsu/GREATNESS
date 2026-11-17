@@ -1,6 +1,15 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  // Démos en 3D
+  "Corps 3D sans squelette": "3D body without a skeleton",
+  "Corps anatomique en 3D": "Anatomical body in 3D",
+  "Démo 3D": "3D demo",
+  "Démos animées en 3D": "Animated 3D demos",
+  "Fais glisser pour tourner": "Drag to rotate",
+  "Démo en 3D. Fais glisser pour tourner autour du corps.": "3D demo. Drag to rotate around the body.",
+  "Le bouton ▶ à côté de chaque exercice montre le corps en 3D qui fait le mouvement, les muscles qui travaillent et les erreurs à éviter.": "The ▶ button next to each exercise shows the 3D body doing the movement, the working muscles and the mistakes to avoid.",
+  "Le corps anatomique fait le mouvement : tourne autour au doigt, ralentis-le, et vois le muscle moteur s'allumer pendant l'effort.": "The anatomical body does the movement: spin around it with your finger, slow it down, and watch the prime mover light up during the effort.",
   // Guide : lecteur d'écran
   "Déjà découverte": "Already discovered",
   "Étape faite": "Step done",

@@ -99,10 +99,13 @@ export function openDemo(id) {
   const steps = move.loop ? (g.steps || [[0, g.go]]).map(([at, t], i) => [String(i), t, at]) : [["go", g.go], ["back", g.back]];
   const sh = sheet(`<div class="demo">
     <div class="demo-stage"><svg class="demo-anim" role="img" aria-label="Démo animée : ${esc(ex.name)}"></svg>
-      ${view ? `<span class="demo-view">${esc(view)}</span>` : ""}
+      <canvas class="demo-3d" hidden role="img" aria-label="Démo en 3D. Fais glisser pour tourner autour du corps."></canvas>
+      ${view ? `<span class="demo-view">${esc(view)}</span>` : ""}<span class="demo-hint" hidden>${I.cube} Fais glisser pour tourner</span>
+      <span class="demo-load" hidden aria-hidden="true"><i class="spinner"></i></span>
       <div class="demo-phase" aria-live="polite"></div></div>
     <div class="demo-ctrl"><button class="icon-btn" id="dm-play" aria-label="Pause">${PAUSE}</button>
-      <div class="seg" id="dm-speed" style="--n:2"><button data-s="0.5">Ralenti</button><button data-s="1" class="on">Normal</button></div></div>
+      <div class="seg" id="dm-speed" style="--n:2"><button data-s="0.5">Ralenti</button><button data-s="1" class="on">Normal</button></div>
+      <button class="icon-btn dm-3dt" id="dm-3dt" aria-pressed="false" aria-label="Corps anatomique en 3D">${I.cube}</button></div>
     <div class="eyebrow mt">${esc(ex.muscle)} · ${esc(EQUIP[ex.equip] || "")}</div>
     <h2 class="h2" style="margin-top:2px">${esc(ex.name)}</h2>
     ${R ? `<div class="demo-mus">${bodyMap({}, { cls: roleClass(R), label: "Muscles en action" })}<div class="dm-leg">
@@ -126,17 +129,45 @@ export function openDemo(id) {
     <h3 class="demo-h">Erreurs à éviter</h3><ul class="demo-list ko">${g.mistakes.map(c => `<li>${I.x}${esc(c)}</li>`).join("")}</ul>
     ${ex.alts?.length ? `<p class="small muted mt">Variante plus simple ou sans le matériel : ${ex.alts.filter(a => EXERCISES[a]).map(a => `<button class="link" data-demo="${esc(a)}">${esc(EXERCISES[a].name)}</button>`).join(", ")}.</p>` : ""}
     <p class="xs muted mt">Commence léger : la technique d'abord, la charge ensuite.</p>
-  </div>`, { z: 85, onClose: () => { closed = true; cancelAnimationFrame(raf); } });
-  const svgEl = $(".demo-anim", sh.el), phase = $(".demo-phase", sh.el);
+  </div>`, { z: 85, onClose: () => { closed = true; cancelAnimationFrame(raf); v3?.destroy(); } });
+  const svgEl = $(".demo-anim", sh.el), phase = $(".demo-phase", sh.el), stage = $(".demo-stage", sh.el), cv = $(".demo-3d", sh.el);
   const draw = figure(svgEl, move, { big: true });
   // Contraction en direct : le muscle agoniste s'illumine à l'effort, se relâche au retour.
   let agonEls = null;
-  const pulse = (c, p) => {
+  const pulse = act => {
     if (!R) return;
     agonEls ??= [...svgEl.querySelectorAll(".mus.p")];
     if (!agonEls.length) return;
-    const o = (0.5 + 0.5 * activation(stageAt(c, fast), p, move.loop, c)).toFixed(2);
+    const o = (0.5 + 0.5 * act).toFixed(2);
     for (const el of agonEls) el.style.opacity = o;
+  };
+  // Le corps anatomique en 3D fait le mouvement (js/demo3d.js) : chargé à l'ouverture, le dessin joue en attendant.
+  // Réglage gardé sur l'appareil (bouton cube) ; sans WebGL ou en économie de données, le dessin reste.
+  let v3 = null, want3d = demo3dOn();
+  const set3dBtn = () => { const b = $("#dm-3dt", sh.el); b.setAttribute("aria-pressed", String(!!(want3d && v3))); b.classList.toggle("on", !!(want3d && v3)); };
+  const show3d = on => {
+    const live = on && v3;
+    cv.hidden = !live; svgEl.style.display = live ? "none" : ""; // (un <svg> n'a pas de propriété hidden)
+    stage.classList.toggle("is-3d", !!live);
+    $(".demo-hint", sh.el).hidden = !live;
+    set3dBtn();
+  };
+  const start3d = () => {
+    if (v3 || !want3d) return show3d(want3d);
+    const load = $(".demo-load", sh.el); load.hidden = false;
+    Promise.all([import("./body3d.js"), import("./demo3d.js")])
+      .then(([b3, d3]) => b3.loadBody().then(body => {
+        if (closed || !want3d) return;
+        const css = v => getComputedStyle(document.documentElement).getPropertyValue(v);
+        const pm = new Set(mus.p || []), sm = new Set(mus.s || []);
+        const cls = R ? roleClass(R) : m => (pm.has(m) ? "mus p" : sm.has(m) ? "mus s" : "mz");
+        cv.hidden = false; // le canevas doit avoir sa taille avant le premier dessin
+        v3 = d3.mountDemo3D(cv, body, move, b3.colorTable(body.parts, cls, css), { glow: R ? R.agonist : [...pm], floor: b3.hexToLinear(css("--card-3")) });
+        show3d(true);
+        if (!playing) frame(performance.now());
+      }))
+      .catch(err => { console.warn("Démo 3D :", err); want3d = false; show3d(false); $("#dm-3dt", sh.el).hidden = true; })
+      .finally(() => { load.hidden = true; });
   };
   // un aller-retour en 3,2 s (6,4 s au ralenti) ; une boucle un peu plus lente que dans les vignettes
   const cyc = move.loop ? (move.dur || 1600) * 1.25 : 3200;
@@ -146,11 +177,12 @@ export function openDemo(id) {
     const st = stageAt(c, fast);
     return st === "go" ? ["go", `1 · ${g.go}`] : st === "hold" ? ["hold", g.effort ? "Pause" : "Tiens la position"] : st === "back" ? ["back", `2 · ${g.back}`] : ["start", "Position de départ"];
   };
-  const frame = now => {
+  function frame(now) {
     if (closed || !sh.el.isConnected) return;
     const c = ((offset + (playing ? (now - t0) : 0) * speed) % cyc) / cyc, p = phaseAt(move, c, fast);
-    draw(p);
-    pulse(c, p);
+    const act = activation(stageAt(c, fast), p, move.loop, c);
+    if (v3 && want3d) v3.draw(p, act);
+    else { draw(p); pulse(act); }
     const [k, txt] = label(c, p);
     if (txt !== lastLabel) {
       lastLabel = txt;
@@ -158,7 +190,7 @@ export function openDemo(id) {
       $$(".demo-steps li", sh.el).forEach(li => li.classList.toggle("on", li.dataset.step === k));
     }
     if (playing) raf = requestAnimationFrame(frame);
-  };
+  }
   const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const setPlaying = on => {
     const now = performance.now();
@@ -170,6 +202,12 @@ export function openDemo(id) {
     raf = requestAnimationFrame(frame);
   };
   $("#dm-play", sh.el).onclick = () => setPlaying(!playing);
+  $("#dm-3dt", sh.el).onclick = () => {
+    want3d = !(want3d && v3);
+    try { localStorage.setItem(DEMO3D_KEY, want3d ? "on" : "off"); } catch { /* mode privé */ }
+    if (want3d) start3d(); else show3d(false);
+    if (!playing) frame(performance.now());
+  };
   $("#dm-cam", sh.el)?.addEventListener("click", () => { setPlaying(false); openCam({ ...ex, id }, { practice: true }); });
   // coach vidéo : chargé seulement quand on s'en sert
   $("#dm-video", sh.el)?.addEventListener("click", () => { setPlaying(false); import("./videocoach.js").then(m => m.openVideoCoach({ ...ex, id })); });
@@ -190,6 +228,14 @@ export function openDemo(id) {
   });
   if (reduced) { playing = false; offset = 0.3 * cyc; $("#dm-play", sh.el).innerHTML = I.play; }
   raf = requestAnimationFrame(frame);
+  start3d();
+}
+
+// Démo en 3D : oui par défaut, sauf réglé autrement sur cet appareil ou en mode « économie de données »
+const DEMO3D_KEY = "greatness.demo3d";
+function demo3dOn() {
+  try { const v = localStorage.getItem(DEMO3D_KEY); if (v) return v === "on"; } catch { /* mode privé */ }
+  return !(typeof navigator !== "undefined" && navigator.connection?.saveData);
 }
 
 const PAUSE = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>`;
