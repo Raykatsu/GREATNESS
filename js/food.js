@@ -14,7 +14,7 @@ import { foodAI, foodInfoAI, OnlineError } from "./online.js";
 import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, trendRate, goalProgress } from "./adaptive.js";
 import { planCard, bindPlanCard } from "./mealplan-ui.js";
 import { isOnlineMode, authToken } from "./cloud.js";
-import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings } from "./ui.js";
+import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn } from "./ui.js";
 import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -87,7 +87,7 @@ export function renderFood(view) {
   const incomplete = !p.height || !p.age || !p.sex;
 
   view.innerHTML = `
-    <header class="page-head"><h1 class="h1">Nutrition</h1><button class="icon-btn" id="f-set" aria-label="Mes objectifs">${IC.target}</button></header>
+    <header class="page-head"><h1 class="h1">Nutrition</h1><span class="ph-acts">${helpBtn("food")}<button class="icon-btn" id="f-set" aria-label="Mes objectifs">${IC.target}</button></span></header>
     <div class="day-nav"><button class="icon-btn" id="d-prev" aria-label="Jour précédent">${I.back}</button>
       <b>${esc(label)}</b><button class="icon-btn" id="d-next" ${isToday ? "disabled" : ""} aria-label="Jour suivant">${I.chev}</button></div>
     ${incomplete ? `<button class="card banner b-blue nut-tip" id="f-tip"><div class="bi">${IC.target}</div><div class="grow"><b>Des objectifs sur mesure</b><div class="small muted">Indique ta taille, ton âge et ton activité : je calcule tes besoins exacts.</div></div>${I.chev}</button>` : ""}

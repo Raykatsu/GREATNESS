@@ -7,7 +7,7 @@ import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
 import { mascot } from "./mascot.js";
 import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
-import { $, $$, esc, md, I, coachIcon, sheet, confirmSheet, toast } from "./ui.js";
+import { $, $$, esc, md, I, coachIcon, sheet, confirmSheet, toast, helpBtn } from "./ui.js";
 import { coachName } from "./chars/index.js";
 import { parseActions, streamText, describe, applyAction } from "./aiact.js";
 import { memoryCommand, addMemory } from "./memory.js";
@@ -31,6 +31,7 @@ export function renderCoach(view) {
     <header class="coach-head">
       <div class="coach-av" aria-hidden="true">${coachIcon()}<i class="coach-dot" id="dot"></i></div>
       <div class="coach-id"><h1 class="coach-name" data-coach-name>${esc(coachName())}</h1><div class="status" id="status" aria-live="polite"></div></div>
+      ${helpBtn("coach")}
       <button class="icon-btn plain" id="clear" aria-label="Effacer la discussion" ${state.chat.length ? "" : "hidden"}>${I.trash}</button>
     </header>
     <div id="llm-card"></div>
@@ -193,6 +194,7 @@ export function renderCoach(view) {
     if (a?.done) { b.disabled = true; b.classList.add("done"); }
     b.onclick = () => {
       if (a?.start) window.dispatchEvent(new CustomEvent("greatness:start", { detail: a.start }));
+      else if (a?.guide) window.dispatchEvent(new CustomEvent("greatness:guide", { detail: a.guide })); // js/guide.js
       else if (a?.route) location.hash = a.route;
       else if (a?.ask) send(a.ask);
       else if (a?.ai || a?.all) runAi(el, m, a);
@@ -280,7 +282,8 @@ export function renderCoach(view) {
       const mem = !rc && !/\?/.test(text) ? memoryCommand(text) : null;
       if (/ce que tu peux faire|que peux[- ]tu faire|tes (pouvoirs|capacites)|aide$/i.test(text.normalize("NFD").replace(/[̀-ͯ]/g, ""))) {
         await new Promise(res => setTimeout(res, 450));
-        reply = { role: "assistant", content: `Je réponds à toutes tes questions, et je peux aussi **modifier l'app pour toi**. Par exemple :\n${COMMAND_EXAMPLES.map(e => `• « ${e} »`).join("\n")}`, actions: COMMAND_EXAMPLES.slice(0, 3).map(e => ({ label: e, ask: e })) };
+        reply = { role: "assistant", content: `Je réponds à toutes tes questions, et je peux aussi **modifier l'app pour toi**. Par exemple :\n${COMMAND_EXAMPLES.map(e => `• « ${e} »`).join("\n")}\n\nEt pour faire le tour de toutes les fonctions de l'app, ouvre le guide.`,
+          actions: [{ label: "Découvrir GREATNESS", guide: "start" }, ...COMMAND_EXAMPLES.slice(0, 3).map(e => ({ label: e, ask: e }))] };
       } else if (rc) {
         await new Promise(res => setTimeout(res, 450));
         reply = { role: "assistant", content: rc.text, actions: rc.actions };

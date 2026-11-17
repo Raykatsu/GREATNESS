@@ -26,7 +26,7 @@ import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } f
 import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
-import { $, $$, esc, I, coachIcon, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings } from "./ui.js";
+import { $, $$, esc, I, coachIcon, fmtNum, fmtTime, toast, sheet, confirmSheet, ring, animateRings, helpBtn } from "./ui.js";
 import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard, ensureAdaptive } from "./food.js";
@@ -41,6 +41,7 @@ import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
+import { openGuide, guideCard, bindGuideCard, markSeen } from "./guide.js";
 import { LOC, initLang, getLang, setLang, EN_READY, tr, dayUnit } from "./i18n.js";
 
 // Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
@@ -125,7 +126,7 @@ const TOUR = () => [
   ["create", "Créer : compose tes propres séances, génère-en une en 2 touches, fais des superséries."],
   ["food", "Repas : note ce que tu manges en scannant le code-barres, en cherchant l'aliment, ou en décrivant ton assiette (ou en la prenant en photo) : je calcule calories et protéines face à ton objectif."],
   ["coach", `Coach, c'est moi, ${coachName()} ! Pose-moi n'importe quelle question, ou demande-moi de modifier l'app pour toi.`],
-  ["me", "Moi : tes progrès, tes amis et tes réglages. C'est aussi là que tu peux changer de coach. Allez, à toi de jouer !"],
+  ["me", "Moi : tes progrès, tes amis et tes réglages. C'est aussi là que tu peux changer de coach. Et le bouton « ? » en haut de chaque écran t'explique tout. Allez, à toi de jouer !"],
 ];
 export function startTour(i = 0) {
   const T = TOUR();
@@ -140,6 +141,8 @@ export function startTour(i = 0) {
   $(`.tabbar a[data-tab="${tab}"]`)?.classList.add("tour-focus");
   mascot.say(`${text}`, { ms: 60000, action: { label: i < T.length - 1 ? `Suivant (${i + 1}/${T.length})` : "C'est parti !", fn: () => startTour(i + 1) } });
 }
+// Le guide « Découvrir GREATNESS » s'ouvre pendant la visite : il prend le relais (la visite se termine, la bulle s'efface)
+addEventListener("greatness:guide-open", () => { if ($(".tabbar a.tour-focus")) { startTour(TOUR().length); mascot.hideBubble?.(); } });
 
 // Séance interrompue (app fermée) : on propose de la reprendre dès le déverrouillage.
 function offerResume() {
@@ -256,8 +259,9 @@ function home() {
     <header class="home-head">
       <div class="logo">${coachIcon()}GREATNESS</div>
       <div class="hh-chips">
+        ${helpBtn("home")}
         ${st ? `<a href="#/progress" class="chip hh-streak" aria-label="${st} jour${st > 1 ? "s" : ""} d'affilée">${I.flame}<b class="tnum">${st}</b></a>` : ""}
-        <a href="#/progress" class="chip hh-lvl">${I.trophy}<span>Niv. <b class="tnum">${r.level}</b></span></a>
+        <a href="#/progress" class="chip hh-lvl">${I.trophy}<span><span class="hh-niv">Niv. </span><b class="tnum">${r.level}</b></span></a>
       </div>
     </header>
     <div class="hello">
@@ -294,6 +298,7 @@ function home() {
       </div>
     </section>
 
+    ${guideCard()}
     ${healthCard()}
     ${goalCard()}
     ${classicCard()}
@@ -350,6 +355,7 @@ function home() {
   bindClassicCard(view, route);
   bindHealthCard(view);
   bindStoryCard(view);
+  bindGuideCard(view);
   checkStory(); // chapitre réussi depuis la dernière fois : fête et nouveau costume
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);
@@ -433,7 +439,7 @@ function progress() {
   // lien d'une notification « amis » : #/progress?t=friends
   if (params.t === "friends" || params.t === "me") { progressTab = params.t; params = {}; history.replaceState(null, "", "#/progress"); }
   const p = state.profile;
-  const head = `<header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>`;
+  const head = `<header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${helpBtn(progressTab === "friends" ? "friends" : "progress")}${meAvatar(p.name)}</header>`;
   if (progressTab === "friends") {
     view.innerHTML = `${head}${progressSeg()}<div id="friends"></div>`;
     bindProgressSeg();
@@ -742,7 +748,7 @@ function profile() {
   const p = state.profile;
   const r = rankInfo();
   view.innerHTML = `
-    <header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${meAvatar(p.name)}</header>
+    <header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${helpBtn("settings")}${meAvatar(p.name)}</header>
     ${progressSeg("settings")}
     <div id="coach-card" class="mt"></div>
     <div class="card rank me-id mt">${ring(r.pct, r.level, 56)}<div class="grow"><div class="eyebrow">Rang · niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div><div class="xs muted">${fmtNum(r.xp)} XP · @${esc(currentUser)}</div></div></div>
@@ -830,6 +836,7 @@ function profile() {
     <div class="card card-list set-list mt-l">
       <button class="set-row set-act" id="feedback">${sic("idea", "#f59e0b")}<div class="grow"><b>Une idée ? Un souci ?</b><span class="xs muted">Écris-nous directement depuis l'app</span></div>${I.chev}</button>
       <button class="set-row set-act hidden" id="inbox">${sic("inbox", "#8b5cf6")}<div class="grow"><b>Retours reçus</b><span class="xs muted">Messages des utilisateurs et plantages (administrateur)</span></div><span class="chip red hidden" id="inbox-n"></span>${I.chev}</button>
+      <button class="set-row set-act" id="guide-open"><span class="set-ic" style="--c:#0ea5e9">${I.compass}</span><div class="grow"><b>Découvrir GREATNESS</b><span class="xs muted">Toutes les fonctions expliquées, avec un bouton pour les essayer</span></div>${I.chev}</button>
       <button class="set-row set-act" id="quiz-again"><span class="set-ic" style="--c:var(--accent)">${coachIcon()}</span><div class="grow"><b>Refaire le quiz de personnalisation</b><span class="xs muted">Objectif, niveau, durée, zones à cibler…</span></div>${I.chev}</button>
       <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${coachIcon()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
       <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
@@ -841,6 +848,7 @@ function profile() {
   coachCard($("#coach-card"), { open: params.coach === "1" });
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
   $("#quiz-again")?.addEventListener("click", () => onboarding(1, true));
+  $("#guide-open")?.addEventListener("click", () => openGuide());
 
   $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); mascot.react("happy"); });
   $$("#days button").forEach(b => b.onclick = () => { p.days = +b.dataset.v; save(); $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
@@ -855,7 +863,7 @@ function profile() {
   $("#p-push").onchange = async e => {
     const c = e.target; c.disabled = true;
     try {
-      if (c.checked) { saveRem(); await enablePush(); toast(`Notifications activées : rappel ${p.remindBefore ? p.remindBefore + " min avant" : "à"} ${p.remindAt} les jours de séance, et défis de tes amis.`, 4500); }
+      if (c.checked) { saveRem(); await enablePush(); markSeen("used:remind"); toast(`Notifications activées : rappel ${p.remindBefore ? p.remindBefore + " min avant" : "à"} ${p.remindAt} les jours de séance, et défis de tes amis.`, 4500); }
       else { await disablePush(); toast("Notifications désactivées."); }
     } catch (err) { c.checked = false; toast(err.message || "Impossible d'activer les notifications.", 5000); }
     c.disabled = false;
@@ -863,6 +871,7 @@ function profile() {
   $("#rem-ics").onclick = () => {
     p.remindAt = $("#rem-time").value || "18:00"; p.remindBefore = +$("#rem-before").value; save();
     const n = downloadIcs();
+    if (n) markSeen("used:remind");
     toast(n ? `${n} séance(s) par semaine ajoutée(s) : ouvre le fichier pour les mettre dans ton calendrier.` : "Aucune séance prévue dans ton programme.", 4500);
   };
   $("#regen").onclick = () => { state.weekPlan = generateWeekPlan(); save(); toast("Nouveau programme prêt"); mascot.say(`Programme de ${p.days} séances créé. Regarde l'accueil !`, { mood: "happy" }); };

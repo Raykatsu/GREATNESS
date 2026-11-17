@@ -69,6 +69,15 @@ export function mergeData(a = {}, b = {}) {
     return { ...best, done };
   })() : null;
 
+  // guide « Découvrir GREATNESS » : fonctions découvertes réunies ; carte masquée ou étapes fêtées d'un côté = des deux
+  const gd = [older.guide, newer.guide].filter(Boolean);
+  const guide = gd.length ? {
+    ...older.guide, ...newer.guide,
+    seen: [...new Set(gd.flatMap(g => g.seen || []))].slice(-200),
+    ...(gd.some(g => g.hide) ? { hide: true } : {}),
+    ...(gd.some(g => g.done) ? { done: Math.min(...gd.map(g => g.done).filter(Boolean)) } : {}),
+  } : null;
+
   // programme célèbre : le même des deux côtés → le plus avancé ; deux différents → le plus récemment commencé
   // (un programme arrêté vaut null : il reste arrêté si c'est le côté le plus récent)
   const classic = older.classic && newer.classic
@@ -78,6 +87,7 @@ export function mergeData(a = {}, b = {}) {
     ...older, ...newer,
     ...(story ? { story } : {}),
     ...(classic ? { classic } : {}),
+    ...(guide ? { guide } : {}),
     // analyses vidéo de la technique : réunies
     ...(older.formChecks || newer.formChecks ? { formChecks: unionById(older.formChecks, newer.formChecks, "formChecks").sort((x, y) => x.at - y.at).slice(-40) } : {}),
     sessions, customPrograms, customExercises, lifts, badges, deleted,
@@ -97,6 +107,7 @@ export function differs(merged, base) {
   const empty = v => v == null || (typeof v === "object" && !Object.values(v).some(x => !empty(x)));
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
-    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league, d.story, d.formChecks?.length, d.classic], clean);
+    d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league, d.story, d.formChecks?.length, d.classic,
+    d.guide && { seen: [...(d.guide.seen || [])].sort(), hide: d.guide.hide, done: d.guide.done }], clean);
   return pick(merged) !== pick(base);
 }

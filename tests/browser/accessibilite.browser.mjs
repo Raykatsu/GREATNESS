@@ -37,6 +37,8 @@ for (const mode of ["dark", "light"]) {
         ["retours reçus", async () => (await import("/js/feedback.js")).openInbox()],
         ["carte à partager", async () => { const { state } = await import("/js/store.js"); return (await import("/js/sharecard.js")).openShare(state.sessions.at(-1)); }],
         ["programme célèbre", async () => (await import("/js/classics-ui.js")).openClassic("gzclp")],
+        ["guide : bien démarrer", async () => (await import("/js/guide.js")).openGuide("start")],
+        ["guide : une fonction ouverte", async () => { (await import("/js/guide.js")).openGuide("train"); document.querySelector(".gd-row")?.click(); }],
       ];
       for (const [name, fn] of sheets) {
         await go(page, "#/");

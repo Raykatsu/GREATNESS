@@ -16,7 +16,7 @@ import { classicsSection, bindClassics } from "./classics-ui.js";
 import { goalFix } from "./goals.js";
 import { healthReadiness, HEART } from "./health-ui.js";
 import { preTips } from "./advice.js";
-import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
+import { $, $$, esc, I, sheet, toast, confirmSheet, helpBtn } from "./ui.js";
 
 let filter = "all";
 const fmtReps = e => {
@@ -62,7 +62,7 @@ export function renderTrain(view, startLive) {
   const today = todaysMission().program?.id;
   const count = id => (id === "all" ? all.length : all.filter(p => p.cat === id).length);
   view.innerHTML = `
-    <header class="tr-head">
+    <header class="tr-head">${helpBtn("train")}
       <div class="eyebrow">Bibliothèque</div>
       <h1 class="h1">Séances</h1>
       <p class="muted small">${all.length} programmes prêts à lancer, ajustables en un geste.</p>

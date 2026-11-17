@@ -47,3 +47,17 @@ test("differs détecte un changement utile", () => {
   assert.equal(differs(mergeData(a, a), a), false);
   assert.equal(differs(mergeData(a, { sessions: [s("b", 2)], meta: { updatedAt: 2 } }), a), true);
 });
+
+test("guide « Découvrir GREATNESS » : les fonctions découvertes des deux appareils sont réunies", () => {
+  const phone = { guide: { seen: ["manual", "demo"], hide: true }, meta: { updatedAt: 10 } };
+  const tablet = { guide: { seen: ["demo", "remind"], done: 50 }, meta: { updatedAt: 20 } };
+  for (const m of [mergeData(phone, tablet), mergeData(tablet, phone)]) {
+    assert.deepEqual([...m.guide.seen].sort(), ["demo", "manual", "remind"]);
+    assert.equal(m.guide.hide, true); // carte masquée sur un appareil : masquée partout
+    assert.equal(m.guide.done, 50);
+  }
+  // une découverte de plus suffit à déclencher la synchronisation, l'ordre de la liste non
+  assert.ok(differs(mergeData(phone, tablet), phone));
+  assert.ok(!differs({ guide: { seen: ["a", "b"] } }, { guide: { seen: ["b", "a"] } }));
+  assert.equal(mergeData({ meta: {} }, { meta: {} }).guide, undefined);
+});

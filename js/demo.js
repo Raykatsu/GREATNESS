@@ -92,6 +92,7 @@ export function wireDemos() {
 export function openDemo(id) {
   const ex = EXERCISES[id];
   if (!ex) return;
+  dispatchEvent(new CustomEvent("greatness:used", { detail: "demo" })); // guide « Découvrir GREATNESS » (js/guide.js)
   const move = moveOf(id), g = guideOf(id), fast = fastOf(id), view = viewLabel(move), mus = move.mus || {};
   const R = roles(id); // biomécanique : agoniste / synergiste / stabilisateur / antagoniste (null hors mouvement de force)
   // étapes : aller (1) et retour (2), ou les phases d'un mouvement en boucle (course, sauts…)
