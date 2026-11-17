@@ -2509,7 +2509,6 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .dm-leg em { display: block; font-size: 11px; font-style: normal; color: var(--dim); margin-bottom: 2px; }
 .demo-how { margin: 10px 2px 0; font-size: 13.5px; line-height: 1.45; color: var(--text); }
 .demo-how b { color: var(--muted); }
-.anat-map .mus.st { fill: var(--mus-st); } .anat-map .mus.an { fill: var(--mus-an); }
 .demo-phase { margin: 0 10px 10px; padding: 9px 12px; border-radius: 12px; background: rgba(0, 0, 0, .4); color: #fff; font-weight: 650; font-size: 14px; line-height: 1.3; text-align: center; min-height: 3.2em; display: grid; place-items: center; }
 .demo-ctrl { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: 10px; }
 .demo-ctrl .icon-btn svg { width: 17px; height: 17px; }
@@ -2763,31 +2762,29 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .fig .aid text { fill: var(--aid); font: 700 4.2px var(--font); stroke: var(--bg-2); stroke-width: 1.3px; stroke-linejoin: round; paint-order: stroke; }
 .fig .aid-pin circle { fill: none; stroke: var(--aid); stroke-width: .8; }
 .fig .aid-pin .dot { fill: var(--aid); stroke: none; }
-.body-map { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
-.body-map .sil { fill: var(--fig-far); opacity: .55; }
-.body-map .mz { fill: var(--fig); opacity: .28; }
-.body-map .mus.p { fill: var(--mus1); }
-.body-map .mus.s { fill: var(--mus2); opacity: .8; }
-.body-map text { fill: var(--muted); font: 600 5px var(--font); text-anchor: middle; }
 /* Récupération musculaire : à reposer → récupéré */
 :root { --rc0: #ef4444; --rc1: #f7853a; --rc2: #f5c542; --rc3: #34d399; }
-.body-map .mus.rc0, .rec-leg .rc0, .rec-dot.rc0, .rec-bar .rc0 { fill: var(--rc0); background: var(--rc0); }
-.body-map .mus.rc1, .rec-leg .rc1, .rec-dot.rc1, .rec-bar .rc1 { fill: var(--rc1); background: var(--rc1); }
-.body-map .mus.rc2, .rec-leg .rc2, .rec-dot.rc2, .rec-bar .rc2 { fill: var(--rc2); background: var(--rc2); }
-.body-map .mus.rc3, .rec-leg .rc3, .rec-dot.rc3, .rec-bar .rc3 { fill: var(--rc3); background: var(--rc3); }
+.rec-leg .rc0, .rec-dot.rc0, .rec-bar .rc0 { background: var(--rc0); }
+.rec-leg .rc1, .rec-dot.rc1, .rec-bar .rc1 { background: var(--rc1); }
+.rec-leg .rc2, .rec-dot.rc2, .rec-bar .rc2 { background: var(--rc2); }
+.rec-leg .rc3, .rec-dot.rc3, .rec-bar .rc3 { background: var(--rc3); }
 .rec-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
 .rec-mini { width: 92px; flex: none; }
-.rec-mini .body-map text { display: none; }
+.rec-mini .ar-cap { display: none; }
 .rec-title { display: block; margin: 2px 0 1px; font-size: var(--fs-base); line-height: 1.3; }
 .rec-card .chev { color: var(--muted); flex: none; }
 .rec-card .chev svg { width: 18px; height: 18px; }
 .rec-big { margin: 12px auto 6px; max-width: 320px; }
 
-/* ---------- Planche d'anatomie réaliste (js/anatomy.js) : relief par dégradés, fibres, sillons ---------- */
-.anat-map { width: 100%; max-width: 340px; display: block; margin: 0 auto; }
-.anat-map .gv { fill: none; stroke: var(--anat-groove); stroke-width: .9; stroke-linecap: round; opacity: .6; }
-.anat-map .fib { fill: none; stroke: var(--anat-fib); stroke-width: .6; stroke-linecap: round; opacity: .5; }
-.anat-map text { fill: var(--muted); font: 600 9px var(--font); text-anchor: middle; }
+/* ---------- Planche d'anatomie réaliste (js/anatomy.js) : rendus 3D (face, dos) + un masque par groupe musculaire.
+   Un muscle allumé = l'image « éclairée » multipliée par la couleur de son rôle, découpée par le masque du groupe. ---------- */
+.ar-map { display: flex; justify-content: center; gap: 4%; width: 100%; max-width: 340px; margin: 0 auto; }
+.ar-fig { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.ar-pic { position: relative; display: block; width: 100%; aspect-ratio: 520 / 1110; }
+.ar-pic img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ar-l { position: absolute; inset: 0; pointer-events: none; background-size: 100% 100%; background-repeat: no-repeat; background-blend-mode: multiply;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.ar-cap { margin-top: 2px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted); }
 
 /* ---------- Manuel des exercices ---------- */
 .manual .eyebrow { display: inline-flex; align-items: center; gap: 6px; }
@@ -2800,9 +2797,14 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .mnl-mus { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 12px 8px 10px; border-radius: 16px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
 .mnl-mus:active { background: var(--card-2); }
 .mnl-mus b { font-size: var(--fs-base); }
+.mnl-hero { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; padding: 12px 14px; border-radius: 18px; background: radial-gradient(circle at 30% 40%, rgba(var(--accent-rgb), .14), transparent 70%), var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.mnl-nat { display: flex; gap: 4px; flex: none; width: 128px; }
+.mnl-nat img { flex: 1 1 0; min-width: 0; aspect-ratio: 520 / 1110; height: auto; display: block; pointer-events: none; -webkit-user-select: none; user-select: none; }
+.mnl-hero p { margin: 0; line-height: 1.45; }
+.mnl-credit { margin: 14px 2px 2px; text-align: center; line-height: 1.4; }
 .mnl-fig { display: block; width: 118px; margin-bottom: 4px; }
 .mnl-fig .body-map { max-width: 100%; }
-.mnl-fig .body-map text { display: none; }
+.mnl-fig .ar-cap { display: none; }
 .mnl-fig.big { width: 150px; }
 .mnl-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 650; font-size: 14px; padding: 4px 0 2px; }
 .mnl-back svg { width: 17px; height: 17px; }
@@ -2923,6 +2925,7 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .vc-strip img { height: 72px; border-radius: 8px; flex: none; }
 .set-foot { flex-wrap: wrap; }
 .set-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.set-foot.set-credit { margin-top: 6px; text-align: center; line-height: 1.4; }
 
 /* ---------- Mode histoire ---------- */
 .story-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left;

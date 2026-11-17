@@ -34,6 +34,7 @@ import { ivSummary } from "./intervals.js";
 import { pruneFood, waterBehind, waterGoal, targets, dayOf, dayKey } from "./nutrition.js";
 import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
 import { addMemory, removeMemory } from "./memory.js";
+import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
@@ -833,7 +834,8 @@ function profile() {
       <button class="set-row set-act" id="tour-again"><span class="set-ic" style="--c:var(--red)">${coachIcon()}</span><b class="grow">Revoir la visite guidée</b>${I.chev}</button>
       <button class="set-row set-act danger" id="reset">${sic("trash", "var(--danger)")}<b class="grow">Effacer mes séances et réglages</b>${I.chev}</button>
     </div>
-    <p class="set-foot">${coachIcon()}GREATNESS · ton coach de poche · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
+    <p class="set-foot">${coachIcon()}GREATNESS · ton coach de poche · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>
+    <p class="set-foot set-credit">${esc(ANAT_CREDIT)}</p>`;
   animateRings(view);
   bindProgressSeg();
   coachCard($("#coach-card"), { open: params.coach === "1" });

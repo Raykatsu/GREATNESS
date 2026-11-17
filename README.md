@@ -87,7 +87,7 @@ Chacun des **183 exercices a son propre dessin**, pas un bonhomme en bâton :
 
 - **un vrai corps en volume** aux proportions humaines (os de longueur fixe : le corps ne se déforme jamais), **ombré en relief** (chaque membre et le tronc reçoivent un dégradé « cylindre » éclairé du haut, qui suit le mouvement image par image), animé de profil, de face, de dos ou de dessus selon ce qui montre le mieux le geste ;
 - **le matériel** : barre et disques, haltères, kettlebell, bancs plats ou inclinés, machines (presse, leg extension, leg curl, pec deck, poulies et câbles), barre de traction, barres de dips, box, élastiques, rouleau, tapis, vélo, rameur, tapis de course… ;
-- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), qui **s'allument (halo)** pendant l'effort, et une **planche d'anatomie réaliste face / dos** (muscles en relief avec dégradés de lumière/ombre, fibres et tendons) avec la légende ;
+- **les muscles** qui travaillent dessinés sur le corps (rouge : principaux, orange : secondaires), qui **s'allument (halo)** pendant l'effort, et une **planche d'anatomie réaliste face / dos** avec la légende : de vrais **rendus 3D** d'un modèle anatomique médical libre (460 muscles, fibres, tendons, os), où chaque groupe musculaire s'allume dans la couleur de son rôle (voir plus bas) ;
 - **la biomécanique du mouvement** : la planche colore chaque muscle selon son rôle — **agoniste** (moteur, rouge), **synergiste** (aide, orange), **stabilisateur** (gainage, bleu), **antagoniste** (s'étire et freine, turquoise) —, avec une explication « comment ça marche » (concentrique / excentrique). Pendant l'animation, le muscle agoniste **se contracte en direct** (il s'illumine à l'effort). Voir `js/biomech.js` ;
 - **des repères** : trajectoire de la barre, « cuisses parallèles », dos plat, angle du genou ou du coude, articulation qui reste fixe, flèche du mouvement ;
 - les mouvements en boucle (course, corde à sauter, burpees, rameur…) déroulent leurs étapes une à une.
@@ -96,7 +96,18 @@ Des **mouvements humains et fidèles** : chaque articulation suit une courbe dou
 
 ## Manuel des exercices
 
-Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **planche d'anatomie réaliste** (face et dos, muscles en relief avec ombres, fibres et tendons) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout est dessiné (aucune image sous licence), hors ligne, et suit la langue de l'app.
+Dans **Séances → Manuel des exercices** : toute la bibliothèque des 183 mouvements, à parcourir **par muscle**. Une grille montre chaque muscle sur une **planche d'anatomie réaliste** (face et dos) qui s'éclaire sur le muscle visé ; on touche un muscle pour voir ses exercices (ceux qui le travaillent en premier, puis ceux qui l'aident), et chaque exercice ouvre sa **démo animée** avec la fiche complète (mise en place, mouvement, respiration, points clés, erreurs). Une **recherche** fouille tous les exercices par nom, muscle ou matériel. Tout fonctionne hors ligne et suit la langue de l'app.
+
+## Planche d'anatomie 3D
+
+La planche des muscles (manuel, démos, récupération) vient de **rendus 3D réalistes** d'un modèle anatomique libre :
+460 muscles, tendons et os, avec les fibres orientées dans le sens de chaque muscle. Deux vues (face, dos), un corps en
+gris et **un masque par groupe musculaire** : l'app allume n'importe quel groupe dans la couleur de son rôle (principal,
+aide, stabilisateur, antagoniste, niveau de récupération) en gardant le relief. Images WebP légères (≈ 380 Ko en
+tout), mises en cache hors ligne. Les scripts de fabrication (Blender) sont dans `tools/anatomy/`.
+
+Modèle : **BodyParts3D** (The Database Center for Life Science, CC BY-SA 2.1 Japan) et **Z-Anatomy** (CC BY-SA 4.0) ;
+les images dérivées sont sous CC BY-SA 4.0 (`assets/anatomy/LICENSE.md`), créditées dans l'app.
 
 ## Minuteur d'intervalles
 
