@@ -65,7 +65,8 @@ export function openManual() {
   const grid = () => {
     body.innerHTML = `<div class="mnl-hero">
         <span class="mnl-nat" aria-hidden="true"><img src="${ANAT_DIR}natural-front.webp" alt="" draggable="false" decoding="async"/><img src="${ANAT_DIR}natural-back.webp" alt="" draggable="false" decoding="async"/></span>
-        <p class="small muted">Le corps humain en 3D, muscle par muscle. Touche un muscle pour voir les exercices qui le travaillent.</p></div>
+        <div class="mnl-hero-t"><p class="small muted">Le corps humain en 3D, muscle par muscle. Touche un muscle pour voir les exercices qui le travaillent.</p>
+          <button type="button" class="btn btn-primary btn-sm b3d-open mt-s" id="mnl-3d">${I.cube} Voir en 3D</button></div></div>
       <div class="mnl-grid">${ORDER.filter(([m]) => idx[m].p.length).map(([m, zone]) => `
       <button type="button" class="mnl-mus" data-m="${m}">
         <span class="mnl-fig">${bodyMap({}, { cls: only(m), label: MUSCLES[m] })}</span>
@@ -73,6 +74,8 @@ export function openManual() {
       </button>`).join("")}</div>
       <p class="mnl-credit xs dim">${esc(ANAT_CREDIT)}</p>`;
     $$(".mnl-mus", body).forEach(b => b.onclick = () => muscle(b.dataset.m));
+    // corps 3D : chargé seulement quand on s'en sert ; « Voir les exercices » ouvre le muscle touché ici
+    $("#mnl-3d", body).onclick = () => import("./body3d.js").then(m => m.openBody3D({ onMuscle: x => (idx[x]?.p.length ? muscle(x) : grid()) }));
   };
 
   // Détail d'un muscle : silhouette en grand + exercices principaux puis de soutien

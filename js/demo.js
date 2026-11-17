@@ -109,10 +109,12 @@ export function openDemo(id) {
       ${R.synergist.length ? `<div><i class="lg s"></i><span><b>Synergistes</b><em>aident</em>${names(R.synergist)}</span></div>` : ""}
       ${R.stabil.length ? `<div><i class="lg st"></i><span><b>Stabilisateurs</b><em>gainent, protègent</em>${names(R.stabil)}</span></div>` : ""}
       ${R.antagonist.length ? `<div><i class="lg an"></i><span><b>Antagoniste</b><em>s'étire, freine</em>${names(R.antagonist)}</span></div>` : ""}</div></div>
-    <p class="demo-how"><b>Comment ça marche —</b> ${esc(R.how)}</p>`
+    <p class="demo-how"><b>Comment ça marche —</b> ${esc(R.how)}</p>
+    <button class="btn btn-soft btn-sm b3d-open mt-s" id="dm-3d">${I.cube} Voir en 3D</button>`
     : mus.p?.length ? `<div class="demo-mus">${bodyMap(mus)}<div class="dm-leg">
       <div><i class="lg p"></i><span><b>Travaille surtout</b>${names(mus.p)}</span></div>
-      ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>` : ""}
+      ${mus.s?.length ? `<div><i class="lg s"></i><span><b>Aide aussi</b>${names(mus.s)}</span></div>` : ""}</div></div>
+      <button class="btn btn-soft btn-sm b3d-open mt-s" id="dm-3d">${I.cube} Voir en 3D</button>` : ""}
     ${camFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-cam">${I.camera}<span><b>Vérifier ma technique</b><small>La caméra corrige ta posture en direct</small></span>${I.chev}</button>` : ""}
     ${videoFor({ ...ex, id }) ? `<button class="demo-cam" id="dm-video">${I.video}<span><b>Analyse vidéo par l'IA</b><small>Filme une série : l'IA te dit quoi corriger, image à l'appui</small></span>${I.chev}</button>` : ""}
     <h3 class="demo-h">Mise en place</h3><p>${esc(g.setup)}</p>
@@ -170,6 +172,16 @@ export function openDemo(id) {
   $("#dm-cam", sh.el)?.addEventListener("click", () => { setPlaying(false); openCam({ ...ex, id }, { practice: true }); });
   // coach vidéo : chargé seulement quand on s'en sert
   $("#dm-video", sh.el)?.addEventListener("click", () => { setPlaying(false); import("./videocoach.js").then(m => m.openVideoCoach({ ...ex, id })); });
+  // corps 3D aux couleurs des rôles (chargé seulement quand on s'en sert)
+  $("#dm-3d", sh.el)?.addEventListener("click", () => {
+    setPlaying(false);
+    const p = new Set(mus.p || []), s = new Set(mus.s || []);
+    const cls = R ? roleClass(R) : m => (p.has(m) ? "mus p" : s.has(m) ? "mus s" : "mz");
+    const legend = R ? [["--mus1", "Agoniste"], ["--mus2", "Synergistes"], ["--mus-st", "Stabilisateurs"], ["--mus-an", "Antagoniste"]]
+      .filter((_, i) => [R.agonist, R.synergist, R.stabil, R.antagonist][i].length)
+      : [["--mus1", "Travaille surtout"], ...(mus.s?.length ? [["--mus2", "Aide aussi"]] : [])];
+    import("./body3d.js").then(m => m.openBody3D({ title: ex.name, cls, legend }));
+  });
   $$("#dm-speed button", sh.el).forEach(b => b.onclick = () => {
     const now = performance.now();
     offset += (now - t0) * speed; t0 = now; speed = +b.dataset.s;

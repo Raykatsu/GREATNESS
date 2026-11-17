@@ -2775,6 +2775,7 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .rec-card .chev { color: var(--muted); flex: none; }
 .rec-card .chev svg { width: 18px; height: 18px; }
 .rec-big { margin: 12px auto 6px; max-width: 320px; }
+.rec-3d { display: flex; justify-content: center; margin-top: 10px; }
 
 /* ---------- Planche d'anatomie réaliste (js/anatomy.js) : rendus 3D (face, dos) + un masque par groupe musculaire.
    Un muscle allumé = l'image « éclairée » multipliée par la couleur de son rôle, découpée par le masque du groupe. ---------- */
@@ -2785,6 +2786,27 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .ar-l { position: absolute; inset: 0; pointer-events: none; background-size: 100% 100%; background-repeat: no-repeat; background-blend-mode: multiply;
   -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
 .ar-cap { margin-top: 2px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted); }
+
+/* ---------- Corps 3D interactif (js/body3d.js) ---------- */
+.b3d .h2 { margin-top: 2px; }
+.b3d-stage { position: relative; margin: 10px -4px 0; height: min(56vh, 520px); border-radius: var(--r-md); overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, rgba(var(--accent-rgb), .10), transparent 65%), var(--bg-2); border: 1px solid var(--line); }
+.b3d-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.b3d-cv:active { cursor: grabbing; }
+.b3d-load { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+.b3d-tip { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: 14px; background: var(--glass-hi); border: 1px solid var(--line-2); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.b3d-tip[hidden] { display: none; }
+.b3d-tip b { font-family: var(--display); font-size: 15px; }
+.b3d-views { margin-top: 10px; }
+.b3d-leg { margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.b3d-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.b3d-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.b3d-help { margin: 10px 2px 0; text-align: center; line-height: 1.4; }
+.b3d-credit { margin: 6px 2px 0; text-align: center; line-height: 1.4; }
+.b3d-fallback { height: 100%; overflow: auto; padding: 12px; display: grid; align-content: center; gap: 10px; text-align: center; }
+.b3d-open { display: inline-flex; align-items: center; gap: 6px; }
+.b3d-open svg { width: 15px; height: 15px; }
 
 /* ---------- Manuel des exercices ---------- */
 .manual .eyebrow { display: inline-flex; align-items: center; gap: 6px; }
@@ -2801,6 +2823,7 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .mnl-nat { display: flex; gap: 4px; flex: none; width: 128px; }
 .mnl-nat img { flex: 1 1 0; min-width: 0; aspect-ratio: 520 / 1110; height: auto; display: block; pointer-events: none; -webkit-user-select: none; user-select: none; }
 .mnl-hero p { margin: 0; line-height: 1.45; }
+.mnl-hero-t { min-width: 0; }
 .mnl-credit { margin: 14px 2px 2px; text-align: center; line-height: 1.4; }
 .mnl-fig { display: block; width: 118px; margin-bottom: 4px; }
 .mnl-fig .body-map { max-width: 100%; }

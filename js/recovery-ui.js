@@ -60,12 +60,13 @@ export function openRecovery() {
     const low = worked.filter(([, r]) => r.week < 5).map(([x]) => x);
     if (low.length && worked.length > 2) advice.push(dot(`Peu travaillés cette semaine : ${names(low, 4)}`));
   }
-  sheet(`<div class="rec-sheet">
+  const sh = sheet(`<div class="rec-sheet">
     <div class="eyebrow">Ton corps cette semaine</div>
     <h2 class="h2">Récupération musculaire</h2>
     <p class="muted small">Calculée d'après tes séances des 7 derniers jours et leur dureté (ressenti). Les gros muscles mettent plus longtemps à récupérer que les petits.</p>
     <div class="rec-big">${bodyMap({}, { cls: colorOf(rec), label: "Récupération des muscles" })}</div>
     <div class="rec-leg">${[...LEVELS].reverse().map(l => `<span><i class="mus ${l.cls}"></i>${l.name}</span>`).join("")}<span><i class="mz"></i>Pas travaillé</span></div>
+    ${worked.length ? `<div class="rec-3d"><button class="btn btn-soft btn-sm b3d-open" id="rec-3d">${I.cube} Voir en 3D</button></div>` : ""}
     <h3 class="demo-h">Le conseil du coach</h3>
     <ul class="demo-list ok">${advice.map(a => `<li>${I.sparkle}${esc(a)}</li>`).join("")}</ul>
     ${worked.length ? `<h3 class="demo-h">Muscle par muscle</h3>
@@ -77,4 +78,8 @@ export function openRecovery() {
     <p class="xs muted mt">Repère : entre 10 et 20 séries par muscle et par semaine, c'est l'idéal pour progresser.</p>` : ""}
     ${rest.length && worked.length ? `<p class="small muted mt">Pas travaillés cette semaine : ${esc(rest.map(x => MUSCLES[x]).join(", "))}.</p>` : ""}
   </div>`);
+  // corps 3D aux couleurs de la récupération (chargé seulement quand on s'en sert)
+  $("#rec-3d", sh.el)?.addEventListener("click", () => import("./body3d.js").then(m => m.openBody3D({
+    title: "Récupération musculaire", cls: colorOf(rec), legend: [...LEVELS].reverse().map(l => [`--${l.cls}`, l.name]),
+  })));
 }
