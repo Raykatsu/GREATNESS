@@ -106,6 +106,12 @@ gris et **un masque par groupe musculaire** : l'app allume n'importe quel groupe
 aide, stabilisateur, antagoniste, niveau de récupération) en gardant le relief. Images WebP légères (≈ 380 Ko en
 tout), mises en cache hors ligne. Les scripts de fabrication (Blender) sont dans `tools/anatomy/`.
 
+**Le corps en 3D** : depuis le manuel, une démo d'exercice ou la carte de récupération, le bouton **Voir en 3D** ouvre
+le corps entier qu'on **fait tourner au doigt** (pincer pour zoomer, boutons Face / Profil / Dos, double-toucher pour
+recadrer), aux mêmes couleurs que la planche. **Toucher un muscle** le nomme, avec un lien vers ses exercices. WebGL
+sans bibliothèque (`js/body3d.js`), ≈ 170 000 triangles, fichier de 3 Mo chargé à la première ouverture puis gardé
+hors ligne ; sans WebGL, la planche en images prend le relais.
+
 Modèle : **BodyParts3D** (The Database Center for Life Science, CC BY-SA 2.1 Japan) et **Z-Anatomy** (CC BY-SA 4.0) ;
 les images dérivées sont sous CC BY-SA 4.0 (`assets/anatomy/LICENSE.md`), créditées dans l'app.
 

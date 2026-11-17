@@ -1,6 +1,20 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  // Corps 3D (console)
+  "Corps 3D": "3D body",
+  // Corps 3D interactif (body3d.js)
+  "Anatomie 3D": "3D anatomy",
+  "Chargement du corps 3D…": "Loading the 3D body…",
+  "Corps humain en 3D, à faire tourner": "3D human body, drag to rotate",
+  "Fais glisser pour tourner, pince pour zoomer, touche un muscle pour le nommer. Double-touche pour recadrer.": "Drag to rotate, pinch to zoom, tap a muscle to name it. Double-tap to reset the view.",
+  "La vue 3D n'a pas pu s'ouvrir sur cet appareil. Voici la planche à la place.": "The 3D view couldn't open on this device. Here is the anatomy chart instead.",
+  "Le corps humain": "The human body",
+  "Muscle profond ou du visage": "Deep or facial muscle",
+  "Tendon": "Tendon",
+  "Un os": "A bone",
+  "Voir en 3D": "View in 3D",
+  "Voir les exercices": "See the exercises",
   // Planche d'anatomie 3D (anatomy.js, manual.js)
   "Anatomie 3D : BodyParts3D (Database Center for Life Science, CC BY-SA 2.1 JP) et Z-Anatomy (CC BY-SA 4.0)": "3D anatomy: BodyParts3D (Database Center for Life Science, CC BY-SA 2.1 JP) and Z-Anatomy (CC BY-SA 4.0)",
   "Le corps humain en 3D, muscle par muscle. Touche un muscle pour voir les exercices qui le travaillent.": "The human body in 3D, muscle by muscle. Tap a muscle to see the exercises that train it.",
