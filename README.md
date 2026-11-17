@@ -20,6 +20,12 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 | Fin | Débrief, progrès par exercice vs dernière fois, records, XP et rangs |
 | Chat | Répond sur la technique de chaque exercice, la nutrition, le sommeil, les plateaux, ton bilan… en utilisant tes vraies stats |
 
+## Découvrir GREATNESS (le guide des nouveaux)
+
+- **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 62 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
+
 ## Comptes
 
 Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 6 chiffres**, à taper à chaque ouverture de l'app (pavé numérique). Chaque compte a ses propres séances, stats, programme et réglages.

@@ -8,7 +8,7 @@ import { mascot } from "./mascot.js";
 import { shareProgram } from "./social.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
-import { $, $$, esc, I, sheet, toast, confirmSheet, coachIcon } from "./ui.js";
+import { $, $$, esc, I, sheet, toast, confirmSheet, coachIcon, helpBtn } from "./ui.js";
 
 let tab = "new", draft = null, open = -1, genOpen = true;
 const gen = { groups: new Set(["pecs"]), minutes: 45, equipment: null };
@@ -40,7 +40,7 @@ export function renderCreate(view, launch, params = {}) {
   const nMine = state.customPrograms.length, nEx = Object.keys(state.customExercises || {}).length;
   const n = k => (k ? ` <span class="seg-n tnum">${k}</span>` : "");
   view.innerHTML = `
-    <header class="cr-head"><div class="eyebrow">Atelier</div><h1 class="h1">Créer</h1></header>
+    <header class="cr-head">${helpBtn("create")}<div class="eyebrow">Atelier</div><h1 class="h1">Créer</h1></header>
     <div class="seg cr-tabs" id="tabs" role="tablist">
       <button data-t="new" role="tab" class="${tab === "new" ? "on" : ""}">${draft.id ? "Modifier" : "Nouvelle"}</button>
       <button data-t="mine" role="tab" class="${tab === "mine" ? "on" : ""}">Mes séances${n(nMine)}</button>

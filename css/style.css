@@ -3063,3 +3063,86 @@ body.no-chars .story-stage { display: none; }
 @keyframes akPulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--red) 25%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .ak-mic.on { animation: none; } }
 .ak-q { margin: 14px 0 -4px; color: var(--muted); font-size: 14px; font-style: italic; }
+
+/* Guide « Découvrir GREATNESS » (js/guide.js) */
+/* bouton « ? » des en-têtes d'onglet */
+.g-help { width: 38px; height: 38px; color: var(--muted); }
+.g-help svg { width: 21px; height: 21px; }
+.tr-head, .cr-head { position: relative; padding-right: 44px; }
+.tr-head > .g-help, .cr-head > .g-help { position: absolute; top: -2px; right: -6px; }
+.hh-chips .g-help { width: 34px; height: 34px; margin-right: -2px; }
+/* petits écrans (iPhone SE) : en-tête de l'Accueil plus compact, « Niv. » lu seulement par le lecteur d'écran */
+@media (max-width: 359px) {
+  .home-head { gap: var(--s-2); }
+  .home-head .logo { letter-spacing: .08em; min-width: 0; overflow: hidden; } /* en dernier recours le logo se coupe, pas les pastilles */
+  .hh-chips { gap: 6px; }
+  .hh-chips .chip { padding: 0 9px 0 8px; }
+  .hh-chips .g-help { width: 30px; margin-right: -4px; }
+  .hh-niv { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.me-head .g-help { align-self: center; margin-bottom: -6px; }
+.ph-acts { display: flex; align-items: center; gap: 4px; flex: none; }
+/* l'élément montré par « Me montrer où » brille quelques secondes */
+.g-spot { outline: 2px solid rgba(var(--accent-rgb), .95) !important; outline-offset: 4px; animation: gSpot 1.15s var(--ease-in-out) 3; }
+@keyframes gSpot { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), .5); } 55% { box-shadow: 0 0 0 12px rgba(var(--accent-rgb), 0); } }
+@media (prefers-reduced-motion: reduce) { .g-spot { animation: none; } }
+/* la feuille du guide */
+.gd-eye { display: flex; align-items: center; gap: 6px; }
+.gd-eye svg { width: 15px; height: 15px; }
+.gd .h2 { margin-top: 4px; }
+.gd-lead { margin: 6px 0 0; line-height: 1.45; text-wrap: pretty; }
+.gd-prog { margin-top: 14px; }
+.gd-prog-t { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.gd-search { margin-top: 14px; }
+.gd-tabs { margin-top: 10px; padding-bottom: 4px; }
+.gd-tabs .chip { flex: none; height: 34px; font-weight: 600; }
+.gd-tabs .chip i { font-style: normal; font-size: 15px; line-height: 1; }
+.gd-body { margin-top: 12px; min-height: 240px; }
+.gd-sec-h { margin-bottom: 10px; }
+.gd-sec-h .h3 { font-family: var(--display); }
+.gd-sec-h p { margin: 2px 0 0; }
+.gd-list { display: grid; gap: 8px; }
+.gd-it { border-radius: 15px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.gd-it.open { box-shadow: inset 0 0 0 1px var(--line-2); }
+.gd-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left; color: var(--text); }
+.gd-row:active { background: var(--card-2); }
+.gd-ic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--card-2); font-size: 19px; line-height: 1; }
+.gd-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gd-tt b { font-size: var(--fs-base); line-height: 1.25; }
+.gd-w { line-height: 1.35; }
+.gd-st { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--dim); transition: transform var(--dur-2) var(--ease-out); }
+.gd-st svg { width: 15px; height: 15px; }
+.gd-it.ok .gd-st { background: var(--green-soft); color: var(--green-ink); }
+.gd-it.open:not(.ok) .gd-st { transform: rotate(180deg); }
+.gd-d { padding: 0 14px 14px 64px; }
+.gd-d p { margin: 0; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.gd-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.gd-tag { height: 26px; font-size: 12px; color: var(--muted); }
+/* Bien démarrer : les cinq étapes */
+.gd-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gd-step { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border-radius: 15px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.gd-step b { display: block; font-size: var(--fs-base); line-height: 1.3; }
+.gd-step p { margin: 3px 0 0; line-height: 1.45; }
+.gd-step.ok b { color: var(--muted); }
+.gd-num { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--red-soft); color: var(--accent-ink); font-family: var(--display); font-weight: 700; font-size: 14px; }
+.gd-num svg { width: 16px; height: 16px; }
+.gd-step.ok .gd-num { background: var(--green-soft); color: var(--green-ink); }
+.gd-count { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 12px 0 0; }
+.gd-bravo { margin-top: 12px; }
+.banner.b-green { background: linear-gradient(100deg, var(--green-soft), transparent 75%), var(--card); border-color: rgba(47, 209, 130, .24); }
+.banner.b-green .bi { background: var(--green-soft); color: var(--green-ink); }
+.gd-empty { padding: 22px 16px; }
+/* carte « Bien démarrer » de l'Accueil */
+.gd-card { display: flex; align-items: center; padding: 0; }
+.gd-card-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 14px 4px 14px 16px; text-align: left; color: var(--text); }
+.gd-card-main:active { transform: scale(.985); }
+.gd-card-ic { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--red-soft); font-size: 22px; line-height: 1; }
+.gd-card-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gd-card-t b { font-family: var(--display); font-size: var(--fs-md); line-height: 1.2; }
+.gd-card-next { line-height: 1.35; }
+.gd-card-next span:last-child { color: var(--text); font-weight: 600; }
+.gd-card-bar { display: block; height: 5px; margin-top: 5px; border-radius: 5px; background: var(--card-3); overflow: hidden; }
+.gd-card-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--red)); transform-origin: left center; }
+.gd-card-n { flex: none; font-family: var(--display); font-size: 15px; color: var(--muted); }
+.gd-card-x { width: 40px; height: 40px; margin-right: 6px; color: var(--dim); }
+.gd-card-x svg { width: 17px; height: 17px; }

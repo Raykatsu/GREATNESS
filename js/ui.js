@@ -54,7 +54,12 @@ export const I = {
   idea: ic('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>'),
   refresh: ic('<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>'),
   cube: ic('<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>'),
+  help: ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.8M12 17v.3"/>'),
+  compass: ic('<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.2 5-5 2.2 2.2-5z"/>'),
 };
+// Bouton « ? » d'un en-tête d'onglet : ouvre le guide « Découvrir GREATNESS » sur la partie de cet onglet
+// (js/guide.js écoute les [data-guide] de toute l'app)
+export const helpBtn = sec => `<button class="icon-btn plain g-help" data-guide="${sec}" aria-label="Aide sur cet écran">${I.help}</button>`;
 // Visage du coach choisi (avatar utilisé partout dans l'app).
 // Visage du coach actuel (« cur-face » : remplacé en place quand on change de coach).
 export const coachIcon = (cls = "") => coachFace(cls ? "cur-face " + cls : "cur-face");

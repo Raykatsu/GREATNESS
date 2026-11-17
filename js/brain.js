@@ -154,8 +154,13 @@ const INTENTS = [
     "Ta seule mission aujourd'hui, c'est de commencer. Fais l'échauffement et la première série. Ensuite, on voit.",
     "Même les jours sans, une séance courte vaut mieux que zéro. Prends « Abdos & gainage » (20 min) et je m'occupe du reste.",
     `Tu as déjà ${state.sessions.length} séance(s) au compteur. Le toi de dans 3 mois te remerciera pour celle-là.`]) },
+  // l'app elle-même : le guide « Découvrir GREATNESS » (js/guide.js) explique chaque fonction
+  { re: /(comment (ca marche|ca fonctionne|marche|fonctionne|utiliser|s.?en servir)|fonctionnalite|tuto|mode d.emploi|\bguide\b|a quoi sert|(qu.?est.ce que|que) (je peux|puis.je|l.?app (peut|sait)) faire)/, fn: () =>
+    "Tout est expliqué dans le guide « Découvrir GREATNESS » : chaque fonction en deux phrases, l'endroit où la trouver et un bouton pour l'essayer.\n• Le bouton « ? » en haut de chaque écran l'ouvre sur cet écran.\n• Il est aussi dans Moi → Réglages.",
+    actions: [{ label: "Ouvrir le guide", guide: "home" }, { label: "Bien démarrer", guide: "start" }] },
   { re: /(debut|commence|novice|premiere fois)/, fn: () =>
-    "Bienvenue ! Pour bien démarrer :\n• 3 séances par semaine (Full body A/B ou Push/Pull/Legs).\n• Charges légères les 2 premières semaines : la technique d'abord.\n• Note honnêtement ton ressenti après chaque série, je m'occupe d'ajuster.\n• La régularité compte plus que l'intensité." },
+    "Bienvenue ! Pour bien démarrer :\n• 3 séances par semaine (Full body A/B ou Push/Pull/Legs).\n• Charges légères les 2 premières semaines : la technique d'abord.\n• Note honnêtement ton ressenti après chaque série, je m'occupe d'ajuster.\n• La régularité compte plus que l'intensité.",
+    actions: [{ label: "Bien démarrer", guide: "start" }] },
   { re: /(bonjour|salut|hello|coucou|\byo\b)/, fn: () => `Salut ${state.profile.name || "toi"} ! Ici ${coachName()}, ton coach. Demande-moi ce que tu veux : technique, nutrition, programme, bilan…` },
   { re: /(merci|top|genial|cool)/, fn: () => pick([`Avec plaisir. ${coachName()}, toujours dans ton coin.`, "Toujours là pour toi. Allez, au boulot !"]) },
 ];

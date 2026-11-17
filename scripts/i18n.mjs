@@ -33,7 +33,7 @@ export function isText(s) {
   if (/[à-ÿœæ«»]/i.test(s) || /\p{L}\(s\)/u.test(s)) return true; // accents, ou pluriel « exercice(s) »
   if (FRENCH_WORDS.test(s) && /\s/.test(s)) return true;
   // libellés : « Valider », « Mes séances », « Dos plat ! », « Presse pectoraux (machine) », « Maison · Bas »
-  if (/^\p{Lu}[\p{Ll}'’-]{2,}([\s,·&/()+:%–!?.…-]+[\p{L}\p{N}'’-]+)*\)?\s?[.!?…]*$/u.test(s)) return true;
+  if (/^\p{Lu}[\p{Ll}'’-]{2,}([\s,·&/()+:%–!?.…→-]+[\p{L}\p{N}'’-]+)*\)?\s?[.!?…]*$/u.test(s)) return true;
   // répliques criées : « BUUUT ! Nouveau record ! »
   if (/^\p{Lu}{2,}[\s!?.…]+\p{Lu}[\p{Ll}'’-]+([\s,!?.…]+[\p{L}'’-]+)*[\s!?.…]*$/u.test(s)) return true;
   return false;
