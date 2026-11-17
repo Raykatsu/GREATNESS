@@ -1,8 +1,10 @@
 // Manuel des exercices : la bibliothèque complète des mouvements, à parcourir par muscle. On touche un muscle sur la
-// silhouette, on voit les exercices qui le travaillent, et chacun ouvre sa démo animée (js/demo.js). Tout est dessiné
-// (carte des muscles de js/body.js), hors ligne, sans image sous licence. Une recherche cherche dans tous les exercices.
+// planche anatomique, on voit les exercices qui le travaillent, et chacun ouvre sa démo animée (js/demo.js). La planche
+// vient de rendus 3D du modèle libre BodyParts3D / Z-Anatomy (js/anatomy.js), hors ligne, créditée en bas du manuel.
+// Une recherche cherche dans tous les exercices.
 import { EXERCISES, EQUIP } from "./data.js";
 import { MUSCLES, bodyMap } from "./body.js";
+import { ANAT_DIR, ANAT_CREDIT } from "./anatomy.js";
 import { musclesOf } from "./recovery.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
 
@@ -61,11 +63,15 @@ export function openManual() {
 
   // Grille des muscles : chaque carte éclaire son muscle sur la silhouette
   const grid = () => {
-    body.innerHTML = `<div class="mnl-grid">${ORDER.filter(([m]) => idx[m].p.length).map(([m, zone]) => `
+    body.innerHTML = `<div class="mnl-hero">
+        <span class="mnl-nat" aria-hidden="true"><img src="${ANAT_DIR}natural-front.webp" alt="" draggable="false" decoding="async"/><img src="${ANAT_DIR}natural-back.webp" alt="" draggable="false" decoding="async"/></span>
+        <p class="small muted">Le corps humain en 3D, muscle par muscle. Touche un muscle pour voir les exercices qui le travaillent.</p></div>
+      <div class="mnl-grid">${ORDER.filter(([m]) => idx[m].p.length).map(([m, zone]) => `
       <button type="button" class="mnl-mus" data-m="${m}">
         <span class="mnl-fig">${bodyMap({}, { cls: only(m), label: MUSCLES[m] })}</span>
         <b>${esc(MUSCLES[m])}</b><span class="xs muted">${esc(zone)} · ${idx[m].p.length} exercices</span>
-      </button>`).join("")}</div>`;
+      </button>`).join("")}</div>
+      <p class="mnl-credit xs dim">${esc(ANAT_CREDIT)}</p>`;
     $$(".mnl-mus", body).forEach(b => b.onclick = () => muscle(b.dataset.m));
   };
 

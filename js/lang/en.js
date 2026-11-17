@@ -1,6 +1,9 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  // Planche d'anatomie 3D (anatomy.js, manual.js)
+  "Anatomie 3D : BodyParts3D (Database Center for Life Science, CC BY-SA 2.1 JP) et Z-Anatomy (CC BY-SA 4.0)": "3D anatomy: BodyParts3D (Database Center for Life Science, CC BY-SA 2.1 JP) and Z-Anatomy (CC BY-SA 4.0)",
+  "Le corps humain en 3D, muscle par muscle. Touche un muscle pour voir les exercices qui le travaillent.": "The human body in 3D, muscle by muscle. Tap a muscle to see the exercises that train it.",
   // Conseils avant / pendant / après la séance (advice.js)
   "2 à 3 minutes pour faire monter la température, puis une série légère de": "2 to 3 minutes to raise your body temperature, then a light set of",
   "3 à 5 minutes pour faire monter la température (corde, montées de genoux, rotations des articulations), puis une première série facile.": "3 to 5 minutes to raise your body temperature (jump rope, high knees, joint circles), then an easy first set.",
