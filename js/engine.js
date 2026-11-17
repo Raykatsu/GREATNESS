@@ -27,27 +27,48 @@ export function readinessVerdict(score) {
     text: "Ton corps demande du repos : séance légère, technique parfaite, aucun échec." };
 }
 
-// Charge / objectif de départ à partir de l'historique (double progression).
-function startingTarget(item) {
-  const meta = EXERCISES[item.id];
-  const last = state.lifts[item.id];
-  const [min, max] = item.reps;
-  let weight = item.weight;
-  let goal = Math.round((min + max) / 2);
-  // charge fixée par le coach pour la prochaine séance
-  if (last?.next > 0 && meta.type === "load") return { weight: last.next, goal: min };
-  if (last) {
-    if (meta.type === "load") {
-      weight = last.weight || item.weight;
-      if (last.reps >= max) { weight += meta.step; goal = min; }
-      else if (last.reps < min) { weight -= meta.step; goal = max; }
-      else goal = clamp(last.reps + 1, min, max);
-    } else {
-      goal = clamp(last.reps + (last.reps >= goal ? meta.step : 0), min, max + 5 * meta.step);
+// Exercices au poids du corps : la variante plus dure à prendre quand on dépasse largement la fourchette
+export const HARDER = {
+  incline_pushup: "pushup", pushup: "decline_pushup", decline_pushup: "diamond", bench_dips: "dips", inverted_row: "chinup", chinup: "pullup",
+  air_squat: "lunge", lunge: "jump_squat", glute_bridge: "hip_thrust", crunch: "leg_raise", dead_bug: "leg_raise", leg_raise: "hanging_raise",
+  hanging_raise: "ab_wheel", plank: "hollow", calf_bw: "calf",
+};
+const kg = v => `${String(Math.round(v * 100) / 100).replace(".", ",")} kg`;
+
+// Progression d'une séance à l'autre, expliquée : double progression (on gagne des reps dans la fourchette, puis de la
+// charge), ajustée au ressenti de la dernière fois (facile → on monte plus vite, à fond → on consolide).
+// → { weight, goal, move: "first" | "up" | "same" | "down" | "coach", why, harder? }
+export function progressionOf(item) {
+  const meta = EXERCISES[item.id], last = state.lifts[item.id];
+  const [min, max] = item.reps, mid = Math.round((min + max) / 2);
+  if (!meta) return { weight: item.weight || 0, goal: mid, move: "first", why: "" };
+  if (meta.type === "load") {
+    const step = meta.step || 2.5;
+    // charge fixée par le coach pour la prochaine séance
+    if (last?.next > 0) return { weight: last.next, goal: min, move: "coach", why: `Charge fixée par ton coach : ${kg(last.next)}.` };
+    if (!last) return { weight: item.weight, goal: mid, move: "first", why: "Première fois : charge de départ prudente. Note ton ressenti, j'ajuste dès la 2e série." };
+    const w0 = last.weight || item.weight, rpe = last.rpe;
+    if (last.reps >= max) {
+      const k = rpe != null && rpe <= 7 ? 2 : 1;
+      return { weight: w0 + k * step, goal: min, move: "up", why: k === 2
+        ? `Facile la dernière fois (${last.reps} reps, ressenti ${String(rpe).replace(".", ",")}) : on monte de ${kg(k * step)}.`
+        : `Haut de la fourchette atteint (${last.reps} reps) : +${kg(step)}, on repart à ${min} reps.` };
     }
+    if (last.reps < min) return { weight: Math.max(0, w0 - step), goal: max, move: "down", why: `Sous la fourchette la dernière fois (${last.reps} reps) : on enlève ${kg(step)}. Chaque rep doit rester propre.` };
+    if (rpe != null && rpe >= 9.5) return { weight: w0, goal: last.reps, move: "same", why: `À fond la dernière fois (${last.reps} reps) : même charge, refais ${last.reps} reps avec un peu de marge.` };
+    const goal = clamp(last.reps + 1, min, max);
+    return { weight: w0, goal, move: "same", why: `Même charge, une rep de plus : vise ${goal} reps.` };
   }
-  return { weight, goal };
+  // poids du corps ou temps : on ajoute des reps (des secondes), puis on passe à une variante plus dure
+  const step = meta.step || 1, cap = max + 5 * step, unit = meta.type === "time" ? "s" : "reps";
+  if (!last) return { weight: 0, goal: mid, move: "first", why: "Première fois : vise le milieu de la fourchette, bien propre." };
+  const goal = clamp(last.reps + (last.reps >= mid ? step : 0), min, cap);
+  const harder = last.reps >= cap && HARDER[item.id] && EXERCISES[HARDER[item.id]] ? HARDER[item.id] : null;
+  if (harder) return { weight: 0, goal: cap, move: "same", harder, why: `Tu dépasses ${cap} ${unit} : passe à « ${EXERCISES[harder].name} » pour continuer à progresser.` };
+  return { weight: 0, goal, move: goal > last.reps ? "up" : "same", why: goal > last.reps ? `${last.reps} ${unit} la dernière fois : vise ${goal} ${unit}.` : `Refais ${goal} ${unit}, plus propre.` };
 }
+// Charge / objectif de départ à partir de l'historique (double progression).
+const startingTarget = item => { const p = progressionOf(item); return { weight: p.weight, goal: p.goal }; };
 // Ce que le coach prévoit pour la première série d'un exercice (aperçu de séance, conseils d'avant-séance)
 export const plannedTarget = startingTarget;
 
@@ -60,7 +81,7 @@ function makeItem(item, verdict, isMain, rec, goals = true) {
   if (item.scheme) return schemeItem(item, meta, verdict, rec);
   const fix = item.fixed || (goals ? goalFix(item.id) : null);
   if (fix) return fixedItem(item, meta, fix, verdict, rec);
-  const t = startingTarget(item);
+  const t = progressionOf(item);
   const sore = rec ? exerciseReady(item.id, rec) < 0.5 : false;
   const sets = Math.max(1, item.sets + (isMain ? 0 : verdict.setDelta) - (verdict.factor < 0.9 && isMain ? 1 : 0) - (verdict.deload ? 1 : 0) - (sore ? 1 : 0));
   // Plateau : 3 séances sans progrès → on recule de 10 % pour mieux repartir.
@@ -68,6 +89,9 @@ function makeItem(item, verdict, isMain, rec, goals = true) {
   return {
     id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
     sets, reps: item.reps, rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau, sore,
+    // pourquoi cette charge (affiché en séance) : plateau et muscle pas remis passent avant la progression
+    move: plateau ? "down" : t.move, harder: t.harder || null,
+    why: plateau ? "3 séances sans progrès : −10 % pour mieux repartir." : sore ? "Muscles pas encore remis : une série de moins et la charge un peu allégée." : t.why,
     weight: meta.type === "load" ? round(t.weight * verdict.factor * (plateau ? 0.9 : 1) * (sore ? 0.95 : 1), meta.step) : 0,
     goal: meta.type === "load" ? t.goal : Math.max(item.reps[0], round(t.goal * (verdict.factor < 1 ? 0.9 : 1), meta.step)),
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
@@ -81,7 +105,7 @@ function fixedItem(item, meta, fix, verdict, rec) {
   return {
     id: item.id, name: meta.name, muscle: meta.muscle, type: meta.type, step: meta.step, cues: meta.cues,
     sets, reps: item.ramp ? item.reps : [fix.goal, fix.goal], rpe: item.rpe, rest: item.rest, ss: item.ss || null, plateau: false, sore,
-    weight, goal: fix.goal, ramp: item.ramp || null, goalNote: fix.note || null,
+    weight, goal: fix.goal, ramp: item.ramp || null, goalNote: fix.note || null, fixedLoad: true,
     done: [], status: "todo", last: lastPerformance(item.id), introduced: false,
   };
 }

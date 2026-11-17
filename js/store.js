@@ -156,10 +156,10 @@ export function weekStats(offsetWeeks = 0, sessions = state.sessions) {
 // Estimation 1RM (Epley)
 export const e1rm = (w, r) => (w > 0 ? w * (1 + r / 30) : 0);
 
-export function recordLift(exId, weight, reps) {
+export function recordLift(exId, weight, reps, rpe) {
   const prev = state.lifts[exId];
   state.lifts[exId] = {
-    weight, reps, date: Date.now(),
+    weight, reps, date: Date.now(), ...(rpe != null ? { rpe } : {}),
     best: Math.max(prev?.best || 0, e1rm(weight, reps)),
     bestReps: Math.max(prev?.bestReps || 0, weight === 0 ? reps : 0),
   };

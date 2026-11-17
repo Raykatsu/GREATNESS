@@ -3,7 +3,7 @@ import { EXERCISES } from "./data.js";
 import { getProgram } from "./store.js";
 import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
-import { Session, fmtTarget, plates, schemeAt } from "./engine.js";
+import { Session, fmtTarget, plates, schemeAt, progressionOf } from "./engine.js";
 import { classicAfter, CLASSICS } from "./classics.js";
 import { nativeRestLive, nativeWidget, isNative } from "./native.js";
 import { widgetData } from "./widgetdata.js";
@@ -221,6 +221,7 @@ function render() {
     <div class="ex-chips"><span class="chip red">${I.flame}Objectif ${target(ex)}</span>${simple ? "" : `<span class="chip">Ressenti ${ex.rpe}</span>`}${ex.plateau ? `<span class="chip amber">Relance plateau</span>` : ""}</div>
     ${showCues ? `<div class="cues"><ul class="grow">${ex.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
     <p class="ex-last">${I.clock}<span>${last ? `Dernière fois : <b>${last.map(s => fmtSet(s, ex)).join(" · ")}</b>` : "Première fois : je calibre dès la première série."}</span></p>
+    ${!simple && last && ex.why && !ex.done.length ? `<p class="ex-why mv-${ex.move || "same"}"><i aria-hidden="true">${ex.move === "up" ? "↑" : ex.move === "down" ? "↓" : "→"}</i><span>${esc(ex.why)}</span></p>` : ""}
     ${note ? `<button class="note-line" id="note-show">${I.edit}<span>${esc(note)}</span></button>` : ""}
 
     <div class="sets ${load ? "" : "noload"}">
@@ -675,10 +676,13 @@ function finish() {
   const before = rankInfo();
   const sum = S.summary();
   const done = { program: S.program, readiness: S.readiness }, next = chain;
+  // exercices faits (charges libres, sans programme imposé) : leur cible de la prochaine séance, après l'enregistrement
+  const nextItems = (S.program.simple || ["mobility", "stretch", "care", "cardio"].includes(S.program.cat) ? [] : S.plan)
+    .filter(e => e.done.length && !e.scheme && !e.ramp && !e.fixedLoad && Array.isArray(e.reps)).map(e => ({ id: e.id, reps: e.reps, weight: e.weight, sets: e.sets }));
   chain = null;
   const best = {};
   sum.sets.forEach(s => { const sc = s.weight > 0 ? e1rm(s.weight, s.reps) : s.reps; if (!best[s.exId] || sc > best[s.exId].sc) best[s.exId] = { ...s, sc }; });
-  Object.values(best).forEach(s => recordLift(s.exId, s.weight, s.reps));
+  Object.values(best).forEach(s => recordLift(s.exId, s.weight, s.reps, s.rpe));
   if (sum.sets.length) state.sessions.push(sum);
   if (sum.sets.length && !state.cycleStart) state.cycleStart = sum.date;
   const goals = sum.sets.length ? goalAfterSession(sum) : []; // objectifs chiffrés : test final, ou programme recalé
@@ -687,6 +691,7 @@ function finish() {
   clearSaved();
   const after = rankInfo();
   const newBadges = checkBadges();
+  const ahead = nextItems.map(e => ({ e, pl: progressionOf(e), t: EXERCISES[e.id]?.type })).filter(x => x.pl.why);
   S = null;
   wakeLock?.release?.(); wakeLock = null;
 
@@ -722,6 +727,10 @@ function finish() {
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
+    ${ahead.length ? `<div class="section"><h2>La prochaine fois</h2><span class="xs dim">Surcharge progressive</span></div>
+    <div class="card card-list fin-next">${ahead.map(({ e, pl, t }) => `<div class="nx mv-${pl.move}"><i aria-hidden="true">${pl.move === "up" ? "↑" : pl.move === "down" ? "↓" : "→"}</i>
+      <span class="grow"><span class="ellipsis nx-n">${esc(EXERCISES[e.id].name)}</span><small class="xs muted nx-w">${esc(pl.why)}</small></span>
+      <b class="small">${t === "load" ? `${fmtKg(pl.weight)}×${pl.goal}` : `${pl.goal}${t === "time" ? " s" : ""}`}</b></div>`).join("")}</div>` : ""}
     ${goals.map(goalResultHtml).join("")}
     ${classic.length ? `<div class="card goal-res classic-res"><span class="gr-ic">${I.flame}</span><div class="grow"><b>${esc(CLASSICS[state.classic.id].name)}</b>${classic.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>` : ""}
     ${tips.length ? `<div class="section"><h2>Et maintenant ?</h2><span class="xs dim">Les conseils de ${esc(coachName())}</span></div>${tipsHtml(tips)}` : ""}

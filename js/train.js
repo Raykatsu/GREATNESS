@@ -6,7 +6,7 @@ import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
 import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } from "./planner.js";
-import { readinessScore, readinessVerdict } from "./engine.js";
+import { readinessScore, readinessVerdict, progressionOf } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
@@ -117,13 +117,17 @@ export function renderTrain(view, startLive) {
 }
 
 /* ---------- Liste d'exercices modifiable (aperçu & création) ---------- */
-function exList(list, host, onChange) {
-  host.innerHTML = list.length ? `<ol class="pv-list">${list.map((e, i) => `
+function exList(list, host, onChange, opts = {}) {
+  // charge prévue d'après l'historique (progression expliquée), sauf charges imposées (objectif, programme célèbre) et
+  // séances douces (mobilité, souplesse, soulager)
+  const plan = e => (opts.calm || e.fixed || e.scheme || e.ramp || !EXERCISES[e.id] ? null : progressionOf(e));
+  host.innerHTML = list.length ? `<ol class="pv-list">${list.map((e, i) => { const pl = plan(e), w = pl && EXERCISES[e.id].type === "load" ? pl.weight : e.weight; return `
     <li class="ex-row pv-ex">
       <span class="pv-n tnum">${i + 1}</span>
       <div class="pv-main">
         <div class="pv-name">${esc(EXERCISES[e.id].name)}${demoBtn(e.id, "demo-sm")}</div>
-        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${e.weight && !e.ramp && !e.scheme ? ` · ${String(e.weight).replace(".", ",")} kg` : ""}${e.fixed?.note ? ` · <span class="pv-goal-tag">🎯 objectif</span>` : ""}</div>
+        <div class="pv-sub tnum">${fmtReps(e)} · repos ${e.rest} s${w && !e.ramp && !e.scheme ? ` · ${String(w).replace(".", ",")} kg` : ""}${e.fixed?.note ? ` · <span class="pv-goal-tag">🎯 objectif</span>` : ""}</div>
+        ${pl && pl.move !== "first" && pl.why ? `<p class="pv-why mv-${pl.move}"><i aria-hidden="true">${pl.move === "up" ? "↑" : pl.move === "down" ? "↓" : "→"}</i><span>${esc(pl.why)}</span></p>` : ""}
       </div>
       <div class="tools">
         <button class="icon-btn plain" data-a="up" data-i="${i}" aria-label="Monter" ${i === 0 ? "disabled" : ""}>${I.up}</button>
@@ -134,14 +138,14 @@ function exList(list, host, onChange) {
         <span class="tnum"><b>${e.sets}</b> série${e.sets > 1 ? "s" : ""}</span>
         <button data-a="plus" data-i="${i}" aria-label="Plus de séries" ${e.sets >= 8 ? "disabled" : ""}>${I.plus}</button>
       </div>`}
-    </li>`).join("")}</ol>` : `<div class="empty">${I.plus}<b>Séance vide</b>Ajoute des exercices pour composer ta séance.</div>`;
+    </li>`; }).join("")}</ol>` : `<div class="empty">${I.plus}<b>Séance vide</b>Ajoute des exercices pour composer ta séance.</div>`;
   $$("[data-a]", host).forEach(b => b.onclick = () => {
     const i = +b.dataset.i, a = b.dataset.a;
     if (a === "minus") list[i].sets = Math.max(1, list[i].sets - 1);
     if (a === "plus") list[i].sets = Math.min(8, list[i].sets + 1);
     if (a === "up" && i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]];
     if (a === "del") list.splice(i, 1);
-    exList(list, host, onChange);
+    exList(list, host, onChange, opts);
     if (a === "up") host.querySelectorAll(".pv-ex")[i - 1]?.classList.add("moved");
     if (a === "minus" || a === "plus") host.querySelectorAll(".pv-step b")[i]?.classList.add("bump");
     navigator.vibrate?.(6);
@@ -202,9 +206,10 @@ export function openProgram(program, startLive, refresh) {
     });
   };
   const change = () => { edited = true; meta(); };
-  exList(work, $("#list", sh.el), change);
+  const calm = !!program.simple || ["mobility", "stretch", "care"].includes(program.cat);
+  exList(work, $("#list", sh.el), change, { calm });
   meta();
-  $("#add", sh.el).onclick = () => pickExercises(ids => { ids.forEach(id => work.push(defaultItem(id))); exList(work, $("#list", sh.el), change); change(); });
+  $("#add", sh.el).onclick = () => pickExercises(ids => { ids.forEach(id => work.push(defaultItem(id))); exList(work, $("#list", sh.el), change, { calm }); change(); });
   $("#start", sh.el).onclick = () => {
     if (!work.length) return toast("Ajoute au moins un exercice.");
     checkIn(sh, { ...base, exercises: work }, startLive);
