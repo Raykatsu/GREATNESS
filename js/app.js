@@ -19,7 +19,7 @@ import { openFeedback, openInbox, isAdmin, unseenFeedback, flushFeedback } from 
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
-import { applyAppearance, ACCENTS, MODES, ZOOMS } from "./actions.js";
+import { applyAppearance, ACCENTS, MODES, ZOOMS, musicTint } from "./actions.js";
 import { mountAnims } from "./anim.js";
 import { chart } from "./chart.js";
 import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
@@ -45,6 +45,9 @@ import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 import { openGuide, guideCard, bindGuideCard, markSeen } from "./guide.js";
+import { startMusic, stopMusic, spotifyResume } from "./music.js";
+import { initMusicTheme } from "./musictheme.js";
+import { musicHomeCard, bindMusicHome, openMusic } from "./music-ui.js";
 import { LOC, initLang, getLang, setLang, EN_READY, tr, dayUnit } from "./i18n.js";
 
 // Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
@@ -64,6 +67,19 @@ const routes = { "": home, train: () => renderTrain(view, launch), create: () =>
 // Position de chaque écran : sert au sens du glissement entre onglets (et entre Stats / Amis / Réglages).
 const TAB_POS = { home: 0, train: 1, create: 2, food: 3, coach: 4, progress: 5, profile: 5, import: 5 };
 let shown = null; // écran affiché : { key, tab, sub }
+// Musique (music.js) : lancée pour le compte ouvert ; retour de la connexion Spotify (?code=…) ; rien sans compte
+let musicUser;
+function musicFor(user) {
+  if (musicUser === user) return;
+  musicUser = user;
+  if (!user) return stopMusic();
+  initMusicTheme();
+  startMusic();
+  spotifyResume().then(r => {
+    if (r === "ok") { toast("Spotify connecté ✓"); startMusic(); openMusic(); }
+    else if (r) toast(r === "DENIED" ? "Connexion Spotify refusée" : `Connexion Spotify impossible (${r})`, 4000);
+  });
+}
 function route() {
   const [key, qs] = location.hash.replace(/^#\/?/, "").split("?");
   params = Object.fromEntries(new URLSearchParams(qs || ""));
@@ -71,8 +87,9 @@ function route() {
   applyAppearance(state.profile);
   if (!currentUser && resumeSession()) { setTimeout(offerResume, 600); }
   applyChars();
-  if (!currentUser) { shown = null; return showAuth(view, () => { if (!isOnlineMode()) llm.autoload(); route(); offerResume(); }); }
+  if (!currentUser) { musicFor(null); shown = null; return showAuth(view, () => { if (!isOnlineMode()) llm.autoload(); route(); offerResume(); }); }
   if (!state.profile.onboarded) { shown = null; return onboarding(); }
+  musicFor(currentUser);
   if (state.meta.prunedOn !== new Date().toDateString()) { pruneFood(state); state.meta.prunedOn = new Date().toDateString(); save({ silent: true }); }
   document.body.classList.remove("hide-tabs");
   $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
@@ -302,6 +319,7 @@ function home() {
       </div>
     </section>
 
+    ${musicHomeCard()}
     ${weekAdaptCard()}
     ${guideCard()}
     ${healthCard()}
@@ -355,6 +373,7 @@ function home() {
   $("#go").onclick = () => openProgram(m.doneToday ? getProgram("mobility") : m.program, launch);
   $("#free").onclick = () => startFree();
   bindFoodCard(view);
+  bindMusicHome(view);
   bindRecoveryCard(view);
   bindGoalCard(view, route);
   bindClassicCard(view, route);
@@ -710,6 +729,7 @@ const SIC = {
   sound: '<path d="M4 9v6h4l5 4V5L8 9H4zM17 9a4 4 0 0 1 0 6"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.4-1.2-1.6-1.2-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7.2" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>',
   half: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
   text: '<path d="M4 18 8.5 6h1L14 18M5.5 14h6.5M16 18l2.5-7h1L22 18M16.8 15.6h4.4"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2.2 2.2 0 0 0 4 0"/>',
@@ -795,6 +815,7 @@ function profile() {
     <div class="card card-list set-list">
       <div class="set-row stack"><div class="set-lbl">${sic("palette", "#f97316")}<b>Couleur</b></div>
         <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${COLOR_NAMES[k] || k}"></button>`).join("")}</div></div>
+      <button class="set-row set-act" id="p-music">${sic("music", "#1db954")}<div class="grow"><b>Musique</b><span class="xs muted">Spotify, Deezer, Apple Music… : les couleurs de l'app suivent la pochette</span></div>${I.chev}</button>
       <div class="set-row stack"><div class="set-lbl">${sic("half", "#64748b")}<b>Fond</b></div>
         <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
       <div class="set-row stack"><div class="set-lbl">${sic("text", "#0ea5e9")}<b>Taille du texte</b></div>
@@ -863,7 +884,11 @@ function profile() {
   $$("[data-goal]").forEach(b => b.onclick = () => { p.goal = b.dataset.goal; save(); route(); toast(`Objectif : ${GOALS[p.goal].name}. Reps et repos adaptés.`); mascot.react("happy"); });
   $$("#days button").forEach(b => b.onclick = () => { p.days = +b.dataset.v; save(); $$("#days button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#equip button").forEach(b => b.onclick = () => { p.equipment = b.dataset.v; save(); $$("#equip button").forEach(x => x.classList.toggle("on", x === b)); });
-  $$("[data-accent]").forEach(b => b.onclick = () => { p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b)); });
+  $$("[data-accent]").forEach(b => b.onclick = () => {
+    p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b));
+    // les couleurs de la pochette en cours passent devant : la couleur choisie revient quand la musique s'arrête
+    if (musicTint() && !musicTint().neutral) toast("Couleur enregistrée : elle revient quand la musique s'arrête (Musique → Couleurs de la pochette)", 4000);
+  });
   $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
   $("#p-deload").onchange = e => { p.deload = e.target.checked; save(); };
@@ -893,6 +918,7 @@ function profile() {
   bind("#p-sound", t => (p.sound = t.checked));
   $("#p-memory").onclick = () => memorySheet();
   $("#p-nutri").onclick = () => openTargets();
+  $("#p-music").onclick = () => openMusic();
   bind("#p-pinlock", t => (p.pinLock = t.checked));
   bind("#p-restalert", t => (p.restAlert = t.checked));
   bind("#p-ai", t => { p.aiEnabled = t.checked; });

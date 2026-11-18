@@ -19,6 +19,7 @@ const KEYS = {
   NSHealthShareUsageDescription: "GREATNESS lit ton sommeil, ta variabilité cardiaque, ta fréquence cardiaque au repos, tes pas, ton poids et ton énergie active pour préremplir ton bilan de forme et adapter tes séances.",
   NSHealthUpdateUsageDescription: "GREATNESS n'écrit rien dans Santé.",
   NSFaceIDUsageDescription: "Face ID déverrouille ton compte GREATNESS à la place de ton code secret. Rien ne quitte ton téléphone.",
+  NSAppleMusicUsageDescription: "GREATNESS lit le morceau en cours dans l'app Musique pour prendre les couleurs de sa pochette et garder la bande-son de tes séances.",
 };
 // Les mêmes textes en anglais (iPhone réglé en anglais) : en.lproj/InfoPlist.strings, ajouté au projet par ios-widgets.rb
 const KEYS_EN = {
@@ -29,6 +30,7 @@ const KEYS_EN = {
   NSHealthShareUsageDescription: "GREATNESS reads your sleep, heart rate variability, resting heart rate, steps, weight and active energy to prefill your readiness check and adapt your workouts.",
   NSHealthUpdateUsageDescription: "GREATNESS doesn't write anything to Health.",
   NSFaceIDUsageDescription: "Face ID unlocks your GREATNESS account instead of your PIN. Nothing leaves your phone.",
+  NSAppleMusicUsageDescription: "GREATNESS reads the song playing in the Music app to take on its cover colors and keep your workouts' soundtrack.",
 };
 const strings = keys => Object.entries(keys).map(([k, v]) => `"${k}" = "${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}";`).join("\n") + "\n";
 for (const [l, keys] of [["fr", KEYS], ["en", KEYS_EN]]) {

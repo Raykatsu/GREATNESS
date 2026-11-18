@@ -19,6 +19,7 @@ import { openRecovery } from "./recovery-ui.js";
 import { openStory } from "./story-ui.js";
 import { openHealth } from "./health-ui.js";
 import { openTargets, foodLog } from "./food.js";
+import { openMusic } from "./music-ui.js";
 import { openCoachGallery } from "./coach-picker.js";
 import { openFeedback } from "./feedback.js";
 import { openDemo } from "./demo.js";
@@ -59,6 +60,7 @@ const FN = {
   story: () => openStory(),
   health: () => openHealth(),
   targets: () => openTargets(),
+  music: () => openMusic(),
   coaches: () => openCoachGallery(),
   feedback: () => openFeedback(),
   demo: () => openDemo(demoId()),
