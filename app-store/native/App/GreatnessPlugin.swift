@@ -1,9 +1,14 @@
 // Pont entre l'app web et le natif propre à GREATNESS (appelé depuis js/native.js) :
 // - restStart / restEnd : le repos qui défile dans la Dynamic Island et sur l'écran verrouillé (Live Activity) ;
-// - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group.
+// - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group ;
+// - musicNow : le morceau en cours dans l'app Musique (Apple Music ou bibliothèque), avec sa pochette (js/music.js) ;
+// - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify).
 import Foundation
+import UIKit
 import Capacitor
 import WidgetKit
+import MediaPlayer
+import AuthenticationServices
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -16,7 +21,10 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "restStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restEnd", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "widgetSet", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "musicNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "webAuth", returnType: CAPPluginReturnPromise),
     ]
+    var authSession: ASWebAuthenticationSession? // gardée le temps de la connexion
     static let appGroup = "group.io.github.raykatsu.greatness"
 
     @objc func restStart(_ call: CAPPluginCall) {
@@ -64,10 +72,60 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
+    // Le morceau en cours dans l'app Musique. ask : demande l'accès à la musique s'il n'a pas encore été donné.
+    // Réponse : { title, artist, album, playing, id (catalogue Apple Music), art (pochette JPEG en data URL) },
+    // { playing: false } si rien ne joue, { denied: true } si l'accès est refusé.
+    @objc func musicNow(_ call: CAPPluginCall) {
+        let ask = call.getBool("ask") ?? false
+        let read = {
+            let player = MPMusicPlayerController.systemMusicPlayer
+            guard let item = player.nowPlayingItem else { call.resolve(["playing": false]); return }
+            var out: [String: Any] = [
+                "title": item.title ?? "", "artist": item.artist ?? "", "album": item.albumTitle ?? "",
+                "playing": player.playbackState == .playing, "id": item.playbackStoreID,
+            ]
+            if let image = item.artwork?.image(at: CGSize(width: 300, height: 300)), let data = image.jpegData(compressionQuality: 0.82) {
+                out["art"] = "data:image/jpeg;base64," + data.base64EncodedString()
+            }
+            call.resolve(out)
+        }
+        let status = MPMediaLibrary.authorizationStatus()
+        if status == .authorized { DispatchQueue.main.async { read() }; return }
+        if status == .notDetermined && ask {
+            MPMediaLibrary.requestAuthorization { granted in
+                DispatchQueue.main.async { if granted == .authorized { read() } else { call.resolve(["denied": true]) } }
+            }
+            return
+        }
+        call.resolve(["denied": status == .denied || status == .restricted, "playing": false])
+    }
+
+    // Connexion web (Spotify) dans une fenêtre sécurisée ; revient avec l'adresse de retour (scheme://…)
+    @objc func webAuth(_ call: CAPPluginCall) {
+        guard let s = call.getString("url"), let url = URL(string: s), let scheme = call.getString("scheme") else {
+            call.reject("url ou scheme manquant"); return
+        }
+        DispatchQueue.main.async {
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { callback, _ in
+                self.authSession = nil
+                if let callback = callback { call.resolve(["url": callback.absoluteString]) } else { call.resolve(["cancelled": true]) }
+            }
+            session.presentationContextProvider = self
+            self.authSession = session
+            if !session.start() { self.authSession = nil; call.resolve(["cancelled": true]) }
+        }
+    }
+
     @objc func widgetSet(_ call: CAPPluginCall) {
         guard let json = call.getString("json") else { call.reject("json manquant"); return }
         UserDefaults(suiteName: GreatnessPlugin.appGroup)?.set(json, forKey: "widget")
         WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
+    }
+}
+
+extension GreatnessPlugin: ASWebAuthenticationPresentationContextProviding {
+    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return self.bridge?.viewController?.view.window ?? ASPresentationAnchor()
     }
 }

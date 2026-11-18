@@ -12,3 +12,8 @@ export const VAPID_PUBLIC_KEY = "BNZwd5T2UnjJ0V3JhVQ3X-pbM6TsSwif8I67Az9jqgC8GEg
 // Nom (slug) de la fonction Supabase de l'IA en ligne : visible dans l'adresse de la fonction
 // (…/functions/v1/<nom>). Sensible aux majuscules. « coach » est déployée par GitHub Actions (voir SUPABASE.md).
 export const AI_FUNCTION = "coach";
+
+// Musique (js/music.js) : identifiant (« Client ID ») de l'app Spotify, public comme une adresse. Vide : la connexion
+// Spotify directe est masquée ; Last.fm (Spotify, Deezer… pour tout le monde), Apple Music et le choix manuel restent.
+// Voir SUPABASE.md, « Musique ».
+export const SPOTIFY_CLIENT_ID = "";

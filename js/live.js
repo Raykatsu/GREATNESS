@@ -26,6 +26,8 @@ import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
 import { mascot } from "./mascot.js";
+import { onMusic, nowPlaying, trackKey } from "./music.js";
+import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 import { voiceLang, tr } from "./i18n.js";
 
@@ -78,6 +80,17 @@ export const discardSaved = clearSaved;
 
 // Échauffement puis séance : la séance à enchaîner une fois l'échauffement fini.
 let chain = null;
+// Bande-son de la séance : chaque nouveau morceau écouté pendant la séance (music.js), 30 au plus ; chaque série
+// retient le morceau qui passait (set.song : son rang dans la bande-son)
+let offMusic = null;
+function noteTrack(t) {
+  if (!S || !t || !t.playing || t.src === "manual") return;
+  S.music ||= [];
+  if (trackKey(S.music.at(-1)) === trackKey(t) || S.music.length >= 30) return;
+  S.music.push({ title: t.title, artist: t.artist, ...(t.art && !t.art.startsWith("data:") ? { art: t.art } : {}), src: t.src, at: Date.now() });
+  persist();
+}
+const songNow = () => { const t = nowPlaying(), last = S?.music?.at(-1); return t?.playing && last && trackKey(last) === trackKey(t) ? S.music.length - 1 : -1; };
 export function startWithWarmup(warmupId, program, readiness, exit) {
   startLive(getProgram(warmupId), readiness, exit);
   chain = { program, readiness };
@@ -126,6 +139,7 @@ function begin(exit) {
   navigator.wakeLock?.request("screen").then(l => (wakeLock = l)).catch(() => {});
   // duo à distance : l'autre voit où j'en suis, et moi où il en est
   startDuo(duoMine);
+  offMusic?.(); offMusic = onMusic(noteTrack); noteTrack(nowPlaying());
   // téléphone verrouillé pendant un repos : « Repos terminé » arrive en notification à la fin du repos
   // (hors de la page : traduit ici si l'app est en anglais)
   watchRest(() => rest && S?.current ? { end: rest.end, title: tr("Repos terminé : c'est reparti !"),
@@ -212,6 +226,7 @@ function render() {
         <button class="ex-tab add" id="add-ex" aria-label="Ajouter un exercice">${I.plus}</button></nav>
     </header>
     <div id="duo-bar">${duoBarHtml()}</div>
+    <div id="music-bar">${musicBarHtml()}</div>
 
     <div class="ex-head">
       <div class="grow"><div class="eyebrow">${esc(ex.muscle)}${ex.ss ? ` · Superset ${esc(ex.ss)}` : ""}</div><h2>${esc(ex.name)}</h2></div>
@@ -245,6 +260,7 @@ function render() {
   prevProg = p;
   renderDock();
   bind(ex);
+  bindMusicBar($("#music-bar", overlay()));
   const tabs = $("#tabs"), cur = $(`.ex-tab[data-i="${S.idx}"]`);
   if (tabs && cur) tabs.scrollLeft = cur.offsetLeft - (tabs.clientWidth - cur.offsetWidth) / 2;
 }
@@ -437,7 +453,9 @@ function logSet(e) {
   const doneIdx = ex.done.length;
   const lastSet = { exercice: ex.name, charge_kg: ex.type === "load" ? ui.weight : 0, reps: ui.reps, rpe: ui.rpe, douleur: ui.pain };
   const prevW = ex.weight, before = S.progress, loggedRpe = S.program.simple ? 0 : ui.rpe;
+  const song = songNow();
   const { events, rest: restSec } = S.logSet({ reps: ui.reps, rpe: S.program.simple ? 6 : ui.rpe, pain: ui.pain, weight: ui.weight });
+  if (song >= 0 && ex.done[doneIdx]) ex.done[doneIdx].song = song;
   lastLogged = { w: ex.type === "load" ? ui.weight : 0, r: ui.reps };
   const pr = events.some(ev => ev.kind === "pr" && ev.title.startsWith("Nouveau"));
 
@@ -667,6 +685,7 @@ async function quit() {
 /* ---------- Fin ---------- */
 function finish() {
   if (!S) return;
+  offMusic?.(); offMusic = null;
   unwatchRest();
   if (duoActive()) finishDuo(S.summary());
   stopVoice();
@@ -727,6 +746,7 @@ function finish() {
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
+    ${soundtrackHtml(sum.music)}
     ${ahead.length ? `<div class="section"><h2>La prochaine fois</h2><span class="xs dim">Surcharge progressive</span></div>
     <div class="card card-list fin-next">${ahead.map(({ e, pl, t }) => `<div class="nx mv-${pl.move}"><i aria-hidden="true">${pl.move === "up" ? "↑" : pl.move === "down" ? "↓" : "→"}</i>
       <span class="grow"><span class="ellipsis nx-n">${esc(EXERCISES[e.id].name)}</span><small class="xs muted nx-w">${esc(pl.why)}</small></span>
@@ -804,6 +824,7 @@ function countUp(root) {
 }
 
 function close() {
+  offMusic?.(); offMusic = null;
   unwatchRest();
   stopDuo();
   stopVoice();

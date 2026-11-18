@@ -399,8 +399,8 @@ export class Session {
 
   // Sauvegarde / reprise (si l'app est fermée en pleine séance).
   toJSON() {
-    const { program, readiness, verdict, startedAt, fatigue, flags, prs, log, plan, idx } = this;
-    return { program, readiness, verdict, startedAt, fatigue, flags, prs, log: log.slice(0, 8), plan, idx, savedAt: Date.now() };
+    const { program, readiness, verdict, startedAt, fatigue, flags, prs, log, plan, idx, music } = this;
+    return { program, readiness, verdict, startedAt, fatigue, flags, prs, log: log.slice(0, 8), plan, idx, ...(music?.length ? { music } : {}), savedAt: Date.now() };
   }
   static restore(data) {
     const s = Object.create(Session.prototype);
@@ -488,6 +488,7 @@ export class Session {
       durationSec: this.elapsed, volume: Math.round(volume), sets, prs: [...this.prs], xp,
       readiness: this.readiness, fatigue: Math.round(this.fatigue), compare, cut: this.flags.cut,
       ...(this.flags.pain?.length ? { pain: [...new Set(this.flags.pain)] } : {}),
+      ...(this.music?.length ? { music: this.music.slice(0, 30) } : {}), // bande-son (music.js)
     };
   }
 }

@@ -31,6 +31,7 @@ env:
   FUNCTION_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/coach
   REMINDERS_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/reminders
   HEALTH_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/health
+  MUSIC_URL: https://kahzhwslhstsnkcdciyt.supabase.co/functions/v1/music
   # Clé publique du projet (déjà dans js/config.js), envoyée comme le fait l'app
   PUBLISHABLE_KEY: sb_publishable_QXGwpXit7dx-N2xEkcx2Zw_3V30TXwU
 
@@ -182,6 +183,33 @@ jobs:
           echo "Clé inconnue : $bad"
           case "$body" in *"fonction santé en ligne"*) ;; *) echo "::error::la fonction health ne répond pas"; exit 1 ;; esac
           case "$bad" in *BAD_KEY*) ;; *) echo "::error::réponse inattendue à une clé inconnue"; exit 1 ;; esac
+
+      # Fonction « music » : morceau en cours d'un compte Last.fm (clé : secret GitHub LASTFM_API_KEY, recopié dans les
+      # secrets Supabase) et relais des pochettes pour les couleurs de l'app (voir SUPABASE.md, « Musique »)
+      - name: Fonction musique
+        if: always() && steps.token.outputs.ok == 'true'
+        continue-on-error: true
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+        run: |
+          if [ -n "$LASTFM_API_KEY" ]; then
+            echo "::add-mask::$LASTFM_API_KEY"
+            supabase secrets set "LASTFM_API_KEY=$LASTFM_API_KEY" --project-ref "$PROJECT_REF" > /dev/null
+            echo "Clé Last.fm installée."
+          else
+            echo "::notice title=Last.fm::Secret GitHub LASTFM_API_KEY absent : la musique par Last.fm attendra (voir SUPABASE.md, « Musique »)."
+          fi
+          supabase functions deploy music --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          for i in $(seq 1 20); do
+            body=$(curl -sS --max-time 20 "$MUSIC_URL" || true)
+            case "$body" in *"fonction musique en ligne"*) break ;; esac
+            sleep 3
+          done
+          echo "GET : $body"
+          bad=$(curl -sS --max-time 20 "$MUSIC_URL?cover=https%3A%2F%2Fexample.com%2Fx.jpg" || true)
+          echo "Pochette d'un site inconnu : $bad"
+          case "$body" in *"fonction musique en ligne"*) ;; *) echo "::error::la fonction music ne répond pas"; exit 1 ;; esac
+          case "$bad" in *BAD_COVER*) ;; *) echo "::error::réponse inattendue à une pochette d'un site inconnu"; exit 1 ;; esac
 
       - name: Retrait du secret de diagnostic
         if: always() && steps.token.outputs.ok == 'true'

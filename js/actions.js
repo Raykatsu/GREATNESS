@@ -18,9 +18,17 @@ export const ACCENTS = {
 export const MODES = { dark: "Sombre", oled: "Noir", light: "Clair" };
 export const ZOOMS = [1, 1.1, 1.2];
 
+// Couleurs de la pochette du morceau en cours (musictheme.js) : elles remplacent l'accent choisi tant que la musique
+// joue ; une pochette sans couleur franche (neutral) ne change que l'ambiance
+let tint = null;
+export const musicTint = () => tint;
+export function setMusicTint(t) { tint = t || null; applyAppearance(); }
 export function applyAppearance(p = state.profile) {
   const root = document.documentElement;
-  const [c, c2] = ACCENTS[p.accent] || ACCENTS.rouge;
+  const [c, c2] = tint && !tint.neutral ? [tint.accent, tint.accent2] : ACCENTS[p.accent] || ACCENTS.rouge;
+  if (tint) { root.style.setProperty("--amb-rgb", tint.ambient); root.style.setProperty("--amb2-rgb", tint.ambient2); }
+  else { root.style.removeProperty("--amb-rgb"); root.style.removeProperty("--amb2-rgb"); }
+  root.classList.toggle("music-tint", !!tint);
   const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)).join(", ");
   root.style.setProperty("--red", c);
   root.style.setProperty("--red-2", c2);

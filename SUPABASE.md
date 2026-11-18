@@ -78,6 +78,33 @@ Sécurité : la clé de l'adresse est stockée hachée (SHA-256) et ne permet qu
 
 > Sans GitHub : SQL Editor → colle [`supabase/008_health.sql`](supabase/008_health.sql) → Run ; puis déploie [`supabase/functions/health/index.ts`](supabase/functions/health/index.ts) sous le nom `health` en désactivant « Verify JWT ». L'adresse `…/functions/v1/health` doit afficher « GREATNESS : fonction santé en ligne ».
 
+## 2 nonies. Musique (Last.fm, Spotify, Apple Music)
+
+L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages → Musique**). Quatre sources :
+
+| Source | Pour qui | Ce qu'il faut |
+|---|---|---|
+| **Last.fm** | Tout le monde : Spotify, Deezer, YouTube Music, Tidal… envoient ce qu'on écoute à Last.fm | Une clé Last.fm sur le serveur (ci-dessous), puis chacun donne son pseudo Last.fm dans l'app |
+| **Spotify en direct** | 5 comptes au plus (règle de Spotify depuis février 2026 pour les apps en « mode développement ») | Une app Spotify (ci-dessous) ; le compte qui la crée doit être Premium |
+| **Apple Music** | App iPhone (App Store / TestFlight) | Rien : l'iPhone demande l'accès à la musique la première fois |
+| **Choix manuel** | Tout le monde | Rien : un morceau cherché dans le catalogue iTunes |
+
+**Clé Last.fm** (gratuite, 2 minutes, une seule fois) :
+1. Connecte-toi sur last.fm, puis ouvre <https://www.last.fm/api/account/create> : nom de l'app « GREATNESS », une description, le reste vide → **Submit**.
+2. Copie la ligne **API key** (pas le « Shared secret », qui ne sert pas).
+3. Sur GitHub : **Settings → Secrets and variables → Actions → New repository secret**, nom `LASTFM_API_KEY`, valeur : la clé. Ne la colle jamais dans une discussion ni dans le code (le dépôt est public).
+4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-1, Last.fm prêt) ».
+
+**App Spotify** (facultatif : seulement pour la connexion directe, avec lecture et pause depuis l'app) :
+1. Sur <https://developer.spotify.com/dashboard>, avec un compte **Premium** : **Create app**, nom « GREATNESS », API : **Web API**.
+2. Adresses de retour (**Redirect URIs**), les deux : `https://raykatsu.github.io/GREATNESS/` (le site) et `greatness://spotify` (l'app iPhone).
+3. **User Management** : ajoute le nom et l'e-mail Spotify de chaque personne autorisée (5 au plus, toi compris).
+4. Copie le **Client ID** (il n'est pas secret) dans `js/config.js` : `export const SPOTIFY_CLIENT_ID = "…";`. Le bouton « Se connecter à Spotify » apparaît alors dans l'app.
+
+La fonction `music` sert aussi de **relais des pochettes** : l'app doit lire les pixels d'une pochette pour en tirer ses couleurs, et certains sites ne l'autorisent pas. La fonction ne relaie que les images des hôtes de Spotify, Last.fm, Deezer et Apple (2 Mo au plus) et refuse toute autre adresse. Les jetons Spotify restent sur l'appareil, jamais sur le serveur ni dans les données synchronisées.
+
+> Sans GitHub : déploie [`supabase/functions/music/index.ts`](supabase/functions/music/index.ts) sous le nom `music` en désactivant « Verify JWT », et ajoute le secret `LASTFM_API_KEY` dans **Edge Functions → Secrets**.
+
 ## 2 octies. Retours des utilisateurs (« Une idée ? Un souci ? »)
 
 [`014_feedback.sql`](supabase/014_feedback.sql) (installé automatiquement) reçoit les messages envoyés depuis l'app : idée, souci ou autre, signés du pseudo si l'utilisateur le veut, avec la version, l'écran ouvert et le modèle de téléphone. 10 messages par compte et par jour, 120 par heure en tout ; gardés un an.

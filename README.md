@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 69 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 70 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -70,6 +70,19 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Onglet « Comprendre »** (Journal | Comprendre) : **pourquoi tu manges autant**, le calcul pas à pas avec tes chiffres (métabolisme de base avec ta formule, activité, séances, objectif, calories adaptatives, minimum sûr, ajustement du jour) ; pourquoi l'objectif change chaque jour (tes jours d'écart, la règle de ton objectif, les garde-fous) ; à quoi servent **protéines, glucides, lipides, fibres et eau** (ton objectif en g/kg et en %, pourquoi autant, où en trouver) ; **minéraux et vitamines** (calcium, fer, magnésium, potassium, sel, zinc, vitamines D, B12 et C, oméga-3) avec les repères de l'EFSA et de l'OMS selon ton sexe. Chaque affirmation renvoie à son étude (Mifflin 1990, Morton 2018, Helms 2014, Garthe 2011, Schoenfeld 2018, Reynolds 2019, ACSM, ISSN, CIO 2018…) : un nom d'étude ouvre la liste des **24 sources** avec leur DOI. Toucher une barre de macro du journal ouvre son explication. Données : `js/nutri-refs.js` ; calcul : `js/nutriadapt.js` ; écran : `js/nutrilearn.js`.
 - **Hydratation** : objectif d'eau selon ton poids (+0,5 L les jours d'entraînement), verres et bouteille d'un geste, **rappels pour boire** en notification si tu es en retard (plage horaire et fréquence au choix, silencieux une fois l'objectif atteint).
 - **Plan de repas et liste de courses** : de 1 à 7 jours, à tes calories et protéines, selon ton régime (végétarien, sans porc, sans lactose, sans gluten, petit budget, rapide) et tes goûts. L'IA en ligne compose des repas variés ; hors ligne, l'app assemble des repas simples ajustés au gramme près. Chaque repas s'ajoute au journal d'un geste ; la liste de courses (quantités crues, par rayon) se coche, se complète et se partage.
+
+## Musique : l'app prend les couleurs de ta pochette
+
+- **Ta musique, d'où qu'elle vienne** (Moi → Réglages → Musique) :
+  - **Last.fm**, le pont universel : Spotify, Deezer, YouTube Music, Tidal… y envoient ce que tu écoutes ; il suffit de ton pseudo ;
+  - **Spotify en direct** : en temps réel, avec lecture, pause et morceau suivant depuis l'app (Premium). Spotify limite cette connexion à 5 comptes par app ;
+  - **Apple Music** (app iPhone) : le morceau en cours dans l'app Musique ;
+  - **choix manuel** : un morceau cherché dans le catalogue iTunes, pour l'ambiance.
+- **Les couleurs suivent la pochette** : à chaque morceau, l'app tire de la pochette un accent (boutons, anneaux, liens), un deuxième accent pour les dégradés et une couleur d'ambiance pour les lueurs du fond. Une pochette en noir et blanc ne change que l'ambiance. Le texte reste lisible quelle que soit la couleur.
+- **Le décor** : la pochette floutée derrière l'écran, en fondu d'un morceau à l'autre. Couleurs et décor se désactivent chacun.
+- **Carte « En écoute »** sur l'accueil et **lecteur pendant la séance** (avec lecture, pause et morceau suivant si Spotify est connecté en direct).
+- **Bande-son de la séance** : les morceaux écoutés s'affichent en fin de séance et restent dans l'historique ; chaque série retient le morceau qui passait.
+- Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm, relais des pochettes).
 
 ## Le coach IA agit, retient et fait le bilan
 
@@ -313,7 +326,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, objectif ajusté au jour le jour et onglet « Comprendre », plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
+npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, objectif ajusté au jour le jour et onglet « Comprendre », plans de repas, musique (sources, couleurs des pochettes), Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
 npx playwright install chromium
 npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité, programmes célèbres, coach vocal
 ```
@@ -374,6 +387,8 @@ js/foods.js       les 365 aliments courants
 js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
 js/nutriadapt.js  objectif du jour ajusté aux écarts des 3 jours d'avant, jour du plan de repas recalculé
 js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutriments) ; nutri-refs.js : les études citées
+js/music.js       musique : sources (Last.fm, Spotify, Apple Music, choix manuel), morceau en cours (+ music-ui.js : écrans)
+js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)
 js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écrans)
