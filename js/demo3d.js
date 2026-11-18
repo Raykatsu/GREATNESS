@@ -1,11 +1,14 @@
 // Démos d'exercice en 3D : le corps anatomique (BodyParts3D / Z-Anatomy, js/body3d.js) fait le mouvement de la démo.
 // À chaque image, la position dessinée (js/body.js : angles des os, de profil ou de face) est « relevée » en 3D : la
 // profondeur vient des raccourcis de perspective du dessin (un bras raccourci de profil s'écarte du corps). Le squelette
-// du modèle (19 os, placés sur les vrais os par tools/anatomy/export_web.py) prend ces directions : bassin et buste d'un
-// bloc (le haut du dos s'enroule avec « spine »), bras et jambes pliés dans leur plan, mains et pieds dans le
-// prolongement. La carte graphique déforme le corps : chaque sommet suit deux os, avec un poids. Le matériel (barre,
-// haltères, banc, poulies…) est fait de cylindres et de boîtes. Les muscles ont la couleur de leur rôle (comme la
-// planche) et l'agoniste s'allume pendant l'effort.
+// du modèle (placé sur les vrais os par tools/anatomy/export_web.py) prend ces directions : bassin et buste d'un bloc (le
+// haut du dos s'enroule avec « spine »), bras et jambes pliés dans leur plan, pieds dans le prolongement. Les mains ont
+// leurs doigts : fermées sur la barre, l'haltère ou la poignée (les doigts s'enroulent jusqu'à toucher la barre, le pouce
+// se referme dessus), à plat sur le sol ou un appui, détendues sinon ; l'avant-bras tourne (pronation, supination) pour
+// que les jointures suivent la barre, en prise pronation, supination ou neutre selon l'exercice. La carte graphique
+// déforme le corps : chaque sommet suit deux os, avec un poids, et l'avant-bras se vrille progressivement du coude au
+// poignet. Le matériel (barre, haltères, banc, poulies…) est fait de cylindres et de boîtes. Les muscles ont la couleur
+// de leur rôle (comme la planche) et l'agoniste s'allume pendant l'effort.
 // Le calcul de la pose (lift, retarget, gearOf) est pur et testé dans Node ; mountDemo3D dessine en WebGL.
 import { solve, sample, solveFront, sampleFront, at as at2d, L, FLOOR } from "./body.js";
 import { mul, perspective, lookAt, orbitEye } from "./body3d.js";
@@ -50,6 +53,30 @@ export function frame(da, na, db, nb) {
   return o;
 }
 const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+// quaternion [x, y, z, w] d'une rotation 3 × 3
+export function quatOf(R) {
+  const [a, b, c, d, e, f, g, h, i] = R, tr = a + e + i;
+  let q;
+  if (tr > 0) { const k = Math.sqrt(tr + 1) * 2; q = [(h - f) / k, (c - g) / k, (d - b) / k, k / 4]; }
+  else if (a > e && a > i) { const k = Math.sqrt(1 + a - e - i) * 2; q = [k / 4, (b + d) / k, (c + g) / k, (h - f) / k]; }
+  else if (e > i) { const k = Math.sqrt(1 + e - a - i) * 2; q = [(b + d) / k, k / 4, (f + h) / k, (c - g) / k]; }
+  else { const k = Math.sqrt(1 + i - a - e) * 2; q = [(c + g) / k, (f + h) / k, k / 4, (d - b) / k]; }
+  const l = Math.hypot(...q);
+  return q.map(x => x / l);
+}
+// angle de la rotation R autour de l'axe a (décomposition « vrille × reste »), dans ]-π, π]
+const twistOf = (R, a) => { const q = quatOf(R); return 2 * Math.atan2(q[0] * a[0] + q[1] * a[1] + q[2] * a[2], q[3]); };
+// interpolation de deux rotations (quaternions), t ∈ [0, 1]
+function slerpR(A, B, t) {
+  if (t <= 0) return A; if (t >= 1) return B;
+  const qa = quatOf(A); let qb = quatOf(B), c = qa.reduce((s, x, k) => s + x * qb[k], 0);
+  if (c < 0) { qb = qb.map(x => -x); c = -c; }
+  const th = Math.acos(Math.min(1, c)), sn = Math.sin(th);
+  const w = sn < 1e-6 ? [1 - t, t] : [Math.sin((1 - t) * th) / sn, Math.sin(t * th) / sn];
+  const [x, y, z, ww] = qa.map((v, k) => w[0] * v + w[1] * qb[k]), l = Math.hypot(x, y, z, ww);
+  return axisAngleQ([x / l, y / l, z / l, ww / l]);
+}
+const axisAngleQ = ([x, y, z, w]) => [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)];
 
 /* ---------- Du dessin à la 3D ---------- */
 // Repère 3D (celui du modèle dans l'app) : x vers la gauche du sportif, y vers le haut, z vers l'avant ; sol en y = 0.
@@ -62,13 +89,18 @@ export const isTop = move => move.label === "Vue de dessus";
 
 // Profil : le sportif regarde vers la droite du dessin (+z) ; on voit son côté droit (-x), le côté « 2 » est le gauche.
 // Un os raccourci de profil sort du plan : il s'écarte du corps (coudes ouverts au développé couché…).
+// Un seul objet tenu à deux mains (kettlebell, haltère tenu par le disque) : les mains se rejoignent au milieu
+const holdsTwoHanded = move => (move.gear || []).some(g => (g.k === "kb" && g.rel == null) || (g.k === "db" && g.r));
+const HOLD_W = 2.2; // demi-écart des mains qui tiennent le même objet (unités du dessin, ≈ 4,5 cm)
 function liftSide(move, p) {
-  const j = solve(sample(move, p)), q = j.q;
+  const j = solve(sample(move, p)), q = j.q, two = holdsTwoHanded(move);
   const W = (pt, lat) => [lat * SCALE, (FLOOR - pt[1]) * SCALE, (pt[0] - 50) * SCALE];
   const J = { kind: "side", at: q.at || "ankle", spine: q.spine || 0, shrug: q.shrug || 0 };
   for (const [s, k, sg] of [["r", "", -1], ["l", "2", 1]]) {
     const E = j["E" + k], Wr = j["W" + k], K = j["K" + k], A = j["A" + k];
-    const sl = sg * SH, el = sl + sg * hyp(L.uarm, d2(j.S, E)), wl = el + sg * hyp(L.farm, d2(E, Wr));
+    const sl = sg * SH, u = d2(j.S, E), f = d2(E, Wr);
+    let el = sl + sg * hyp(L.uarm, u), wl = el + sg * hyp(L.farm, f);
+    if (two) { wl = sg * HOLD_W; el = sl + (wl - sl) * (u / Math.max(1e-6, u + f)); } // les mains se rejoignent
     const hl = sg * HP, kl = hl + sg * hyp(L.thigh, d2(j.H, K)), al = kl + sg * hyp(L.shin, d2(K, A));
     const hd = dirA((k ? q.farm2 : q.farm) + ((k ? q.hand2 ?? q.hand : q.hand) || 0));
     Object.assign(J, {
@@ -114,16 +146,242 @@ function liftFront(move, p) {
   }
   return J;
 }
-export const lift = (move, p) => (move.view === "front" ? liftFront(move, p) : liftSide(move, p));
+export function lift(move, p) {
+  const J = move.view === "front" ? liftFront(move, p) : liftSide(move, p);
+  J.hands = handPlan(move, J);
+  J.grip = move.grip || "over";
+  return J;
+}
+
+/* ---------- Ce que fait chaque main ---------- */
+// « grip » : fermée sur une barre, un haltère, une poignée (axe imposé par le matériel ou choisi selon la prise ; rb :
+// rayon de ce qu'on tient) ; « cup » : en coupe sous un haltère tenu par le disque, ou sous la barre en rack ; « free » :
+// ni l'un ni l'autre, à plat (planted = 1) quand elle s'appuie sur le sol ou un appui, détendue sinon.
+const RB = { plate: 0.014, bar: 0.016, db: 0.016, kb: 0.018, cable: 0.015, band: 0.015, line: 0.016, rope: 0.014, wave: 0.02, roller: 0.015, dip: 0.02 };
+const HELD = new Set(["plate", "db", "kb", "cable", "band", "bar", "line", "rope", "wave", "roller"]);
+// De profil, le bras éloigné fait-il le même geste que le proche (mains au même endroit du dessin) ? De face : oui.
+const handsTogether = J => J.kind !== "side" || (J.j?.W && J.j?.W2 && Math.hypot(J.j.W[0] - J.j.W2[0], J.j.W[1] - J.j.W2[1]) < 3);
+// Mains qui tiennent un haltère : celle du dessin ; de profil, les deux si le bras éloigné fait le même geste (curl…)
+function dbHands(move, g, together) {
+  const n = refName(g.at);
+  if (!g.at) return g.side === 0 ? ["r"] : g.side === 1 ? ["l"] : ["r", "l"];
+  if (n === "W2") return ["l"];
+  const other = (move.gear || []).some(o => o !== g && o.k === "db" && refName(o.at) === "W2");
+  return n === "W" && together && !other ? ["r", "l"] : ["r"];
+}
+export function handPlan(move, J) {
+  const side = J.kind === "side", j = J.j || {}, H = {}, lateral = [1, 0, 0];
+  const set = (s, h) => { if (!H[s]) H[s] = h; };
+  const both = h => { set("r", h); set("l", h); };
+  const together = handsTogether(J);
+  const across = side ? lateral : unit(sub(J.wrist_l, J.wrist_r)); // barre tenue à deux mains
+  const front = s => (s === "WL" ? (move.back ? "l" : "r") : (move.back ? "r" : "l")); // main gauche / droite de l'image
+  for (const g of (move.gear || []).filter(g => HELD.has(g.k))) {
+    const n = refName(g.at);
+    if (g.k === "plate") both(n === "rack" ? { mode: "cup" } : { mode: "grip", rb: RB.plate, axis: across, reach: side && (n === "back" || n === "hips") ? n : null });
+    else if (g.k === "db") {
+      if (g.r) { both({ mode: "cup" }); continue; } // haltère tenu par le disque, à deux mains
+      for (const s of dbHands(move, g, together)) set(s, { mode: "grip", rb: RB.db });
+    } else if (g.k === "kb") {
+      const s = n === "W2" ? "l" : "r";
+      set(s, { mode: "grip", rb: RB.kb, axis: side ? lateral : null });
+      if (g.rel == null) set(s === "r" ? "l" : "r", { mode: "grip", rb: RB.kb, axis: side ? lateral : null }); // à deux mains
+    } else if (g.k === "cable" || g.k === "band") {
+      if (side ? g.to === "W" : !["A", "K"].includes(g.to) && !g.ankles) {
+        if (side || !g.from) both({ mode: "grip", rb: RB[g.k] });
+        else (g.to || ["WL", "WR"]).forEach(t => set(front(t), { mode: "grip", rb: RB[g.k] }));
+      }
+    } else if (g.k === "line") { if (refName(g.to) === "W") both({ mode: "grip", rb: RB.line, axis: side ? lateral : null }); }
+    else if (g.k === "bar") both({ mode: "grip", rb: RB.bar, axis: across });
+    else both({ mode: "grip", rb: RB[g.k], axis: g.k === "roller" ? lateral : null });
+  }
+  // barres parallèles (dips) : les mains les serrent, axe d'avant en arrière
+  if (side && j.W) for (const g of move.gear || []) {
+    if (g.k === "post" && g.x2 != null && g.y2 === g.y && Math.abs(j.W[1] - g.y) < 4 && j.W[0] > Math.min(g.x, g.x2) - 2 && j.W[0] < Math.max(g.x, g.x2) + 2)
+      both({ mode: "grip", rb: RB.dip, axis: [0, 0, 1], dip: g });
+  }
+  // mains libres : à plat sur le sol (poignet bas) ou un appui (box), ou si le mouvement repose sur les poignets
+  for (const s of ["r", "l"]) {
+    if (H[s]) continue;
+    const W2d = s === "r" ? j.W : j.W2;
+    const onBox = side && W2d && (move.gear || []).some(g => g.k === "box" && W2d[0] > g.x - 2 && W2d[0] < g.x + g.w + 2 && Math.abs(W2d[1] - g.y) < 5);
+    // avant-bras couché près du sol (gainage sur les coudes, bras allongés devant) : la main aussi est à plat
+    const fa = unit(sub(J["wrist_" + s], J["elbow_" + s])), low = Math.min(J["wrist_" + s][1], J["elbow_" + s][1]);
+    const lying = Math.abs(fa[1]) < 0.4 ? smooth(0.17, 0.12, low) : 0;
+    const planted = move.base?.at === "wrist" || onBox ? 1 : Math.max(lying, smooth(0.12, 0.065, J["wrist_" + s][1]));
+    H[s] = { mode: "free", planted };
+  }
+  return H;
+}
 
 /* ---------- Le squelette du modèle prend la pose ---------- */
-// rig : os du modèle (body.json : n nom, p parent, h pivot, t bout, aim direction de visée au repos pour les pieds)
-export function prepRig(rig) {
+// rig : os du modèle (body.json : n nom, p parent, h pivot, t bout, aim direction de visée au repos pour les pieds ;
+// ax axe de flexion des doigts et du pouce, ab / op écartement et opposition du pouce, pn normale de la paume).
+// src : le corps décodé (ou body.json) ; un tableau seul (ancien format) donne un squelette sans doigts.
+export function prepRig(src) {
+  const rig = Array.isArray(src) ? src : src.rig;
   const I = Object.fromEntries(rig.map((b, i) => [b.n, i]));
   const dir = rig.map(b => unit(b.aim || sub(b.t, b.h)));
   const shoulderC = mid(rig[I.uarm_r].h, rig[I.uarm_l].h), pelvis = rig[I.pelvis].h;
-  return { rig, I, dir, trunk: unit(sub(shoulderC, pelvis)), lat: unit(sub(rig[I.thigh_l].h, rig[I.thigh_r].h)),
-    hand: unit(sub(rig[I.hand_r].t, rig[I.hand_r].h)), clav: rig.map(b => (b.n.startsWith("clav") ? len(sub(b.t, b.h)) : 0)) };
+  const R0 = { rig, I, dir, nb: rig.length, trunk: unit(sub(shoulderC, pelvis)), lat: unit(sub(rig[I.thigh_l].h, rig[I.thigh_r].h)),
+    clav: rig.map(b => (b.n.startsWith("clav") ? len(sub(b.t, b.h)) : 0)) };
+  const fingers = !Array.isArray(src) && src.fingers;
+  R0.frow = fingers ? src.frow ?? I.fing1_r : -1;
+  R0.hands = fingers && I.fing1_r != null ? { r: handRest(R0, "r", fingers.r), l: handRest(R0, "l", fingers.l) } : null;
+  return R0;
+}
+// La main au repos (paume vers l'avant) : direction de la paume D (poignet → jointures), axe des jointures K (plier les
+// doigts = tourner de + autour de K), normale de la paume n ; la chaîne moyenne des doigts dans le plan (D, n) ; le pouce.
+function handRest(R0, s, F) {
+  const { rig, I } = R0, hb = rig[I["hand_" + s]], fb = rig[I["farm_" + s]], t1 = rig[I["thumb1_" + s]];
+  const ax = [1, 2, 3].map(k => unit(rig[I[`fing${k}_${s}`]].ax));
+  const D = unit(sub(hb.t, hb.h)), K = unit(sub(ax[0], scl(D, dot(ax[0], D)))), n = unit(cross(K, D));
+  const rows = [0, 1, 2, 3].map(k => scl(F.reduce((a, f) => add(a, f[k]), [0, 0, 0]), 1 / F.length));
+  const p2 = rows.map(p => [dot(sub(p, rows[0]), D), dot(sub(p, rows[0]), n)]);
+  const phi = [0, 1, 2].map(k => Math.atan2(p2[k + 1][1] - p2[k][1], p2[k + 1][0] - p2[k][0]));
+  const thumb = [1, 2, 3].map(k => I[`thumb${k}_${s}`]);
+  return {
+    s, sg: s === "r" ? -1 : 1, // pronation p (paume qui se tourne vers l'intérieur) : rotation de sg × p autour de l'avant-bras
+    hand: I["hand_" + s], farm: I["farm_" + s], D, K, n, fa: unit(sub(fb.t, fb.h)), elbow: fb.h,
+    rows: [1, 2, 3].map(k => I[`fing${k}_${s}`]), ax, F, mcp: rows[0],
+    len2: [0, 1, 2].map(k => Math.hypot(p2[k + 1][0] - p2[k][0], p2[k + 1][1] - p2[k][1])), rest: [phi[0], phi[1] - phi[0], phi[2] - phi[1]],
+    thumb, ab: unit(t1.ab), op: unit(t1.op), tax: [unit(rig[thumb[1]].ax), unit(rig[thumb[2]].ax)], d1: unit(sub(t1.t, t1.h)),
+    tj: [rig[thumb[0]].h, rig[thumb[1]].h, rig[thumb[2]].h, rig[thumb[2]].t], cache: {},
+  };
+}
+
+/* ---------- Les doigts ---------- */
+// Main fermée sur une barre de rayon rb, couchée en travers de la paume au pied des doigts : chaque rangée de phalanges
+// plie (degré par degré) jusqu'à toucher la barre ; le pouce passe ensuite par-dessus la barre et se pose sur l'index.
+const PALM = 0.009, SOFT = 0.0065, GRIP_X = -0.011; // épaisseur paume / doigts sous l'os, barre un peu avant les jointures
+const FMAX = [80, 105, 75].map(a => a * RAD), TMAX = [70, 45, 50, 70, 90].map(a => a * RAD); // pouce : écart, opposition, flexions, rotation
+// mains sans rien : flexions des 3 rangées (degrés) et réglage du pouce (voir thumbR)
+const FREE = { relax: { f: [26, 34, 20], t: [0.3, 0.3, 0.25, 0.25, -0.3] }, flat: { f: [0, 3, 3], t: [0.05, 0, 0, 0, 0] },
+  cup: { f: [40, 42, 26], t: [0.4, 0.35, 0.25, 0.25, -0.4] } };
+// rotations du pouce (repère de repos) : a = [écart, opposition, flexion MCP, flexion IP, rotation du pouce sur lui-même],
+// en part de TMAX (la rotation, négative, accompagne l'opposition : elle tourne la pulpe vers les doigts et fait plier le
+// pouce autour de la barre plutôt que le long)
+function thumbR(H, a) {
+  const R1 = mm(axisAngle(H.op, a[1] * TMAX[1]), mm(axisAngle(H.ab, a[0] * TMAX[0]), axisAngle(H.d1, a[4] * TMAX[4])));
+  const R2 = mm(R1, axisAngle(H.tax[0], a[2] * TMAX[2]));
+  return [R1, R2, mm(R2, axisAngle(H.tax[1], a[3] * TMAX[3]))];
+}
+export function gripCurl(H, rb) {
+  const key = rb.toFixed(4);
+  if (H.cache[key]) return H.cache[key];
+  const C = [GRIP_X, PALM + rb], need = rb + SOFT;
+  const near = (X, a, l) => { // distance du centre de la barre à la phalange
+    const u = [Math.cos(a), Math.sin(a)], v = [C[0] - X[0], C[1] - X[1]], t = Math.max(0, Math.min(l, v[0] * u[0] + v[1] * u[1]));
+    return Math.hypot(v[0] - t * u[0], v[1] - t * u[1]);
+  };
+  let X = [0, 0], a = 0;
+  const flex = H.len2.map((l, k) => {
+    let f = 0;
+    for (let d = RAD; d <= FMAX[k] + 1e-9; d += RAD) { if (near(X, a + d, l) < need - (k === 2 ? 0.003 : 0)) break; f = d; }
+    if (k === 2) f = Math.max(f, 28 * RAD); // la pulpe du doigt appuie sur la barre
+    a += f; X = [X[0] + l * Math.cos(a), X[1] + l * Math.sin(a)];
+    return f;
+  });
+  const C3 = add(H.mcp, add(scl(H.D, C[0]), scl(H.n, C[1])));
+  // pouce : il passe par-dessus la barre et vient se poser sur la phalange moyenne de l'index (cherché sur une grille)
+  const th = flex.map((f, k) => f - H.rest[k]);
+  const out = p => { const v = sub(p, C3); return len(sub(v, scl(H.K, dot(v, H.K)))); }; // distance à l'axe de la barre
+  let Rk = ID; const fr = [0, 1].map(k => { Rk = mm(Rk, axisAngle(H.ax[k], th[k])); return Rk; });
+  const F0 = H.F[0], pip = add(F0[0], mv(fr[0], sub(F0[1], F0[0]))), dip = add(pip, mv(fr[1], sub(F0[2], F0[1])));
+  const md = mid(pip, dip), target = add(md, scl(unit(sub(sub(md, C3), scl(H.K, dot(sub(md, C3), H.K)))), 0.016));
+  const cost = a => {
+    const R = thumbR(H, a), j = [H.tj[0]];
+    for (let k = 0; k < 3; k++) j.push(add(j[k], mv(R[k], sub(H.tj[k + 1], H.tj[k]))));
+    let c = len(sub(j[3], target)) + 0.3 * Math.abs(out(j[2]) - rb - 0.009); // le bout sur l'index, la phalange contre la barre
+    for (let k = 0; k < 3; k++) for (let u = 0.25; u <= 1.0001; u += 0.25) c += Math.max(0, rb + 0.0075 - out(add(j[k], scl(sub(j[k + 1], j[k]), u)))) * 6;
+    return c;
+  };
+  // recherche sur une grille, resserrée deux fois autour du meilleur réglage
+  let tc = [0, 0, 0, 0, 0], best = Infinity;
+  const span = [[0, 1], [0, 1], [0, 1], [0, 1], [-1, 1]];
+  for (let pass = 0, n = 5; pass < 3; pass++, n = 3) {
+    const grid = span.map(([lo, hi]) => Array.from({ length: n + 1 }, (_, i) => lo + ((hi - lo) * i) / n));
+    const at = [0, 0, 0, 0, 0];
+    const walk = d => {
+      if (d === 5) { const c = cost(at); if (c < best) { best = c; tc = at.slice(); } return; }
+      for (const v of grid[d]) { at[d] = v; walk(d + 1); }
+    };
+    walk(0);
+    span.forEach((st, k) => { const w = (st[1] - st[0]) / n; st[0] = Math.max(k === 4 ? -1 : -0.15, tc[k] - w); st[1] = Math.min(1.1, tc[k] + w); });
+  }
+  return (H.cache[key] = { th, C3, tc });
+}
+// angles des rangées (par rapport au repos), fermeture du pouce et point tenu (repère de repos) pour une main
+function curlOf(H, plan) {
+  if (plan.mode === "grip") return gripCurl(H, plan.rb);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const A = plan.mode === "cup" ? FREE.cup : FREE.relax, B = plan.mode === "cup" ? FREE.cup : FREE.flat, w = plan.planted || 0;
+  return { th: A.f.map((f, k) => lerp(f, B.f[k], w) * RAD - H.rest[k]), tc: A.t.map((t, k) => lerp(t, B.t[k], w)),
+    C3: add(H.mcp, add(scl(H.D, -0.02), scl(H.n, plan.mode === "cup" ? 0.035 : 0.02))) };
+}
+
+/* ---------- Orientation de la main et rotation de l'avant-bras ---------- */
+// pronation possible (0 : paume en avant bras le long du corps, 90° : paumes face à face, 180° : paume en arrière ; l'épaule
+// tourne aussi un peu dans les prises les plus pronées) ; prise visée : supination, neutre, pronation
+const PRON = [-20 * RAD, 200 * RAD], RELAX_PRON = 75 * RAD, AIM = { under: 0, neutral: Math.PI / 2, over: Math.PI };
+// Pronation que demande le repère voulu Rw de la main, l'avant-bras étant posé en Rf (sans rotation)
+function pronOf(H, Rf, Rw) {
+  let p = H.sg * twistOf(mm(tr(Rf), Rw), H.fa);
+  if (p < -Math.PI / 2) p += 2 * Math.PI;
+  return p;
+}
+// Main posée : le repère voulu, ramené à ce que l'avant-bras peut faire ; renvoie la main et la vrille de l'avant-bras
+function settle(H, Rf, Rw) {
+  const Q = mm(tr(Rf), Rw), tw = twistOf(Q, H.fa);
+  let p = H.sg * tw; if (p < -Math.PI / 2) p += 2 * Math.PI;
+  const pc = Math.max(PRON[0], Math.min(PRON[1], p)), tc = H.sg * pc;
+  const swing = mm(tr(axisAngle(H.fa, tw)), Q); // le reste : flexion / inclinaison du poignet
+  return { Rh: mm(Rf, mm(axisAngle(H.fa, tc), swing)), tw: tc };
+}
+// Repère de la main (paume D, normale n) qui envoie (D, n) de repos sur (d, n2)
+const handFrame = (H, d, n2) => frame(H.D, H.n, d, n2);
+function handPose(H, J, plan, Rf, Rt) {
+  const f = mv(Rf, H.fa), hd = unit(sub(J["tip_" + H.s], J["wrist_" + H.s]), f);
+  const flatPart = v => { const h = [v[0], 0, v[2]]; return len(h) > 0.3 ? unit(h) : null; };
+  if (plan.mode === "grip") {
+    // poing dans le prolongement de l'avant-bras : le poignet ne plie que de 35° au plus vers la direction du dessin
+    const cosA = dot(hd, f), ang = Math.acos(Math.max(-1, Math.min(1, cosA))), lim = 35 * RAD;
+    const hg = ang <= lim ? hd : mv(axisAngle(unit(cross(f, hd), [1, 0, 0]), lim), f);
+    let A = plan.axis;
+    if (!A) A = J.kind === "side" ? (J.grip === "neutral" ? unit(cross([1, 0, 0], f), [0, 0, 1]) : [1, 0, 0]) : mv(Rt, J.kind === "top" ? [0, 1, 0] : [0, 0, 1]);
+    // les deux sens de l'axe des jointures (prise pronation ou supination) : celui que l'avant-bras atteint, selon la prise
+    const opts = [A, scl(A, -1)].map(K => {
+      let d = sub(hg, scl(K, dot(hg, K)));
+      if (len(d) < 0.25) d = sub(f, scl(K, dot(f, K)));
+      d = unit(d); const Rw = handFrame(H, d, cross(K, d));
+      return { Rw, p: pronOf(H, Rf, Rw) };
+    });
+    // le sens le plus proche de la prise voulue (sans saut d'une image à l'autre), ramené à ce que l'avant-bras peut faire
+    const aim = AIM[J.grip] ?? AIM.over;
+    return settle(H, Rf, (Math.abs(opts[0].p - aim) <= Math.abs(opts[1].p - aim) ? opts[0] : opts[1]).Rw);
+  }
+  // détendue : avant-bras à mi-pronation, main dans la direction du dessin ; à plat : paume vers le sol, doigts vers l'avant
+  const Rr = mm(Rf, axisAngle(H.fa, H.sg * RELAX_PRON)), relax = mm(Rr, arc(H.D, mv(tr(Rr), hd)));
+  const w = plan.mode === "free" ? plan.planted : 0;
+  if (w <= 0) return settle(H, Rf, relax);
+  const d = flatPart(hd) || flatPart(f) || flatPart(mv(Rt, [0, 0, 1])) || [0, 0, 1];
+  return settle(H, Rf, slerpR(relax, handFrame(H, d, [0, -1, 0]), w));
+}
+
+// Bras à deux os (longueurs a, b) depuis l'épaule S jusqu'au poignet T, coude du côté où il est (E) : directions du bras
+// et de l'avant-bras (cible hors d'atteinte : bras tendu vers elle)
+function ik2(S, T, a, b, E) {
+  const v = sub(T, S), w = unit(v), d = Math.max(Math.abs(a - b) + 1e-4, Math.min(a + b - 1e-4, len(v)));
+  const ca = (a * a + d * d - b * b) / (2 * a * d), sa = Math.sqrt(Math.max(0, 1 - ca * ca));
+  const e0 = sub(E, S), m = unit(sub(e0, scl(w, dot(e0, w))), unit(cross(w, [1, 0, 0]), [0, 0, 1]));
+  const El = add(S, add(scl(w, a * ca), scl(m, a * sa)));
+  return [unit(sub(El, S)), unit(sub(add(S, scl(w, d)), El))];
+}
+// Points du corps où repose la barre ou l'haltère : trapèzes (squat), avant des épaules (front squat), hanches, poitrine
+function bodyAnchor(R0, R, P, n) {
+  const { I } = R0, Rc = R[I.chest], sC = mid(P[I.uarm_r], P[I.uarm_l]);
+  return n === "back" ? add(P[I.neck], mv(Rc, [0, -0.02, -0.075])) : n === "rack" ? add(sC, mv(Rc, [0, 0.03, 0.085]))
+    : n === "hips" ? add(P[I.pelvis], mv(R[I.pelvis], [0, 0.03, 0.13])) : add(sC, mv(Rc, [0, -0.12, 0.13]));
 }
 // Plan de pli d'un membre (normale) : celui des trois articulations ; membre presque tendu → la normale par défaut
 function bendNormal(d1, d2, fallback) {
@@ -133,7 +391,7 @@ function bendNormal(d1, d2, fallback) {
   return len(blend) > 0.2 ? unit(blend) : scl(n, 1 / s);
 }
 export function retarget(R0, J) {
-  const { rig, I, dir } = R0, nb = rig.length, R = new Array(nb).fill(ID), P = new Array(nb);
+  const { rig, I, dir } = R0, nb = rig.length, R = new Array(nb).fill(ID), P = new Array(nb), tw = { r: 0, l: 0 }, curl = {};
   // buste : bassin, ventre et poitrine d'un bloc, couchés ou penchés comme le dessin
   const Rt = frame(R0.trunk, R0.lat, sub(mid(J.shoulder_r, J.shoulder_l), J.pelvis), sub(J.hip_l, J.hip_r));
   R[I.pelvis] = R[I.abdomen] = Rt;
@@ -141,18 +399,28 @@ export function retarget(R0, J) {
   const toward = (b, target) => { const Rp = R[rig[b].p]; R[b] = mm(Rp, arc(dir[b], mv(tr(Rp), target))); };
   const headDir = sub(J.head, J.neck);
   toward(I.neck, headDir); toward(I.head, headDir);
+  // bras (directions u du bras, f de l'avant-bras) : le plan épaule-coude-poignet, tendu il plie vers l'avant du buste ;
+  // puis la main (orientation et vrille de l'avant-bras), les doigts et le pouce
+  const arm = (s, u, f) => {
+    const na = bendNormal(u, f, mv(R[I["clav_" + s]], [-1, 0, 0]));
+    R[I["uarm_" + s]] = frame(dir[I["uarm_" + s]], [-1, 0, 0], u, na);
+    R[I["farm_" + s]] = frame(dir[I["farm_" + s]], [-1, 0, 0], f, na);
+    const H = R0.hands?.[s];
+    if (!H) return toward(I["hand_" + s], sub(J["tip_" + s], J["wrist_" + s]));
+    const plan = J.hands?.[s] || { mode: "free", planted: 0 }, hp = handPose(H, J, plan, R[I["farm_" + s]], Rt), cu = curlOf(H, plan);
+    R[H.hand] = hp.Rh; tw[s] = hp.tw; curl[s] = cu;
+    let Rk = hp.Rh;
+    H.rows.forEach((b, k) => { Rk = mm(Rk, axisAngle(H.ax[k], cu.th[k])); R[b] = Rk; });
+    thumbR(H, cu.tc).forEach((Rl, k) => { R[H.thumb[k]] = mm(hp.Rh, Rl); });
+  };
   for (const s of ["r", "l"]) {
     const sg = s === "r" ? -1 : 1;
-    // bras : le plan épaule-coude-poignet ; tendu, il plie vers l'avant du buste
     const u = unit(sub(J["elbow_" + s], J["shoulder_" + s])), f = unit(sub(J["wrist_" + s], J["elbow_" + s]));
     // clavicule : haussement d'épaules, et l'épaule qui monte quand le bras passe au-dessus de l'horizontale
     const elev = Math.acos(Math.max(-1, Math.min(1, dot(u, scl(unit(mv(Rt, [0, -1, 0])), 1))))) / RAD;
     const raise = (J.shrug * SCALE) / (R0.clav[I["clav_" + s]] || 0.13) + Math.max(0, elev - 80) * 0.3 * RAD;
     R[I["clav_" + s]] = mm(R[I.chest], axisAngle([0, 0, 1], sg * raise));
-    const na = bendNormal(u, f, mv(R[I["clav_" + s]], [-1, 0, 0]));
-    R[I["uarm_" + s]] = frame(dir[I["uarm_" + s]], [-1, 0, 0], u, na);
-    R[I["farm_" + s]] = frame(dir[I["farm_" + s]], [-1, 0, 0], f, na);
-    toward(I["hand_" + s], sub(J["tip_" + s], J["wrist_" + s]));
+    arm(s, u, f);
     // jambe : le genou plie vers l'arrière
     const t = unit(sub(J["knee_" + s], J["hip_" + s])), sh = unit(sub(J["ankle_" + s], J["knee_" + s]));
     const nl = bendNormal(t, sh, mv(Rt, [1, 0, 0]));
@@ -161,9 +429,20 @@ export function retarget(R0, J) {
     toward(I["foot_" + s], sub(J["toe_" + s], J["heel_" + s]));
   }
   // positions : chaque pivot suit son parent (longueurs du modèle)
-  for (let b = 0; b < nb; b++) {
-    const pa = rig[b].p;
-    P[b] = pa < 0 ? rig[b].h : add(P[pa], mv(R[pa], sub(rig[b].h, rig[pa].h)));
+  const place = () => { for (let b = 0; b < nb; b++) { const pa = rig[b].p; P[b] = pa < 0 ? rig[b].h : add(P[pa], mv(R[pa], sub(rig[b].h, rig[pa].h))); } };
+  place();
+  // barre posée sur le corps (sur les trapèzes au squat, sur les hanches au hip thrust) : le bras se replace (épaule fixe,
+  // coude du même côté) pour que le poing tombe sur la barre
+  for (const s of ["r", "l"]) {
+    const H = R0.hands?.[s], reach = J.hands?.[s]?.reach;
+    if (!H || !reach) continue;
+    const iu = I["uarm_" + s], ifa = I["farm_" + s], a = len(sub(rig[ifa].h, rig[iu].h)), b = len(sub(rig[H.hand].h, rig[ifa].h));
+    for (let it = 0; it < 4; it++) {
+      const G = add(P[H.hand], mv(R[H.hand], sub(curl[s].C3, rig[H.hand].h))), bar = bodyAnchor(R0, R, P, reach), e = [0, bar[1] - G[1], bar[2] - G[2]];
+      if (len(e) < 0.002) break;
+      arm(s, ...ik2(P[iu], add(P[H.hand], e), a, b, P[ifa]));
+      place();
+    }
   }
   // le corps est posé là où le dessin le pose : chevilles, pointe de pied, genou, hanches, épaules ou poignet
   const tipOf = b => add(P[b], mv(R[b], sub(rig[b].t, rig[b].h)));
@@ -176,14 +455,52 @@ export function retarget(R0, J) {
   // de face debout : les pieds restent au sol (proportions du modèle un peu différentes de celles du dessin)
   if (J.kind === "front") shift = add(shift, [0, (J.ankle_r[1] + J.ankle_l[1]) / 2 - ((P[I.foot_r][1] + P[I.foot_l][1]) / 2 + shift[1]), 0]);
   for (let b = 0; b < nb; b++) P[b] = add(P[b], shift);
-  return { R, P, tipOf };
+  // articulation k (0 : jointure … 3 : bout) du doigt f, posée : depuis la paume, puis le long des phalanges précédentes
+  const joint = (H, F, k) => {
+    let p = add(P[H.hand], mv(R[H.hand], sub(F[0], rig[H.hand].h)));
+    for (let j = 0; j < k; j++) p = add(p, mv(R[H.rows[j]], sub(F[j + 1], F[j])));
+    return p;
+  };
+  // main libre près du sol : le bout des doigts se pose sur le sol au lieu de le traverser (le poignet se relève un peu)
+  for (const s of ["r", "l"]) {
+    const H = R0.hands?.[s];
+    if (!H || J.hands?.[s]?.mode === "grip") continue;
+    for (let it = 0; it < 3; it++) {
+      const t = H.F.map(F => joint(H, F, 3)).reduce((a, b) => (b[1] < a[1] ? b : a));
+      if (t[1] >= 0.004) break;
+      const v = sub(t, P[H.hand]), k = unit(cross(v, [0, 1, 0]), null);
+      if (!k) break;
+      const Rw = axisAngle(k, Math.min(0.6, (0.006 - t[1]) / Math.max(0.04, Math.hypot(v[0], v[2]))));
+      for (const b of [H.hand, ...H.rows, ...H.thumb]) R[b] = mm(Rw, R[b]);
+      for (const b of [...H.thumb, ...H.rows]) { const pa = rig[b].p; P[b] = add(P[pa], mv(R[pa], sub(rig[b].h, rig[pa].h))); }
+    }
+  }
+  // doigts : chaque doigt plie autour de ses propres articulations (rotation commune à sa rangée) ; le point tenu
+  const fv = [], tips = { r: [], l: [] }, grip = {}, gax = {};
+  for (const s of ["r", "l"]) {
+    const H = R0.hands?.[s];
+    if (!H) { grip[s] = add(P[I["hand_" + s]], mv(R[I["hand_" + s]], scl(dir[I["hand_" + s]], 0.075))); gax[s] = mv(R[I["hand_" + s]], [1, 0, 0]); continue; }
+    const hb = rig[H.hand], Rh = R[H.hand];
+    for (let k = 0; k < 3; k++) H.F.forEach(F => fv.push(sub(joint(H, F, k), mv(R[H.rows[k]], F[k]))));
+    H.F.forEach(F => tips[s].push(joint(H, F, 3)));
+    grip[s] = add(P[H.hand], mv(Rh, sub(curl[s].C3, hb.h)));
+    gax[s] = mv(Rh, H.K);
+  }
+  return { R, P, tipOf, tw, fv, tips, grip, gax };
 }
-// Matrices des os pour la carte graphique : 3 lignes de 4 par os (rotation | translation)
-export function boneRows(R0, pose, out = new Float32Array(R0.rig.length * 12)) {
+// Données des os pour la carte graphique : un quaternion par os (q), une translation par os puis par os « virtuel » de
+// doigt (t : la rangée k du doigt f, côté droit puis gauche, qui tourne avec sa rangée), et la vrille des avant-bras (tw :
+// axe et angle, puis pivot et numéro de l'os de l'avant-bras, droite puis gauche).
+export function boneData(R0, pose, out) {
+  const nv = R0.hands ? 24 : 0;
+  out ||= { q: new Float32Array(R0.nb * 4), t: new Float32Array((R0.nb + nv) * 4), tw: new Float32Array(16) };
   R0.rig.forEach((b, i) => {
-    const R = pose.R[i], t = sub(pose.P[i], mv(R, b.h));
-    for (let r = 0; r < 3; r++) { out[i * 12 + r * 4] = R[r * 3]; out[i * 12 + r * 4 + 1] = R[r * 3 + 1]; out[i * 12 + r * 4 + 2] = R[r * 3 + 2]; out[i * 12 + r * 4 + 3] = t[r]; }
+    out.q.set(quatOf(pose.R[i]), i * 4);
+    const t = sub(pose.P[i], mv(pose.R[i], b.h));
+    out.t.set([t[0], t[1], t[2], 0], i * 4);
   });
+  pose.fv.forEach((t, k) => out.t.set([t[0], t[1], t[2], 0], (R0.nb + k) * 4));
+  if (R0.hands) ["r", "l"].forEach((s, i) => { const H = R0.hands[s]; out.tw.set([...H.fa, pose.tw[s], ...H.elbow, H.farm], i * 8); });
   return out;
 }
 
@@ -208,17 +525,15 @@ function dumbbell(c, axis) {
 // Points du corps posé où se tient le matériel (mêmes noms que body.js : W, W2, back, rack, hips, chest…)
 function anchors(R0, pose, J) {
   const { I, rig } = R0, { R, P } = pose;
-  const grip = s => add(P[I["hand_" + s]], mv(R[I["hand_" + s]], scl(R0.hand, 0.075)));
-  const Rc = R[I.chest], sC = mid(P[I.uarm_r], P[I.uarm_l]);
+  const sC = mid(P[I.uarm_r], P[I.uarm_l]), g = pose.grip, on = n => bodyAnchor(R0, R, P, n);
   const a = {
-    W: grip("r"), W2: grip("l"), hands: mid(grip("r"), grip("l")), grip: grip("r"),
-    back: add(P[I.neck], mv(Rc, [0, -0.02, -0.075])), rack: add(sC, mv(Rc, [0, 0.03, 0.085])),
-    hips: add(P[I.pelvis], mv(R[I.pelvis], [0, 0.03, 0.13])), chest: add(sC, mv(Rc, [0, -0.12, 0.13])),
+    W: g.r, W2: g.l, hands: mid(g.r, g.l), grip: g.r, back: on("back"), rack: on("rack"), hips: on("hips"), chest: on("chest"),
     H: P[I.pelvis], S: sC, K: P[I.shin_r], A: P[I.foot_r], E: P[I.farm_r], K2: P[I.shin_l], A2: P[I.foot_l], E2: P[I.farm_l],
   };
   return a;
 }
 const refName = r => (typeof r === "string" ? r : r && typeof r === "object" && !Array.isArray(r) ? r.j : null);
+const HAND_REF = new Set(["W", "W2", "hands", "grip"]);
 // Toutes les pièces de matériel d'un mouvement, pour une pose
 export function gearOf(move, R0, pose, J) {
   const out = [], A = anchors(R0, pose, J), side = J.kind === "side";
@@ -226,6 +541,7 @@ export function gearOf(move, R0, pose, J) {
     if (Array.isArray(ref)) return J.map ? J.map(ref) : null;
     const n = refName(ref), base = A[n] ?? (n && J.map && J.j?.[n] ? J.map(J.j[n]) : null);
     if (!base) return null;
+    if (HAND_REF.has(n)) return base; // dans le poing (le décalage du dessin plaçait la barre près du poignet)
     return ref && typeof ref === "object" ? add(base, [0, -(ref.dy || 0) * SCALE, (ref.dx || 0) * SCALE]) : base;
   };
   const lateral = [1, 0, 0];
@@ -238,25 +554,36 @@ export function gearOf(move, R0, pose, J) {
     if (g.k === "plate") { // barre chargée (le disque du dessin est le bout de la barre)
       const c = at(g.at || "W");
       if (c) out.push(...barbell([0, c[1], c[2]], lateral, 1.0, Math.max(0.12, (g.r || 8.5) * SCALE)));
-    } else if (g.k === "db") { // haltère dans une main (ou les deux, de face)
-      const hands = g.at ? [refName(g.at) === "W2" ? "l" : "r"] : g.side === 0 ? ["r"] : g.side === 1 ? ["l"] : ["r", "l"];
-      for (const s of hands) out.push(...dumbbell(A[s === "r" ? "W" : "W2"], dbAxis));
-    } else if (g.k === "kb") {
-      const c = add(A[refName(g.at) === "W2" ? "W2" : "W"], [0, -0.1, 0]);
-      out.push({ k: "cyl", c, m: [0.16, 0, 0, 0, 0.09, 0, 0, 0, 0.09], col: "plate" }, cylAlong(add(c, [0, 0.085, 0]), lateral, 0.12, 0.012));
+    } else if (g.k === "db" && g.r) { // haltère tenu à deux mains par le disque du haut, dans le prolongement des avant-bras
+      const fa = unit(add(sub(pose.P[R0.I.hand_r], pose.P[R0.I.farm_r]), sub(pose.P[R0.I.hand_l], pose.P[R0.I.farm_l])));
+      out.push(...dumbbell(sub(A.hands, scl(fa, 0.105)), fa));
+    } else if (g.k === "db") { // haltère dans une main (ou les deux) : la poignée dans le poing, le long des jointures
+      for (const s of dbHands(move, g, handsTogether(J))) out.push(...dumbbell(A[s === "r" ? "W" : "W2"], R0.hands ? pose.gax[s] : dbAxis));
+    } else if (g.k === "kb") { // poignée dans le poing (ou les deux), la boule pend sous la main (ou repose sur l'avant-bras)
+      const s = refName(g.at) === "W2" ? "l" : "r", h = g.rel == null ? A.hands : A[s === "r" ? "W" : "W2"], ax = R0.hands ? pose.gax[s] : lateral;
+      const fwd = unit(sub(pose.P[R0.I["hand_" + s]], pose.P[R0.I["farm_" + s]]));
+      const down = g.rel === 180 ? scl(fwd, -1) : g.ang != null ? [0, -1, 0] : fwd;
+      const c = add(h, scl(down, 0.1));
+      out.push({ k: "cyl", c, m: mm(arc([1, 0, 0], ax), [0.16, 0, 0, 0, 0.09, 0, 0, 0, 0.09]), col: "plate" }, cylAlong(h, ax, 0.12, 0.012));
     } else if (side && (g.k === "pad" || g.k === "seat")) { // banc, dossier, coussin
       const p0 = g.at ? at2d(J.j, g.at) : [g.x, g.y], d = dirA(g.ang ?? 90), th = (g.th || 4) * SCALE, l = (g.len || 20) * SCALE;
       const a0 = J.map(p0), e = J.map([p0[0] + d[0] * (g.len || 20), p0[1] + d[1] * (g.len || 20)]), axis = unit(sub(e, a0));
       const n = unit(cross(lateral, axis)), c = add(mid(a0, e), scl(n, th / 2 * (dot(n, [0, 1, 0]) > 0 ? -1 : 1)));
       out.push(box(c, frame([0, 0, 1], [1, 0, 0], axis, lateral), 0.32, th, l));
       for (const [f] of g.legs || []) { const p = add(a0, scl(axis, l * f)); out.push(cylBetween([0, p[1] - th, p[2]], [0, 0, p[2]], 0.022)); }
+    } else if (side && g.k === "post" && R0.hands && J.hands?.r?.dip === g) { // barres parallèles : une sous chaque main
+      const a0 = J.map([g.x, g.y]), b0 = J.map([g.x2, g.y2]);
+      for (const s of ["r", "l"]) { const h = A[s === "r" ? "W" : "W2"]; out.push(cylBetween([h[0], h[1], a0[2]], [h[0], h[1], b0[2]], 0.02)); }
     } else if (side && (g.k === "post" || g.k === "rail")) {
       const a0 = J.map([g.x, g.y]), b0 = J.map([g.x2 ?? g.x, g.y2 ?? FLOOR]);
       for (const x of g.k === "rail" ? [-0.55, 0.55] : [farX || 0.3]) out.push(cylBetween([x, a0[1], a0[2]], [x, b0[1], b0[2]], 0.025));
-    } else if (side && g.k === "bar") { // barre de traction ou de dips
-      const c = J.map([g.x, g.y]);
+    } else if (side && g.k === "bar") { // barre de traction (ou basse, rowing inversé) : dans les poings
+      const c = R0.hands ? [0, A.W[1], A.W[2]] : J.map([g.x, g.y]);
       out.push(cylAlong(c, lateral, 1.2, 0.016));
       if (g.post !== false) for (const x of [-0.6, 0.6]) out.push(cylBetween([x, c[1], c[2]], [x, 0, c[2]], 0.03));
+    } else if (g.k === "roller") { // roue abdominale : poignées dans les poings, la roue au milieu
+      const c = A.hands, ax = side ? lateral : unit(sub(A.W2, A.W));
+      out.push(cylAlong(c, ax, 0.34, 0.012), cylAlong(c, ax, 0.06, 0.09, "plate"));
     } else if (side && g.k === "box") {
       const a0 = J.map([g.x, g.y]), b0 = J.map([g.x + g.w, FLOOR]);
       out.push(box(mid(a0, b0), ID, 0.5, Math.abs(a0[1] - b0[1]), Math.abs(b0[2] - a0[2]), "pad"));
@@ -275,10 +602,10 @@ export function gearOf(move, R0, pose, J) {
         const pulley = side ? [hand[0], p0[1], p0[2]] : [p0[0], p0[1], hand[2] * 0.2];
         out.push(cylBetween(pulley, hand, 0.004), cylAlong(pulley, lateral, 0.03, 0.035, "plate"));
       });
-    } else if (side && g.k === "line" && g.cls?.includes("frame")) {
-      const a0 = fixed(g.from), b0 = fixed(g.to);
+    } else if (side && g.k === "line" && g.cls?.includes("frame")) { // bras de machine, jusqu'aux poignées
+      const a0 = fixed(g.from), b0 = refName(g.to) === "W" && R0.hands ? A.W : fixed(g.to);
       if (a0 && b0) out.push(cylBetween([farX || 0.3, a0[1], a0[2]], [farX || 0.3, b0[1], b0[2]], 0.02));
-    } else if (!side && g.k === "bar") { // de face : barre tenue à deux mains
+    } else if (!side && g.k === "bar") { // de face : barre tenue à deux mains, dans les poings
       const c = A.hands, axis = sub(A.W2, A.W);
       out.push(...barbell(c, len(axis) > 0.05 ? axis : lateral, 1.0, Math.max(0.12, (g.r || 7.5) * SCALE)));
     } else if (!side && (g.k === "seat" || g.k === "rect")) {
@@ -308,7 +635,8 @@ export function bounds(move, R0, steps = 8) {
   for (let i = 0; i <= steps; i++) {
     const J = lift(move, i / steps), pose = retarget(R0, J);
     pose.P.forEach(p => grow(p, 0.08));
-    grow(pose.tipOf(R0.I.head), 0.06); grow(pose.tipOf(R0.I.hand_r), 0.04); grow(pose.tipOf(R0.I.hand_l), 0.04);
+    grow(pose.tipOf(R0.I.head), 0.06);
+    for (const s of ["r", "l"]) { grow(pose.grip[s], 0.06); for (const t of pose.tips[s]) grow(t, 0.02); if (!pose.tips[s].length) grow(pose.tipOf(R0.I["hand_" + s]), 0.1); }
     grow(pose.tipOf(R0.I.foot_r), 0.03); grow(pose.tipOf(R0.I.foot_l), 0.03);
     // matériel : disques et coussins entiers, barres et câbles par leur milieu
     for (const g of gearOf(move, R0, pose, J)) {
@@ -320,28 +648,45 @@ export function bounds(move, R0, steps = 8) {
 }
 
 /* ---------- WebGL ---------- */
-const VS = `attribute vec3 aPos; attribute vec4 aNor; attribute vec4 aSkin;
-uniform mat4 uMVP; uniform vec3 uLo; uniform vec3 uSpan; uniform vec4 uBone[60]; uniform vec4 uCol[24];
-uniform float uRigid; uniform mat4 uModel; uniform vec4 uGearCol;
+// Corps : chaque os est un quaternion (uQ) et une translation (uT) ; les os « virtuels » des doigts (numéros ≥ NB)
+// prennent la rotation de leur rangée (FROW…) et leur propre translation. L'avant-bras se vrille progressivement du
+// coude au poignet (uTw : axe et angle, pivot et numéro de l'os, droite puis gauche ; 4e octet du sommet : sa part).
+const bodyVS = (nb, nt, frow, nc) => `attribute vec3 aPos; attribute vec4 aNor; attribute vec4 aSkin;
+uniform mat4 uMVP; uniform vec3 uLo; uniform vec3 uSpan;
+uniform vec4 uQ[${nb}]; uniform vec4 uT[${nt}]; uniform vec4 uTw[4]; uniform vec4 uCol[${nc}];
 varying vec3 vN; varying vec4 vC; varying vec3 vW;
-vec3 tp(int b, vec4 p) { return vec3(dot(uBone[b * 3], p), dot(uBone[b * 3 + 1], p), dot(uBone[b * 3 + 2], p)); }
-vec3 tn(int b, vec3 n) { return vec3(dot(uBone[b * 3].xyz, n), dot(uBone[b * 3 + 1].xyz, n), dot(uBone[b * 3 + 2].xyz, n)); }
+vec3 qrot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
+vec3 spin(vec3 k, float a, vec3 v) { float c = cos(a), s = sin(a); return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c); }
+vec4 rotOf(int b) {
+  if (b < ${nb}) return uQ[b];
+  int k = b - ${nb}, sd = k / 12;
+  return uQ[${frow} + sd * 3 + (k - sd * 12) / 4];
+}
 void main() {
-  if (uRigid > 0.5) {
-    vec4 w = uModel * vec4(aPos, 1.0);
-    vN = (uModel * vec4(aNor.xyz, 0.0)).xyz; vC = uGearCol; vW = w.xyz;
-    gl_Position = uMVP * w; return;
-  }
   vec3 p = uLo + (aPos + 32768.0) / 65535.0 * uSpan;
-  vec4 r = vec4(p.x, p.z, -p.y, 1.0);
+  vec3 r = vec3(p.x, p.z, -p.y);
   vec3 n = vec3(aNor.x, aNor.z, -aNor.y) / 127.0;
+  vec3 rt = r, nt = n; float fb = -1.0;
+  if (aSkin.w > 0.5) {
+    bool left = aSkin.w > 127.5;
+    float t = (aSkin.w - (left ? 128.0 : 1.0)) / 126.0;
+    vec4 A = left ? uTw[2] : uTw[0], P = left ? uTw[3] : uTw[1];
+    rt = P.xyz + spin(A.xyz, t * A.w, r - P.xyz); nt = spin(A.xyz, t * A.w, n); fb = P.w;
+  }
   int b0 = int(aSkin.x + 0.5), b1 = int(aSkin.y + 0.5);
+  vec4 q0 = rotOf(b0), q1 = rotOf(b1);
+  bool v0 = abs(aSkin.x - fb) < 0.5, v1 = abs(aSkin.y - fb) < 0.5;
   float w0 = aSkin.z / 255.0;
-  vec3 w = tp(b0, r) * w0 + tp(b1, r) * (1.0 - w0);
-  vN = tn(b0, n) * w0 + tn(b1, n) * (1.0 - w0);
+  vec3 w = (qrot(q0, v0 ? rt : r) + uT[b0].xyz) * w0 + (qrot(q1, v1 ? rt : r) + uT[b1].xyz) * (1.0 - w0);
+  vN = qrot(q0, v0 ? nt : n) * w0 + qrot(q1, v1 ? nt : n) * (1.0 - w0);
   vC = uCol[int(aNor.w + 0.5)]; vW = w;
   gl_Position = uMVP * vec4(w, 1.0);
 }`;
+// Matériel (pièces rigides) et sol
+const gearVS = `attribute vec3 aPos; attribute vec4 aNor;
+uniform mat4 uMVP; uniform mat4 uModel; uniform vec4 uGearCol;
+varying vec3 vN; varying vec4 vC; varying vec3 vW;
+void main() { vec4 w = uModel * vec4(aPos, 1.0); vN = (uModel * vec4(aNor.xyz, 0.0)).xyz; vC = uGearCol; vW = w.xyz; gl_Position = uMVP * w; }`;
 const FS = `precision mediump float;
 varying vec3 vN; varying vec4 vC; varying vec3 vW;
 uniform vec3 uEye; uniform vec3 uKey; uniform vec3 uFill; uniform vec3 uBack;
@@ -385,31 +730,47 @@ function boxMesh() {
   return { pos: new Float32Array(pos), nor: new Float32Array(nor), idx: new Uint16Array(idx) };
 }
 
+// Prise de chaque exercice : pronation (« over », paumes vers le bas ou vers l'arrière, par défaut), supination
+// (« under », paumes vers le haut ou vers soi), neutre (paumes face à face).
+const UNDER = new Set(["curl", "barbell_curl", "ez_curl", "incline_curl", "concentration", "spider_curl", "preacher", "cable_curl", "band_curl", "chinup", "wrist_curl"]);
+const NEUTRAL = new Set(["hammer", "farmer", "db_lunge", "walking_lunge", "db_rdl", "db_row", "kickback", "shrug", "rope_pushdown", "face_pull",
+  "bulgarian", "step_up", "dips", "db_fly", "lateral", "front_raise", "close_pulldown", "cable_row", "machine_row", "chest_row", "tbar_row"]);
+export const gripOf = id => (UNDER.has(id) ? "under" : NEUTRAL.has(id) ? "neutral" : "over");
+
 // Démarre la démo 3D dans un canevas. colors : une couleur par groupe (colorTable de body3d.js) ; glow : groupes qui
-// s'allument à l'effort ; floor : couleur du sol (linéaire). Renvoie { draw(p, act), reset(), destroy() }.
-export function mountDemo3D(canvas, body, move, colors, { glow = [], floor = [0.045, 0.05, 0.065], onReady } = {}) {
+// s'allument à l'effort ; floor : couleur du sol (linéaire) ; id : l'exercice (pour la prise). Renvoie { draw(p, act), reset(), destroy() }.
+// camera (essais, captures) : { target: [x, y, z] ou "hand" (main droite), dist, yaw, pitch } remplace le cadrage.
+export function mountDemo3D(canvas, body, move0, colors, { glow = [], floor = [0.045, 0.05, 0.065], onReady, id, camera } = {}) {
+  const move = { ...move0, grip: move0.grip || gripOf(id) };
   const gl = canvas.getContext("webgl2", { antialias: true }) || canvas.getContext("webgl", { antialias: true });
   if (!gl) throw new Error("WebGL indisponible");
   if (!(gl instanceof (window.WebGL2RenderingContext || Object)) && !gl.getExtension("OES_element_index_uint")) throw new Error("WebGL : index 32 bits indisponibles");
   if (!body.skin || !body.rig) throw new Error("Corps 3D sans squelette");
+  const R0 = prepRig(body), NC = body.parts.length, NT = R0.nb + (R0.hands ? 24 : 0);
+  // place des données du corps dans la carte graphique (au moins 128 vecteurs partout ; on reste en dessous)
+  const need = 4 + 2 + R0.nb + NT + 4 + NC;
+  if (gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) < need) throw new Error("WebGL : pas assez de place pour le squelette");
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-  gl.bindAttribLocation(prog, 0, "aPos");
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-  gl.useProgram(prog);
-  const U = n => gl.getUniformLocation(prog, n);
+  const fsh = sh(gl.FRAGMENT_SHADER, FS);
+  const program = vs => {
+    const p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, fsh);
+    gl.bindAttribLocation(p, 0, "aPos"); gl.bindAttribLocation(p, 1, "aNor"); gl.bindAttribLocation(p, 2, "aSkin");
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; return { p, U: n => (u[n] ??= gl.getUniformLocation(p, n)) };
+  };
+  const bodyP = program(bodyVS(R0.nb, NT, Math.max(0, R0.frow), NC)), gearP = program(gearVS);
   const buf = (target, data) => { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, gl.STATIC_DRAW); return b; };
-  const aPos = gl.getAttribLocation(prog, "aPos"), aNor = gl.getAttribLocation(prog, "aNor"), aSkin = gl.getAttribLocation(prog, "aSkin");
   const bodyB = { pos: buf(gl.ARRAY_BUFFER, body.pos), nor: buf(gl.ARRAY_BUFFER, body.nor), skin: buf(gl.ARRAY_BUFFER, body.skin), idx: buf(gl.ELEMENT_ARRAY_BUFFER, body.idx) };
   const meshes = Object.fromEntries(Object.entries({ cyl: cylinderMesh(), box: boxMesh() }).map(([k, m]) => [k, { pos: buf(gl.ARRAY_BUFFER, m.pos), nor: buf(gl.ARRAY_BUFFER, m.nor), idx: buf(gl.ELEMENT_ARRAY_BUFFER, m.idx), n: m.idx.length }]));
   const lo = body.lo, span = body.hi.map((h, i) => h - lo[i]);
-  gl.uniform3fv(U("uLo"), lo); gl.uniform3fv(U("uSpan"), span);
-  const R0 = prepRig(body.rig), rows = new Float32Array(60 * 4);
+  gl.useProgram(bodyP.p);
+  gl.uniform3fv(bodyP.U("uLo"), lo); gl.uniform3fv(bodyP.U("uSpan"), span);
+  let bones = null;
   // couleurs : une par groupe ; les groupes qui s'allument (agonistes) changent à chaque image
-  const col = new Float32Array(24 * 4);
-  colors.slice(0, 24).forEach((c, i) => col.set([c[0], c[1], c[2], 0], i * 4));
+  const col = new Float32Array(NC * 4);
+  colors.slice(0, NC).forEach((c, i) => col.set([c[0], c[1], c[2], 0], i * 4));
   const glowIdx = glow.map(n => body.parts.indexOf(n)).filter(i => i >= 0);
   const base = glowIdx.map(i => col.slice(i * 4, i * 4 + 3));
   // cadrage : vue de profil (côté droit du sportif, un peu de trois quarts), de face, de dos ou de dessus
@@ -421,34 +782,31 @@ export function mountDemo3D(canvas, body, move, colors, { glow = [], floor = [0.
   const ext = sub(B.hi, B.lo), side = move.view !== "front", top = isTop(move);
   const across = side ? ext[2] : ext[0], tall = top ? Math.max(ext[1], ext[2]) : ext[1], deep = side ? ext[0] : top ? ext[1] : ext[2];
   const fit = aspect => { const tv = Math.tan(FOV / 2); return Math.max(1.1, Math.max(tall / 2 / tv, across / 2 / (tv * aspect)) * 1.1 + deep / 2); };
-  const cam = { yaw: yaw0, pitch: pitch0, zoom: 1 };
+  const cam = { yaw: camera?.yaw ?? yaw0, pitch: camera?.pitch ?? pitch0, zoom: 1 };
   gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 0);
   const size = () => {
     const r = Math.min(window.devicePixelRatio || 1, 2), w = Math.round(canvas.clientWidth * r), h = Math.round(canvas.clientHeight * r);
     if (w && h && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
   };
-  const bindBody = () => {
-    gl.uniform1f(U("uRigid"), 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.pos); gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.SHORT, false, 6, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.nor); gl.enableVertexAttribArray(aNor); gl.vertexAttribPointer(aNor, 4, gl.BYTE, false, 4, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.skin); gl.enableVertexAttribArray(aSkin); gl.vertexAttribPointer(aSkin, 4, gl.UNSIGNED_BYTE, false, 4, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bodyB.idx);
-  };
   const model = new Float32Array(16);
   const drawPiece = g => {
     const m = meshes[g.k], M = g.m;
     model.set([M[0], M[3], M[6], 0, M[1], M[4], M[7], 0, M[2], M[5], M[8], 0, g.c[0], g.c[1], g.c[2], 1]);
-    gl.uniformMatrix4fv(U("uModel"), false, model);
-    gl.uniform4fv(U("uGearCol"), GEAR_COL[g.col] || GEAR_COL.metal);
-    gl.bindBuffer(gl.ARRAY_BUFFER, m.pos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 12, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, m.nor); gl.vertexAttribPointer(aNor, 4, gl.FLOAT, false, 16, 0);
+    gl.uniformMatrix4fv(gearP.U("uModel"), false, model);
+    gl.uniform4fv(gearP.U("uGearCol"), GEAR_COL[g.col] || GEAR_COL.metal);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.pos); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.nor); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 16, 0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.idx);
     gl.drawElements(gl.TRIANGLES, m.n, gl.UNSIGNED_SHORT, 0);
   };
   const floorR = Math.max(1.2, B.r * 1.5);
   const floorDisc = { k: "cyl", c: [B.c[0], -0.003, B.c[2]], m: mm(arc([1, 0, 0], [0, 1, 0]), [0.002, 0, 0, 0, floorR, 0, 0, 0, floorR]) };
-  gl.uniform4fv(U("uFloor"), [B.c[0], B.c[2], floorR * 0.35, floorR]); gl.uniform3fv(U("uFloorCol"), floor);
+  gl.useProgram(gearP.p);
+  gl.uniform4fv(gearP.U("uFloor"), [B.c[0], B.c[2], floorR * 0.35, floorR]); gl.uniform3fv(gearP.U("uFloorCol"), floor);
   let dead = false, last = { p: 0, act: 0 };
+  const lights = (P, eye, dirL) => {
+    gl.uniform3fv(P.U("uEye"), eye); gl.uniform3fv(P.U("uKey"), dirL(-0.55, 0.65, 0.55)); gl.uniform3fv(P.U("uFill"), dirL(0.8, 0.1, 0.4)); gl.uniform3fv(P.U("uBack"), dirL(0.2, 0.4, -0.9));
+  };
   function draw(p = last.p, act = last.act) {
     if (dead) return;
     last = { p, act };
@@ -456,26 +814,35 @@ export function mountDemo3D(canvas, body, move, colors, { glow = [], floor = [0.
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const J = lift(move, p), pose = retarget(R0, J);
-    boneRows(R0, pose, rows);
-    gl.uniform4fv(U("uBone[0]"), rows);
-    glowIdx.forEach((i, k) => { const c = base[k], g = 0.75 + 0.35 * act; col.set([c[0] * g, c[1] * g, c[2] * g, 0.45 * act], i * 4); });
-    gl.uniform4fv(U("uCol[0]"), col);
     const aspect = canvas.width / Math.max(1, canvas.height);
-    const eye = orbitEye(B.c, cam.yaw, cam.pitch, fit(aspect) * cam.zoom);
-    const proj = perspective(FOV, aspect, 0.05, 30);
-    gl.uniformMatrix4fv(U("uMVP"), false, mul(proj, lookAt(eye, B.c, [0, 1, 0])));
-    const fwd = unit(sub(B.c, eye)), right = unit(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
+    const at = camera?.target === "hand" ? pose.grip.r : camera?.target || B.c;
+    const eye = orbitEye(at, cam.yaw, cam.pitch, (camera?.dist ?? fit(aspect)) * cam.zoom);
+    const mvp = mul(perspective(FOV, aspect, 0.02, 30), lookAt(eye, at, [0, 1, 0]));
+    const fwd = unit(sub(at, eye)), right = unit(cross(fwd, [0, 1, 0])), up = cross(right, fwd);
     const dirL = (a, b, c) => unit([right[0] * a + up[0] * b - fwd[0] * c, right[1] * a + up[1] * b - fwd[1] * c, right[2] * a + up[2] * b - fwd[2] * c]);
-    gl.uniform3fv(U("uEye"), eye); gl.uniform3fv(U("uKey"), dirL(-0.55, 0.65, 0.55)); gl.uniform3fv(U("uFill"), dirL(0.8, 0.1, 0.4)); gl.uniform3fv(U("uBack"), dirL(0.2, 0.4, -0.9));
-    bindBody();
+    // le corps
+    gl.useProgram(bodyP.p);
+    bones = boneData(R0, pose, bones || undefined);
+    gl.uniform4fv(bodyP.U("uQ[0]"), bones.q); gl.uniform4fv(bodyP.U("uT[0]"), bones.t); gl.uniform4fv(bodyP.U("uTw[0]"), bones.tw);
+    glowIdx.forEach((i, k) => { const c = base[k], g = 0.75 + 0.35 * act; col.set([c[0] * g, c[1] * g, c[2] * g, 0.45 * act], i * 4); });
+    gl.uniform4fv(bodyP.U("uCol[0]"), col);
+    gl.uniformMatrix4fv(bodyP.U("uMVP"), false, mvp);
+    lights(bodyP, eye, dirL);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.pos); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.SHORT, false, 6, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.nor); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.BYTE, false, 4, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bodyB.skin); gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, false, 4, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bodyB.idx);
     gl.drawElements(gl.TRIANGLES, body.t * 3, gl.UNSIGNED_INT, 0);
     // matériel : maillages rigides
-    gl.uniform1f(U("uRigid"), 1);
-    gl.disableVertexAttribArray(aSkin); gl.vertexAttrib4f(aSkin, 0, 0, 255, 0);
+    gl.disableVertexAttribArray(2);
+    gl.useProgram(gearP.p);
+    gl.uniformMatrix4fv(gearP.U("uMVP"), false, mvp);
+    lights(gearP, eye, dirL);
+    gl.uniform1f(gearP.U("uFloorOn"), 0);
     for (const g of gearOf(move, R0, pose, J)) drawPiece(g);
     // sol en dernier, transparent sur ses bords
     gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-    gl.uniform1f(U("uFloorOn"), 1); drawPiece(floorDisc); gl.uniform1f(U("uFloorOn"), 0);
+    gl.uniform1f(gearP.U("uFloorOn"), 1); drawPiece(floorDisc); gl.uniform1f(gearP.U("uFloorOn"), 0);
     gl.depthMask(true); gl.disable(gl.BLEND);
   }
   // gestes : glisser = tourner, pincer (ou molette) = zoomer, double-toucher = recadrer

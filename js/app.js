@@ -37,6 +37,7 @@ import { addMemory, removeMemory } from "./memory.js";
 import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
+import { loadCardHtml, balanceCardHtml, bindBalance } from "./balance-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
@@ -488,6 +489,8 @@ function progress() {
         <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
     </div>
 
+    ${all.length ? `${loadCardHtml()}${balanceCardHtml()}` : ""}
+
     ${curvesHtml()}
 
     <div class="section"><h2>Mur des records</h2>${lifts.length ? `<button class="me-add" id="rec-all">Tout voir</button>` : ""}</div>
@@ -509,6 +512,7 @@ function progress() {
 
   bindReviews(view);
   bindCurves(view);
+  bindBalance(view);
   mountAnims(view);
   mountPhotos(view);
   animateRings(view);

@@ -17,9 +17,9 @@ export const LEVELS = [
 ];
 
 // Dureté d'une série selon le ressenti (RPE 5 → 0,6 ; 8 → 0,96 ; 10 → 1,2) ; sans ressenti : série normale
-const effort = rpe => (rpe > 0 ? Math.min(1.25, Math.max(0.6, 0.6 + (rpe - 5) * 0.12)) : 1);
+export const effort = rpe => (rpe > 0 ? Math.min(1.25, Math.max(0.6, 0.6 + (rpe - 5) * 0.12)) : 1);
 // Les étirements ne fatiguent pas ; le cardio un peu
-const kindOf = exId => ({ stretch: 0, cardio: 0.35 })[patternOf(exId)] ?? 1;
+export const kindOf = exId => ({ stretch: 0, cardio: 0.35 })[patternOf(exId)] ?? 1;
 // Muscles d'un exercice (principaux p, secondaires s), d'après sa démo ; exercice perso : ceux de son type de mouvement
 export function musclesOf(exId) { const m = moveOf(exId).mus || {}; return { p: m.p || [], s: m.s || [] }; }
 
