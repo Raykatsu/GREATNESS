@@ -74,6 +74,17 @@ test("démos en 3D : le corps fait le mouvement, bascule 3D ↔ dessin", { timeo
       const b = await page.$eval(".demo-3d", c => { const r = c.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
       await page.mouse.move(b.x, b.y); await page.mouse.down(); await page.mouse.move(b.x + 80, b.y + 10, { steps: 6 }); await page.mouse.up();
     }
+    // « Voir en 3D » depuis la démo : le corps 3D s'ouvre par-dessus la démo, pas derrière
+    await closeSheets(page);
+    await page.evaluate(() => import("/js/demo.js").then(m => m.openDemo("bench")));
+    await page.waitForSelector("#dm-3d");
+    await page.$eval("#dm-3d", b => b.click());
+    await page.waitForSelector(".b3d"); await sleep(400);
+    const z = await page.evaluate(() => {
+      const of = sel => +getComputedStyle(document.querySelector(sel).closest(".sheet-wrap")).zIndex;
+      return { body: of(".b3d"), demo: of(".demo") };
+    });
+    assert.ok(z.body > z.demo, `le corps 3D (${z.body}) passe au-dessus de la démo (${z.demo})`);
     await closeSheets(page);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
