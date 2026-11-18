@@ -1130,6 +1130,34 @@ html:has(> body > :where(#view) > .composer) .toast { bottom: calc(var(--tab-h) 
 .vbars .f { width: 100%; min-height: 3px; border-radius: 7px 7px 3px 3px; background: var(--card-3); transform-origin: bottom; animation: grow .8s var(--ease-out) backwards; }
 .vbars .b.cur .f { background: linear-gradient(var(--red), var(--red-2)); box-shadow: var(--e-accent); }
 .vbars span { height: 16px; text-align: center; font-size: var(--fs-2xs); color: var(--dim); font-weight: 600; white-space: nowrap; }
+/* Charge d'entraînement (cette semaine face aux 4 précédentes) et équilibre musculaire (séries par muscle et par semaine) */
+.load-big { font-size: var(--fs-2xl); line-height: 1.05; }
+.load-bars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; align-items: end; height: 44px; margin-top: var(--s-3); }
+.load-bars i { display: block; border-radius: 5px 5px 2px 2px; background: var(--card-3); }
+.load-bars i.cur { background: var(--text); }
+.load-card.z-ok .load-bars i.cur { background: var(--green); }
+.load-card.z-high .load-bars i.cur, .load-card.z-low .load-bars i.cur { background: var(--amber); }
+.load-card.z-spike .load-bars i.cur { background: var(--red); }
+.load-t { margin: var(--s-3) 0 0; }
+.bal-key { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: var(--s-3); }
+.bal-key span { display: inline-flex; align-items: center; gap: 5px; }
+.bal-key i, .bal-bar i { display: block; border-radius: 99px; }
+.bal-key i { width: 10px; height: 10px; }
+.k-low { background: var(--amber); } .k-ideal { background: var(--green); } .k-high { background: var(--blue); }
+.bal-list { display: grid; gap: 7px; }
+.bal-row { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr 2.6em; align-items: center; gap: 10px; font-size: var(--fs-sm); }
+.bal-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.bal-bar { position: relative; height: 8px; border-radius: 99px; background: var(--card-3); overflow: hidden; }
+.bal-bar::before, .bal-bar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+.bal-bar::before { left: 40%; } .bal-bar::after { left: 80%; } /* 10 et 20 séries */
+.bal-bar i { height: 100%; background: var(--green); }
+.lv-low .bal-bar i { background: var(--amber); } .lv-ok .bal-bar i { background: var(--green); opacity: .6; } .lv-high .bal-bar i { background: var(--blue); }
+.bal-v { text-align: right; font-size: var(--fs-sm); }
+.bal-issues { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: grid; gap: 8px; }
+.bal-issues li { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-sm); line-height: 1.4; }
+.bal-issues svg, .bal-ok svg { flex: none; width: 18px; height: 18px; color: var(--amber-ink); margin-top: 1px; }
+.bal-ok { display: flex; gap: 8px; align-items: center; margin: var(--s-4) 0 0; } .bal-ok svg { color: var(--green-ink); }
+.bal-lowt { margin: var(--s-3) 0 0; }
 .vbars .b.cur span { color: var(--accent-ink); font-weight: 700; }
 .vbars .avg { position: absolute; left: 0; right: 0; bottom: calc(22px + var(--y) * 96px); border-top: 1.5px dashed var(--line-2); pointer-events: none; z-index: 1; }
 .vbars .avg span { position: absolute; right: 0; top: -17px; height: auto; font-size: 10px; padding: 0 5px; border-radius: 6px; background: var(--card); color: var(--dim); }

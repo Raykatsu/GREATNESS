@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 62 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 65 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -86,6 +86,8 @@ Bouton **Caméra** en séance (et « Vérifier ma technique » dans chaque démo
 
 ## Progrès en images
 
+- **Charge d'entraînement** : la charge de la semaine (séries dures pondérées par le ressenti, intervalles compris) face à la moyenne des 4 semaines d'avant, avec 8 semaines en barres. Idéale autour de la moyenne ; en hausse au-delà de 30 % ; **pic** au-delà de 50 %, où le risque de blessure monte (« reste à ce niveau ou allège ») ; en baisse sous 80 %. Il faut au moins 3 semaines d'entraînement sur les 4 d'avant pour comparer : avant, « en rodage ».
+- **Équilibre musculaire** : les séries par muscle et par semaine sur 4 semaines (les muscles qui aident comptent pour moitié, les étirements pour rien), avec les repères peu (moins de 5), idéal (10 à 20) et beaucoup (plus de 20). Les déséquilibres sont expliqués en clair : pousser / tirer, quadriceps / ischios, haut / bas du corps. Les muscles en retard sont listés, et le bouton **Séance de rattrapage** construit une séance pour eux (générateur de séance, à ta durée habituelle).
 - **Courbes de force** : 1RM estimé de tes exercices principaux (et le total squat + développé couché + soulevé de terre), records en doré, tendance en kg par mois, sur 3 mois, 6 mois, 1 an ou tout.
 - **Mur des records** : une carte par exercice avec ta meilleure charge, ton 1RM estimé, ta progression depuis le début, ton **niveau de force** (Débutant → Élite, repères selon ton poids de corps) et le prochain palier ; « 2 plaques » au-delà de 100 kg à la barre.
 - **Photos avant / après** : face, profil, dos. Le **cadrage fantôme** affiche ta photo précédente en transparence avec un retardateur, pour refaire exactement la même. Comparaison au curseur ou côte à côte, avec l'évolution du poids et du tour de taille, et une image avant/après à partager. Les photos restent sur le téléphone, jamais en ligne.
@@ -282,7 +284,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
 - **Séance en direct** : tableau des séries (précédent / kg / reps), steppers, choix libre de l'exercice, annuler, ajouter une série, remplacer, minuteur de repos compact.
-- **Progrès** : calendrier, volume par semaine, courbes de force, mur des records, photos avant/après, historique.
+- **Progrès** : calendrier, volume par semaine, charge d'entraînement, équilibre musculaire, courbes de force, mur des records, photos avant/après, historique.
 - **Claude (optionnel, payant)** : dans Moi → Réglages → « IA Claude », une clé API Anthropic ajoute des ajustements IA, briefing, débrief et chat libre.
 
 ## Tests
@@ -318,6 +320,8 @@ js/chars/         les 37 personnages (kit.js : le générateur de dessins ; base
 js/engine.js      moteur de coaching temps réel
 js/brain.js       réponses et débriefs du coach (gratuit, hors ligne)
 js/planner.js     programme de la semaine, adaptation à l'objectif
+js/balance.js     équilibre musculaire (séries par muscle) et charge d'entraînement (semaine / 4 précédentes)
+js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculaire » de l'onglet Progrès
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
