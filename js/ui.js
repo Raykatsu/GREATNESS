@@ -86,7 +86,10 @@ export function toast(msg, ms = 2400) {
 export function sheet(html, { onClose, z } = {}) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
-  if (z) wrap.style.zIndex = z;
+  // une feuille ouverte depuis une autre passe toujours au-dessus (le corps 3D ouvert depuis une démo restait derrière)
+  const top = Math.max(0, ...[...document.querySelectorAll(".sheet-wrap:not(.closing)")].map(w => +getComputedStyle(w).zIndex || 0));
+  const zz = Math.max(z || 0, top ? top + 1 : 0);
+  if (zz) wrap.style.zIndex = zz;
   wrap.innerHTML = `<div class="sheet-bd"></div><div class="sheet" role="dialog" aria-modal="true" tabindex="0"><div class="grab"></div>${html}</div>`;
   document.body.appendChild(wrap);
   const bd = wrap.firstElementChild, s = wrap.lastElementChild;
