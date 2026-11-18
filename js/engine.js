@@ -143,12 +143,15 @@ export function plates(total, bar = 20) {
 }
 
 export class Session {
-  constructor(program, readiness, { deload = false } = {}) {
+  // deload : semaine allégée du cycle ; light : séance allégée par la semaine adaptative (pic de charge)
+  constructor(program, readiness, { deload = false, light = false } = {}) {
     this.program = program;
     this.readiness = readiness;
     this.verdict = readinessVerdict(readinessScore(readiness));
     if (deload) Object.assign(this.verdict, { deload: true, factor: Math.min(this.verdict.factor, 0.88), label: "Semaine allégée",
       text: "Semaine de récupération : charges et volume réduits pour revenir plus fort. C'est voulu !" });
+    else if (light) Object.assign(this.verdict, { deload: true, factor: Math.min(this.verdict.factor, 0.95), label: "Séance allégée",
+      text: "Grosse semaine : une série de moins par exercice et des charges un peu plus légères, pour progresser sans te blesser." });
     this.startedAt = Date.now();
     this.fatigue = clamp(Math.round((1 - readinessScore(readiness)) * 30), 0, 30);
     this.flags = { cut: false, stop: false, warmup: false };

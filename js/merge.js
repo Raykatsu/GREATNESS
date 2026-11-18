@@ -108,6 +108,6 @@ export function differs(merged, base) {
   const clean = (k, v) => (empty(v) ? undefined : v);
   const pick = d => JSON.stringify([d.sessions?.map(s => s.id), d.customPrograms, d.customExercises, d.lifts, d.body, d.badges, d.exNotes, d.profile, d.weekPlan, d.deleted, d.chat?.length,
     d.food, d.foodMeals, d.foodCustom, d.memory, d.reviews, d.duels, d.duelLog, d.mealPlan, d.goals, d.league, d.story, d.formChecks?.length, d.classic,
-    d.guide && { seen: [...(d.guide.seen || [])].sort(), hide: d.guide.hide, done: d.guide.done }], clean);
+    d.guide && { seen: [...(d.guide.seen || [])].sort(), hide: d.guide.hide, done: d.guide.done }, d.weekAdapt], clean);
   return pick(merged) !== pick(base);
 }

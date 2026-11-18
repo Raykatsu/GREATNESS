@@ -2900,6 +2900,21 @@ button.link { color: var(--accent-ink); font-weight: 600; text-decoration: under
 .vol.lo { background: var(--card-3); color: var(--muted); } .vol.hi { background: var(--red-soft); color: var(--accent-ink); }
 .m-rec { display: flex; gap: 8px; margin: 10px 0 0; padding: 9px 11px; border-radius: var(--r-sm); background: var(--amber-soft); font-size: 13px; line-height: 1.4; }
 .m-rec svg { width: 16px; height: 16px; flex: none; color: var(--amber-ink); margin-top: 1px; }
+/* Semaine adaptative : propositions du coach sur l'accueil (séance manquée, échange, séance allégée, rattrapage) */
+.wa-card { padding: 14px var(--s-4) 6px; border-color: rgba(59, 108, 246, .22); background: linear-gradient(100deg, var(--blue-soft), transparent 70%), var(--card); }
+.wa-head { display: flex; align-items: center; gap: 6px; color: var(--blue-ink); }
+.wa-head svg { width: 15px; height: 15px; }
+.wa-item { display: flex; gap: var(--s-3); padding: 12px 0; }
+.wa-item + .wa-item { border-top: 1px solid var(--line); }
+.wa-ic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--blue-soft); color: var(--blue-ink); }
+.wa-ic svg { width: 18px; height: 18px; }
+.wa-item.k-spike .wa-ic { background: var(--amber-soft); color: var(--amber-ink); }
+.wa-item.k-tired .wa-ic { background: var(--red-soft); color: var(--accent-ink); }
+.wa-item.k-catchup .wa-ic { background: var(--green-soft); color: var(--green-ink); }
+.wa-t { display: block; font-family: var(--display); font-size: var(--fs-base); line-height: 1.25; }
+.wa-w { margin: 3px 0 0; line-height: 1.45; color: var(--muted); }
+.wa-w b { color: var(--text); font-weight: 600; }
+.wa-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .pv-rec { background: var(--amber-soft); }
 .pv-rec svg { color: var(--amber-ink); }
 

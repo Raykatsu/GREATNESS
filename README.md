@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 65 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 66 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -239,6 +239,17 @@ Une **carte du corps** (face et dos) sur l'accueil montre chaque muscle travaill
 
 Le coach s'en sert : une séance qui tombe sur un muscle pas encore remis est **allégée automatiquement** (une série de moins, charge un peu réduite) et il te prévient ; le coach IA connaît aussi ta récupération.
 
+## Semaine qui s'adapte
+
+Sur l'accueil, la carte **Le coach adapte ta semaine** propose d'ajuster la semaine en cours, d'un geste (ou « Non merci », qui ne revient pas de la semaine) :
+
+- **Séance manquée** hier ou avant-hier : la faire aujourd'hui si c'est un jour libre, sinon la placer sur le prochain jour libre ; le jour manqué passe en repos.
+- **Muscles pas encore remis** pour la séance du jour (au moins deux sous 50 %) : l'échanger avec la prochaine séance de la semaine dont les muscles sont prêts.
+- **Grosse semaine** (pic de charge, voir « Charge d'entraînement ») : la séance du jour est allégée, une série de moins par exercice et des charges 5 % plus légères (« Séance allégée » sur la mission et en séance).
+- **Jour libre** avec des muscles en retard (voir « Équilibre musculaire ») : une séance de rattrapage de 25 minutes.
+
+Les déplacements ne valent que pour la semaine en cours (`state.weekAdapt`, synchronisé) : le programme type ne change pas. Calcul : `js/weekadapt.js` (testé dans Node).
+
 ## Personnages
 
 **37 coachs originaux**, tous créés pour l'app (aucun personnage sous licence), qui représentent plein de gens différents : toutes les couleurs de peau, femmes et hommes, jeunes et seniors, toutes les silhouettes, hijab et turban, une sprinteuse sur lame, une basketteuse en fauteuil… et 9 compagnons (robot, bébé dragon, chiot, chat, paresseux, tortue, axolotl, yéti, hibou). Cinq familles : **Salle, Sports, Nature, Zen, Compagnons**. Ils sont dessinés par un petit générateur (`js/chars/kit.js` : peau, silhouette, coiffure, tenue, accessoires). Les anciens choix de coach sont redirigés automatiquement vers le nouveau le plus proche. Pour une app sobre : **Moi → Réglages → Personnages** (ou « Aucun personnage » dans la galerie) masque la mascotte et les visages ; le choix est gardé sur le compte et sur l'appareil, même avant la connexion.
@@ -322,6 +333,7 @@ js/brain.js       réponses et débriefs du coach (gratuit, hors ligne)
 js/planner.js     programme de la semaine, adaptation à l'objectif
 js/balance.js     équilibre musculaire (séries par muscle) et charge d'entraînement (semaine / 4 précédentes)
 js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculaire » de l'onglet Progrès
+js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance allégée, rattrapage (carte de l'accueil)
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
