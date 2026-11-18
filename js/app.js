@@ -3,7 +3,7 @@ import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
 import { isNative, nativeWidget } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
-import { generateWeekPlan, ensureWeekPlan, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
+import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
 import { whoosh, ringsSvg, speak } from "./fx.js";
@@ -37,6 +37,7 @@ import { addMemory, removeMemory } from "./memory.js";
 import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
+import { weekAdaptCard, bindWeekAdapt } from "./weekadapt.js";
 import { loadCardHtml, balanceCardHtml, bindBalance } from "./balance-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
@@ -242,7 +243,7 @@ function home() {
   const doneName = m.doneToday ? sessionsOn(new Date()).pop().name : null;
   const prog = adaptToGoal(m.doneToday ? getProgram("mobility") : m.program);
   const now = new Date();
-  const planned = Math.max(1, Object.values(ensureWeekPlan()).filter(id => id !== "mobility").length);
+  const planned = Math.max(1, Object.values(weekPlanNow()).filter(id => id && id !== "mobility").length);
   const saved = savedSession();
   const cyc = cycleInfo();
   const st = streak();
@@ -285,6 +286,7 @@ function home() {
       <h2 class="m-title">${esc(doneName || m.program.name)}</h2>
       <p class="m-sub">${m.doneToday ? "Bravo ! Un peu de mobilité t'aidera à bien récupérer." : esc(m.program.tag || "")}</p>
       ${strain ? `<p class="m-rec">${I.info}<span>${esc(strain)}</span></p>` : ""}
+      ${m.light && kind === "go" ? `<p class="m-rec">${I.bolt}<span>Séance allégée : une série de moins par exercice, pour encaisser ta grosse semaine.</span></p>` : ""}
       ${m.doneToday ? "" : `
       <div class="m-meta">
         <span>${I.clock}~${estimateMinutes(prog)} min</span>
@@ -299,6 +301,7 @@ function home() {
       </div>
     </section>
 
+    ${weekAdaptCard()}
     ${guideCard()}
     ${healthCard()}
     ${goalCard()}
@@ -357,6 +360,8 @@ function home() {
   bindHealthCard(view);
   bindStoryCard(view);
   bindGuideCard(view);
+  // semaine adaptative : proposition acceptée (semaine mise à jour, séance allégée, rattrapage lancé) ou refusée
+  bindWeekAdapt(view, (msg, start) => { if (msg) toast(msg); route(); if (start) dispatchEvent(new CustomEvent("greatness:start", { detail: start })); });
   checkStory(); // chapitre réussi depuis la dernière fois : fête et nouveau costume
   $("#soc-open")?.addEventListener("click", () => { progressTab = "friends"; location.hash = "#/progress"; });
   const wk = bindReviewCard(view);

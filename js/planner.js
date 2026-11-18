@@ -1,6 +1,6 @@
 // Planification : programme de la semaine et adaptation à l'objectif.
 import { GOALS, EXERCISES } from "./data.js";
-import { state, save, getProgram, todayIndex, sessionsOn, weekStart } from "./store.js";
+import { state, save, getProgram, sessionsOn, weekStart } from "./store.js";
 import { CLASSICS, CLASSIC_DAYS } from "./classics.js";
 import { LOC } from "./i18n.js";
 
@@ -56,27 +56,40 @@ export function ensureWeekPlan() {
   return state.weekPlan;
 }
 
+// Semaine adaptée (js/weekadapt.js) : séances déplacées, séance allégée, propositions refusées, pour la semaine en cours
+// seulement (le programme type ne change pas). moves : { jour (0 = lundi) : programme, ou null pour un jour de repos }.
+export function adaptOf(now = new Date()) {
+  const week = weekStart(now).getTime(), a = state.weekAdapt;
+  return a && a.week === week ? a : { week, moves: {}, light: [], skip: [] };
+}
+// Programme de la semaine en cours : le programme type, avec les déplacements de cette semaine
+export function weekPlanNow(now = new Date()) {
+  return { ...ensureWeekPlan(), ...adaptOf(now).moves };
+}
+const dayOf = now => (now.getDay() + 6) % 7;
+
 // Séance du jour : planifiée, sinon une séance de récupération.
-export function todaysMission() {
-  const plan = ensureWeekPlan();
-  const id = plan[todayIndex()];
-  const doneToday = sessionsOn(new Date()).length > 0;
+export function todaysMission(now = new Date()) {
+  const plan = weekPlanNow(now);
+  const id = plan[dayOf(now)];
+  const doneToday = sessionsOn(now).length > 0;
   const p = id ? getProgram(id) : null;
-  if (p) return { program: p, planned: true, doneToday, rest: p.id === "mobility" };
-  return { program: getProgram("mobility"), planned: false, doneToday, rest: true };
+  const light = adaptOf(now).light.includes(dayOf(now)); // allégée cette semaine (pic de charge)
+  if (p) return { program: p, planned: true, doneToday, rest: p.id === "mobility", light };
+  return { program: getProgram("mobility"), planned: false, doneToday, rest: true, light: false };
 }
 
 // État de chaque jour de la semaine pour la frise.
-export function weekStrip() {
-  const plan = ensureWeekPlan();
-  const start = weekStart();
+export function weekStrip(now = new Date()) {
+  const plan = weekPlanNow(now);
+  const start = weekStart(now);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const done = sessionsOn(d);
     return {
       i, date: d, label: d.toLocaleDateString(LOC(), { weekday: "short" }).replace(".", ""),
       num: d.getDate(), program: plan[i] ? getProgram(plan[i]) : null, done: done.length > 0,
-      today: i === todayIndex(), past: i < todayIndex(),
+      today: i === dayOf(now), past: i < dayOf(now),
     };
   });
 }

@@ -37,6 +37,7 @@ const DEFAULT = {
   goals: [],          // objectifs chiffrés sur 8 à 12 semaines (voir goals.js)
   deleted: { sessions: [], programs: [], exercises: [], food: [], memory: [], duels: [], goals: [] }, // pour que la synchro ne ressuscite rien
   weekPlan: null, // { 0..6 (lundi..dimanche): programId }
+  weekAdapt: null, // semaine en cours adaptée par le coach : { week, moves, light, skip } (voir weekadapt.js)
   meta: { updatedAt: 0 },
 };
 

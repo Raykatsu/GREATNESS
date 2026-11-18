@@ -7,7 +7,7 @@ import { Session, fmtTarget, plates, schemeAt, progressionOf } from "./engine.js
 import { classicAfter, CLASSICS } from "./classics.js";
 import { nativeRestLive, nativeWidget, isNative } from "./native.js";
 import { widgetData } from "./widgetdata.js";
-import { cycleInfo, isWorkout } from "./planner.js";
+import { cycleInfo, isWorkout, todaysMission } from "./planner.js";
 import { pickExercises, tipsHtml } from "./train.js";
 import { restTip, quickAnswer, expressPlan, postTips } from "./advice.js";
 import { defaultItem } from "./create.js";
@@ -94,7 +94,7 @@ function duoMine() {
 
 export function startLive(program, readiness, exit) {
   chain = null;
-  S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload });
+  S = new Session(program, readiness, { deload: !program.free && cycleInfo().deload, light: !program.free && isWorkout(program) && todaysMission().light });
   const rest = S.recoveryNote();
   begin(exit);
   const intro = S.intro();
