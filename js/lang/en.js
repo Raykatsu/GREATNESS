@@ -34,6 +34,7 @@ export default {
   "À fond la dernière fois": "All-out last time",
   // Démos en 3D
   "Corps 3D sans squelette": "3D body without a skeleton",
+  "WebGL : pas assez de place pour le squelette": "WebGL: not enough room for the skeleton",
   "Corps anatomique en 3D": "Anatomical body in 3D",
   "Démo 3D": "3D demo",
   "Démos animées en 3D": "Animated 3D demos",

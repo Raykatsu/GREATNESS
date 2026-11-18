@@ -4,7 +4,8 @@
 // niveaux de récupération… Le fichier (≈ 3 Mo) n'est chargé qu'à l'ouverture, puis gardé hors ligne par sw.js.
 // Format de assets/anatomy/body.bin (décrit par body.json) : positions (3 × int16 quantifiés dans la boîte lo → hi),
 // normales + groupe (4 × int8 : nx, ny, nz sur ±127, puis l'index du groupe dans « parts »), indices (uint32), puis le
-// squelette des démos animées (4 × uint8 par sommet : ses deux os et le poids du premier ; os décrits dans « rig »).
+// squelette des démos animées (4 × uint8 par sommet : ses deux os, le poids du premier et la part de la rotation de
+// l'avant-bras qu'il suit ; os décrits dans « rig », articulations des doigts dans « fingers »).
 import { ANAT_DIR, ANAT_CREDIT, bodyMap } from "./anatomy.js";
 import { MUSCLES } from "./body.js";
 import { $, $$, esc, I, sheet } from "./ui.js";
@@ -17,7 +18,7 @@ export function decodeBody(buf, meta) {
   const nor = new Int8Array(buf, off.nor, v * 4);
   const idx = new Uint32Array(buf, off.idx, t * 3);
   const skin = off.skin != null && buf.byteLength >= off.skin + v * 4 ? new Uint8Array(buf, off.skin, v * 4) : null;
-  return { pos, nor, idx, skin, rig: meta.rig || null, v, t, lo: meta.lo, hi: meta.hi, parts: meta.parts };
+  return { pos, nor, idx, skin, rig: meta.rig || null, fingers: meta.fingers || null, frow: meta.frow ?? null, v, t, lo: meta.lo, hi: meta.hi, parts: meta.parts };
 }
 let loading = null;
 export const loadBody = () => (loading ||= Promise.all([

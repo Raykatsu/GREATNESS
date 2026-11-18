@@ -162,7 +162,7 @@ export function openDemo(id) {
         const pm = new Set(mus.p || []), sm = new Set(mus.s || []);
         const cls = R ? roleClass(R) : m => (pm.has(m) ? "mus p" : sm.has(m) ? "mus s" : "mz");
         cv.hidden = false; // le canevas doit avoir sa taille avant le premier dessin
-        v3 = d3.mountDemo3D(cv, body, move, b3.colorTable(body.parts, cls, css), { glow: R ? R.agonist : [...pm], floor: b3.hexToLinear(css("--card-3")) });
+        v3 = d3.mountDemo3D(cv, body, move, b3.colorTable(body.parts, cls, css), { glow: R ? R.agonist : [...pm], floor: b3.hexToLinear(css("--card-3")), id });
         show3d(true);
         if (!playing) frame(performance.now());
       }))
