@@ -50,10 +50,13 @@ test("guide : Bien démarrer, recherche, chaque bouton mène à sa fonction, bou
       const before = await sheets(page);
       // rien ne brille encore (l'élément montré juste avant brille quelques secondes)
       await page.evaluate(() => { document.querySelectorAll(".g-spot").forEach(n => n.classList.remove("g-spot")); document.querySelector("#toast")?.classList.remove("show"); });
+      // le mannequin qui danse : images suspendues (plein écran en 3D, sans carte graphique dans le navigateur de test, il
+      // ralentirait la suite ; sa danse est vérifiée dans danse.browser.mjs)
+      if (it.go.fn === "dance") await page.evaluate(() => Object.defineProperty(document, "hidden", { value: true, configurable: true }));
       await page.click(`[data-go="${it.id}"]`);
       if (it.go.fn) {
-        // la fonction s'ouvre : une feuille de plus (ou la vue 3D)
-        await page.waitForFunction(n => [...document.querySelectorAll(".sheet-wrap:not(.closing)")].filter(w => !w.querySelector(".gd")).length > n || document.querySelector(".b3d"), before, { timeout: 15000 })
+        // la fonction s'ouvre : une feuille de plus (ou la vue 3D, ou le mannequin qui danse)
+        await page.waitForFunction(n => [...document.querySelectorAll(".sheet-wrap:not(.closing)")].filter(w => !w.querySelector(".gd")).length > n || document.querySelector(".b3d, .dance"), before, { timeout: 15000 })
           .catch(() => misses.push(`${it.id} : rien ne s'ouvre`));
       } else {
         // l'écran s'ouvre et l'élément brille, ou un message dit pourquoi il n'existe pas encore
@@ -63,7 +66,7 @@ test("guide : Bien démarrer, recherche, chaque bouton mène à sa fonction, bou
         if (!hash.startsWith(it.go.to.split("?")[0])) misses.push(`${it.id} : écran ${hash} au lieu de ${it.go.to}`);
       }
       await closeSheets(page);
-      await page.evaluate(() => { document.querySelectorAll(".b3d").forEach(n => n.remove()); document.querySelector("#toast")?.classList.remove("show"); });
+      await page.evaluate(() => { document.querySelectorAll(".b3d").forEach(n => n.remove()); document.querySelector("#dc-x")?.click(); delete document.hidden; document.querySelector("#toast")?.classList.remove("show"); });
     }
     assert.deepEqual(await page.evaluate(() => window.__guideMiss || []), [], "éléments introuvables");
     assert.deepEqual(misses, []);

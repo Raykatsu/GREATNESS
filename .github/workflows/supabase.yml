@@ -208,6 +208,8 @@ jobs:
           echo "GET : $body"
           bad=$(curl -sS --max-time 20 "$MUSIC_URL?cover=https%3A%2F%2Fexample.com%2Fx.jpg" || true)
           echo "Pochette d'un site inconnu : $bad"
+          tempo=$(curl -sS --max-time 20 "$MUSIC_URL?bpm=1&artist=Daft%20Punk&title=One%20More%20Time" || true)
+          echo "Tempo d'un morceau connu (catalogue Deezer) : $tempo"
           case "$body" in *"fonction musique en ligne"*) ;; *) echo "::error::la fonction music ne répond pas"; exit 1 ;; esac
           case "$bad" in *BAD_COVER*) ;; *) echo "::error::réponse inattendue à une pochette d'un site inconnu"; exit 1 ;; esac
 

@@ -46,8 +46,9 @@ import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 import { openGuide, guideCard, bindGuideCard, markSeen } from "./guide.js";
 import { startMusic, stopMusic, spotifyResume } from "./music.js";
-import { initMusicTheme } from "./musictheme.js";
+import { initMusicTheme, resetMusicTheme } from "./musictheme.js";
 import { musicHomeCard, bindMusicHome, openMusic } from "./music-ui.js";
+import { armDance } from "./dance-ui.js";
 import { LOC, initLang, getLang, setLang, EN_READY, tr, dayUnit } from "./i18n.js";
 
 // Langue (français ou anglais) : le dictionnaire anglais est chargé avant le premier écran
@@ -72,9 +73,10 @@ let musicUser;
 function musicFor(user) {
   if (musicUser === user) return;
   musicUser = user;
-  if (!user) return stopMusic();
+  if (!user) { stopMusic(); return resetMusicTheme(); }
   initMusicTheme();
   startMusic();
+  armDance(() => isLive() || current !== "home"); // le mannequin danse quand on ne fait rien sur l'accueil (jamais en séance)
   spotifyResume().then(r => {
     if (r === "ok") { toast("Spotify connecté ✓"); startMusic(); openMusic(); }
     else if (r) toast(r === "DENIED" ? "Connexion Spotify refusée" : `Connexion Spotify impossible (${r})`, 4000);
@@ -886,8 +888,10 @@ function profile() {
   $$("#equip button").forEach(b => b.onclick = () => { p.equipment = b.dataset.v; save(); $$("#equip button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("[data-accent]").forEach(b => b.onclick = () => {
     p.accent = b.dataset.accent; save(); applyAppearance(); $$("[data-accent]").forEach(x => x.classList.toggle("on", x === b));
-    // les couleurs de la pochette en cours passent devant : la couleur choisie revient quand la musique s'arrête
-    if (musicTint() && !musicTint().neutral) toast("Couleur enregistrée : elle revient quand la musique s'arrête (Musique → Couleurs de la pochette)", 4000);
+    // les couleurs de la pochette passent devant : la couleur choisie revient quand la musique s'arrête, ou, si l'app
+    // garde les couleurs du dernier morceau, quand on coupe les couleurs de la pochette
+    if (musicTint() && !musicTint().neutral) toast(p.music?.keep === false ? "Couleur enregistrée : elle revient quand la musique s'arrête (Musique → Couleurs de la pochette)"
+      : "Couleur enregistrée : elle revient quand tu coupes les couleurs de la pochette (Moi → Réglages → Musique)", 4000);
   });
   $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
   $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });

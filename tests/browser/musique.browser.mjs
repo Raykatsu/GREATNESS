@@ -5,24 +5,8 @@
 // d'origine. Aucune erreur JavaScript.
 import test from "node:test";
 import assert from "node:assert/strict";
-import zlib from "node:zlib";
-import { openApp, signup, go, sleep, closeSheets } from "./kit.mjs";
+import { openApp, signup, go, sleep, closeSheets, png } from "./kit.mjs";
 
-// petite image PNG (pixels donnés par f(x, y) → [r, g, b])
-const CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
-const crc = buf => { let c = 0xffffffff; for (const b of buf) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-const chunk = (type, data) => {
-  const len = Buffer.alloc(4), sum = Buffer.alloc(4), td = Buffer.concat([Buffer.from(type), data]);
-  len.writeUInt32BE(data.length); sum.writeUInt32BE(crc(td));
-  return Buffer.concat([len, td, sum]);
-};
-function png(w, h, f) {
-  const raw = Buffer.alloc((w * 3 + 1) * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; [raw[o], raw[o + 1], raw[o + 2]] = f(x, y); }
-  const head = Buffer.alloc(13);
-  head.writeUInt32BE(w, 0); head.writeUInt32BE(h, 4); head[8] = 8; head[9] = 2;
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
-}
 const GREEN = png(24, 24, x => (x < 8 ? [40, 210, 90] : [14, 20, 48]));   // bleu nuit avec une bande verte vive
 const PINK = png(24, 24, (x, y) => (y < 15 ? [230, 40, 160] : [30, 10, 40])); // rose vif
 const hueOf = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.trim().slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;

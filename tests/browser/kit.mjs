@@ -4,6 +4,7 @@ import { chromium, devices } from "playwright";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { serve } from "./serve.mjs";
+import zlib from "node:zlib";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const FAKE = "https://fake.supabase.co";
@@ -81,3 +82,19 @@ export const seed = (page, n = 12) => page.evaluate(async n => {
   state.sessions.sort((a, b) => a.date - b.date);
   save();
 }, n);
+
+// petite image PNG (pixels donnés par f(x, y) → [r, g, b])
+const CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc = buf => { let c = 0xffffffff; for (const b of buf) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+const chunk = (type, data) => {
+  const len = Buffer.alloc(4), sum = Buffer.alloc(4), td = Buffer.concat([Buffer.from(type), data]);
+  len.writeUInt32BE(data.length); sum.writeUInt32BE(crc(td));
+  return Buffer.concat([len, td, sum]);
+};
+export function png(w, h, f) {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; [raw[o], raw[o + 1], raw[o + 2]] = f(x, y); }
+  const head = Buffer.alloc(13);
+  head.writeUInt32BE(w, 0); head.writeUInt32BE(h, 4); head[8] = 8; head[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}

@@ -20,6 +20,7 @@ import { openStory } from "./story-ui.js";
 import { openHealth } from "./health-ui.js";
 import { openTargets, foodLog } from "./food.js";
 import { openMusic } from "./music-ui.js";
+import { openDance } from "./dance-ui.js";
 import { openCoachGallery } from "./coach-picker.js";
 import { openFeedback } from "./feedback.js";
 import { openDemo } from "./demo.js";
@@ -61,6 +62,7 @@ const FN = {
   health: () => openHealth(),
   targets: () => openTargets(),
   music: () => openMusic(),
+  dance: () => openDance(),
   coaches: () => openCoachGallery(),
   feedback: () => openFeedback(),
   demo: () => openDemo(demoId()),
@@ -68,7 +70,7 @@ const FN = {
   video: () => import("./videocoach.js").then(m => m.openVideoCoach(squat())),
 };
 // ces fonctions prennent tout l'écran : le guide se ferme ; les autres s'ouvrent par-dessus (on y revient en fermant)
-const CLOSE = new Set(["intervals", "cam"]);
+const CLOSE = new Set(["intervals", "cam", "dance"]);
 const goLabel = go => (go.start ? `${I.play} Lancer` : go.fn ? `${I.play} Essayer` : `${I.eye} Me montrer où`);
 
 // Fait briller un élément de l'écran (l'endroit où se trouve la fonction)
