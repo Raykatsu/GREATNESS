@@ -2282,6 +2282,79 @@ button.friend-row:active { opacity: .6; transition-duration: 0s; }
 .pl-meal .btn { margin-left: -10px; }
 .pl-tips { display: flex; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--blue-soft); color: var(--blue-ink); line-height: 1.4; }
 .pl-tips svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.pl-adj { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--blue-soft); color: var(--text); font-size: 13.5px; line-height: 1.45; }
+.pl-adj.up { background: var(--green-soft); }
+.pl-adj > b:nth-of-type(2) { color: var(--blue-ink); } .pl-adj.up > b:nth-of-type(2) { color: var(--green-ink); }
+.pl-adj span { display: block; margin-top: 2px; color: var(--muted); }
+.pl-adj .link { margin-top: 6px; font-size: 13px; }
+.pl-dot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--accent-ink); vertical-align: 2px; }
+
+/* Nutrition : onglets Journal / Comprendre, objectif du jour ajusté */
+.nut-tabs { margin-bottom: var(--s-3); }
+button.mb { display: block; width: 100%; text-align: left; transition: opacity var(--dur-2); }
+button.mb:active { opacity: .6; }
+.nut-adj { margin-top: 10px; padding: 12px var(--s-4); border-left: 3px solid var(--c); --c: var(--blue-ink); }
+.nut-adj.up { --c: var(--green-ink); }
+.na-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.na-d { color: var(--c); font-family: var(--display); font-size: var(--fs-md); }
+.nut-adj p { margin: 4px 0 6px; color: var(--muted); line-height: 1.45; }
+
+/* Onglet « Comprendre » : le calcul, l'adaptation, les nutriments et les études */
+.nl { display: grid; gap: 10px; }
+.nl p { margin: 6px 0; line-height: 1.5; }
+.nl .eyebrow { margin-top: 12px; }
+.nl-hero { padding: var(--s-4); }
+.nl-big { margin: 4px 0 10px; font-size: var(--fs-sm); color: var(--muted); }
+.nl-big b { font-family: var(--display); font-size: 34px; letter-spacing: -.02em; color: var(--text); }
+.nl-delta { margin-left: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--card-2); font-size: 12.5px; font-weight: 700; color: var(--text); }
+.nl-split { display: flex; gap: 3px; height: 10px; border-radius: var(--r-pill); overflow: hidden; }
+.nl-split i { min-width: 4px; background: var(--c); }
+.s-p { --c: #ff6b78; } .s-c { --c: #f5b83d; } .s-f { --c: #5b8cff; }
+.nl-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 10px 0 2px; }
+.nl-lg { display: grid; justify-items: start; gap: 1px; padding: 6px 8px; border-radius: var(--r-sm); background: var(--card-2); text-align: left; }
+.nl-lg i { width: 18px; height: 4px; border-radius: 2px; background: var(--c); }
+.nl-lg b { font-size: 14px; }
+.nl-lg:active { transform: scale(.96); }
+.nl-sec summary { gap: 10px; }
+.nl-sec summary > span { flex: 1; min-width: 0; }
+.nl-amt { font-size: 13.5px; color: var(--muted); }
+.nl-m summary > span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--c, var(--dim)); vertical-align: 1px; }
+.nl-m-p { --c: #ff6b78; } .nl-m-c { --c: #f5b83d; } .nl-m-f { --c: #5b8cff; } .nl-m-fi { --c: #2fbf71; } .nl-m-water { --c: #3fc3e6; }
+.nl-body { padding-top: 4px; font-size: 14px; }
+.nl-steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.nl-step { padding: 10px 0; border-top: 1px solid var(--line); }
+.nl-step:first-child { border-top: 0; }
+.nl-sl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-weight: 650; }
+.nl-sl b { white-space: nowrap; }
+.nl-step.nl-sum .nl-sl { font-family: var(--display); }
+.nl-step.nl-final { margin-top: 4px; padding: 12px; border: 0; border-radius: var(--r-sm); background: var(--card-2); }
+.nl-step.nl-final .nl-sl b { font-size: var(--fs-md); color: var(--accent-ink); }
+.nl-formula { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.nl-step p { font-size: 13.5px; color: var(--muted); }
+.nl-note { padding: 8px 10px; border-radius: var(--r-sm); background: var(--amber-soft); font-size: 13px; }
+.nl-cites { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: 1px; }
+.nl-cite { padding: 1px 7px; border-radius: var(--r-pill); background: var(--blue-soft); color: var(--blue-ink); font-size: 11.5px; font-weight: 650; white-space: nowrap; }
+.nl-cite:active { transform: scale(.94); }
+.nl-days { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; font-size: 13.5px; }
+.nl-days li { padding: 8px 10px; border-radius: var(--r-sm); background: var(--card-2); }
+.nl-share { margin-top: 2px; color: var(--muted); }
+.nl-share b { color: var(--text); }
+.nl-today { font-weight: 600; }
+.nl-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.45; }
+.nl-you { margin: 8px 0 4px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--card-2); }
+.nl-you .eyebrow { margin: 0 0 2px; }
+.nl-kg { margin: 0; font-size: 12.5px; color: var(--muted); }
+.nl-intro { margin: -4px 2px 2px; }
+.nl-micros { list-style: none; margin: 8px 0 0; padding: 0; display: grid; }
+.nl-micros li { padding: 10px 0; border-top: 1px solid var(--line); }
+.nl-micros p { margin: 3px 0; font-size: 13.5px; }
+.nl-refs { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 8px; font-size: 12.5px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+.nl-refs b { color: var(--text); }
+.nl-refs a { color: var(--accent-ink); }
+.nl-refs li { margin-left: -6px; padding: 2px 6px; border-radius: 6px; }
+.nl-refs li.hl { animation: nlHl 2.4s var(--ease-out); }
+@keyframes nlHl { from, 55% { background: var(--blue-soft); } }
+.nl-disc { margin: 4px 2px 0; line-height: 1.45; }
 .sh-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .sh-row input { width: 20px; height: 20px; flex: none; accent-color: var(--green); }
 .sh-row.done .grow { text-decoration: line-through; color: var(--dim); }

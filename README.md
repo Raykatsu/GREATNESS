@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 67 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 69 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -65,6 +65,9 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - Repas du jour, eau, « comme hier », repas enregistrés, ajout rapide, historique sur 7 jours, carte sur l'accueil.
 - Le coach connaît ta nutrition (objectifs, aujourd'hui, moyenne de la semaine) et peut en tenir compte dans ses conseils ; « combien de calories dans… » répond même hors ligne.
 - **Calories adaptatives** : un poids visé et un rythme (−1 à +0,5 kg par semaine). La tendance du poids est lissée (les variations d'eau ne comptent pas) ; avec tes repas notés, l'app en déduit ta **vraie dépense** (1 kg ≈ 7 700 kcal) et recalcule ton objectif chaque lundi, avec des garde-fous (jamais sous le métabolisme de base). Carte « Poids et dépense » : courbe, pesée du jour, semaines restantes.
+- **Objectif qui s'adapte au jour le jour** : ton corps fait le bilan sur plusieurs jours, pas sur un repas. En **sèche**, un excès de plus de 100 kcal est réparti sur les 3 jours suivants (ton déficit de la semaine reste intact) ; en **prise de masse**, un manque est rattrapé de la même façon ; en **maintien**, la moitié de l'écart compte. Garde-fous : au plus 350 kcal (et 15 %) par jour, jamais sous le minimum sûr (métabolisme de base + 5 %), protéines inchangées (glucides 75 %, lipides 25 % de l'écart), journée notée à moins de 60 % ignorée (sans doute incomplète). Carte « Objectif du jour ajusté » dans le journal, anneau et macros à jour, accueil, conseils d'avant-séance et coach IA aussi ; désactivable dans Mes objectifs.
+- **Le plan de repas suit** : le jour du plan qui tombe aujourd'hui (point sur J1, J2…) est recalculé à l'objectif du jour : féculents, fruits et matières grasses à l'échelle de l'écart, protéines et légumes inchangés, portions servies arrondies (à l'unité, par 5 ou 10 g) au plus juste.
+- **Onglet « Comprendre »** (Journal | Comprendre) : **pourquoi tu manges autant**, le calcul pas à pas avec tes chiffres (métabolisme de base avec ta formule, activité, séances, objectif, calories adaptatives, minimum sûr, ajustement du jour) ; pourquoi l'objectif change chaque jour (tes jours d'écart, la règle de ton objectif, les garde-fous) ; à quoi servent **protéines, glucides, lipides, fibres et eau** (ton objectif en g/kg et en %, pourquoi autant, où en trouver) ; **minéraux et vitamines** (calcium, fer, magnésium, potassium, sel, zinc, vitamines D, B12 et C, oméga-3) avec les repères de l'EFSA et de l'OMS selon ton sexe. Chaque affirmation renvoie à son étude (Mifflin 1990, Morton 2018, Helms 2014, Garthe 2011, Schoenfeld 2018, Reynolds 2019, ACSM, ISSN, CIO 2018…) : un nom d'étude ouvre la liste des **24 sources** avec leur DOI. Toucher une barre de macro du journal ouvre son explication. Données : `js/nutri-refs.js` ; calcul : `js/nutriadapt.js` ; écran : `js/nutrilearn.js`.
 - **Hydratation** : objectif d'eau selon ton poids (+0,5 L les jours d'entraînement), verres et bouteille d'un geste, **rappels pour boire** en notification si tu es en retard (plage horaire et fréquence au choix, silencieux une fois l'objectif atteint).
 - **Plan de repas et liste de courses** : de 1 à 7 jours, à tes calories et protéines, selon ton régime (végétarien, sans porc, sans lactose, sans gluten, petit budget, rapide) et tes goûts. L'IA en ligne compose des repas variés ; hors ligne, l'app assemble des repas simples ajustés au gramme près. Chaque repas s'ajoute au journal d'un geste ; la liste de courses (quantités crues, par rayon) se coche, se complète et se partage.
 
@@ -310,7 +313,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
+npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, objectif ajusté au jour le jour et onglet « Comprendre », plans de repas, Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
 npx playwright install chromium
 npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité, programmes célèbres, coach vocal
 ```
@@ -369,6 +372,8 @@ js/food.js        onglet Repas (journal, recherche, scanner, eau, poids)
 js/nutrition.js   objectifs, journal, recherche tolérante, aliments appris de l'IA
 js/foods.js       les 365 aliments courants
 js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
+js/nutriadapt.js  objectif du jour ajusté aux écarts des 3 jours d'avant, jour du plan de repas recalculé
+js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutriments) ; nutri-refs.js : les études citées
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)
 js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écrans)

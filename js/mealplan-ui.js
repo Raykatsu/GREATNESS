@@ -3,6 +3,7 @@ import { tr } from "./i18n.js";
 import { state, save } from "./store.js";
 import { MEALS, targets, addItem, dayKey, sumItems } from "./nutrition.js";
 import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf } from "./mealplan.js";
+import { dailyAdjust, planDayIndex, adaptPlanDay } from "./nutriadapt.js";
 import { mealPlanAI } from "./online.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, fmtNum } from "./ui.js";
@@ -19,7 +20,9 @@ const qty = x => {
   return n ? `${n} ${x.unit.label}${n > 1 ? "s" : ""} · ${Math.round(x.g)} ${w}` : `${Math.round(x.g)} ${w}`;
 };
 const aiAvailable = () => isOnlineMode() && !!authToken() && navigator.onLine !== false;
-let onChange = () => {};
+let onChange = () => {}, onLearn = () => {};
+// typographie française : espace fine insécable avant « : ; ! ? » (la traduction l'ignore, i18n.js)
+const nb = s => s.replace(/ ([?!:;»])/g, "\u202f$1");
 
 export function planCard() {
   const p = state.mealPlan, n = p?.shopping?.length || 0, done = p?.shopping?.filter(x => x.done).length || 0;
@@ -28,8 +31,9 @@ export function planCard() {
     <div class="grow"><b>Plan de repas et courses</b><div class="small muted">${p ? `${p.days.length} jour${p.days.length > 1 ? "s" : ""} · ${n ? `courses : ${done}/${n} cochées` : "liste de courses"}` : "Des repas pour tes objectifs, et la liste de courses qui va avec"}</div></div>
     <span class="chev">${I.chev}</span></section>`;
 }
-export function bindPlanCard(root, refresh) {
+export function bindPlanCard(root, refresh, learn) {
   onChange = refresh || (() => {});
+  onLearn = learn || (() => {});
   const el = $("#plan-open", root);
   if (!el) return;
   el.onclick = () => (state.mealPlan ? openPlan() : newPlan());
@@ -79,26 +83,35 @@ export function newPlan() {
 }
 
 /* ---------- Le plan, jour par jour ---------- */
-export function openPlan(day = 0) {
+export function openPlan(day = null) {
   const p = state.mealPlan;
   if (!p) return newPlan();
+  // le jour du plan qui tombe aujourd'hui suit l'objectif du jour, corrigé des écarts des jours d'avant (nutriadapt.js)
+  const today = planDayIndex(p), adj = dailyAdjust(state);
+  day ??= Math.max(0, today);
   const sh = sheet(`<div class="eyebrow">${p.source === "ai" ? `${I.sparkle} Composé par l'IA` : "Composé par l'app"}</div>
     <h2 class="h2">Ton plan de repas</h2>
     <p class="muted small">${p.days.length} jour${p.days.length > 1 ? "s" : ""} · environ ${fmtNum(p.kcal)} kcal et ${p.p} g de protéines par jour</p>
-    ${p.days.length > 1 ? `<div class="seg mt" id="pl-days" style="--n:${Math.min(p.days.length, 7)}">${p.days.map((d, i) => `<button data-i="${i}">J${i + 1}</button>`).join("")}</div>` : ""}
+    ${p.days.length > 1 ? `<div class="seg mt" id="pl-days" style="--n:${Math.min(p.days.length, 7)}">${p.days.map((d, i) => `<button data-i="${i}" ${i === today ? `aria-label="J${i + 1} · Aujourd'hui"` : ""}>J${i + 1}${i === today ? `<i class="pl-dot"></i>` : ""}</button>`).join("")}</div>` : ""}
     <div id="pl-day"></div>
     ${p.tips ? `<p class="pl-tips small">${I.sparkle}<span>${esc(p.tips)}</span></p>` : ""}
     <div class="grid2 mt"><button class="btn btn-soft" id="pl-new">${I.refresh} Nouveau plan</button><button class="btn btn-primary" id="pl-shop">${IC.cart} Courses (${p.shopping.length})</button></div>`, { z: 90 });
   const drawDay = i => {
     day = i;
     $$("#pl-days button", sh.el).forEach(b => b.classList.toggle("on", +b.dataset.i === i));
-    const d = p.days[i], tot = totalsOf(d.meals.flatMap(m => m.items));
-    $("#pl-day", sh.el).innerHTML = `<div class="pl-tot tnum">${fmtNum(tot.k)} kcal · P ${Math.round(tot.p)} g · G ${Math.round(tot.c)} g · L ${Math.round(tot.f)} g</div>
+    // aujourd'hui : féculents, fruits et matières grasses à l'échelle de l'écart du jour (protéines et légumes inchangés)
+    const raw = p.days[i], d = i === today && adj.delta ? adaptPlanDay(raw, totalsOf(raw.meals.flatMap(m => m.items)).k + adj.delta) : raw;
+    const tot = totalsOf(d.meals.flatMap(m => m.items)), moved = i === today && adj.delta && d.scale !== 1;
+    $("#pl-day", sh.el).innerHTML = `${moved ? `<div class="pl-adj ${adj.delta > 0 ? "up" : "down"}"><b>${nb("Adapté aujourd'hui :")}</b> <b class="tnum">${adj.delta > 0 ? "+" : "−"}${fmtNum(Math.abs(adj.delta))} kcal</b>
+        <span>${nb(adj.delta > 0 ? "Portions de féculents, fruits et matières grasses augmentées pour rattraper les jours d'avant. Protéines et légumes inchangés." : "Portions de féculents, fruits et matières grasses réduites pour compenser les jours d'avant. Protéines et légumes inchangés.")}</span>
+        <button class="link" id="pl-why">Pourquoi ces quantités ?</button></div>` : ""}
+      <div class="pl-tot tnum">${fmtNum(tot.k)} kcal · P ${Math.round(tot.p)} g · G ${Math.round(tot.c)} g · L ${Math.round(tot.f)} g</div>
       ${d.meals.map((m, k) => { const mt = totalsOf(m.items); return `<section class="pl-meal">
         <div class="pl-mh"><span class="eyebrow">${mealName(m.meal)}</span><span class="tnum muted small">${fmtNum(mt.k)} kcal</span></div>
         <b class="pl-name">${esc(m.name)}</b>
         <ul class="pl-items">${m.items.map(x => `<li><span class="grow">${esc(x.name)}</span><span class="tnum muted">${qty(x)}</span></li>`).join("")}</ul>
         <button class="btn btn-ghost btn-sm" data-add="${k}">${I.plus} Ajouter au journal</button></section>`; }).join("")}`;
+    $("#pl-why", sh.el)?.addEventListener("click", () => { sh.close(); onLearn("adapt"); });
     $$("[data-add]", sh.el).forEach(b => b.onclick = () => {
       const m = d.meals[+b.dataset.add], key = dayKey();
       m.items.forEach(x => addItem(state, key, { name: x.name, per: x.per, unit: x.unit, src: p.source === "ai" ? "ai" : "db" }, { g: x.g, meal: m.meal }));

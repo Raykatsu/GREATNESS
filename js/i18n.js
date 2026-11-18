@@ -84,7 +84,7 @@ export function tr(text) {
   if (!dict || !text) return text;
   // les espaces insécables de la typographie française (bulles du coach : « Alex ! », « Ici : ») comptent comme des
   // espaces ordinaires, sinon le texte ne correspond plus à celui du code
-  const s = text.replace(/[\u00a0\u202f](?=[?!:;»])/g, " ").replace(/«[\u00a0\u202f]/g, "« ");
+  const s = text.replace(/[\u00a0\u202f](?=[?!:;»%])/g, " ").replace(/«[\u00a0\u202f]/g, "« ");
   const hasWord = /\p{L}/u.test(s);
   if (!hasWord) return /\d[, ]\d/.test(s) ? polish(s) : text;
   const c = s.trim(), exact = whole(c);

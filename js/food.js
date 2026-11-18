@@ -13,6 +13,8 @@ import { openScanner, askCode } from "./scan.js";
 import { foodAI, foodInfoAI, OnlineError } from "./online.js";
 import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, trendRate, goalProgress } from "./adaptive.js";
 import { planCard, bindPlanCard } from "./mealplan-ui.js";
+import { dailyAdjust } from "./nutriadapt.js";
+import { learnHtml, bindLearn, adjustCard } from "./nutrilearn.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn } from "./ui.js";
 import { LOC } from "./i18n.js";
@@ -27,7 +29,20 @@ export const IC = {
   bell: svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
 };
 
-let viewKey = null, host = null;
+let viewKey = null, host = null, tab = "log", learnFocus = null;
+// Onglet « Comprendre » ouvert sur une partie (« p », « adapt »…), depuis l'écran Repas ou une autre partie de l'app
+export function openLearn(focus = null) {
+  tab = "learn"; learnFocus = focus;
+  if (location.hash.startsWith("#/food") && host?.isConnected) renderFood(host); else location.hash = "#/food";
+}
+// en quittant l'écran Repas, la prochaine visite s'ouvre sur le journal (un rafraîchissement sur place garde l'onglet)
+addEventListener("hashchange", () => { if (!location.hash.startsWith("#/food")) tab = "log"; });
+// Retour au journal (le guide y montre ses éléments, même si « Comprendre » est ouvert)
+export function foodLog() {
+  if (tab === "log") return;
+  tab = "log";
+  if (location.hash.startsWith("#/food") && host?.isConnected) renderFood(host);
+}
 const mealName = id => MEALS.find(m => m.id === id)?.name || "Repas";
 const liquid = f => !!f.liquid || /verre|canette|tasse|demi|bouteille|coupe/.test(f.unit?.label || "") || /\b(lait|jus|soda|cafe|café|the|thé|biere|bière|vin|boisson|smoothie|eau)\b/i.test(f.name);
 const unitWord = f => (liquid(f) ? "ml" : "g");
@@ -47,7 +62,7 @@ function qtyLabel(it) {
 
 /* ---------- Carte de l'accueil ---------- */
 export function foodHomeCard() {
-  const t = targets(state.profile), day = dayOf(state, dayKey()), tot = sumItems(day.items);
+  const t = dailyAdjust(state), day = dayOf(state, dayKey()), tot = sumItems(day.items);
   const left = Math.round(t.kcal - tot.k);
   return `<div class="card tap nut-home mt" id="nut-home" role="link" tabindex="0">
     ${ring(Math.min(1, tot.k / t.kcal), IC.apple, 56)}
@@ -72,22 +87,46 @@ export function defaultMeal(d = new Date()) {
 }
 
 /* ---------- Écran ---------- */
-const macroBar = (name, v, goal, k) => `<div class="mb mb-${k}"><div class="mb-l"><span>${name}</span><span class="tnum"><b>${Math.round(v)}</b> / ${goal} g</span></div>
-  <div class="bar"><i style="width:${Math.min(100, (v / Math.max(1, goal)) * 100)}%"></i></div></div>`;
+// une barre par macro ; la toucher explique à quoi sert ce nutriment (onglet « Comprendre »)
+const macroBar = (name, v, goal, k) => `<button class="mb mb-${k}" data-learn="${k}"><div class="mb-l"><span>${name}</span><span class="tnum"><b>${Math.round(v)}</b> / ${goal} g</span></div>
+  <div class="bar"><i style="width:${Math.min(100, (v / Math.max(1, goal)) * 100)}%"></i></div></button>`;
+const TABS = [["log", "Journal"], ["learn", "Comprendre"]];
+const tabsHtml = () => `<div class="seg nut-tabs mt-s" id="nut-tabs">${TABS.map(([id, name]) => `<button data-tab="${id}" class="${tab === id ? "on" : ""}" aria-pressed="${tab === id}">${name}</button>`).join("")}</div>`;
+// changer d'onglet : la pastille glisse de l'ancien au nouveau
+function bindTabs(view) {
+  $$("#nut-tabs button", view).forEach(b => b.onclick = () => {
+    if (b.dataset.tab === tab) return;
+    const from = TABS.findIndex(([id]) => id === tab);
+    tab = b.dataset.tab; renderFood(view);
+    const seg = $("#nut-tabs", view);
+    if (seg) { seg.style.setProperty("--i", from); getComputedStyle(seg, "::before").transform; seg.style.removeProperty("--i"); }
+    window.scrollTo({ top: 0 });
+  });
+  $$("[data-learn]", view).forEach(b => b.onclick = () => openLearn(b.dataset.learn));
+}
 
 export function renderFood(view) {
   host = view;
   ensureAdaptive();
-  const p = state.profile, t = targets(p), today = dayKey();
+  const head = `<header class="page-head"><h1 class="h1">Nutrition</h1><span class="ph-acts">${helpBtn("food")}<button class="icon-btn" id="f-set" aria-label="Mes objectifs">${IC.target}</button></span></header>${tabsHtml()}`;
+  if (tab === "learn") {
+    view.innerHTML = `${head}${learnHtml(state)}`;
+    $("#f-set").onclick = () => openTargets();
+    bindTabs(view);
+    bindLearn(view, learnFocus); learnFocus = null;
+    return;
+  }
+  const p = state.profile, today = dayKey();
   if (!viewKey || viewKey > today) viewKey = today;
+  // objectif du jour affiché : corrigé des écarts des jours d'avant (nutriadapt.js)
+  const t = dailyAdjust(state, keyDate(viewKey));
   const day = dayOf(state, viewKey), tot = sumItems(day.items), isToday = viewKey === today;
   const left = Math.round(t.kcal - tot.k);
   const label = isToday ? "Aujourd'hui" : viewKey === shiftKey(today, -1) ? "Hier"
     : keyDate(viewKey).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" });
   const incomplete = !p.height || !p.age || !p.sex;
 
-  view.innerHTML = `
-    <header class="page-head"><h1 class="h1">Nutrition</h1><span class="ph-acts">${helpBtn("food")}<button class="icon-btn" id="f-set" aria-label="Mes objectifs">${IC.target}</button></span></header>
+  view.innerHTML = `${head}
     <div class="day-nav"><button class="icon-btn" id="d-prev" aria-label="Jour précédent">${I.back}</button>
       <b>${esc(label)}</b><button class="icon-btn" id="d-next" ${isToday ? "disabled" : ""} aria-label="Jour suivant">${I.chev}</button></div>
     ${incomplete ? `<button class="card banner b-blue nut-tip" id="f-tip"><div class="bi">${IC.target}</div><div class="grow"><b>Des objectifs sur mesure</b><div class="small muted">Indique ta taille, ton âge et ton activité : je calcule tes besoins exacts.</div></div>${I.chev}</button>` : ""}
@@ -99,6 +138,7 @@ export function renderFood(view) {
         <div class="xs muted">Fibres ${Math.round(tot.fi)} / ${t.fi} g</div>
       </div>
     </section>
+    ${isToday ? adjustCard(t) : ""}
     <div class="nut-actions">
       <button class="card nut-act" data-act="scan">${IC.barcode}<span>Scanner</span></button>
       <button class="card nut-act" data-act="search">${I.search}<span>Chercher</span></button>
@@ -108,10 +148,11 @@ export function renderFood(view) {
     ${planCard()}
     ${MEALS.map(m => mealCard(m, day)).join("")}
     ${waterCard(day, t)}
-    ${adaptCard(t)}
-    ${historyCard(t)}`;
+    ${adaptCard(t.base)}
+    ${historyCard(t.base)}`;
 
   $("#f-set").onclick = () => openTargets();
+  bindTabs(view);
   $("#f-tip")?.addEventListener("click", () => openTargets());
   $("#d-prev").onclick = () => { viewKey = shiftKey(viewKey, -1); renderFood(view); };
   $("#d-next").onclick = () => { if (viewKey < today) { viewKey = shiftKey(viewKey, 1); renderFood(view); } };
@@ -135,7 +176,7 @@ export function renderFood(view) {
   $("#w-rem")?.addEventListener("click", waterReminders);
   $("#ad-weigh")?.addEventListener("click", weighIn);
   $("#ad-set")?.addEventListener("click", () => openTargets());
-  bindPlanCard(view, refresh);
+  bindPlanCard(view, refresh, openLearn);
   $$(".nh-b", view).forEach(b => b.onclick = () => { viewKey = b.dataset.day; renderFood(view); window.scrollTo({ top: 0, behavior: "smooth" }); });
   animateRings(view);
 }
@@ -593,6 +634,7 @@ export function openTargets() {
     <div class="t-weight"><label class="field"><span>Poids visé <i class="dim">(kg)</i></span><input class="input" id="t-gw" type="number" inputmode="decimal" step="0.5" min="30" max="250" placeholder="facultatif" value="${draft.nutri.goalWeight || ""}"/></label>
       <div class="field"><span>Rythme par semaine</span><div class="chips t-rates" id="t-rate">${RATES.map(r => `<button class="chip" data-r="${r}">${r ? `${r > 0 ? "+" : "−"}${String(Math.abs(r)).replace(".", ",")} kg` : "Stable"}</button>`).join("")}</div></div></div>
     <label class="toggle set-row mt"><div class="grow"><b>Calories adaptatives</b><span class="xs muted">Recalculées chaque lundi d'après tes repas notés et tes pesées : ta vraie dépense, pas une formule</span></div><input type="checkbox" id="t-adapt" ${draft.nutri.adaptive ? "checked" : ""}/></label>
+    <label class="toggle set-row mt"><div class="grow"><b>Adaptation au jour le jour</b><span class="xs muted">Un excès en sèche, ou un manque en prise de masse, est compensé sur les 3 jours suivants (protéines inchangées)</span></div><input type="checkbox" id="t-daily" ${draft.nutri.dailyAdapt !== false ? "checked" : ""}/></label>
     <div class="card t-res mt" id="t-res"></div>
     <label class="toggle set-row mt"><div class="grow"><b>Objectifs personnalisés</b><span class="xs muted">Fixe toi-même calories et macros (avis d'un diététicien…)</span></div><input type="checkbox" id="t-custom" ${draft.nutri.custom ? "checked" : ""}/></label>
     <div class="grid2" id="t-man"></div>
@@ -625,6 +667,7 @@ export function openTargets() {
   $$("#t-goal .chip", el).forEach(b => b.onclick = () => { draft.goal = b.dataset.g; draft.nutri.rate = DEFAULT_RATE[draft.goal] ?? 0; read(); draw(); });
   $$("#t-rate .chip", el).forEach(b => b.onclick = () => { draft.nutri.rate = +b.dataset.r; read(); draw(); });
   $("#t-adapt", el).onchange = e => { read(); draft.nutri.adaptive = e.target.checked; draw(); };
+  $("#t-daily", el).onchange = e => { read(); draft.nutri.dailyAdapt = e.target.checked; };
   $("#t-gw", el).oninput = () => { read(); draw(); };
   ["#t-age", "#t-h", "#t-w"].forEach(id => $(id, el).oninput = () => { read(); draw(); });
   $("#t-custom", el).onchange = e => { read(); draft.nutri.custom = e.target.checked; draw(); };

@@ -8,6 +8,7 @@ import { recovery, musclesOf } from "./recovery.js";
 import { MUSCLES } from "./body.js";
 import { roles } from "./biomech.js";
 import { targets, dayOf, dayKey, dayTotals, waterGoal } from "./nutrition.js";
+import { dailyAdjust } from "./nutriadapt.js";
 import { plannedTarget, readinessScore, readinessVerdict } from "./engine.js";
 import { estimateMinutes, cycleInfo, isWorkout } from "./planner.js";
 
@@ -129,7 +130,7 @@ export function preTips(program, readiness, { now = new Date(), st = state, max 
     else tip("ramp", "flame", "Échauffement", `2 à 3 minutes pour faire monter la température, puis une série légère de ${mainName} avant de commencer.`);
   } else if (main) tip("ramp", "flame", "Échauffement", "3 à 5 minutes pour faire monter la température (corde, montées de genoux, rotations des articulations), puis une première série facile.");
   // 4. carburant et eau, d'après ce qui est noté aujourd'hui
-  const day = dayOf(st, dayKey(now)), t = targets(p), h = now.getHours(), eaten = dayTotals(day), goalGlasses = waterGoal(t, true);
+  const day = dayOf(st, dayKey(now)), t = dailyAdjust(st, now), h = now.getHours(), eaten = dayTotals(day), goalGlasses = waterGoal(t, true); // objectif du jour, corrigé des jours d'avant
   if (day.items?.length && h >= 14 && eaten.k < t.kcal * 0.35) tip("fuel", "flame", "Peu mangé aujourd'hui", `${Math.round(eaten.k)} kcal notées sur ${t.kcal} : prends une collation avec des glucides et un peu de protéines avant de commencer, sinon l'énergie va manquer.`);
   if (h >= 12 && tracksWater(st, now) && (day.water || 0) < goalGlasses * 0.35) tip("water", "info", "Hydrate-toi", `Seulement ${litres(day.water)} L bus aujourd'hui : bois un grand verre maintenant et garde ta gourde à portée.`);
   // 5. zone prioritaire du quiz

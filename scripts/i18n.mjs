@@ -11,7 +11,7 @@ import * as walk from "acorn-walk";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // pas d'interface : l'IA locale, la config, le dictionnaire lui-même, les outils de développement
-const SKIP_FILES = new Set(["js/lang/en.js", "js/config.js", "js/llm-worker.js", "js/version.js", "js/errors.js", "js/i18n.js"]);
+const SKIP_FILES = new Set(["js/lang/en.js", "js/config.js", "js/llm-worker.js", "js/version.js", "js/errors.js", "js/i18n.js", "js/nutri-refs.js"]); // nutri-refs : références bibliographiques (titres d'origine)
 // appels dont les chaînes sont du code (sélecteurs, clés, événements, adresses…)
 const CODE_CALLS = new Set(["$", "$$", "querySelector", "querySelectorAll", "getElementById", "closest", "matches", "addEventListener", "removeEventListener",
   "add", "remove", "toggle", "contains", "setAttribute", "getAttribute", "removeAttribute", "hasAttribute", "getItem", "setItem", "removeItem", "fetch", "rpc",

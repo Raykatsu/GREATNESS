@@ -17,8 +17,8 @@ export const ACTIVITY = {
   mod: { name: "Actif", hint: "Souvent debout ou en mouvement", f: 1.5 },
   high: { name: "Très actif", hint: "Travail physique", f: 1.65 },
 };
-const GOAL_ADJ = { seche: -0.2, muscle: 0.1, force: 0.05, forme: 0 };
-const PROTEIN = { seche: 2.2, muscle: 2, force: 1.8, forme: 1.6 }; // g par kg de poids de corps
+export const GOAL_ADJ = { seche: -0.2, muscle: 0.1, force: 0.05, forme: 0 };
+export const PROTEIN = { seche: 2.2, muscle: 2, force: 1.8, forme: 1.6 }; // g par kg de poids de corps
 
 export const r1 = x => Math.round((+x || 0) * 10) / 10;
 const clip = (s, n) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
