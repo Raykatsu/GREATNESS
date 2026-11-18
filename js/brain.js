@@ -6,6 +6,7 @@ import { state, weekStats, exerciseHistory, streak, rankInfo, e1rm, exName } fro
 const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 import { todaysMission } from "./planner.js";
 import { nutritionContext, foodFacts } from "./nutrition.js";
+import { adjustContext } from "./nutriadapt.js";
 import { memoryContext } from "./memory.js";
 import { recoveryContext, recoveryAnswer } from "./recovery.js";
 import { ivSummary } from "./intervals.js";
@@ -259,6 +260,7 @@ export function athleteContext({ full = false } = {}) {
     healthContext(state.health?.days),
     goalsContext(state),
     nutritionContext(state),
+    adjustContext(state),
     memoryContext(state),
     ...(full ? fullExtras() : []),
   ].filter(Boolean).join("\n");

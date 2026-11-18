@@ -18,7 +18,7 @@ import { openGoalCreate } from "./goals-ui.js";
 import { openRecovery } from "./recovery-ui.js";
 import { openStory } from "./story-ui.js";
 import { openHealth } from "./health-ui.js";
-import { openTargets } from "./food.js";
+import { openTargets, foodLog } from "./food.js";
 import { openCoachGallery } from "./coach-picker.js";
 import { openFeedback } from "./feedback.js";
 import { openDemo } from "./demo.js";
@@ -84,6 +84,7 @@ let showing = 0; // une nouvelle demande remplace celle en cours
 async function show({ to, spot, click, miss }) {
   const me = ++showing;
   const path = h => h.replace(/^#\/?/, "").split("?")[0];
+  if (path(to) === "food") foodLog(); // ce que le guide montre sur l'écran Repas est dans le journal
   if (to.includes("?") || path(location.hash) !== path(to)) location.hash = to;
   await wait(320); // la feuille du guide se ferme, l'écran entre
   let el = null;
@@ -94,7 +95,7 @@ async function show({ to, spot, click, miss }) {
     else (window.__guideMiss ||= []).push(spot); // élément introuvable : vérifié par les tests
     return;
   }
-  if (click) el.click();
+  if (click) { el.click(); if (!el.isConnected) el = document.querySelector(spot) || el; } // l'écran a pu se redessiner
   glow(el);
 }
 // Lance l'action d'une fonction ou d'une étape
