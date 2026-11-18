@@ -94,12 +94,14 @@ export function weekStrip(now = new Date()) {
   });
 }
 
-// Adapte reps / repos / RPE à l'objectif et au niveau. Les 2 premiers exercices "charge" sont les mouvements principaux.
-// Le niveau règle l'intensité : un débutant garde de la marge (RPE plus bas), un avancé pousse un peu plus près de l'échec.
-export function adaptToGoal(program, goal = state.profile.goal, experience = state.profile.experience) {
+// Adapte reps / repos / RPE à l'objectif, au niveau et au bloc du cycle. Les 2 premiers exercices "charge" sont les
+// mouvements principaux. Le niveau règle l'intensité : un débutant garde de la marge (RPE plus bas), un avancé pousse un
+// peu plus près de l'échec. Le bloc (voir cycleInfo) déplace la fourchette : plus de reps en Volume, moins en Pic.
+export function adaptToGoal(program, goal = state.profile.goal, experience = state.profile.experience, block = cycleInfo().block) {
   const g = GOALS[goal];
   if (!g || program.simple || program.cat === "cardio" || program.cat === "custom" || program.classic) return program; // programme célèbre : ses propres séries
   const expDelta = experience === "debutant" ? -1 : experience === "avance" ? 0.5 : 0;
+  const T = blockTargets(goal, block);
   let mains = 0;
   return {
     ...program,
@@ -108,9 +110,9 @@ export function adaptToGoal(program, goal = state.profile.goal, experience = sta
       const main = mains < 2 && e.weight > 0 && (mains++, true);
       return {
         ...e,
-        reps: main ? g.mainReps : g.accReps,
-        rest: main ? g.mainRest : Math.min(e.rest, g.accRest + 15),
-        rpe: Math.max(5, Math.min(9.5, Math.min(e.rpe, g.rpe + (main ? 0 : 0.5)) + expDelta)),
+        reps: main ? T.main : T.acc,
+        rest: main ? T.mainRest : Math.min(e.rest, g.accRest + 15),
+        rpe: Math.max(5, Math.min(9.5, Math.min(e.rpe, T.rpe + (main ? 0 : 0.5)) + expDelta)),
       };
     }),
   };
@@ -186,12 +188,28 @@ export function generateSession({ groups = ["full"], minutes = 45, equipment = s
   return { name: label.slice(0, 40), tag: `${keys.map(k => GROUPS[k].name).join(" · ")} · générée`, exercises };
 }
 
-/* ---------- Cycles : semaine allégée toutes les 7 semaines ---------- */
+/* ---------- Cycles de 7 semaines : Volume, Force, Pic, puis une semaine allégée ---------- */
+// Périodisation : trois blocs de 2 semaines, puis la récupération. La fourchette de reps et le ressenti visé suivent le
+// bloc ; la double progression (engine.js) fait monter les charges quand la fourchette descend (Volume → Force → Pic).
+export const BLOCKS = {
+  volume: { name: "Volume", text: "Plus de répétitions, avec un peu de marge : on construit la base." },
+  force: { name: "Force", text: "La fourchette de ton objectif, avec des charges qui montent." },
+  pic: { name: "Pic", text: "Moins de répétitions, plus lourd : tu vas chercher tes records." },
+  deload: { name: "Récupération", text: "Charges et volume réduits : le corps encaisse le cycle pour repartir plus fort." },
+};
+export const blockAt = pos => (pos >= 7 ? "deload" : pos >= 5 ? "pic" : pos >= 3 ? "force" : "volume");
+// Cibles d'un bloc pour un objectif : fourchettes des mouvements principaux et des accessoires, ressenti, repos
+export function blockTargets(goal = state.profile.goal, block = null) {
+  const g = GOALS[goal] || GOALS.muscle, [lo, hi] = g.mainReps, mid = Math.round((lo + hi) / 2), [alo, ahi] = g.accReps;
+  if (block === "volume") return { main: [mid, hi + 2], acc: [Math.min(20, alo + 2), Math.min(20, ahi + 2)], rpe: g.rpe - 0.5, mainRest: g.mainRest };
+  if (block === "pic") return { main: [Math.max(3, lo - 2), mid], acc: [alo, ahi], rpe: g.rpe + 0.5, mainRest: g.mainRest + 30 };
+  return { main: [lo, hi], acc: [alo, ahi], rpe: g.rpe, mainRest: g.mainRest };
+}
 export function cycleInfo(now = Date.now()) {
-  if (!state.cycleStart || state.profile.deload === false) return { week: 0, deload: false, next: null };
+  if (!state.cycleStart || state.profile.deload === false) return { week: 0, deload: false, next: null, block: null };
   const week = Math.floor((now - state.cycleStart) / (7 * 864e5)) + 1;
   const pos = ((week - 1) % 7) + 1; // 1..7, la 7e est allégée
-  return { week, pos, deload: pos === 7, next: pos === 7 ? 0 : 7 - pos };
+  return { week, pos, deload: pos === 7, next: pos === 7 ? 0 : 7 - pos, block: blockAt(pos) };
 }
 
 // Séances de musculation / cardio (pas les étirements) : on propose l'échauffement et le retour au calme.

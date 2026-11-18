@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 66 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 67 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -86,6 +86,7 @@ Bouton **Caméra** en séance (et « Vérifier ma technique » dans chaque démo
 
 ## Progrès en images
 
+- **Ton cycle** : les 7 semaines du cycle (Volume, Force, Pic, Récupération), la semaine en cours, ce que le bloc change (fourchette de reps, ressenti visé) et le prochain bloc (voir « Cycles de 7 semaines »).
 - **Charge d'entraînement** : la charge de la semaine (séries dures pondérées par le ressenti, intervalles compris) face à la moyenne des 4 semaines d'avant, avec 8 semaines en barres. Idéale autour de la moyenne ; en hausse au-delà de 30 % ; **pic** au-delà de 50 %, où le risque de blessure monte (« reste à ce niveau ou allège ») ; en baisse sous 80 %. Il faut au moins 3 semaines d'entraînement sur les 4 d'avant pour comparer : avant, « en rodage ».
 - **Équilibre musculaire** : les séries par muscle et par semaine sur 4 semaines (les muscles qui aident comptent pour moitié, les étirements pour rien), avec les repères peu (moins de 5), idéal (10 à 20) et beaucoup (plus de 20). Les déséquilibres sont expliqués en clair : pousser / tirer, quadriceps / ischios, haut / bas du corps. Les muscles en retard sont listés, et le bouton **Séance de rattrapage** construit une séance pour eux (générateur de séance, à ta durée habituelle).
 - **Courbes de force** : 1RM estimé de tes exercices principaux (et le total squat + développé couché + soulevé de terre), records en doré, tendance en kg par mois, sur 3 mois, 6 mois, 1 an ou tout.
@@ -273,7 +274,14 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
 - **Calculateur de disques** sous le poids (barre de 20 kg).
 - **Notes** par exercice (réglages de machine…) et par séance.
 - **Corps** : poids et mensurations avec courbe (onglet Progrès).
-- **Cycles** : semaine allégée automatique toutes les 7 semaines ; plateau détecté après 3 séances sans progrès → recul de 10 % pour relancer.
+- **Cycles de 7 semaines (périodisation)** : trois blocs de 2 semaines, puis une semaine allégée, en boucle depuis ta première séance.
+  - **Volume** : plus de répétitions (le haut de la fourchette de ton objectif, +2), ressenti visé un demi-point plus bas.
+  - **Force** : la fourchette de ton objectif.
+  - **Pic** : moins de répétitions (le bas de la fourchette, −2), ressenti un demi-point plus haut, 30 s de repos en plus sur les mouvements principaux.
+  - **Récupération** : charges et volume réduits.
+
+  La double progression fait monter les charges toute seule quand la fourchette descend. Le bloc est indiqué sur la mission du jour et dans l'aperçu de la séance ; la carte « Ton cycle » (onglet Progrès) montre les 7 semaines, ce qui change cette semaine et le prochain bloc. Réglage : Moi → Réglages → Cycles de 7 semaines. Les programmes célèbres et tes séances perso gardent leurs propres séries.
+- **Plateau** : détecté après 3 séances sans progrès → recul de 10 % pour relancer.
 - **Succès** : 20 badges à débloquer.
 - **Rappels** : vraies notifications les jours de séance et pour les défis entre amis (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
 - **Mains libres** : touche le micro en séance et dis « 8 reps, difficile », « 10 à 60 kilos », « annule », « passe », « go ».
@@ -334,6 +342,7 @@ js/planner.js     programme de la semaine, adaptation à l'objectif
 js/balance.js     équilibre musculaire (séries par muscle) et charge d'entraînement (semaine / 4 précédentes)
 js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculaire » de l'onglet Progrès
 js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance allégée, rattrapage (carte de l'accueil)
+js/cycle-ui.js    carte « Ton cycle » (périodisation) et note du bloc dans l'aperçu de séance
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)

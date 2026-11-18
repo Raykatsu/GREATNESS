@@ -6,7 +6,7 @@ import { GROUPS, generateSession } from "./planner.js";
 import { balanceOf, trainingLoad, volLevel } from "./balance.js";
 import { $, esc, I } from "./ui.js";
 
-const ZONE = { new: ["En rodage", ""], ok: ["Idéale", "green"], high: ["En hausse", "amber"], spike: ["Pic", "red"], low: ["En baisse", "blue"] };
+const ZONE = { new: ["En rodage", ""], ok: ["Idéale", "green"], high: ["En hausse", "amber"], spike: ["Pic de charge", "red"], low: ["En baisse", "blue"] };
 const ORDER = ["pecs", "delts", "traps", "lats", "biceps", "triceps", "abs", "lowerback", "glutes", "quads", "hams", "calves"];
 // typographie française : espace fine insécable avant « : ; ! ? » (la traduction l'ignore, i18n.js)
 const nb = s => s.replace(/ ([?!:;»])/g, "\u202f$1");
