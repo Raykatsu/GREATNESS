@@ -1,6 +1,37 @@
 // Dictionnaire anglais de l'app : texte français du code → texte anglais (voir js/i18n.js et scripts/i18n.mjs).
 // Les textes s'appliquent à l'écran au fil des rendus ; un texte sans traduction reste en français.
 export default {
+  // Guide : progression
+  "Surcharge progressive expliquée": "Progressive overload, explained",
+  "Aperçu de la séance, en séance et à la fin": "Workout preview, during the workout and at the end",
+  "Une rep de plus, puis de la charge quand tu le mérites, selon ton ressenti. L'app dit pourquoi : « haut de la fourchette atteint : +2,5 kg ».": "One more rep, then more load when you've earned it, based on how it felt. The app tells you why: “top of the range reached: +2.5 kg”.",
+  // Progression
+  "reps) : on enlève": "reps): taking off",
+  // Progression
+  "on enlève": "taking off",
+  "Chaque rep doit rester propre.": "Every rep should stay clean.",
+  // Surcharge progressive expliquée
+  "3 séances sans progrès : −10 % pour mieux repartir.": "3 sessions without progress: −10% to bounce back better.",
+  "Charge fixée par ton coach": "Load set by your coach",
+  "Facile la dernière fois": "Easy last time",
+  "Haut de la fourchette atteint": "Top of the range reached",
+  "La prochaine fois": "Next time",
+  "Muscles pas encore remis : une série de moins et la charge un peu allégée.": "Muscles not recovered yet: one set fewer and a slightly lighter load.",
+  "Même charge, une rep de plus : vise": "Same load, one more rep: aim for",
+  "Première fois : charge de départ prudente. Note ton ressenti, j'ajuste dès la 2e série.": "First time: a careful starting load. Rate how it felt and I'll adjust from the 2nd set.",
+  "Première fois : vise le milieu de la fourchette, bien propre.": "First time: aim for the middle of the range, nice and clean.",
+  "Refais": "Repeat",
+  "Sous la fourchette la dernière fois": "Below the range last time",
+  "Surcharge progressive": "Progressive overload",
+  "Tu dépasses": "You're past",
+  "la dernière fois : vise": "last time: aim for",
+  "on monte de": "going up by",
+  "passe à": "switch to",
+  "plus propre.": "cleaner.",
+  "pour continuer à progresser.": "to keep progressing.",
+  "reps avec un peu de marge.": "reps with a little in reserve.",
+  "reps) : même charge, refais": "reps): same load, do",
+  "À fond la dernière fois": "All-out last time",
   // Démos en 3D
   "Corps 3D sans squelette": "3D body without a skeleton",
   "Corps anatomique en 3D": "Anatomical body in 3D",

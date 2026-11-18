@@ -82,6 +82,8 @@ export const ITEMS = [
     d: "Sommeil, énergie, courbatures : le coach adapte les charges et le volume à ta forme du jour." },
   { id: "warmup", sec: "live", ic: "🔥", t: "Échauffement et retour au calme", w: "Au début et à la fin de chaque séance",
     d: "Un échauffement adapté à la séance (haut du corps, bas ou complet) est proposé avant de commencer, et un retour au calme à la fin." },
+  { id: "overload", sec: "live", ic: "📈", t: "Surcharge progressive expliquée", w: "Aperçu de la séance, en séance et à la fin", auto: did,
+    d: "Une rep de plus, puis de la charge quand tu le mérites, selon ton ressenti. L'app dit pourquoi : « haut de la fourchette atteint : +2,5 kg »." },
   { id: "sets", sec: "live", ic: "✅", t: "Valider une série", w: "En séance", auto: did,
     d: "Ajuste les kilos et les reps, valide, puis dis si c'était facile ou dur : la charge et le repos de la série suivante sont recalculés." },
   { id: "rest", sec: "live", ic: "⏳", t: "Minuteur de repos", w: "En séance",

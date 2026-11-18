@@ -26,6 +26,19 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 - **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 62 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
+## Surcharge progressive expliquée
+
+D'une séance à l'autre, chaque exercice progresse tout seul (`progressionOf` dans `js/engine.js`) : double progression
+(une rep de plus dans la fourchette, puis de la charge en haut de la fourchette), ajustée au ressenti de la meilleure
+série de la dernière fois (facile : on monte de deux crans ; à fond : on consolide ; sous la fourchette : on allège).
+Au poids du corps, on ajoute des reps (des secondes), puis l'app propose une variante plus dure (pompes → pompes pieds
+surélevés → pompes diamant, rowing inversé → tractions supination → tractions…). Le plateau (3 séances sans progrès)
+et les muscles pas encore remis passent avant.
+- **Aperçu de la séance** : la charge vraiment prévue d'après ton historique, avec la raison (« Haut de la fourchette
+  atteint (10 reps) : +2,5 kg, on repart à 6 reps »).
+- **En séance** : la même raison sous « Dernière fois », avant la première série.
+- **Fin de séance** : « La prochaine fois », la cible de chaque exercice fait.
+
 ## Comptes
 
 Chaque personne crée son compte avec un **pseudo** et un **code secret de 4 à 6 chiffres**, à taper à chaque ouverture de l'app (pavé numérique). Chaque compte a ses propres séances, stats, programme et réglages.
