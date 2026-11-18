@@ -155,6 +155,9 @@ export const ITEMS = [
   { id: "records", sec: "progress", ic: "🥇", t: "Mur des records", w: "Moi → Stats",
     go: { to: "#/progress?t=me", spot: ".rw", miss: "Tes records apparaissent après ta première séance." },
     d: "Ta meilleure charge par exercice, ton niveau de force (de Débutant à Élite) et le prochain palier à viser." },
+  { id: "cycle", sec: "progress", ic: "🔁", t: "Cycle de 7 semaines", w: "Moi → Stats",
+    go: { to: "#/progress?t=me", spot: "#cycle-card", miss: "Ton premier cycle démarre avec ta première séance." },
+    d: "Volume, force, pic, puis une semaine allégée : les répétitions et le ressenti visé suivent le bloc, et tes charges montent d'un bloc à l'autre." },
   { id: "load", sec: "progress", ic: "⚖️", t: "Charge d'entraînement", w: "Moi → Stats",
     go: { to: "#/progress?t=me", spot: ".load-card", miss: "Ta charge d'entraînement apparaît après ta première séance." },
     d: "Ta semaine comparée à tes 4 semaines d'avant, pour progresser sans monter trop vite : une hausse brutale augmente le risque de blessure." },
@@ -184,7 +187,7 @@ export const ITEMS = [
 
   // — Réglages —
   { id: "program", sec: "settings", ic: "🗓️", t: "Ton programme", w: "Moi → Réglages → Mon programme", go: { to: "#/profile", spot: "#days" },
-    d: "Objectif, séances par semaine, matériel et semaine allégée automatique. Après un changement, « Régénérer mon programme » refait ta semaine." },
+    d: "Objectif, séances par semaine, matériel et cycles de 7 semaines (avec la semaine allégée). Après un changement, « Régénérer mon programme » refait ta semaine." },
   { id: "quiz", sec: "settings", ic: "🧭", t: "Refaire le quiz", w: "Moi → Réglages", go: { to: "#/profile", spot: "#quiz-again" },
     d: "Niveau, durée de séance, zones à cibler, gênes : refais le quiz d'accueil pour un programme encore plus personnalisé." },
   { id: "remind", sec: "settings", ic: "🔔", t: "Rappels et notifications", w: "Moi → Réglages → Rappels", go: { to: "#/profile", spot: "#rem-time" },

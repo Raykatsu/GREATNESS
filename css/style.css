@@ -1158,6 +1158,17 @@ html:has(> body > :where(#view) > .composer) .toast { bottom: calc(var(--tab-h) 
 .bal-issues svg, .bal-ok svg { flex: none; width: 18px; height: 18px; color: var(--amber-ink); margin-top: 1px; }
 .bal-ok { display: flex; gap: 8px; align-items: center; margin: var(--s-4) 0 0; } .bal-ok svg { color: var(--green-ink); }
 .bal-lowt { margin: var(--s-3) 0 0; }
+/* Cycle de 7 semaines (périodisation) : Volume, Force, Pic, Récupération */
+.cy-bar, .cy-names { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.cy-bar i { display: block; height: 12px; border-radius: 6px; opacity: .35; }
+.cy-bar i.past { opacity: .7; }
+.cy-bar i.cur { opacity: 1; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--text); }
+.b-volume { background: var(--blue); } .b-force { background: var(--amber); } .b-pic { background: var(--red); } .b-deload { background: var(--green); }
+.cy-names { margin-top: 6px; } .cy-names span { text-align: center; white-space: nowrap; }
+.cy-now { margin: var(--s-4) 0 0; line-height: 1.45; }
+.cy-b { display: inline-block; padding: 1px 9px; border-radius: 99px; color: #fff; font-size: var(--fs-sm); margin-right: 4px; }
+.cy-b.b-force { color: #2a1d00; }
+.cy-t { margin: var(--s-2) 0 0; } .cy-next { margin: var(--s-2) 0 0; }
 .vbars .b.cur span { color: var(--accent-ink); font-weight: 700; }
 .vbars .avg { position: absolute; left: 0; right: 0; bottom: calc(22px + var(--y) * 96px); border-top: 1.5px dashed var(--line-2); pointer-events: none; z-index: 1; }
 .vbars .avg span { position: absolute; right: 0; top: -17px; height: auto; font-size: 10px; padding: 0 5px; border-radius: 6px; background: var(--card); color: var(--dim); }

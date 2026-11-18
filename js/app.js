@@ -3,7 +3,7 @@ import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
 import { isNative, nativeWidget } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
-import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo } from "./planner.js";
+import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo, BLOCKS } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
 import { whoosh, ringsSvg, speak } from "./fx.js";
@@ -38,6 +38,7 @@ import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { weekAdaptCard, bindWeekAdapt } from "./weekadapt.js";
+import { cycleCardHtml } from "./cycle-ui.js";
 import { loadCardHtml, balanceCardHtml, bindBalance } from "./balance-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
@@ -281,7 +282,7 @@ function home() {
       ${ringsSvg("orn")}
       <div class="m-top">
         <span class="m-tag">${kind === "done" ? `${I.check} Séance du jour terminée` : kind === "rest" ? `${I.moon} Jour de récupération` : `<i class="m-pulse" aria-hidden="true"></i> Mission du jour`}</span>
-        ${m.rest || m.doneToday || m.program.cat === "cardio" ? "" : `<span class="m-goal">${GOALS[p.goal].name}</span>`}
+        ${m.rest || m.doneToday || m.program.cat === "cardio" ? "" : `<span class="m-goal">${GOALS[p.goal].name}${cyc.block && !cyc.deload && !m.program.classic && m.program.cat !== "custom" ? ` · ${BLOCKS[cyc.block].name}` : ""}</span>`}
       </div>
       <h2 class="m-title">${esc(doneName || m.program.name)}</h2>
       <p class="m-sub">${m.doneToday ? "Bravo ! Un peu de mobilité t'aidera à bien récupérer." : esc(m.program.tag || "")}</p>
@@ -494,7 +495,7 @@ function progress() {
         <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
     </div>
 
-    ${all.length ? `${loadCardHtml()}${balanceCardHtml()}` : ""}
+    ${all.length ? `${cycleCardHtml()}${loadCardHtml()}${balanceCardHtml()}` : ""}
 
     ${curvesHtml()}
 
@@ -777,7 +778,7 @@ function profile() {
         <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div></div>
       <div class="set-row stack"><div class="set-lbl">${sic("dumbbell", "#f59e0b")}<b>Matériel</b></div>
         <div class="seg" id="equip">${[["gym", "Salle"], ["db", "Haltères"], ["home", "Rien"]].map(([v, l]) => `<button data-v="${v}" class="${p.equipment === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
-      <label class="toggle set-row">${sic("moon", "#6366f1")}<div class="grow"><b>Semaine allégée auto</b><span class="xs muted">Toutes les 7 semaines, charges et volume réduits</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("moon", "#6366f1")}<div class="grow"><b>Cycles de 7 semaines</b><span class="xs muted">Volume, force, pic, puis une semaine allégée, en boucle</span></div><input type="checkbox" id="p-deload" ${p.deload !== false ? "checked" : ""}/></label>
       <button class="set-row set-act" id="regen">${sic("refresh", "var(--red)")}<b class="grow">Régénérer mon programme</b>${I.chev}</button>
     </div>
 

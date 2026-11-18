@@ -6,6 +6,7 @@ import { defaultItem, exerciseForm } from "./create.js";
 import { shareProgram } from "./social.js";
 import { state, save, allPrograms, tombstone, getProgram } from "./store.js";
 import { adaptToGoal, estimateMinutes, todaysMission, isWorkout, warmupFor } from "./planner.js";
+import { blockNote } from "./cycle-ui.js";
 import { readinessScore, readinessVerdict, progressionOf } from "./engine.js";
 import { strainNote } from "./recovery-ui.js";
 import { intervalCard, openIntervals } from "./intervals-ui.js";
@@ -175,6 +176,7 @@ export function openProgram(program, startLive, refresh) {
     <div class="pv-stats tnum" id="meta"></div>
     ${program.cat === "care" ? `<div class="pv-note">${I.info}<span>Tout en douceur : arrête un mouvement s'il fait mal. Douleur vive, qui dure ou après un choc → kiné ou médecin.</span></div>` : ""}
     ${strainNote(base) ? `<div class="pv-note pv-rec">${I.info}<span>${esc(strainNote(base))}</span></div>` : ""}
+    ${blockNote(program) ? `<div class="pv-note pv-cycle">${I.bolt}<span>${blockNote(program)}</span></div>` : ""}
     <div class="section pv-section"><h2>Exercices</h2><button id="add" class="pv-add">${I.plus} Ajouter</button></div>
     <div id="list"></div>
     <div class="sheet-foot">
