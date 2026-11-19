@@ -185,7 +185,7 @@ export function startLive(program, readiness, exit) {
   const rest = S.recoveryNote();
   begin(exit);
   const intro = S.intro();
-  if (S.current) setTimeout(() => mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
+  if (S.current) setTimeout(() => { if (S?.current) mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }); }, 900);
   else setTimeout(() => mascot.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
   speak(`${S.verdict.text} ${rest?.say || ""} ${intro?.say || ""}`, { interrupt: true });
   if (aiReady() && S.current) {

@@ -426,11 +426,13 @@ onSocial(n => setSocialBadge(n));
 // Actus des amis : mises à jour à l'ouverture et au retour sur l'app (au plus toutes les 10 min)
 let socialAt = 0;
 async function socialTick() {
-  if (!currentUser || !isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
+  if (!currentUser) return;
+  // Apple Santé (compte en ligne, ou app iPhone même sans compte en ligne ; au plus toutes les 10 min) : nouvelles
+  // mesures → la carte « Forme du jour » et la courbe de poids se mettent à jour
+  syncHealth().then(r => { if (r?.changed && current === "home" && !isLive() && !document.querySelector(".sheet-wrap")) route(); });
+  if (!isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
   socialAt = Date.now();
   refreshPush();
-  // Apple Santé : nouvelles mesures → la carte « Forme du jour » et la courbe de poids se mettent à jour
-  syncHealth().then(r => { if (r?.changed && current === "home" && !isLive() && !document.querySelector(".sheet-wrap")) route(); });
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
   const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
