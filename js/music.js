@@ -45,6 +45,7 @@ export const cleanTrack = (t, src) => (t && t.title ? {
   title: clip(t.title), artist: clip(t.artist), album: clip(t.album), art: typeof t.art === "string" && /^(https:|data:image\/)/.test(t.art) ? t.art : "",
   playing: t.playing !== false, src, ...(t.url && /^https:\/\//.test(t.url) ? { url: t.url } : {}), ...(t.isrc ? { isrc: clip(t.isrc, 16) } : {}),
   ...(t.duration > 0 ? { duration: Math.round(t.duration) } : {}), ...(t.progress >= 0 && t.duration > 0 ? { progress: Math.round(t.progress) } : {}),
+  ...(t.genre ? { genre: clip(t.genre, 60) } : {}),
 } : null);
 
 // Réponse de Spotify (GET /me/player/currently-playing) → morceau ; null : rien en cours (ou une publicité)
@@ -67,10 +68,17 @@ export function parseItunes(j) {
   }, "manual")).filter(Boolean);
 }
 const country = () => { const m = String(globalThis.navigator?.language || "fr-FR").match(/-([A-Za-z]{2})$/); return (m ? m[1] : "FR").toLowerCase(); };
+// Recherche dans le catalogue iTunes : par la fonction « music » (sur iPhone, l'adresse du catalogue renvoie vers l'app
+// Musique et ne se lit pas), sinon directement
+export function itunesSearch(term, limit = 12) {
+  const fn = musicFunction(), q = `${encodeURIComponent(term)}&limit=${limit}&country=${country()}`;
+  return fn ? fetch(`${fn}?search=${q}`, { headers: { apikey: CFG.SUPABASE_ANON_KEY || "" } })
+    : fetch(`https://itunes.apple.com/search?term=${q}&media=music&entity=song`);
+}
 export async function searchMusic(q) {
   const term = clip(q, 80);
   if (term.length < 2) return [];
-  const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=12&country=${country()}`);
+  const r = await itunesSearch(term);
   if (!r.ok) throw new Error(`iTunes : HTTP ${r.status}`);
   return parseItunes(await r.json());
 }

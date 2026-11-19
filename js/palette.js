@@ -70,7 +70,14 @@ export function themeFrom(sw) {
   // ambiance : la teinte dominante, assourdie (une lueur de fond, jamais criarde)
   const dom = sw[0].hsl, amb = rgb(dom[0], Math.min(dom[1], 0.7), clamp(dom[2], 0.18, 0.42));
   const dom2 = (sw[1] || sw[0]).hsl, amb2 = rgb(dom2[0], Math.min(dom2[1], 0.7), clamp(dom2[2], 0.18, 0.42));
-  return { neutral, accent: hex(acc), accent2: hex(acc2), ambient: amb.join(", "), ambient2: amb2.join(", "), dark: lum(sw[0].c) < 0.18 };
+  // ton de la pochette (pour l'ambiance, vibe.js) : claire, vive, chaude (parts pondérées par la surface)
+  const r2 = v => Math.round(v * 100) / 100;
+  const tone = {
+    light: r2(sw.reduce((s, x) => s + x.p * x.hsl[2], 0)),
+    vivid: r2(sw.reduce((s, x) => s + x.p * vivid(x.hsl), 0)),
+    warm: r2(sw.reduce((s, x) => s + x.p * vivid(x.hsl), 0) ? sw.reduce((s, x) => s + x.p * vivid(x.hsl) * (x.hsl[0] < 75 || x.hsl[0] > 290 ? 1 : 0), 0) / sw.reduce((s, x) => s + x.p * vivid(x.hsl), 0) : 0.5),
+  };
+  return { neutral, accent: hex(acc), accent2: hex(acc2), ambient: amb.join(", "), ambient2: amb2.join(", "), dark: lum(sw[0].c) < 0.18, tone };
 }
 
 // Raccourci : pixels → thème

@@ -3361,6 +3361,80 @@ body.no-chars .story-stage { display: none; }
 .m-row { display: flex; gap: 8px; }
 .m-row .input { flex: 1; min-width: 0; }
 .m-steps { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.45; }
+/* ---------- L'ambiance du morceau (vibe.js, musictheme.js) : tout le thème suit l'énergie de la musique ----------
+   Formes (arrondis), titres (graisse, espacement), mouvements (vitesse, ressorts), lueurs et décor changent avec
+   l'ambiance ; un battement discret suit le tempo pendant que la musique joue. */
+:root[data-vibe="intense"] {
+  --r-xs: 6px; --r-sm: 8px; --r-md: 10px; --r: 12px; --r-lg: 16px;
+  --dur-2: 120ms; --dur-3: 190ms; --dur-4: 300ms; --dur-5: 420ms;
+  --e-accent: 0 12px 30px -10px rgba(var(--accent-rgb), .95);
+  --vibe-w: 850; --vibe-ls: -.035em; --vibe-glow: .3;
+}
+:root[data-vibe="festif"] {
+  --r-xs: 14px; --r-sm: 18px; --r-md: 22px; --r: 28px; --r-lg: 34px;
+  --e-accent: 0 0 0 1px rgba(var(--accent-rgb), .4), 0 12px 34px -8px rgba(var(--accent-rgb), .9);
+  --vibe-w: 800; --vibe-ls: -.02em; --vibe-glow: .32;
+}
+:root[data-vibe="chill"] {
+  --r-xs: 14px; --r-sm: 20px; --r-md: 24px; --r: 30px; --r-lg: 36px;
+  --dur-2: 220ms; --dur-3: 380ms; --dur-4: 620ms; --dur-5: 820ms;
+  --spring: var(--spring-soft);
+  --vibe-w: 560; --vibe-ls: -.005em; --vibe-glow: .15;
+}
+:root[data-vibe="sombre"] {
+  --dur-3: 360ms; --dur-4: 600ms; --dur-5: 800ms;
+  --spring: var(--spring-soft);
+  --vibe-w: 520; --vibe-ls: .005em; --vibe-glow: .1;
+}
+:root[data-vibe="epique"] {
+  --r-xs: 8px; --r-sm: 12px; --r-md: 14px; --r: 18px; --r-lg: 22px;
+  --dur-3: 340ms; --dur-4: 560ms; --dur-5: 760ms;
+  --vibe-w: 700; --vibe-ls: .02em; --vibe-glow: .22;
+}
+:root[data-vibe] .h1 { font-weight: var(--vibe-w); letter-spacing: var(--vibe-ls); transition: font-weight .8s var(--ease-out), letter-spacing .8s var(--ease-out); }
+:root[data-vibe] .h2 { font-weight: calc(var(--vibe-w) - 100); }
+:root[data-vibe="epique"] .eyebrow { letter-spacing: .18em; }
+:root[data-vibe="intense"] .eyebrow { letter-spacing: .14em; font-weight: 750; }
+/* les lueurs du fond prennent la force de l'ambiance */
+:root[data-vibe].music-tint .ambient {
+  background:
+    radial-gradient(85vmax 70vmax at 108% -12%, rgba(var(--accent-rgb), var(--vibe-glow)), rgba(var(--accent-rgb), calc(var(--vibe-glow) * .3)) 42%, transparent 68%),
+    radial-gradient(80vmax 70vmax at -14% 112%, rgba(var(--amb2-rgb, var(--accent-rgb)), var(--vibe-glow)), rgba(var(--amb2-rgb, var(--accent-rgb)), calc(var(--vibe-glow) * .3)) 44%, transparent 70%); }
+/* le décor propre à chaque ambiance, par-dessus les lueurs */
+.ambient::after { content: ""; position: absolute; inset: -20%; opacity: 0; transition: opacity 1.2s var(--ease-out); pointer-events: none; }
+:root[data-vibe="intense"] .ambient::after { opacity: 1;
+  background: repeating-linear-gradient(118deg, rgba(var(--accent-rgb), .06) 0 2px, transparent 2px 26px);
+  -webkit-mask-image: linear-gradient(160deg, #000, transparent 55%); mask-image: linear-gradient(160deg, #000, transparent 55%); }
+:root[data-vibe="festif"] .ambient::after { opacity: 1;
+  background-image: radial-gradient(circle, rgba(var(--accent-rgb), .55) 0 1.5px, transparent 2.5px), radial-gradient(circle, rgba(var(--amb2-rgb, var(--accent-rgb)), .5) 0 1px, transparent 2px);
+  background-size: 64px 64px, 41px 41px; background-position: 0 0, 18px 25px;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 18%, #000, transparent); mask-image: radial-gradient(70% 60% at 50% 18%, #000, transparent);
+  animation: vibe-drift 28s linear infinite; }
+:root[data-vibe="chill"] .ambient::after { opacity: 1;
+  background: radial-gradient(40vmax 30vmax at 25% 30%, rgba(var(--amb2-rgb, var(--accent-rgb)), .1), transparent 70%), radial-gradient(45vmax 35vmax at 80% 65%, rgba(var(--accent-rgb), .08), transparent 70%);
+  animation: vibe-float 24s var(--ease-in-out) infinite alternate; }
+:root[data-vibe="sombre"] .ambient::after { opacity: 1; background: radial-gradient(ellipse at 50% 40%, transparent 35%, rgba(0, 0, 0, .5)); }
+:root[data-vibe="epique"] .ambient::after { opacity: 1;
+  background: conic-gradient(from 160deg at 50% -8%, transparent 0deg, rgba(255, 214, 140, .09) 12deg, transparent 22deg, rgba(255, 214, 140, .06) 34deg, transparent 44deg);
+  -webkit-mask-image: linear-gradient(#000, transparent 70%); mask-image: linear-gradient(#000, transparent 70%); }
+:root[data-mode="light"] .ambient::after { mix-blend-mode: multiply; filter: opacity(.6); }
+:root[data-mode="light"][data-vibe="sombre"] .ambient::after { background: radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(40, 40, 60, .16)); }
+/* la pochette floutée : voilée pour les morceaux mélancoliques, plus vive pour la fête */
+:root[data-vibe="sombre"] .m-cover i { filter: blur(48px) saturate(.55) brightness(.8); }
+:root[data-vibe="festif"] .m-cover i { filter: blur(40px) saturate(1.8); }
+@keyframes vibe-drift { to { background-position: 64px 128px, 59px 107px; } }
+@keyframes vibe-float { to { transform: translate3d(-4%, 3%, 0) scale(1.06); } }
+/* le battement au tempo (--beat : la durée d'un temps), seulement quand la musique joue */
+@keyframes vibe-beat { 0% { transform: scale(1.05); } 40%, 100% { transform: scale(1); } }
+@keyframes vibe-pulse { 0% { opacity: 1; } 50%, 100% { opacity: .78; } }
+:root[data-vibe].music-playing .m-now .m-art, :root[data-vibe].music-playing .m-bar .m-art { animation: vibe-beat var(--beat, .6s) var(--ease-out) infinite; }
+:root[data-vibe="intense"].music-playing .ambient, :root[data-vibe="festif"].music-playing .ambient { animation: vibe-pulse var(--beat, .6s) var(--ease-out) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ambient::after, :root[data-vibe].music-playing .ambient, :root[data-vibe].music-playing .m-art { animation: none !important; }
+}
+/* l'ambiance dans les réglages Musique */
+.m-vibe { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 650;
+  background: var(--red-soft); color: var(--accent-ink); width: max-content; max-width: 100%; }
 /* mode automatique : les comptes que l'app lit toute seule */
 .m-links { display: grid; gap: 8px; }
 .m-link { display: grid; gap: 10px; padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--card); }

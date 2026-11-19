@@ -22,6 +22,9 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
   await page.route("**/functions/v1/music**", r => {
     const u = new URL(r.request().url());
     if (u.searchParams.has("lastfm")) return r.fulfill({ contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ ok: true, track }) });
+    // le catalogue iTunes, lu par la fonction (choix manuel)
+    if (u.searchParams.has("search")) return r.fulfill({ contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({ ok: true, results: u.searchParams.get("search") === "pink" ? [{ trackName: "Pink Song", artistName: "Artiste", collectionName: "Album", artworkUrl100: "https://covers.test/pink/100x100bb.png" }] : [] }) });
     const c = u.searchParams.get("cover") || "";
     relayed.push(c);
     return r.fulfill({ contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: c.includes("pink") ? PINK : GREEN });
@@ -30,8 +33,6 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
   // demande de lecture, avec l'en-tête Origin, est refusée)
   await page.route("https://covers.test/**", r => (r.request().headers().origin ? r.fulfill({ status: 403, body: "" })
     : r.fulfill({ contentType: "image/png", body: r.request().url().includes("pink") ? PINK : GREEN })));
-  await page.route("https://itunes.apple.com/**", r => r.fulfill({ contentType: "application/json", headers: { "access-control-allow-origin": "*" },
-    body: JSON.stringify({ results: [{ trackName: "Pink Song", artistName: "Artiste", collectionName: "Album", artworkUrl100: "https://covers.test/pink/100x100bb.png" }] }) }));
   try {
     await signup(page, "musique", "1357");
     await go(page, "#/");
@@ -147,6 +148,60 @@ test("musique : stats.fm, lien du profil collé, morceau en cours et ses couleur
     await page.evaluate(async () => (await import("/js/music.js")).poll());
     await page.waitForFunction(() => /cache ce que tu écoutes/.test(document.querySelector('[data-err="statsfm"]')?.innerText || ""), null, { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector(".m-prev"), null, { timeout: 5000 }); // son morceau n'est plus affiché
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});
+
+test("musique : l'ambiance du morceau change tout le thème (formes, titres, battement au tempo), réglage pour la couper", { timeout: 150000 }, async () => {
+  const app = await openApp({ online: true, reducedMotion: "no-preference" });
+  const { page, errors } = app;
+  const CORS = { "access-control-allow-origin": "*" };
+  let track = { title: "Numb", artist: "Linkin Park", art: "https://covers.test/green.png", playing: true };
+  // la fonction « music » simulée : morceau en cours (Last.fm), tempo (Deezer), relais des pochettes ; genre (iTunes)
+  await page.route("**/functions/v1/music**", r => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.has("lastfm")) return r.fulfill({ contentType: "application/json", headers: CORS, body: JSON.stringify({ ok: true, track }) });
+    if (u.searchParams.has("bpm")) return r.fulfill({ contentType: "application/json", headers: CORS, body: JSON.stringify({ ok: true, bpm: u.searchParams.get("title") === "Numb" ? 110 : 76 }) });
+    // le genre du morceau : catalogue iTunes, lu par la fonction
+    if (u.searchParams.has("search")) return r.fulfill({ contentType: "application/json", headers: CORS,
+      body: JSON.stringify({ ok: true, results: [{ trackName: "x", primaryGenreName: /Numb/.test(u.searchParams.get("search")) ? "Hard Rock" : "R&B/Soul" }] }) });
+    return r.fulfill({ contentType: "image/png", headers: CORS, body: GREEN });
+  });
+  await page.route("https://covers.test/**", r => r.fulfill({ contentType: "image/png", headers: CORS, body: GREEN }));
+  const css = (v, el = "documentElement") => page.evaluate(([v, el]) => getComputedStyle(document[el]).getPropertyValue(v).trim(), [v, el]);
+  const vibe = () => page.evaluate(() => document.documentElement.dataset.vibe || "");
+  try {
+    await signup(page, "ambiance", "1357");
+    const radius = await css("--r");
+    await go(page, "#/profile");
+    await page.click("#p-music");
+    await page.fill("#ms-user", "rayane_b");
+    await page.click("#ms-user-save");
+    // du rock à 110 BPM : ambiance intense — angles vifs, battement à 0,545 s pendant qu'il joue
+    await page.waitForFunction(() => document.documentElement.dataset.vibe === "intense", null, { timeout: 15000 });
+    assert.equal(await css("--r"), "12px");
+    assert.notEqual(radius, "12px");
+    assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue("--beat")), "0.545s");
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains("music-playing")), true);
+    await page.waitForSelector("#ms-vibe-now");
+    assert.match(await page.$eval("#ms-vibe-now", e => e.innerText), /Ambiance\s*:\s*Intense\s*·\s*110 BPM/i);
+    // de la soul lente : ambiance chill — arrondis doux, mouvements lents
+    track = { title: "Douceur", artist: "Artiste", art: "https://covers.test/green.png", playing: true };
+    await page.evaluate(async () => (await import("/js/music.js")).poll());
+    await page.waitForFunction(() => document.documentElement.dataset.vibe === "chill", null, { timeout: 15000 });
+    assert.equal(await css("--r"), "30px");
+    assert.equal(await css("--dur-4"), "620ms");
+    // en pause : plus de battement, l'ambiance reste
+    track = { ...track, playing: false };
+    await page.evaluate(async () => (await import("/js/music.js")).poll());
+    await page.waitForFunction(() => !document.documentElement.classList.contains("music-playing"), null, { timeout: 10000 });
+    assert.equal(await vibe(), "chill");
+    // ambiance coupée : l'app reprend son allure habituelle, les couleurs de la pochette restent
+    await page.$eval("#ms-vibe", e => e.click());
+    await page.waitForFunction(() => !document.documentElement.dataset.vibe, null, { timeout: 5000 });
+    assert.equal(await css("--r"), radius);
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains("music-tint")), true);
+    assert.equal(await page.$("#ms-vibe-now"), null);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });

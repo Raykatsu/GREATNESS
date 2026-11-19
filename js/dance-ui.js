@@ -5,37 +5,20 @@
 // toucher l'écran (ou Échap) le referme. L'écran reste allumé pendant la danse, 10 minutes au plus. Tempo : tapé en
 // rythme (gardé par morceau sur l'appareil), sinon celui du morceau (fonction « music »), sinon 100 BPM.
 import { state } from "./store.js";
-import * as CFG from "./config.js";
-import { nowPlaying, onMusic, trackKey, musicFunction } from "./music.js";
+import { nowPlaying, onMusic, trackKey } from "./music.js";
+import { tempoOf, keepTempo } from "./trackinfo.js";
 import { danceQ, tapTempo, DEFAULT_BPM } from "./dance.js";
 import { musicTint } from "./actions.js";
 import { esc, I, toast } from "./ui.js";
 
-const BPM_KEY = "greatness.bpm", IDLE_MS = 20000, WAKE_MS = 10 * 60000;
+const IDLE_MS = 20000, WAKE_MS = 10 * 60000;
 const MUSCLES = new Set(["pecs", "delts", "traps", "lats", "biceps", "triceps", "forearms", "abs", "obliques", "lowerback", "glutes", "quads", "hams", "adductors", "abductors", "calves", "hipflex"]);
 // le corps : un pas de danse « de face » dont la pose vient de dance.js (demo3d.js lift → move.pose)
 let bpm = DEFAULT_BPM, anchor = { t: 0, beat: 0 };
 const beatAt = now => anchor.beat + ((now - anchor.t) * bpm) / 60000;
 const DANCER = { view: "front", loop: true, fists: true, mus: { p: [], s: [] }, keys: [{ p: 0 }], pose: p => danceQ(p, bpm).q };
 
-const tempos = () => { try { return JSON.parse(localStorage.getItem(BPM_KEY) || "{}"); } catch { return {}; } };
-function keepTempo(key, value, how) {
-  try { const all = tempos(); delete all[key]; all[key] = { bpm: value, how }; const ks = Object.keys(all); for (const k of ks.slice(0, Math.max(0, ks.length - 300))) delete all[k]; localStorage.setItem(BPM_KEY, JSON.stringify(all)); } catch { /* plein */ }
-}
-// tempo du morceau : tapé avant, sinon demandé à la fonction « music » (catalogue Deezer), sinon rien
-async function tempoOf(t) {
-  const k = trackKey(t), known = tempos()[k];
-  if (known?.bpm) return known;
-  const fn = musicFunction();
-  if (!fn) return null;
-  try {
-    const q = new URLSearchParams({ bpm: "1", artist: t.artist || "", title: t.title || "", ...(t.isrc ? { isrc: t.isrc } : {}) });
-    const r = await fetch(`${fn}?${q}`, { headers: { apikey: CFG.SUPABASE_ANON_KEY || "" } });
-    const j = await r.json();
-    if (j?.bpm > 0) { keepTempo(k, j.bpm, "auto"); return { bpm: j.bpm, how: "auto" }; }
-  } catch { /* hors ligne */ }
-  return null;
-}
+// tempo du morceau : tapé avant, sinon celui du catalogue Deezer (trackinfo.js), sinon 100 BPM
 
 let root = null;
 export const dancing = () => !!root;
@@ -103,7 +86,7 @@ export async function openDance({ auto = false } = {}) {
     const b = beatAt(r.at); // le temps en cours (ancien tempo), arrondi : le dernier coup tombe sur un temps
     bpm = r.bpm; anchor = { t: r.at, beat: Math.round(b) };
     showTempo("tap");
-    if (t) keepTempo(trackKey(t), bpm, "tap");
+    if (t) keepTempo(t, bpm, "tap");
   };
   // en veille : n'importe quel toucher (hors boutons) referme, comme la fin de la musique
   if (auto) el.addEventListener("pointerdown", e => { if (!e.target.closest("button")) close(); });
