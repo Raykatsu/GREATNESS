@@ -23,6 +23,7 @@ import { applyAppearance, ACCENTS, MODES, ZOOMS, musicTint } from "./actions.js"
 import { mountAnims } from "./anim.js";
 import { chart } from "./chart.js";
 import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
+import { songsCardHtml, bindSongsCard } from "./songs-ui.js";
 import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
@@ -45,7 +46,7 @@ import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 import { openGuide, guideCard, bindGuideCard, markSeen } from "./guide.js";
-import { startMusic, stopMusic, spotifyResume } from "./music.js";
+import { startMusic, stopMusic, spotifyResume, autoAsk } from "./music.js";
 import { initMusicTheme, resetMusicTheme } from "./musictheme.js";
 import { musicHomeCard, bindMusicHome, openMusic } from "./music-ui.js";
 import { armDance } from "./dance-ui.js";
@@ -77,6 +78,8 @@ function musicFor(user) {
   initMusicTheme();
   startMusic();
   armDance(() => isLive() || current !== "home"); // le mannequin danse quand on ne fait rien sur l'accueil (jamais en séance)
+  // app iPhone : l'accès à l'app Musique est demandé tout seul, une fois, peu après l'arrivée sur l'accueil
+  setTimeout(() => { if (musicUser === user && !isLive()) autoAsk(); }, 2500);
   spotifyResume().then(r => {
     if (r === "ok") { toast("Spotify connecté ✓"); startMusic(); openMusic(); }
     else if (r) toast(r === "DENIED" ? "Connexion Spotify refusée" : `Connexion Spotify impossible (${r})`, 4000);
@@ -523,6 +526,7 @@ function progress() {
     <div class="section"><h2>Mur des records</h2>${lifts.length ? `<button class="me-add" id="rec-all">Tout voir</button>` : ""}</div>
     ${lifts.length ? recordsWallHtml(liftRecords())
       : `<div class="card empty">${I.trophy}<b>Aucun record pour l'instant</b>Ils apparaîtront après ta première séance.</div>`}
+    ${songsCardHtml()}
 
     <div class="section"><h2>Corps</h2><button class="me-add" id="body-add">${I.plus}Mesurer</button></div>
     ${bodyCard()}
@@ -538,6 +542,7 @@ function progress() {
       : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
 
   bindReviews(view);
+  bindSongsCard(view);
   bindCurves(view);
   bindBalance(view);
   mountAnims(view);

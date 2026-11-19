@@ -40,9 +40,13 @@ export function musicHomeCard() {
   if (t) return `<section class="card m-now tap mt" id="music-home">
     <button class="m-open" id="music-open">${art(t)}<span class="grow m-txt"><span class="eyebrow">${status(t)} · ${SOURCE_NAME[t.src]}</span>${names(t)}</span></button>
     <button class="icon-btn plain sm m-dance" id="music-dance" aria-label="Faire danser le mannequin">${MI.dance}</button>${controls(t)}</section>`;
-  if (!musicSource() && !m.hideInvite) return `<section class="card m-invite mt" id="music-home">
+  // rien à lire encore (musique coupée, aucun compte relié, Apple Music pas encore autorisé) : l'invitation
+  const apple = appleAvailable() && musicSource() === "auto" && appleState() !== "authorized" && appleState() !== "denied";
+  const ready = autoSources().some(k => k !== "apple" || appleState() === "authorized");
+  if ((!musicSource() || (musicSource() === "auto" && !ready)) && !m.hideInvite) return `<section class="card m-invite mt" id="music-home">
     <span class="m-inv-ic">${MI.note}</span><button class="grow m-inv-go" id="music-go"><b>Ta musique, tes couleurs</b>
-      <span class="small muted">${nb("Spotify, Deezer, Apple Music… : l'app prend les couleurs de la pochette du morceau que tu écoutes.")}</span></button>
+      <span class="small muted">${nb(apple ? "Autorise l'app Musique : ce que tu écoutes donne ses couleurs et son ambiance à l'app, tout seul."
+        : "Spotify, Deezer, Apple Music… : l'app prend les couleurs de la pochette du morceau que tu écoutes.")}</span></button>
     <button class="icon-btn plain sm" id="music-hide" aria-label="Masquer">${I.x}</button></section>`;
   return `<div id="music-home" hidden></div>`;
 }
@@ -52,7 +56,15 @@ export function bindMusicHome(root) {
   if (el.classList.contains("m-now")) {
     el.onclick = e => { if (!e.target.closest("[data-mctl], #music-dance")) openMusic(); }; // toute la carte s'ouvre au doigt
   }
-  $("#music-go", el)?.addEventListener("click", () => openMusic());
+  // app iPhone, Apple Music pas encore autorisé : un geste suffit (l'iPhone demande l'accès) ; sinon les réglages Musique
+  $("#music-go", el)?.addEventListener("click", async () => {
+    if (appleAvailable() && musicSource() === "auto" && !["authorized", "denied"].includes(appleState())) {
+      try { await appleAsk(); } catch { /* refusé : les réglages le disent */ }
+      await setMusic({ asked: true });
+      if (appleState() === "authorized") return redrawHome();
+    }
+    openMusic();
+  });
   $("#music-dance", el)?.addEventListener("click", e => { e.stopPropagation(); openDance(); });
   $("#music-hide", el)?.addEventListener("click", () => { state.profile.music = { ...(state.profile.music || {}), hideInvite: true }; save(); el.remove(); });
   bindControls(el);
@@ -86,14 +98,18 @@ export function soundtrackHtml(list = []) {
 }
 
 // Mise à jour en place à chaque nouveau morceau (accueil, séance, réglages ouverts)
+function redrawHome() { const home = document.getElementById("music-home"); if (home) { home.outerHTML = musicHomeCard(); bindMusicHome(document); } }
 onMusic(() => {
-  const home = document.getElementById("music-home");
-  if (home) { home.outerHTML = musicHomeCard(); bindMusicHome(document); }
+  redrawHome();
   const bar = document.getElementById("music-bar");
   if (bar) { bar.innerHTML = musicBarHtml(); bindMusicBar(bar); }
   if (sheetDraw) sheetDraw();
 });
-if (typeof addEventListener === "function") { addEventListener("music-tint", () => sheetDraw?.()); addEventListener("music-vibe", () => sheetDraw?.()); }
+if (typeof addEventListener === "function") {
+  addEventListener("music-tint", () => sheetDraw?.());
+  addEventListener("music-vibe", () => sheetDraw?.());
+  addEventListener("music-auth", () => { redrawHome(); sheetDraw?.(); }); // accès à l'app Musique accordé ou refusé
+}
 
 /* ---------- Réglages : d'où vient ta musique ---------- */
 const ERRORS = {

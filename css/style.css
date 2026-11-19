@@ -3479,3 +3479,14 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 .dc-hint { margin: 0; text-align: center; color: rgba(255, 255, 255, .72); }
 :root[data-mode="light"] .dc-hint { color: var(--muted); }
 .m-dance svg { width: 20px; height: 20px; }
+
+/* ---------- Tes morceaux de records (songs-ui.js, songstats.js) ---------- */
+.song-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; min-width: 0; }
+.card-list > .song-row + .song-row, .card-list > .song-go + .song-row { border-top: 1px solid var(--line); }
+.song-n { width: 18px; flex: none; text-align: center; color: var(--dim); font-weight: 650; font-size: var(--fs-sm); }
+.song-facts { display: block; margin-top: 2px; }
+.song-pr { color: var(--amber-ink); }
+.song-up b { color: var(--green-ink); }
+.song-down b { color: var(--muted); }
+.song-go { display: flex; gap: 6px; justify-content: flex-end; padding: 0 0 10px; }
+.song-go .btn { min-height: 32px; padding: 4px 12px; }
