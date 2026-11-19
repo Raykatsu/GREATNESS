@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 72 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 73 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -96,6 +96,7 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Pourquoi relier des comptes** : iOS ne laisse aucune app lire ce que jouent les autres (Spotify, Deezer…). Seule l'app Musique d'Apple se lit directement ; pour Spotify, Deezer, YouTube Music ou Tidal, stats.fm ou Last.fm font le pont, à relier une seule fois.
 - **Carte « En écoute »** sur l'accueil et **lecteur pendant la séance** (avec lecture, pause et morceau suivant si Spotify est connecté en direct).
 - **Bande-son de la séance** : les morceaux écoutés s'affichent en fin de séance et restent dans l'historique ; chaque série retient le morceau qui passait.
+- **Tes morceaux de records** (onglet Progrès) : avec quels sons tu soulèves le plus lourd. Pour chaque morceau, les records battus pendant qu'il passait et l'intensité de tes séries (charge × répétitions, rapportée à ton meilleur niveau sur l'exercice à ce moment-là) comparée à ta moyenne. **Ta playlist de records** : les morceaux qui te portent, à copier, partager ou écouter dans Spotify ou Apple Music.
 - Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm et stats.fm, relais des pochettes, tempo des morceaux).
 
 ## Le coach IA agit, retient et fait le bilan
@@ -404,6 +405,7 @@ js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutrimen
 js/music.js       musique : ce que joue le téléphone (automatique : Apple Music, stats.fm, Last.fm, Spotify), choix manuel (+ music-ui.js : écrans)
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
 js/vibe.js        l'ambiance du morceau (genre, tempo, pochette) qui change tout le thème (+ trackinfo.js : genre et tempo)
+js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist (+ songs-ui.js : carte et feuille)
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)

@@ -23,6 +23,7 @@ import { applyAppearance, ACCENTS, MODES, ZOOMS, musicTint } from "./actions.js"
 import { mountAnims } from "./anim.js";
 import { chart } from "./chart.js";
 import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
+import { songsCardHtml, bindSongsCard } from "./songs-ui.js";
 import { photosSection, mountPhotos } from "./photos.js";
 import { demoBtn, wireDemos } from "./demo.js";
 import { pushBlocker, pushEnabled, enablePush, disablePush, refreshPush } from "./push.js";
@@ -525,6 +526,7 @@ function progress() {
     <div class="section"><h2>Mur des records</h2>${lifts.length ? `<button class="me-add" id="rec-all">Tout voir</button>` : ""}</div>
     ${lifts.length ? recordsWallHtml(liftRecords())
       : `<div class="card empty">${I.trophy}<b>Aucun record pour l'instant</b>Ils apparaîtront après ta première séance.</div>`}
+    ${songsCardHtml()}
 
     <div class="section"><h2>Corps</h2><button class="me-add" id="body-add">${I.plus}Mesurer</button></div>
     ${bodyCard()}
@@ -540,6 +542,7 @@ function progress() {
       : `<div class="card empty">${I.clock}<b>Aucune séance pour l'instant</b>Ta première mission t'attend dans l'onglet Séances.</div>`}`;
 
   bindReviews(view);
+  bindSongsCard(view);
   bindCurves(view);
   bindBalance(view);
   mountAnims(view);

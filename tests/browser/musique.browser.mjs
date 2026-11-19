@@ -205,3 +205,39 @@ test("musique : l'ambiance du morceau change tout le thème (formes, titres, bat
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });
+
+test("musique : tes morceaux de records dans l'onglet Progrès, la playlist à copier ou écouter", { timeout: 120000 }, async () => {
+  const app = await openApp();
+  const { page, errors, ctx } = app;
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  try {
+    await signup(page, "records", "1357");
+    // trois séances : la première sert de référence ; sur « Numb », deux records et des séries plus lourdes
+    await page.evaluate(async () => {
+      const { state, save } = await import("/js/store.js");
+      const NUMB = { title: "Numb", artist: "Linkin Park", src: "lastfm" }, SOFT = { title: "Douceur", artist: "Artiste", src: "lastfm" };
+      const set = (exId, name, weight, reps, song) => ({ exId, name, weight, reps, rpe: 8, song });
+      const H = 864e5, now = Date.now();
+      state.sessions.push(
+        { id: "a", date: now - 3 * H, name: "Push", programId: "push", durationSec: 3000, volume: 3000, prs: [], xp: 80, music: [SOFT], sets: [set("bench", "Développé couché", 60, 8, 0), set("squat", "Squat", 80, 8, 0)] },
+        { id: "b", date: now - 2 * H, name: "Push", programId: "push", durationSec: 3000, volume: 3000, prs: ["bench", "squat"], xp: 80, music: [NUMB, SOFT],
+          sets: [set("bench", "Développé couché", 65, 8, 0), set("squat", "Squat", 85, 8, 0), set("bench", "Développé couché", 55, 8, 1), set("squat", "Squat", 70, 8, 1)] },
+        { id: "c", date: now - H, name: "Push", programId: "push", durationSec: 3000, volume: 3000, prs: [], xp: 80, music: [NUMB, SOFT],
+          sets: [set("bench", "Développé couché", 64, 8, 0), set("squat", "Squat", 60, 8, 1), set("bench", "Développé couché", 50, 8, 1)] });
+      save();
+    });
+    await go(page, "#/progress");
+    await page.waitForSelector(".songs-card");
+    const card = await page.$eval(".songs-card", e => e.innerText);
+    assert.match(card, /Numb[\s\S]*Linkin Park[\s\S]*🏆\s*2\s*records[\s\S]*\+\d+ %\s*d'intensité[\s\S]*3\s*séries[\s\S]*Douceur/);
+    // la playlist : à copier, à écouter dans Spotify ou Apple Music
+    await page.click("#songs-all");
+    await page.waitForSelector(".songs-sheet");
+    assert.deepEqual(await page.$$eval(".songs-sheet .song-row .m-txt > b", l => l.map(b => b.textContent)), ["Numb"]);
+    assert.equal(await page.getAttribute(".songs-sheet .song-go a", "href"), "https://open.spotify.com/search/Linkin%20Park%20Numb");
+    await page.click("#songs-copy");
+    await page.waitForFunction(() => /Liste copiée/.test(document.querySelector("#toast")?.textContent || ""));
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "1. Numb — Linkin Park");
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});
