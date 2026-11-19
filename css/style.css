@@ -3503,3 +3503,12 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 @keyframes war-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
 @keyframes war-flame { to { transform: scale(1.15) rotate(-6deg); } }
 @media (prefers-reduced-motion: reduce) { .war-card, .war-ic { animation: none; } }
+
+/* ---------- Séries d'échauffement (warmup.js) : la montée en charge à cocher, avant les séries de travail ---------- */
+.warm { margin: 2px 0 6px; padding: 6px 0 8px; border-bottom: 1px dashed var(--line-2); }
+.warm-h { display: flex; align-items: baseline; gap: 8px; padding: 2px 4px 6px; }
+.warm-h b { font-size: var(--fs-sm); }
+.warm-set { width: 100%; background: none; border: 0; text-align: inherit; color: var(--muted); }
+.warm-set .i { font-size: var(--fs-xs); }
+.warm-set.done { color: var(--dim); }
+.warm-set.done .val { text-decoration: line-through; text-decoration-color: var(--line-2); }

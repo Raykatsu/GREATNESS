@@ -5268,4 +5268,6 @@ export default {
   "Ta chanson de guerre": "Your war song",
   "Choisis le morceau qui te galvanise : juste avant ta série la plus lourde ou une tentative de record, l'app te le propose et le lance (Spotify) ou l'ouvre (Apple Music).": "Pick the song that fires you up: right before your heaviest set or a record attempt, the app suggests it and plays it (Spotify) or opens it (Apple Music).",
   "Bande-son": "Soundtrack",
+  "Ne compte pas dans ta séance": "Doesn't count in your workout",
+  "barre à vide": "empty bar",
 };

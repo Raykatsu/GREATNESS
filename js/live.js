@@ -28,6 +28,7 @@ import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
 import { mascot } from "./mascot.js";
 import { onMusic, nowPlaying, trackKey, spotifyLinked, spotifyPlay } from "./music.js";
 import { warMoment, warRecord, warLink } from "./warsong.js";
+import { warmupSets, needsWarmup } from "./warmup.js";
 import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 import { voiceLang, tr } from "./i18n.js";
@@ -92,6 +93,19 @@ function noteTrack(t) {
   persist();
 }
 const songNow = () => { const t = nowPlaying(), last = S?.music?.at(-1); return t?.playing && last && trackKey(last) === trackKey(t) ? S.music.length - 1 : -1; };
+// Séries d'échauffement (warmup.js) : avant la première série de travail, la montée en charge à cocher ; elles ne
+// comptent pas dans la séance
+function warmHtml(ex) {
+  if (!S || ex.done.length || S.program.simple) return "";
+  const plan = S.plan.map(e => ({ ...e, equip: EXERCISES[e.id]?.equip })), i = S.plan.indexOf(ex);
+  if (!needsWarmup(plan[i], i, plan)) return "";
+  const sets = warmupSets(ui.weight, { step: ex.step || 2.5, equip: plan[i].equip }), done = ex.warmDone || 0;
+  if (!sets.length) return "";
+  return `<div class="warm" id="warm"><div class="warm-h"><b>Échauffement</b><span class="xs muted">Ne compte pas dans ta séance</span></div>
+    ${sets.map((s, k) => `<button class="set warm-set ${k < done ? "done" : ""}" data-warm="${k}" aria-pressed="${k < done}" aria-label="Échauffement ${k + 1} : ${String(s.weight).replace(".", ",")} kilos, ${s.reps} répétitions">
+      <span class="i">É${k + 1}</span><span class="prev"></span><span class="val">${String(s.weight).replace(".", ",")}</span><span class="val">${s.reps}</span><span class="ok">${k < done ? TICK : ""}</span></button>`).join("")}</div>`;
+}
+
 // Ta chanson de guerre (warsong.js) : juste avant ta série la plus lourde ou un record en vue, une fois par séance
 function warHtml(ex) {
   const war = state.profile.music?.war, best = state.lifts?.[ex?.id]?.best, set = { type: ex?.type, weight: ui.weight, reps: ui.reps, best };
@@ -264,6 +278,7 @@ function render() {
 
     <div class="sets ${load ? "" : "noload"}">
       <div class="sets-h"><span>Série</span><span>Avant</span>${load ? "<span>Kg</span>" : ""}<span>${ex.type === "time" ? "Sec" : "Reps"}</span><span></span></div>
+      ${load ? warmHtml(ex) : ""}
       ${rows}
     </div>
 
@@ -286,6 +301,8 @@ function render() {
   bindMusicBar($("#music-bar", overlay()));
   $("#war-go", overlay())?.addEventListener("click", warGo);
   $("#war-x", overlay())?.addEventListener("click", () => { S.warDone = true; render(); });
+  // une série d'échauffement cochée (ou décochée) : celles d'avant aussi
+  $$("[data-warm]", overlay()).forEach(b => b.onclick = () => { const k = +b.dataset.warm, ex = S.current; ex.warmDone = (ex.warmDone || 0) > k ? k : k + 1; vibrate(10); render(); });
   const tabs = $("#tabs"), cur = $(`.ex-tab[data-i="${S.idx}"]`);
   if (tabs && cur) tabs.scrollLeft = cur.offsetLeft - (tabs.clientWidth - cur.offsetWidth) / 2;
 }

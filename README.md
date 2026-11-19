@@ -13,7 +13,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 | Moment | Ce que fait le coach |
 |---|---|
 | Avant la séance | Check-in (sommeil, énergie, courbatures) → charges et volume adaptés à ta forme |
-| Début d'exercice | Objectif calculé depuis ton historique (double progression), consigne technique, charges d'échauffement |
+| Début d'exercice | Objectif calculé depuis ton historique (double progression), consigne technique, séries d'échauffement calculées |
 | Après chaque série | Reps + ressenti (RPE) → charge, objectif et repos de la série suivante ajustés |
 | Fatigue | Retire des séries si la fatigue monte, conseille d'arrêter si le réservoir est vide |
 | Douleur | Arrêt immédiat + exercice de remplacement |
@@ -332,6 +332,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 - **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
+- **Séries d'échauffement calculées** : avant la première série de travail d'un mouvement à la barre (et du premier mouvement chargé de la séance), la montée en charge s'affiche au-dessus de tes séries, arrondie au pas de l'exercice : barre à vide × 10, puis 40 % × 5, 60 % × 3, 80 % × 2 de ta charge du jour. À cocher au fil de l'eau ; elles ne comptent pas dans la séance (ni volume, ni fatigue, ni record). Le coach les annonce.
 - **Soulager** : séances douces pour le mal de dos, la nuque, les épaules, les genoux, les hanches raides et les poignets (pas un avis médical).
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
