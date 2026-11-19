@@ -2,7 +2,7 @@
 // bande-son de fin de séance. Le morceau en cours vient de music.js, les couleurs de musictheme.js.
 import { state, save } from "./store.js";
 import {
-  SOURCE_NAME, musicSource, setMusic, nowPlaying, onMusic, musicError, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
+  SOURCE_NAME, statsfmId, musicSource, setMusic, nowPlaying, onMusic, musicError, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
   spotifyLogout, spotifyControl, appleAvailable, appleAsk, searchMusic, LASTFM_RE,
 } from "./music.js";
 import { refreshMusicTheme } from "./musictheme.js";
@@ -98,11 +98,13 @@ if (typeof addEventListener === "function") addEventListener("music-tint", () =>
 const ERRORS = {
   NO_KEY: "Last.fm n'est pas encore branché sur le serveur : il manque la clé Last.fm (voir SUPABASE.md, « Musique »).",
   USER_NOT_FOUND: "Ce pseudo Last.fm n'existe pas : vérifie l'orthographe.",
+  SF_USER_NOT_FOUND: "Ce profil stats.fm n'existe pas : vérifie le pseudo, ou colle le lien de ton profil.",
+  PRIVATE: "Ton profil stats.fm cache ce que tu écoutes : dans stats.fm, rends visible l'écoute en cours (réglages de confidentialité).",
   RATE_LIMIT: "Trop de demandes d'un coup : réessaie dans une minute.",
   DENIED: "Accès refusé : autorise GREATNESS dans Réglages → Confidentialité → Médias et Apple Music.",
   NOT_LINKED: "Spotify n'est plus connecté : reconnecte-toi.",
 };
-const errText = e => ERRORS[e] || "La musique ne répond pas pour le moment. Je réessaie toute seule.";
+const errText = e => ERRORS[musicSource() === "statsfm" && ERRORS[`SF_${e}`] ? `SF_${e}` : e] || "La musique ne répond pas pour le moment. Je réessaie toute seule.";
 let sheetDraw = null;
 
 export function openMusic() {
@@ -110,6 +112,7 @@ export function openMusic() {
   let pick = musicSource() || (musicFunction() ? "lastfm" : "manual"), results = [];
   const sources = [
     musicFunction() && ["lastfm", "Spotify, Deezer, YouTube Music, Tidal… par Last.fm"],
+    musicFunction() && ["statsfm", "Spotify et Apple Music, par ton profil stats.fm"],
     spotifyConfigured() && ["spotify", "En direct, avec lecture et pause"],
     appleAvailable() && ["apple", "Le morceau en cours dans l'app Musique"],
     ["manual", "Un morceau pour l'ambiance, sans compte"],
@@ -156,6 +159,20 @@ export function openMusic() {
         if (!LASTFM_RE.test(u)) return toast("Pseudo Last.fm invalide (2 à 15 lettres, chiffres, _ ou -)", 3000);
         await setMusic({ src: "lastfm", user: u });
         toast(musicError() ? errText(musicError()) : "Last.fm relié ✓", 3500);
+        redraw();
+      };
+    } else if (pick === "statsfm") {
+      box.innerHTML = `<label class="field"><span>Ton profil stats.fm</span><div class="m-row"><input class="input" id="ms-sf" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="pseudo ou lien du profil" value="${esc(m().sfUser || "")}"/>
+        <button class="btn btn-primary" id="ms-sf-save">${musicSource() === "statsfm" ? "Changer" : "Relier"}</button></div></label>
+        <details class="card adv mt-s"><summary>Préparer ton profil stats.fm</summary><ol class="m-steps small">
+          <li>${nb("Dans l'app stats.fm, ouvre les réglages de confidentialité et laisse visible l'écoute en cours.")}</li>
+          <li>${nb("Copie le lien de ton profil (stats.fm/ton-pseudo) et colle-le ici, ou écris juste ton pseudo.")}</li>
+          <li>${nb("Le morceau en cours arrive en 15 secondes environ, depuis Spotify ou Apple Music.")}</li></ol></details>`;
+      $("#ms-sf-save", box).onclick = async () => {
+        const u = statsfmId($("#ms-sf", box).value);
+        if (!u) return toast("Profil stats.fm invalide : écris ton pseudo ou colle le lien de ton profil", 3500);
+        await setMusic({ src: "statsfm", sfUser: u });
+        toast(musicError() ? errText(musicError()) : "stats.fm relié ✓", 4000);
         redraw();
       };
     } else if (pick === "spotify") {
