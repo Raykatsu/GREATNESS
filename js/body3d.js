@@ -149,7 +149,7 @@ function mount(canvas, body, colors, { onPick, onReady } = {}) {
     if (cam.spin) { cam.yaw += 0.006; draw(); }
     frame();
   }
-  function kill() { dead = true; cancelAnimationFrame(raf); ro?.disconnect(); gl.getExtension("WEBGL_lose_context")?.loseContext(); }
+  function kill() { if (dead) return; dead = true; cancelAnimationFrame(raf); ro?.disconnect(); gl.getExtension("WEBGL_lose_context")?.loseContext(); }
   // Toucher un muscle : on rend les groupes en couleurs « identifiants » et on lit le pixel touché
   const pick = (x, y) => {
     const r = canvas.getBoundingClientRect(), px = Math.round((x - r.left) / r.width * canvas.width), py = Math.round((1 - (y - r.top) / r.height) * canvas.height);
