@@ -5,7 +5,8 @@ import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
 import { Session, fmtTarget, plates, schemeAt, progressionOf } from "./engine.js";
 import { classicAfter, CLASSICS } from "./classics.js";
-import { nativeRestLive, nativeWidget, isNative } from "./native.js";
+import { nativeRestLive, nativeWidget, isNative, nativeHeartRate } from "./native.js";
+import { liveHr, hrStats } from "./heart.js";
 import { widgetData } from "./widgetdata.js";
 import { cycleInfo, isWorkout, todaysMission } from "./planner.js";
 import { pickExercises, tipsHtml } from "./train.js";
@@ -29,6 +30,8 @@ import { mascot } from "./mascot.js";
 import { onMusic, nowPlaying, trackKey, spotifyLinked, spotifyPlay } from "./music.js";
 import { warMoment, warRecord, warLink } from "./warsong.js";
 import { warmupSets, needsWarmup } from "./warmup.js";
+import { sessionMuscles, workedClass, topMuscles, HARD } from "./recap.js";
+import { bodyMap } from "./anatomy.js";
 import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 import { voiceLang, tr } from "./i18n.js";
@@ -86,6 +89,7 @@ let chain = null;
 // retient le morceau qui passait (set.song : son rang dans la bande-son)
 let offMusic = null;
 function noteTrack(t) {
+  if (rest && isNative() && trackKey(t?.playing ? t : null) !== liveSong) liveRest(); // un autre morceau pendant le repos
   if (!S || !t || !t.playing || t.src === "manual") return;
   S.music ||= [];
   if (trackKey(S.music.at(-1)) === trackKey(t) || S.music.length >= 30) return;
@@ -93,6 +97,40 @@ function noteTrack(t) {
   persist();
 }
 const songNow = () => { const t = nowPlaying(), last = S?.music?.at(-1); return t?.playing && last && trackKey(last) === trackKey(t) ? S.music.length - 1 : -1; };
+// Récap de fin de séance (recap.js) : les muscles travaillés éclairés sur la planche, puis sur le corps 3D qui tourne
+// (chargé un peu après l'écran, sauf avec « réduire les animations » ou en économie de données) ; le toucher ouvre la vue
+// 3D plein écran, à faire tourner
+function recapHtml(mus) {
+  const top = topMuscles(mus, 4), n = Object.keys(mus).length;
+  if (!top.length) return "";
+  return `<div class="section"><h2>Tes muscles du jour</h2><span class="xs dim">${n} ${n > 1 ? "muscles" : "muscle"}</span></div>
+    <div class="card fin-body" id="fin-body">
+      <button type="button" class="fb-stage" id="fb-3d" aria-label="Voir tes muscles du jour en 3D">${bodyMap({}, { cls: workedClass(mus), label: "Tes muscles du jour" })}<span class="fb-badge chip">${I.cube} 3D</span></button>
+      <ul class="fb-top">${top.map(t => `<li><i class="fb-dot ${t.sets >= HARD ? "p" : "s"}" aria-hidden="true"></i><span class="grow ellipsis">${esc(t.name)}</span><span class="tnum muted">${String(t.sets).replace(".", ",")} ${t.sets > 1 ? "séries" : "série"}</span></li>`).join("")}</ul>
+      <p class="xs muted fb-leg"><span><i class="fb-dot p"></i>Très sollicité</span><span><i class="fb-dot s"></i>Sollicité</span><span>Un muscle qui aide compte pour ½ série.</span></p>
+    </div>`;
+}
+let recap3d = null;
+function bindRecap(mus) {
+  const stage = $("#fb-3d", overlay());
+  if (!stage) return;
+  const cls = workedClass(mus);
+  stage.addEventListener("click", () => {
+    recap3d?.spin(false);
+    import("./body3d.js").then(m => m.openBody3D({ title: "Tes muscles du jour", cls, legend: [["--mus1", "Très sollicité"], ["--mus2", "Sollicité"]] }));
+  });
+  recap3d?.destroy(); recap3d = null;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.connection?.saveData) return;
+  setTimeout(() => {
+    if (!stage.isConnected) return;
+    import("./body3d.js").then(m => m.mountInline(stage, cls)).then(v => {
+      if (!v) return;
+      if (!stage.isConnected) { v.destroy(); return; }
+      recap3d = v; stage.classList.add("on3d");
+    }).catch(() => {}); // pas de WebGL : la planche reste
+  }, 900);
+}
+
 // Séries d'échauffement (warmup.js) : avant la première série de travail, la montée en charge à cocher ; elles ne
 // comptent pas dans la séance
 function warmHtml(ex) {
@@ -147,7 +185,7 @@ export function startLive(program, readiness, exit) {
   const rest = S.recoveryNote();
   begin(exit);
   const intro = S.intro();
-  if (S.current) setTimeout(() => mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }), 900);
+  if (S.current) setTimeout(() => { if (S?.current) mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }); }, 900);
   else setTimeout(() => mascot.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
   speak(`${S.verdict.text} ${rest?.say || ""} ${intro?.say || ""}`, { interrupt: true });
   if (aiReady() && S.current) {
@@ -186,6 +224,43 @@ function begin(exit) {
   mascot.setContext("live");
   clearInterval(tick);
   tick = setInterval(() => { const t = $("#elapsed"); if (t && S) t.textContent = fmtTime(S.elapsed); }, 1000);
+  startHeart();
+}
+
+// Fréquence cardiaque de la montre (Apple Watch → Apple Santé), app iPhone reliée à Santé : la dernière mesure dans
+// l'en-tête, relue toutes les 15 s ; à la fin, la moyenne et le maximum de la séance (heart.js)
+let hrTimer = 0, hrNow = 0;
+const heartOn = () => isNative() && !!state.health?.native;
+const hrHtml = () => `<span class="lh-hr" id="hr" ${hrNow ? "" : "hidden"}><span class="sep">·</span>${I.heart}<span class="sr-only">Fréquence cardiaque</span><b class="tnum">${hrNow || ""}</b></span>`;
+function startHeart() {
+  clearInterval(hrTimer); hrNow = 0;
+  if (!heartOn()) return;
+  const read = async () => {
+    const v = liveHr(await nativeHeartRate(Date.now() - 3 * 60e3));
+    if (!S) return;
+    hrNow = v;
+    const el = $("#hr");
+    if (el) { el.hidden = !v; $("b", el).textContent = v || ""; }
+  };
+  read();
+  hrTimer = setInterval(read, 15000);
+}
+// Les dernières mesures arrivent parfois de la montre avec un peu de retard : relues aussi 20 s plus tard
+async function heartAfter(sum) {
+  if (!heartOn() || !sum.sets.length) return;
+  const from = sum.date, to = sum.date + sum.durationSec * 1000 + 60e3;
+  for (const wait of [1500, 20000]) {
+    await new Promise(r => setTimeout(r, wait));
+    const st = hrStats(await nativeHeartRate(from, to), from, to);
+    if (!st) continue;
+    const s2 = state.sessions.find(x => x.id === sum.id);
+    if (s2) { s2.hr = { avg: st.avg, max: st.max }; save({ silent: true }); }
+    const box = $("#fin-hr", overlay());
+    if (box) {
+      box.hidden = false;
+      box.innerHTML = `<span class="fh-ic">${I.heart}</span><div class="grow"><b>Ton cœur pendant la séance</b><span class="small"><span>moyenne</span> <b class="tnum">${st.avg}</b> <span>· max</span> <b class="tnum">${st.max}</b> <span>bpm</span></span><span class="xs muted">Mesuré par ta montre (Apple Santé)</span></div>`;
+    }
+  }
 }
 
 function resetInputs() {
@@ -252,7 +327,7 @@ function render() {
       <div class="lh-row">
         <div class="lh-side"><button class="icon-btn plain" id="quit" aria-label="Terminer la séance">${I.x}</button></div>
         <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div>
-          <div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span><span class="sep">·</span><span>${S.idx + 1}/${S.plan.length}</span></div></div>
+          <div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span><span class="sep">·</span><span>${S.idx + 1}/${S.plan.length}</span>${hrHtml()}</div></div>
         <div class="lh-side end"><button class="icon-btn plain ${listener?.active ? "on" : ""}" id="mic" aria-label="Mains libres">${I.mic}</button>
         <button class="icon-btn plain" id="menu" aria-label="Options">${I.more}</button></div>
       </div>
@@ -335,7 +410,7 @@ function renderFreeEmpty() {
   <div class="live ${mounted ? "" : "first"}"><div class="live-wrap">
     <header class="live-head"><div class="lh-row">
       <div class="lh-side"><button class="icon-btn plain" id="quit" aria-label="Terminer la séance">${I.x}</button></div>
-      <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div><div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span></div></div>
+      <div class="lh-mid"><div class="title ellipsis">${esc(S.program.name)}</div><div class="lh-meta"><i class="lh-dot" aria-hidden="true"></i><span class="tnum" id="elapsed">${fmtTime(S.elapsed)}</span>${hrHtml()}</div></div>
       <div class="lh-side end"><button class="icon-btn plain" id="menu" aria-label="Options">${I.more}</button></div></div></header>
     <div class="free-empty stagger">
       <div class="empty">${coachIcon()}<b>${S.plan.length ? "Et maintenant ?" : "Séance libre"}</b><span>Ajoute les exercices au fur et à mesure, le coach ajuste tout en direct.</span></div>
@@ -536,12 +611,17 @@ function startRest(sec, { lastRpe = 0, half = false } = {}) {
   mascot.hang(true);
   liveRest();
 }
-// App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit
+// App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit, le morceau
+// qui joue (pochette et titre) et l'accent de l'app (aux couleurs du morceau)
+let liveSong = "";
 function liveRest() {
   if (!isNative()) return;
-  const n = S?.current;
+  const n = S?.current, t = nowPlaying(), song = rest && t?.playing && t.title ? t : null;
+  liveSong = trackKey(song);
   nativeRestLive(rest && n ? { start: rest.end - rest.total * 1000, end: rest.end, title: tr(n.name),
-    detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`) } : null);
+    detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`),
+    song: song ? `${song.title}${song.artist ? ` · ${song.artist}` : ""}` : "", art: song?.art || "",
+    tint: document.documentElement.style.getPropertyValue("--red").trim() } : null);
 }
 
 // La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.
@@ -737,6 +817,7 @@ function finish() {
   const before = rankInfo();
   const sum = S.summary();
   const done = { program: S.program, readiness: S.readiness }, next = chain;
+  clearInterval(hrTimer);
   // exercices faits (charges libres, sans programme imposé) : leur cible de la prochaine séance, après l'enregistrement
   const nextItems = (S.program.simple || ["mobility", "stretch", "care", "cardio"].includes(S.program.cat) ? [] : S.plan)
     .filter(e => e.done.length && !e.scheme && !e.ramp && !e.fixedLoad && Array.isArray(e.reps)).map(e => ({ id: e.id, reps: e.reps, weight: e.weight, sets: e.sets }));
@@ -766,6 +847,7 @@ function finish() {
   };
   const reps = sum.sets.reduce((a, s) => a + (+s.reps || 0), 0);
   const nEx = new Set(sum.sets.map(s => s.exId)).size;
+  const mus = sessionMuscles(sum.sets);
   const tiles = [
     { v: sum.durationSec, f: "time", l: "Durée", ic: I.clock },
     sum.volume > 0 ? { v: sum.volume, f: "num", u: "kg", l: "Volume soulevé", ic: I.bolt } : { v: reps, f: "num", l: "Répétitions", ic: I.bolt },
@@ -784,6 +866,8 @@ function finish() {
       ${after.level > before.level ? `<div class="chip amber rank-up">${I.trophy} Nouveau rang : ${esc(after.rank.name)}</div>` : ""}
     </div>
     <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
+    ${recapHtml(mus)}
+    <div class="card fin-hr" id="fin-hr" hidden></div>
     <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
@@ -808,6 +892,8 @@ function finish() {
   $("#next")?.addEventListener("click", () => relaunch(next.program, next.readiness));
   $("#cool")?.addEventListener("click", () => relaunch(getProgram("cooldown"), done.readiness));
   $("#share-sess")?.addEventListener("click", () => import("./sharecard.js").then(m => m.openShare(sum)));
+  bindRecap(mus);
+  heartAfter(sum);
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   mascot.setContext("app");
@@ -867,6 +953,7 @@ function countUp(root) {
 
 function close() {
   offMusic?.(); offMusic = null;
+  clearInterval(hrTimer);
   unwatchRest();
   stopDuo();
   stopVoice();

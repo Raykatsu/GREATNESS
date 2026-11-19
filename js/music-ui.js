@@ -10,6 +10,7 @@ import { VIBES } from "./vibe.js";
 import { cleanWar } from "./warsong.js";
 import { musicTint } from "./actions.js";
 import { openDance } from "./dance-ui.js";
+import { isNative } from "./native.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -151,6 +152,7 @@ export function openMusic() {
     <label class="toggle set-row"><div class="grow"><b>Garder les couleurs</b><span class="xs muted">Quand la musique s'arrête, l'app reste aux couleurs du dernier morceau</span></div><input type="checkbox" id="ms-keep" ${m().keep !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Le mannequin danse</b><span class="xs muted">Sur l'accueil, quand tu ne touches plus l'écran depuis 20 secondes pendant que la musique joue</span></div><input type="checkbox" id="ms-dance" ${m().dance !== false ? "checked" : ""}/></label>
     <button class="btn btn-soft btn-block mt-s" id="ms-dance-now">${MI.dance} Faire danser le mannequin</button>
+    ${isNative() ? `<label class="toggle set-row"><div class="grow"><b>Le coach baisse la musique</b><span class="xs muted">Quand il parle, Spotify, Apple Music… baissent le temps de la phrase, puis remontent</span></div><input type="checkbox" id="ms-duck" ${m().duck !== false ? "checked" : ""}/></label>` : ""}
     ${musicSource() ? `<button class="btn btn-ghost btn-block mt" id="ms-off">${I.x} Couper la musique dans l'app</button>` : ""}
   </div>`, { z: 80, onClose: () => { sheetDraw = null; } });
   const el = sh.el;
@@ -285,6 +287,7 @@ export function openMusic() {
   $("#ms-vibe", el).onchange = e => { setMusic({ vibe: e.target.checked }); refreshMusicTheme(); };
   $("#ms-keep", el).onchange = e => { setMusic({ keep: e.target.checked }); refreshMusicTheme(); };
   $("#ms-dance", el).onchange = e => { setMusic({ dance: e.target.checked }); };
+  $("#ms-duck", el)?.addEventListener("change", e => setMusic({ duck: e.target.checked }));
   $("#ms-dance-now", el).onclick = () => { sh.close(); openDance(); };
   $("#ms-off", el)?.addEventListener("click", () => { setMusic({ src: "" }); refreshMusicTheme(); sh.close(); toast("Musique coupée dans l'app"); }); // couleurs gardées comprises
   redraw();

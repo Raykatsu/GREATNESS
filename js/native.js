@@ -63,11 +63,25 @@ export function nativeHaptic(kind = "light") {
 }
 
 /* ---------- Dynamic Island et écran verrouillé : le repos qui défile (Live Activity, GreatnessPlugin.swift) ---------- */
-// r : { start, end (ms), title : l'exercice qui suit, detail : « Série 2/4 · 80 kg × 5 » } ; null : fin du repos
+// r : { start, end (ms), title : l'exercice qui suit, detail : « Série 2/4 · 80 kg × 5 », song : « Titre · Artiste »,
+// art : sa pochette (adresse https ou data URL), tint : l'accent de l'app « #rrggbb » } ; null : fin du repos
 export function nativeRestLive(r) {
   const G = isNative() && plugin("Greatness");
   if (!G) return;
-  (r ? G.restStart({ start: r.start, end: r.end, title: r.title, detail: r.detail || "", session: "GREATNESS" }) : G.restEnd()).catch(() => {});
+  (r ? G.restStart({ start: r.start, end: r.end, title: r.title, detail: r.detail || "", song: r.song || "", art: r.art || "", tint: r.tint || "", session: "GREATNESS" })
+    : G.restEnd()).catch(() => {});
+}
+
+/* ---------- La voix du coach baisse la musique des autres apps (Spotify, Apple Music…) le temps de parler ---------- */
+// Le natif ne touche au son que si de la musique joue ailleurs. La musique remonte un court instant après la dernière
+// phrase (pas entre deux phrases qui s'enchaînent).
+let ducked = false, undo = 0;
+export function nativeDuck(on) {
+  const G = isNative() && plugin("Greatness");
+  if (!G) return;
+  clearTimeout(undo);
+  if (on) { if (!ducked) { ducked = true; G.duck({ on: true }).catch(() => {}); } return; }
+  if (ducked) undo = setTimeout(() => { ducked = false; G.duck({ on: false }).catch(() => {}); }, 400);
 }
 /* ---------- Widget « Séance du jour » (données partagées avec l'extension) ---------- */
 export function nativeWidget(data) {
@@ -88,13 +102,23 @@ export async function nativeBioVerify(reason) {
 }
 
 /* ---------- Apple Santé (HealthKit) ---------- */
-const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories"];
+const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories", "heartRate"];
 const iso = t => new Date(t).toISOString();
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const nativeHealthAvailable = async () => { const H = isNative() && plugin("Health"); if (!H) return false; try { return !!(await H.isAvailable()).available; } catch { return false; } };
 export async function nativeHealthAuthorize() {
   const H = plugin("Health");
   await H.requestAuthorization({ read: READ, write: [] });
+}
+
+// Fréquence cardiaque (la montre, pendant la séance) entre deux instants : [{ t (ms), bpm }] (heart.js)
+export async function nativeHeartRate(from, to = Date.now()) {
+  const H = isNative() && plugin("Health");
+  if (!H) return [];
+  try {
+    const r = await H.readSamples({ dataType: "heartRate", startDate: iso(from), endDate: iso(to), limit: 5000 });
+    return (r?.samples || []).map(s => ({ t: Date.parse(s.startDate), bpm: +s.value })).filter(s => Number.isFinite(s.t) && s.bpm > 0);
+  } catch { return []; }
 }
 
 // Mesures des `days` derniers jours, au même format que le serveur : [{ day, data: { sleep, hrv, rhr, steps, weight, kcal }, at }]

@@ -39,7 +39,7 @@ import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { weekAdaptCard, bindWeekAdapt } from "./weekadapt.js";
-import { cycleCardHtml } from "./cycle-ui.js";
+import { cycleCardHtml, cycleReportHtml } from "./cycle-ui.js";
 import { loadCardHtml, balanceCardHtml, bindBalance } from "./balance-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
@@ -426,11 +426,13 @@ onSocial(n => setSocialBadge(n));
 // Actus des amis : mises à jour à l'ouverture et au retour sur l'app (au plus toutes les 10 min)
 let socialAt = 0;
 async function socialTick() {
-  if (!currentUser || !isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
+  if (!currentUser) return;
+  // Apple Santé (compte en ligne, ou app iPhone même sans compte en ligne ; au plus toutes les 10 min) : nouvelles
+  // mesures → la carte « Forme du jour » et la courbe de poids se mettent à jour
+  syncHealth().then(r => { if (r?.changed && current === "home" && !isLive() && !document.querySelector(".sheet-wrap")) route(); });
+  if (!isOnlineMode() || Date.now() - socialAt < 10 * 60e3) return;
   socialAt = Date.now();
   refreshPush();
-  // Apple Santé : nouvelles mesures → la carte « Forme du jour » et la courbe de poids se mettent à jour
-  syncHealth().then(r => { if (r?.changed && current === "home" && !isLive() && !document.querySelector(".sheet-wrap")) route(); });
   const ev = await syncSocial();
   if (!ev.length || isLive()) return;
   const top = ev.find(e => e.kind === "league" || e.kind === "inv" || e.kind === "over" || e.kind === "duel") || ev[0];
@@ -519,7 +521,7 @@ function progress() {
         <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
     </div>
 
-    ${all.length ? `${cycleCardHtml()}${loadCardHtml()}${balanceCardHtml()}` : ""}
+    ${all.length ? `${cycleCardHtml()}${cycleReportHtml()}${loadCardHtml()}${balanceCardHtml()}` : ""}
 
     ${curvesHtml()}
 

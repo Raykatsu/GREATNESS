@@ -1,6 +1,7 @@
 // Périodisation, dans un iPhone simulé : en 4e semaine du cycle (bloc Force), l'onglet Progrès montre la carte « Ton
 // cycle » (7 semaines, bloc en cours, prochain bloc) et l'aperçu d'une séance rappelle le bloc ; en 6e semaine (Pic),
-// la fourchette des mouvements principaux descend. Aucune erreur JavaScript.
+// la fourchette des mouvements principaux descend et c'est la semaine test ; en 7e semaine, le bilan du cycle
+// (séances, volume, records, verdict). Aucune erreur JavaScript.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openApp, signup, seed, go, sleep } from "./kit.mjs";
@@ -33,7 +34,22 @@ test("cycle : carte « Ton cycle », bloc dans l'aperçu de séance, fourchette 
     await go(page, "#/progress"); await go(page, "#/train");
     await page.click('.prog[data-id="push"]'); await sleep(600);
     assert.match(await page.$eval(".pv-cycle", e => e.innerText), /Bloc Pic/);
+    assert.match(await page.$eval(".pv-cycle", e => e.innerText), /Semaine test/);
     assert.match(await page.$eval(".pv-ex", e => e.innerText), /4[–-]8|4 à 8/);
+    await page.keyboard.press("Escape"); await sleep(400);
+    await go(page, "#/progress");
+    assert.match(await page.$eval("#cycle-card .cy-test", e => e.innerText), /Semaine test/);
+    assert.equal(await page.$("#cycle-report"), null, "pas encore de bilan pendant la semaine test");
+    // semaine de récupération : le bilan du cycle 1 (les 12 séances de l'historique)
+    await setWeek(7);
+    await go(page, "#/train"); await go(page, "#/progress");
+    await page.waitForSelector("#cycle-report", { timeout: 10000 });
+    assert.match(await page.$eval("#cycle-report", e => e.previousElementSibling.innerText.replace(/\s+/g, " ")), /Bilan du cycle 1 /);
+    const stats = await page.$$eval("#cycle-report .cyr-stats > div", l => l.map(d => d.innerText.replace(/\s+/g, " ").trim()));
+    assert.equal(stats.length, 3);
+    assert.match(stats[0], /^12 séances/);
+    assert.match(stats[1], /(kg|tonnes) soulevé/);
+    assert.ok((await page.$eval("#cycle-report .cyr-verdict", e => e.innerText)).length > 20);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });

@@ -17,13 +17,13 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 | Après chaque série | Reps + ressenti (RPE) → charge, objectif et repos de la série suivante ajustés |
 | Fatigue | Retire des séries si la fatigue monte, conseille d'arrêter si le réservoir est vide |
 | Douleur | Arrêt immédiat + exercice de remplacement |
-| Fin | Débrief, progrès par exercice vs dernière fois, records, XP et rangs |
+| Fin | Débrief, tes muscles du jour éclairés (planche, puis corps 3D qui tourne), progrès par exercice vs dernière fois, records, XP et rangs |
 | Chat | Répond sur la technique de chaque exercice, la nutrition, le sommeil, les plateaux, ton bilan… en utilisant tes vraies stats |
 
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 74 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 77 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -38,6 +38,7 @@ et les muscles pas encore remis passent avant.
   atteint (10 reps) : +2,5 kg, on repart à 6 reps »).
 - **En séance** : la même raison sous « Dernière fois », avant la première série.
 - **Fin de séance** : « La prochaine fois », la cible de chaque exercice fait.
+- **Tes muscles du jour** (fin de séance) : les muscles travaillés éclairés sur la planche (rouge : très sollicité, à partir de 3 séries ; orange : sollicité ; un muscle qui aide compte pour ½ série), puis le corps 3D qui tourne tout seul quand l'appareil le permet (pas avec « réduire les animations » ni en économie de données). Le toucher ouvre la vue 3D plein écran, à faire tourner au doigt.
 
 ## Comptes
 
@@ -256,6 +257,10 @@ En séance, **Demander au coach** a un **micro** : pose ta question à voix haut
 ## Dynamic Island et widget (app App Store)
 
 - **Repos dans la Dynamic Island et sur l'écran verrouillé** : le compte à rebours et l'exercice qui suit (série, charge, reps), même téléphone verrouillé ; « C'est reparti ! » à la fin.
+  Avec de la musique : la pochette et le titre du morceau qui joue (pochette dans la petite Dynamic Island et sur l'écran verrouillé), et l'accent de l'app, aux couleurs du morceau. La pochette est déposée en petit par l'app dans le dossier partagé du groupe d'apps (la Live Activity ne télécharge rien) ; un nouveau morceau pendant le repos met l'affichage à jour.
+- **Sur l'Apple Watch** : le repos (compte à rebours, exercice qui suit et sa série) s'affiche aussi sur la montre, dans le Smart Stack (iOS 18 et watchOS 11), dans une version faite pour le petit écran.
+- **Ton cœur pendant la séance** (Apple Watch, par Apple Santé) : lance un exercice « Renforcement musculaire » sur la montre ; l'app lit ta fréquence cardiaque toutes les 15 s et l'affiche dans l'en-tête de la séance (si la mesure a moins de 2 minutes), puis la moyenne et le maximum de la séance à la fin, gardés avec la séance. Les mesures arrivent de la montre via Santé, parfois avec un peu de retard : la fin de séance les relit 20 s plus tard. Demandé une fois aux comptes déjà reliés à Santé.
+- **Le coach baisse la musique quand il parle** : Spotify, Apple Music… baissent le temps d'une consigne, puis remontent (session audio iOS « duckOthers », seulement si de la musique joue ailleurs). Réglage : Moi → Réglages → Musique → Le coach baisse la musique.
 - **Widget « Séance du jour »** (écran d'accueil et écran verrouillé) : la séance prévue, ta série de jours, ta semaine ; il change de jour tout seul à minuit.
 - Code natif dans [`app-store/native/`](app-store/native/) (Swift), ajouté au projet Xcode par `app-store/ios-widgets.rb`.
 
@@ -314,6 +319,8 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
   - **Récupération** : charges et volume réduits.
 
   La double progression fait monter les charges toute seule quand la fourchette descend. Le bloc est indiqué sur la mission du jour et dans l'aperçu de la séance ; la carte « Ton cycle » (onglet Progrès) montre les 7 semaines, ce qui change cette semaine et le prochain bloc. Réglage : Moi → Réglages → Cycles de 7 semaines. Les programmes célèbres et tes séances perso gardent leurs propres séries.
+  - **Semaine test** : la dernière semaine du bloc Pic, l'app t'invite à aller chercher tes records sur tes mouvements principaux (carte « Ton cycle » et aperçu de séance).
+  - **Bilan du cycle** (onglet Progrès, pendant la semaine de récupération et la première semaine du cycle suivant) : séances, volume soulevé comparé au cycle d'avant, records battus, et ce que tes 4 meilleurs mouvements ont gagné — le meilleur 1RM estimé du cycle (formule d'Epley, charge × (1 + reps / 30)) contre ton meilleur d'avant le cycle — avec un verdict.
 - **Plateau** : détecté après 3 séances sans progrès → recul de 10 % pour relancer.
 - **Succès** : 20 badges à débloquer.
 - **Rappels** : vraies notifications les jours de séance et pour les défis entre amis (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
@@ -376,7 +383,10 @@ js/planner.js     programme de la semaine, adaptation à l'objectif
 js/balance.js     équilibre musculaire (séries par muscle) et charge d'entraînement (semaine / 4 précédentes)
 js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculaire » de l'onglet Progrès
 js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance allégée, rattrapage (carte de l'accueil)
-js/cycle-ui.js    carte « Ton cycle » (périodisation) et note du bloc dans l'aperçu de séance
+js/cycle-ui.js    carte « Ton cycle » (périodisation), bilan du cycle et note du bloc dans l'aperçu de séance
+js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé avant / pendant le cycle
+js/recap.js       récap de fin de séance : séries par muscle, muscles très sollicités / sollicités
+js/heart.js       fréquence cardiaque de la montre : dernière mesure récente, moyenne et maximum de la séance
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
