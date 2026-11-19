@@ -78,13 +78,14 @@ Sécurité : la clé de l'adresse est stockée hachée (SHA-256) et ne permet qu
 
 > Sans GitHub : SQL Editor → colle [`supabase/008_health.sql`](supabase/008_health.sql) → Run ; puis déploie [`supabase/functions/health/index.ts`](supabase/functions/health/index.ts) sous le nom `health` en désactivant « Verify JWT ». L'adresse `…/functions/v1/health` doit afficher « GREATNESS : fonction santé en ligne ».
 
-## 2 nonies. Musique (Last.fm, Spotify, Apple Music)
+## 2 nonies. Musique (Last.fm, stats.fm, Spotify, Apple Music)
 
-L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages → Musique**). Quatre sources :
+L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages → Musique**). Cinq sources :
 
 | Source | Pour qui | Ce qu'il faut |
 |---|---|---|
 | **Last.fm** | Tout le monde : Spotify, Deezer, YouTube Music, Tidal… envoient ce qu'on écoute à Last.fm | Une clé Last.fm sur le serveur (ci-dessous), puis chacun donne son pseudo Last.fm dans l'app |
+| **stats.fm** | Ceux qui suivent leurs écoutes Spotify ou Apple Music avec l'app stats.fm | Rien sur le serveur (pas de clé) : chacun donne son profil stats.fm, qui doit laisser voir l'écoute en cours (réglages de confidentialité de stats.fm) |
 | **Spotify en direct** | 5 comptes au plus (règle de Spotify depuis février 2026 pour les apps en « mode développement ») | Une app Spotify (ci-dessous) ; le compte qui la crée doit être Premium |
 | **Apple Music** | App iPhone (App Store / TestFlight) | Rien : l'iPhone demande l'accès à la musique la première fois |
 | **Choix manuel** | Tout le monde | Rien : un morceau cherché dans le catalogue iTunes |
@@ -93,7 +94,7 @@ L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages
 1. Connecte-toi sur last.fm, puis ouvre <https://www.last.fm/api/account/create> : nom de l'app « GREATNESS », une description, le reste vide → **Submit**.
 2. Copie la ligne **API key** (pas le « Shared secret », qui ne sert pas).
 3. Sur GitHub : **Settings → Secrets and variables → Actions → New repository secret**, nom `LASTFM_API_KEY`, valeur : la clé. Ne la colle jamais dans une discussion ni dans le code (le dépôt est public).
-4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-2, Last.fm prêt) ».
+4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-3, Last.fm prêt) ».
 
 **App Spotify** (facultatif : seulement pour la connexion directe, avec lecture et pause depuis l'app) :
 1. Sur <https://developer.spotify.com/dashboard>, avec un compte **Premium** : **Create app**, nom « GREATNESS », API : **Web API**.

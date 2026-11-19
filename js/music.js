@@ -1,6 +1,8 @@
 // Musique : le morceau que tu écoutes, d'où qu'il vienne, pour que l'app vive avec (thème, décor, séance). Sources :
 // - Last.fm, le pont universel : Spotify, Deezer, YouTube Music, Tidal… y envoient ce que tu écoutes (« scrobbling ») ;
 //   il suffit de ton pseudo Last.fm. Lu par la fonction Supabase « music » (la clé Last.fm reste secrète) ;
+// - stats.fm, l'app de statistiques de Spotify et d'Apple Music : le morceau en cours de ton profil (s'il laisse voir
+//   l'écoute en cours), lu par la même fonction, sans clé ;
 // - Spotify en direct (connexion PKCE, sans serveur) : en temps réel, avec lecture, pause, suivant (Premium). En « mode
 //   développement », Spotify n'autorise que 5 comptes par app : voir SUPABASE.md, « Musique » ;
 // - Apple Music (app iPhone) : le morceau en cours dans l'app Musique, lu par le natif (GreatnessPlugin.swift) ;
@@ -10,9 +12,9 @@
 import * as CFG from "./config.js";
 import { state, save } from "./store.js";
 
-export const SOURCES = ["lastfm", "spotify", "apple", "manual"];
-export const SOURCE_NAME = { lastfm: "Last.fm", spotify: "Spotify", apple: "Apple Music", manual: "Choix manuel" };
-const EVERY = { lastfm: 15000, spotify: 5000, apple: 5000, manual: 0 }; // rythme de lecture du morceau en cours
+export const SOURCES = ["lastfm", "statsfm", "spotify", "apple", "manual"];
+export const SOURCE_NAME = { lastfm: "Last.fm", statsfm: "stats.fm", spotify: "Spotify", apple: "Apple Music", manual: "Choix manuel" };
+const EVERY = { lastfm: 15000, statsfm: 15000, spotify: 5000, apple: 5000, manual: 0 }; // rythme de lecture du morceau en cours
 const GRACE = 90000; // entre deux morceaux, la source ne dit parfois plus rien : on garde le dernier 1 min 30
 const SP_KEY = "greatness.spotify", SP_PKCE = "greatness.spotify.pkce";
 export const SPOTIFY_SCOPES = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
@@ -181,6 +183,24 @@ async function lastfmNow() {
   return cleanTrack(j.track, "lastfm");
 }
 
+/* ---------- stats.fm (même fonction, sans clé) ---------- */
+export const STATSFM_RE = /^[A-Za-z0-9._-]{2,40}$/;
+// ton profil stats.fm : le pseudo, ou le lien du profil collé tel quel (stats.fm/pseudo, stats.fm/user/…)
+export function statsfmId(s) {
+  let v = String(s || "").trim().replace(/^@/, "");
+  const m = v.match(/stats\.fm\/(?:user\/)?([^/?#\s]+)/i);
+  if (m) v = m[1];
+  return STATSFM_RE.test(v) ? v : "";
+}
+async function statsfmNow() {
+  const user = cfg().sfUser, url = musicFunction();
+  if (!url || !STATSFM_RE.test(user || "")) return null;
+  const r = await fetch(`${url}?statsfm=${encodeURIComponent(user)}`, { headers: { apikey: CFG.SUPABASE_ANON_KEY || "" } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return cleanTrack(j.track, "statsfm");
+}
+
 /* ---------- Apple Music (app iPhone) ---------- */
 // ask : demande l'autorisation d'accès à la musique si elle n'a pas encore été donnée
 async function appleNow(ask = false) {
@@ -210,6 +230,7 @@ async function readOnce() {
   try {
     let t = null;
     if (src === "lastfm") t = await lastfmNow();
+    else if (src === "statsfm") t = await statsfmNow();
     else if (src === "spotify") t = spotifyLinked() ? await spotifyNow() : null;
     else if (src === "apple") t = await appleNow();
     else if (src === "manual") t = cleanTrack(cfg().pick, "manual");
@@ -220,7 +241,7 @@ async function readOnce() {
     if (!sameState(t, current)) emit(t);
   } catch (e) {
     lastErr = e.message || "ERROR";
-    if (["NOT_LINKED", "DENIED", "USER_NOT_FOUND", "NO_KEY"].includes(lastErr) && current) emit(null);
+    if (["NOT_LINKED", "DENIED", "USER_NOT_FOUND", "NO_KEY", "PRIVATE"].includes(lastErr) && current) emit(null);
   }
 }
 // Lit le morceau en cours ; une demande pendant une lecture en relance une juste après (nouvelle source…), et tous

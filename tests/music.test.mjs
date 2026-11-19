@@ -9,6 +9,7 @@ import { state } from "../js/store.js";
 import {
   parseSpotify, parseItunes, bigArt, cleanTrack, trackKey, pkceVerifier, pkceChallenge, spotifyAuthUrl, webRedirect, spotifyFinish,
   spotifyLinked, spotifyLogout, spotifyControl, poll, startMusic, stopMusic, setMusic, nowPlaying, onMusic, musicError, musicSource, LASTFM_RE, _reset, NATIVE_REDIRECT,
+  statsfmId, SOURCE_NAME,
 } from "../js/music.js";
 
 const realFetch = globalThis.fetch;
@@ -147,6 +148,37 @@ test("lectures qui se chevauchent : une à la fois, la demande arrivée pendant 
   assert.equal(nowPlaying().title, "T2", "résultat à jour pour tous");
   stopMusic();
   assert.equal(nowPlaying(), null, "déconnexion : plus de musique");
+  _reset();
+});
+
+test("stats.fm par la fonction « music » : profil (pseudo ou lien collé), morceau en cours, profil qui cache son écoute", async () => {
+  assert.equal(statsfmId("rayane"), "rayane");
+  assert.equal(statsfmId("  @Rayane.B "), "Rayane.B");
+  assert.equal(statsfmId("https://stats.fm/rayane?ref=share"), "rayane");
+  assert.equal(statsfmId("stats.fm/user/abc123def"), "abc123def");
+  assert.equal(statsfmId("https://stats.fm/"), "");
+  assert.equal(statsfmId("a"), "");
+  assert.equal(statsfmId("<script>"), "");
+  assert.equal(SOURCE_NAME.statsfm, "stats.fm");
+  reset();
+  const seen = [];
+  onMusic(t => seen.push(t && `${t.title} · ${t.src}`));
+  let reply = { ok: true, track: { title: "Blinding Lights", artist: "The Weeknd", art: "https://i.scdn.co/image/x", playing: true } };
+  let asked = "";
+  mock("/functions/v1/music?statsfm=", u => { asked = u; return typeof reply === "function" ? reply() : reply; });
+  await setMusic({ src: "statsfm", sfUser: "rayane" });
+  assert.equal(musicSource(), "statsfm");
+  assert.match(asked, /statsfm=rayane$/);
+  assert.deepEqual(seen, ["Blinding Lights · statsfm"]);
+  // profil qui cache son écoute : erreur lisible, le morceau disparaît
+  reply = () => new Response(JSON.stringify({ ok: false, error: "PRIVATE" }), { status: 403 });
+  await poll();
+  assert.equal(musicError(), "PRIVATE");
+  assert.equal(nowPlaying(), null);
+  // profil invalide gardé par erreur : rien n'est demandé
+  asked = "";
+  await setMusic({ sfUser: "../x" });
+  assert.equal(asked, "");
   _reset();
 });
 

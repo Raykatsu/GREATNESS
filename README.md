@@ -75,6 +75,7 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 
 - **Ta musique, d'où qu'elle vienne** (Moi → Réglages → Musique) :
   - **Last.fm**, le pont universel : Spotify, Deezer, YouTube Music, Tidal… y envoient ce que tu écoutes ; il suffit de ton pseudo ;
+  - **stats.fm** : Spotify et Apple Music, par ton profil stats.fm (pseudo ou lien du profil), s'il laisse voir l'écoute en cours ;
   - **Spotify en direct** : en temps réel, avec lecture, pause et morceau suivant depuis l'app (Premium). Spotify limite cette connexion à 5 comptes par app ;
   - **Apple Music** (app iPhone) : le morceau en cours dans l'app Musique ;
   - **choix manuel** : un morceau cherché dans le catalogue iTunes, pour l'ambiance.
@@ -82,10 +83,10 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Le décor** : la pochette floutée derrière l'écran, en fondu d'un morceau à l'autre. Couleurs et décor se désactivent chacun.
 - **Les couleurs restent** : quand la musique s'arrête, l'app garde la pochette floutée et les couleurs du dernier morceau, y compris à la prochaine ouverture (réglage « Garder les couleurs »).
 - **Le mannequin qui danse** : laisse l'app sur l'accueil pendant que ta musique joue ; au bout de 20 secondes sans toucher l'écran (avant le verrouillage automatique de l'iPhone), le corps musclé 3D des démos se lève et danse au tempo du morceau, la pochette floutée derrière lui. L'écran reste allumé pendant la danse, 10 minutes au plus. Ses muscles prennent la couleur de la pochette et pulsent sur chaque temps ; un nouveau pas toutes les deux mesures (balancé et poses de culturiste sur les morceaux lents, pas chassés et « raise the roof » au milieu, sauts sur les morceaux rapides), avec un fondu d'un pas à l'autre. Tempo : celui du morceau (catalogue Deezer, par la fonction `music`), ou **Tape en rythme** (gardé pour ce morceau sur l'appareil), sinon 100 BPM. Un toucher le renvoie. Aussi depuis le bouton de la carte « En écoute » (glisser pour tourner autour). Tout seul seulement sur l'accueil, jamais en séance, ni si le téléphone réduit les animations ; réglage « Le mannequin danse ».
-- **Ce que joue le téléphone** : iOS ne laisse aucune app lire ce que jouent les autres (Spotify, Deezer…). Seule l'app Musique d'Apple se lit directement (source Apple Music, app iPhone) ; pour Spotify, Deezer, YouTube Music ou Tidal, Last.fm fait le pont.
+- **Ce que joue le téléphone** : iOS ne laisse aucune app lire ce que jouent les autres (Spotify, Deezer…). Seule l'app Musique d'Apple se lit directement (source Apple Music, app iPhone) ; pour Spotify, Deezer, YouTube Music ou Tidal, Last.fm fait le pont (ou stats.fm pour Spotify et Apple Music).
 - **Carte « En écoute »** sur l'accueil et **lecteur pendant la séance** (avec lecture, pause et morceau suivant si Spotify est connecté en direct).
 - **Bande-son de la séance** : les morceaux écoutés s'affichent en fin de séance et restent dans l'historique ; chaque série retient le morceau qui passait.
-- Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm, relais des pochettes, tempo des morceaux).
+- Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm et stats.fm, relais des pochettes, tempo des morceaux).
 
 ## Le coach IA agit, retient et fait le bilan
 
@@ -390,7 +391,7 @@ js/foods.js       les 365 aliments courants
 js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
 js/nutriadapt.js  objectif du jour ajusté aux écarts des 3 jours d'avant, jour du plan de repas recalculé
 js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutriments) ; nutri-refs.js : les études citées
-js/music.js       musique : sources (Last.fm, Spotify, Apple Music, choix manuel), morceau en cours (+ music-ui.js : écrans)
+js/music.js       musique : sources (Last.fm, stats.fm, Spotify, Apple Music, choix manuel), morceau en cours (+ music-ui.js : écrans)
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)

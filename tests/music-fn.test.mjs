@@ -1,6 +1,7 @@
 // Fonction Supabase « music » (supabase/functions/music/index.ts) : morceau en cours d'un compte Last.fm (clé secrète,
-// pochette générique remplacée par celle du catalogue iTunes, erreurs lisibles, cache de 10 s) et relais des pochettes
-// (hôtes connus seulement, images seulement, autorisation CORS).
+// pochette générique remplacée par celle du catalogue iTunes, erreurs lisibles, cache de 10 s), d'un profil stats.fm
+// (sans clé ; profil introuvable ou qui cache son écoute), relais des pochettes (hôtes connus seulement, images
+// seulement, autorisation CORS) et tempo des morceaux.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -16,7 +17,7 @@ globalThis.fetch = async (url, opts = {}) => {
   return new Response("?", { status: 404 });
 };
 console.error = () => {};
-const { parseLastfm, coverAllowed, USER_RE, tempoOk } = await import(new URL("../supabase/functions/music/index.ts", import.meta.url));
+const { parseLastfm, coverAllowed, USER_RE, tempoOk, parseStatsfm, SF_USER_RE } = await import(new URL("../supabase/functions/music/index.ts", import.meta.url));
 const call = async qs => { const res = await handler(new Request(`https://fn.test/music${qs}`)); return { res, body: await res.text() }; };
 
 const PLACE = "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png";
@@ -84,7 +85,7 @@ test("?cover= : image d'un hôte connu relayée avec CORS ; le reste refusé", a
 
 test("adresse seule : la fonction se présente (version, clé présente ou non) ; préflight CORS", async () => {
   env.LASTFM_API_KEY = "x";
-  assert.match((await call("")).body, /fonction musique en ligne \(music-2, Last\.fm prêt\)/);
+  assert.match((await call("")).body, /fonction musique en ligne \(music-3, Last\.fm prêt\)/);
   delete env.LASTFM_API_KEY;
   assert.match((await call("")).body, /clé Last\.fm absente/);
   const pre = await handler(new Request("https://fn.test/music", { method: "OPTIONS" }));
@@ -104,4 +105,72 @@ test("?bpm= : tempo par ISRC, sinon par artiste et titre (catalogue Deezer) ; in
   calls = [];
   await call("?bpm=1&artist=Daft%20Punk&title=One%20More%20Time");
   assert.equal(calls.length, 0, "déjà connu : pas de nouvel appel");
+});
+
+// réponse de stats.fm (GET /users/{profil}/streams/current, SDK officiel statsfm.js)
+const sfNow = (image = "https://i.scdn.co/image/ab67616d0000b273abc", extra = {}) => ({ item: {
+  date: "2026-11-19T00:00:00.000Z", isPlaying: true, progressMs: 61000, platform: "SPOTIFY", deviceName: "iPhone",
+  track: { id: 1, name: "Blinding Lights", durationMs: 200040, explicit: false, externalIds: { spotify: ["0VjIjW4GlUZAMYd2vXMi3b"] },
+    artists: [{ id: 2, name: "The Weeknd" }], albums: [{ id: 3, name: "After Hours", image }] }, ...extra } });
+
+test("stats.fm : morceau en cours lu proprement (artistes, pochette, lien Spotify, avancement) ; rien : null", () => {
+  assert.deepEqual(parseStatsfm(sfNow()), { title: "Blinding Lights", artist: "The Weeknd", album: "After Hours", art: "https://i.scdn.co/image/ab67616d0000b273abc",
+    playing: true, url: "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b", duration: 200040, progress: 61000 });
+  const two = sfNow("http://pas-sur/x.jpg", { isPlaying: false });
+  two.item.track.artists.push({ name: "Daft Punk" });
+  two.item.track.externalIds = {};
+  const t = parseStatsfm(two);
+  assert.deepEqual([t.artist, t.art, t.playing, t.url], ["The Weeknd, Daft Punk", "", false, ""]);
+  assert.equal(parseStatsfm({ item: null }), null);
+  assert.equal(parseStatsfm({}), null);
+  assert.ok(SF_USER_RE.test("rayane") && SF_USER_RE.test("Rayane.B_99") && !SF_USER_RE.test("../x") && !SF_USER_RE.test("a"));
+});
+
+test("?statsfm= : sans clé ; profil invalide, introuvable ou qui cache son écoute ; rien en cours ; pochette inconnue remplacée ; cache", async () => {
+  // l'API de stats.fm simulée, profil par profil
+  const profiles = {
+    rayane: { now: () => Response.json(sfNow()) },
+    ailleurs: { now: () => Response.json(sfNow("https://images.inconnu.test/c.jpg")) },
+    silence: { now: () => new Response(null, { status: 204 }), profile: { item: { id: "1", customId: "silence", privacySettings: { currentlyPlaying: true } } } },
+    discret: { now: () => Response.json({ message: "Not found" }, { status: 404 }), profile: { item: { id: "2", customId: "discret", privacySettings: { currentlyPlaying: false } } } },
+    ferme: { now: () => Response.json({ message: "Forbidden" }, { status: 403 }), profile: { item: { id: "3", customId: "ferme" } } },
+    pressé: { now: () => new Response("", { status: 429 }) },
+    panne: { now: () => new Response("", { status: 500 }) },
+  };
+  let heads = null;
+  replies["api.stats.fm/api/v1/users/"] = (u, opts) => {
+    heads = opts.headers;
+    const [, user, rest] = u.match(/users\/([^/?]+)(\/streams\/current)?/) || [];
+    const p = profiles[decodeURIComponent(user)];
+    if (rest) return p ? p.now() : Response.json({ message: "Not found" }, { status: 404 });
+    return p?.profile ? Response.json(p.profile) : Response.json({ message: "Not found" }, { status: 404 });
+  };
+  replies["itunes.apple.com/search"] = () => Response.json({ results: [{ artworkUrl100: "https://is1-ssl.mzstatic.com/image/thumb/w/100x100bb.jpg" }] });
+  assert.equal((await call("?statsfm=..%2Fx")).res.status, 400);
+  calls = [];
+  const ok = await call("?statsfm=rayane");
+  assert.equal(ok.res.status, 200);
+  assert.equal(ok.res.headers.get("access-control-allow-origin"), "*");
+  const j = JSON.parse(ok.body);
+  assert.deepEqual([j.ok, j.track.title, j.track.artist, j.track.art], [true, "Blinding Lights", "The Weeknd", "https://i.scdn.co/image/ab67616d0000b273abc"]);
+  assert.ok(calls.some(u => u === "https://api.stats.fm/api/v1/users/rayane/streams/current"));
+  assert.match(heads["User-Agent"], /^GREATNESS\/music-3$/);
+  // dans les 10 s : servi depuis le cache
+  calls = [];
+  await call("?statsfm=RAYANE");
+  assert.equal(calls.length, 0);
+  // une pochette d'un hôte inconnu ne se laisserait pas lire : celle du catalogue iTunes, en grand
+  assert.equal(JSON.parse((await call("?statsfm=ailleurs")).body).track.art, "https://is1-ssl.mzstatic.com/image/thumb/w/600x600bb.jpg");
+  // rien en ce moment : pas d'erreur, pas de morceau
+  assert.deepEqual(JSON.parse((await call("?statsfm=silence")).body), { ok: true, track: null });
+  // profil qui cache son écoute (réglages de confidentialité, ou accès refusé) ; profil introuvable
+  const hidden = await call("?statsfm=discret");
+  assert.deepEqual([hidden.res.status, JSON.parse(hidden.body).error], [403, "PRIVATE"]);
+  assert.equal(JSON.parse((await call("?statsfm=ferme")).body).error, "PRIVATE");
+  const unk = await call("?statsfm=personne");
+  assert.deepEqual([unk.res.status, JSON.parse(unk.body).error], [404, "USER_NOT_FOUND"]);
+  assert.equal(JSON.parse((await call(`?statsfm=${encodeURIComponent("pressé")}`)).body).error, "BAD_USER", "accents refusés");
+  profiles.presse = profiles["pressé"];
+  assert.deepEqual([(await call("?statsfm=presse")).res.status], [429]);
+  assert.equal(JSON.parse((await call("?statsfm=panne")).body).error, "STATSFM");
 });

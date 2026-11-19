@@ -4,10 +4,12 @@
 //   générique : retrouvée dans le catalogue iTunes. Réponse gardée 10 s par pseudo (plusieurs écrans, un appel) ;
 // - ?cover=ADRESSE : une pochette d'un hôte connu (Spotify, Last.fm, Deezer, Apple), renvoyée avec l'autorisation de
 //   lecture (CORS) pour que l'app en tire ses couleurs. Les autres adresses sont refusées ;
+// - ?statsfm=PROFIL : le morceau en cours d'un profil stats.fm (l'app de statistiques de Spotify et d'Apple Music),
+//   par son API publique, sans clé : il faut seulement que le profil laisse voir l'écoute en cours. Réponse gardée 10 s ;
 // - ?bpm=1&artist=…&title=…[&isrc=…] : le tempo du morceau, d'après le catalogue public de Deezer (pour le mannequin
 //   qui danse, js/dance-ui.js). 0 si inconnu ; gardé en mémoire.
 // Déployée automatiquement par GitHub Actions (voir SUPABASE.md, « Musique »).
-const VERSION = "music-2";
+const VERSION = "music-3";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -19,7 +21,7 @@ const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { sta
 export const USER_RE = /^[A-Za-z][\w-]{1,14}$/;
 const PLACEHOLDER = "2a96cbd8b46e442fc41c2b86b821562f"; // l'étoile grise de Last.fm, pas une vraie pochette
 const COVER_HOSTS = new Set(["i.scdn.co", "mosaic.scdn.co", "image-cdn-ak.spotifycdn.com", "image-cdn-fa.spotifycdn.com", "lastfm.freetls.fastly.net",
-  "e-cdns-images.dzcdn.net", "cdn-images.dzcdn.net", "cdns-images.dzcdn.net"]);
+  "e-cdns-images.dzcdn.net", "cdn-images.dzcdn.net", "cdns-images.dzcdn.net", "cdn.stats.fm"]);
 export function coverAllowed(u: string): boolean {
   try {
     const x = new URL(u);
@@ -73,6 +75,62 @@ async function lastfm(user: string) {
   return json(body);
 }
 
+// stats.fm : GET /users/{profil}/streams/current → { item: { isPlaying, progressMs, platform, track: { name, durationMs,
+// artists: [{ name }], albums: [{ name, image }], externalIds: { spotify: [id] } } } } (SDK officiel statsfm.js)
+export const SF_USER_RE = /^[A-Za-z0-9._-]{2,40}$/;
+const SF_API = "https://api.stats.fm/api/v1";
+// deno-lint-ignore no-explicit-any
+export function parseStatsfm(j: any) {
+  const it = j?.item, t = it?.track;
+  if (!t?.name) return null;
+  const album = Array.isArray(t.albums) ? t.albums[0] : null, sp = Array.isArray(t.externalIds?.spotify) ? String(t.externalIds.spotify[0] || "") : "";
+  const ms = Number(t.durationMs) || 0, at = Number(it.progressMs);
+  return {
+    title: String(t.name).slice(0, 120),
+    // deno-lint-ignore no-explicit-any
+    artist: (Array.isArray(t.artists) ? t.artists : []).map((a: any) => String(a?.name || "")).filter(Boolean).join(", ").slice(0, 120),
+    album: String(album?.name || "").slice(0, 120), art: /^https:\/\//.test(album?.image || "") ? String(album.image) : "",
+    playing: it.isPlaying !== false, url: /^[A-Za-z0-9]{10,40}$/.test(sp) ? `https://open.spotify.com/track/${sp}` : "",
+    ...(ms > 0 ? { duration: Math.round(ms) } : {}), ...(ms > 0 && at >= 0 ? { progress: Math.round(at) } : {}),
+  };
+}
+const sfGet = (path: string) => fetch(`${SF_API}${path}`, { headers: { "User-Agent": `GREATNESS/${VERSION}`, Accept: "application/json" } });
+// Rien en cours : le profil existe-t-il, cache-t-il l'écoute en cours ? (vérifié au plus toutes les 10 min)
+const sfProfiles = new Map<string, { at: number; exists: boolean; hidden: boolean }>();
+async function sfProfile(user: string) {
+  const k = user.toLowerCase(), hit = sfProfiles.get(k);
+  if (hit && Date.now() - hit.at < 600000) return hit;
+  const r = await sfGet(`/users/${encodeURIComponent(user)}`);
+  const j = r.ok ? await r.json().catch(() => ({})) : {}, u = j?.item ?? j;
+  const info = { at: Date.now(), exists: r.ok, hidden: u?.privacySettings?.currentlyPlaying === false };
+  if (sfProfiles.size > 500) sfProfiles.clear();
+  sfProfiles.set(k, info);
+  return info;
+}
+const sfMemo = new Map<string, { at: number; body: unknown }>();
+async function statsfm(user: string) {
+  if (!SF_USER_RE.test(user)) return json({ ok: false, error: "BAD_USER" }, 400);
+  const k = user.toLowerCase(), hit = sfMemo.get(k);
+  if (hit && Date.now() - hit.at < 10000) return json(hit.body);
+  const r = await sfGet(`/users/${encodeURIComponent(user)}/streams/current`);
+  if (r.status === 429) return json({ ok: false, error: "RATE_LIMIT" }, 429);
+  let track = null;
+  if (r.ok && r.status !== 204) track = parseStatsfm(await r.json().catch(() => ({})));
+  else if ([204, 401, 403, 404].includes(r.status)) {
+    // rien en cours, ou un profil introuvable ou qui cache son écoute : le profil le dit
+    const p = await sfProfile(user);
+    if (!p.exists) return json({ ok: false, error: "USER_NOT_FOUND" }, 404);
+    if (p.hidden || r.status === 401 || r.status === 403) return json({ ok: false, error: "PRIVATE" }, 403);
+  } else return json({ ok: false, error: "STATSFM" }, 502);
+  // une pochette d'un hôte inconnu ne se laisserait pas lire : celle du catalogue iTunes
+  if (track && track.art && !coverAllowed(track.art)) track.art = "";
+  if (track && !track.art) track.art = await itunesArt(track.artist, track.title).catch(() => "");
+  const body = { ok: true, track };
+  if (sfMemo.size > 500) sfMemo.clear();
+  sfMemo.set(k, { at: Date.now(), body });
+  return json(body);
+}
+
 // Tempo d'un morceau : par son code ISRC, sinon par l'artiste et le titre ; entre 50 et 220 BPM, sinon 0
 const tempoMemo = new Map<string, number>();
 export const tempoOk = (n: unknown) => { const v = Math.round(Number(n) || 0); return v >= 50 && v <= 220 ? v : 0; };
@@ -110,6 +168,7 @@ Deno.serve(async (req: Request) => {
   const q = new URL(req.url).searchParams;
   try {
     if (q.has("lastfm")) return await lastfm(q.get("lastfm") || "");
+    if (q.has("statsfm")) return await statsfm(q.get("statsfm") || "");
     if (q.has("cover")) return await cover(q.get("cover") || "");
     if (q.has("bpm")) return await bpm(q);
     return new Response(`GREATNESS · fonction musique en ligne (${VERSION}${env("LASTFM_API_KEY") ? ", Last.fm prêt" : ", clé Last.fm absente"})`,

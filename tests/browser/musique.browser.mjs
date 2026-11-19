@@ -105,3 +105,46 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });
+
+test("musique : stats.fm, lien du profil collé, morceau en cours et ses couleurs, profil qui cache son écoute", { timeout: 120000 }, async () => {
+  const app = await openApp({ online: true });
+  const { page, errors } = app;
+  const CORS = { "access-control-allow-origin": "*" };
+  let reply = { ok: true, track: { title: "Blinding Lights", artist: "The Weeknd", album: "After Hours", art: "https://covers.test/pink.png", playing: true } };
+  const asked = [];
+  // la fonction « music » simulée : morceau en cours d'un profil stats.fm, relais des pochettes
+  await page.route("**/functions/v1/music**", r => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.has("statsfm")) {
+      asked.push(u.searchParams.get("statsfm"));
+      return r.fulfill({ status: reply.ok ? 200 : 403, contentType: "application/json", headers: CORS, body: JSON.stringify(reply) });
+    }
+    return r.fulfill({ contentType: "image/png", headers: CORS, body: PINK });
+  });
+  await page.route("https://covers.test/**", r => r.fulfill({ contentType: "image/png", headers: CORS, body: PINK }));
+  try {
+    await signup(page, "statsfm", "1357");
+    await go(page, "#/profile");
+    await page.click("#p-music");
+    await page.click('.m-src[data-src="statsfm"]');
+    // un pseudo impossible : refusé sans rien demander
+    await page.fill("#ms-sf", "a");
+    await page.click("#ms-sf-save");
+    await page.waitForSelector("#toast.show");
+    assert.deepEqual(asked, []);
+    // le lien du profil, collé tel quel
+    await page.fill("#ms-sf", "https://stats.fm/rayane?ref=share");
+    await page.click("#ms-sf-save");
+    await page.waitForFunction(() => /Blinding Lights/.test(document.querySelector(".m-prev")?.innerText || ""), null, { timeout: 10000 });
+    assert.equal(asked[0], "rayane");
+    assert.match(await page.$eval(".m-prev", e => e.innerText), /En écoute · stats\.fm/i);
+    await page.waitForFunction(() => document.documentElement.classList.contains("music-tint"), null, { timeout: 10000 });
+    const pink = await accent(page);
+    assert.ok(hueOf(pink) > 290 && hueOf(pink) < 340, `accent rose attendu : ${pink}`);
+    // le profil cache son écoute : le morceau disparaît, l'explication s'affiche
+    reply = { ok: false, error: "PRIVATE" };
+    await page.evaluate(async () => (await import("/js/music.js")).poll());
+    await page.waitForFunction(() => /cache ce que tu écoutes/.test(document.querySelector("#ms-now")?.innerText || ""), null, { timeout: 10000 });
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});
