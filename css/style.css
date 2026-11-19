@@ -3361,6 +3361,14 @@ body.no-chars .story-stage { display: none; }
 .m-row { display: flex; gap: 8px; }
 .m-row .input { flex: 1; min-width: 0; }
 .m-steps { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.45; }
+/* mode automatique : les comptes que l'app lit toute seule */
+.m-links { display: grid; gap: 8px; }
+.m-link { display: grid; gap: 10px; padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--card); }
+.m-link:has(> button) { grid-template-columns: 1fr auto; align-items: center; }
+.m-link-h { display: grid; gap: 2px; min-width: 0; }
+.m-link details.adv summary { font-size: 13px; color: var(--muted); min-height: 24px; }
+.m-err { color: var(--danger-ink); }
+.m-err:empty { display: none; }
 .m-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .m-res { display: grid; gap: 3px; min-width: 0; text-align: left; font-size: 12px; color: var(--text); }
 .m-res .m-art { width: 100%; height: auto; aspect-ratio: 1; }

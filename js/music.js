@@ -1,4 +1,7 @@
-// Musique : le morceau que tu écoutes, d'où qu'il vienne, pour que l'app vive avec (thème, décor, séance). Sources :
+// Musique : le morceau que tu écoutes, d'où qu'il vienne, pour que l'app vive avec (thème, décor, séance).
+// Mode « Automatique » (le mode conseillé) : ce que joue le téléphone, tout seul. iOS ne laisse aucune app lire ce que
+// jouent les autres : l'app iPhone lit directement l'app Musique d'Apple, et les comptes reliés (Spotify en direct,
+// stats.fm, Last.fm) donnent le reste ; le morceau qui joue gagne. Sources :
 // - Last.fm, le pont universel : Spotify, Deezer, YouTube Music, Tidal… y envoient ce que tu écoutes (« scrobbling ») ;
 //   il suffit de ton pseudo Last.fm. Lu par la fonction Supabase « music » (la clé Last.fm reste secrète) ;
 // - stats.fm, l'app de statistiques de Spotify et d'Apple Music : le morceau en cours de ton profil (s'il laisse voir
@@ -12,9 +15,11 @@
 import * as CFG from "./config.js";
 import { state, save } from "./store.js";
 
-export const SOURCES = ["lastfm", "statsfm", "spotify", "apple", "manual"];
-export const SOURCE_NAME = { lastfm: "Last.fm", statsfm: "stats.fm", spotify: "Spotify", apple: "Apple Music", manual: "Choix manuel" };
+export const SOURCES = ["auto", "lastfm", "statsfm", "spotify", "apple", "manual"];
+export const SOURCE_NAME = { auto: "Automatique", lastfm: "Last.fm", statsfm: "stats.fm", spotify: "Spotify", apple: "Apple Music", manual: "Choix manuel" };
 const EVERY = { lastfm: 15000, statsfm: 15000, spotify: 5000, apple: 5000, manual: 0 }; // rythme de lecture du morceau en cours
+// Automatique : toutes les 5 s quand une source rapide existe (Apple Music sur l'iPhone, Spotify en direct), sinon 15 s
+const everyOf = src => (src === "auto" ? (appleAvailable() || spotifyLinked() ? 5000 : 15000) : EVERY[src]);
 const GRACE = 90000; // entre deux morceaux, la source ne dit parfois plus rien : on garde le dernier 1 min 30
 const SP_KEY = "greatness.spotify", SP_PKCE = "greatness.spotify.pkce";
 export const SPOTIFY_SCOPES = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
@@ -114,7 +119,7 @@ export async function spotifyFinish(href) {
   if (err) throw new Error(err === "access_denied" ? "DENIED" : err);
   if (!code || !p || got !== p.stateId || Date.now() - p.at > 15 * 60000) throw new Error("BAD_STATE");
   const tok = await tokenCall({ grant_type: "authorization_code", code, redirect_uri: p.redirect, code_verifier: p.verifier });
-  state.profile.music = { ...cfg(), src: "spotify" };
+  state.profile.music = { ...cfg(), src: "auto" };
   save();
   return tok;
 }
@@ -202,16 +207,50 @@ async function statsfmNow() {
 }
 
 /* ---------- Apple Music (app iPhone) ---------- */
-// ask : demande l'autorisation d'accès à la musique si elle n'a pas encore été donnée
+// ask : demande l'autorisation d'accès à la musique si elle n'a pas encore été donnée. L'autorisation (« authorized »,
+// « notDetermined », « denied ») est retenue pour les réglages.
+let appleStatus = "";
+export const appleState = () => appleStatus;
 async function appleNow(ask = false) {
   const N = native();
   if (!N?.musicNow) return null;
   const r = await N.musicNow({ ask });
+  appleStatus = r?.status || (r?.denied ? "denied" : r?.title ? "authorized" : appleStatus);
   if (r?.denied) throw new Error("DENIED");
   if (!r?.title) return null;
   return cleanTrack({ ...r, art: r.art || (await itunesArt(r.id)) }, "apple");
 }
 export const appleAsk = () => appleNow(true);
+
+/* ---------- Automatique : ce que joue le téléphone ---------- */
+// Les sources en ligne (stats.fm, Last.fm) sont lues toutes les 15 s au plus, les autres à chaque lecture.
+const slow = new Map();
+async function viaSlow(key, fn) {
+  const h = slow.get(key);
+  if (h && Date.now() - h.at < 14000) return h.t;
+  const t = await fn();
+  slow.set(key, { at: Date.now(), t });
+  return t;
+}
+// les sources que le mode automatique lit, dans l'ordre de préférence (à égalité, la première qui joue)
+export function autoSources() {
+  const c = cfg(), fn = !!musicFunction(), out = [];
+  if (appleAvailable()) out.push("apple");
+  if (spotifyLinked()) out.push("spotify");
+  if (fn && STATSFM_RE.test(c.sfUser || "")) out.push("statsfm");
+  if (fn && LASTFM_RE.test(c.user || "")) out.push("lastfm");
+  return out;
+}
+const READ = { apple: () => appleNow(), spotify: () => spotifyNow(), statsfm: () => viaSlow("statsfm", statsfmNow), lastfm: () => viaSlow("lastfm", lastfmNow) };
+// dernière erreur de chaque source du mode automatique (profil stats.fm caché, accès Apple Music refusé…)
+let autoErrs = {};
+export const musicErrors = () => autoErrs;
+async function autoNow() {
+  const errs = {};
+  const got = await Promise.all(autoSources().map(k => READ[k]().catch(e => { errs[k] = e.message || "ERROR"; return null; })));
+  autoErrs = errs;
+  return got.find(t => t?.playing) || got.find(Boolean) || null;
+}
 
 /* ---------- Le morceau en cours, pour toute l'app ---------- */
 let current = null, lastSeen = 0, timer = null, started = false, active = false, lastErr = "", inflight = null, again = false;
@@ -225,36 +264,41 @@ function emit(t) {
   for (const fn of listeners) { try { fn(t); } catch (e) { console.warn("music", e); } }
 }
 const sameState = (a, b) => trackKey(a) === trackKey(b) && !!a?.playing === !!b?.playing && a?.art === b?.art;
+// erreurs qui ne passeront pas toutes seules : le morceau affiché disparaît
+const HARD = ["NOT_LINKED", "DENIED", "USER_NOT_FOUND", "NO_KEY", "PRIVATE"];
 async function readOnce() {
   const src = musicSource();
   try {
     let t = null;
     if (src === "lastfm") t = await lastfmNow();
     else if (src === "statsfm") t = await statsfmNow();
+    else if (src === "auto") t = await autoNow();
     else if (src === "spotify") t = spotifyLinked() ? await spotifyNow() : null;
     else if (src === "apple") t = await appleNow();
     else if (src === "manual") t = cleanTrack(cfg().pick, "manual");
     if (t) lastSeen = Date.now();
     // plus rien : le dernier morceau reste affiché un moment (entre deux titres), en pause
-    else if (current && current.src === src && Date.now() - lastSeen < GRACE) t = { ...current, playing: false };
+    // (en automatique, sauf si sa source vient d'échouer pour de bon : profil caché, accès refusé…)
+    else if (current && (current.src === src || (src === "auto" && !HARD.includes(autoErrs[current.src]))) && Date.now() - lastSeen < GRACE) t = { ...current, playing: false };
     lastErr = "";
     if (!sameState(t, current)) emit(t);
   } catch (e) {
     lastErr = e.message || "ERROR";
-    if (["NOT_LINKED", "DENIED", "USER_NOT_FOUND", "NO_KEY", "PRIVATE"].includes(lastErr) && current) emit(null);
+    if (HARD.includes(lastErr) && current) emit(null);
   }
 }
 // Lit le morceau en cours ; une demande pendant une lecture en relance une juste après (nouvelle source…), et tous
-// attendent le résultat à jour
-export function poll() {
+// attendent le résultat à jour. fresh : relit aussi les sources en ligne lentes (sinon, au rythme régulier, 15 s au plus)
+export function poll(fresh = true) {
+  if (fresh) slow.clear();
   if (inflight) { again = true; return inflight; }
   inflight = (async () => { do { again = false; await readOnce(); } while (again); })().finally(() => { inflight = null; });
   return inflight;
 }
 function schedule() {
   clearInterval(timer); timer = null;
-  const every = EVERY[musicSource()];
-  if (active && every && !(typeof document !== "undefined" && document.hidden)) timer = setInterval(poll, every);
+  const every = everyOf(musicSource());
+  if (active && every && !(typeof document !== "undefined" && document.hidden)) timer = setInterval(() => poll(false), every);
 }
 // À lancer au démarrage, puis à chaque changement de réglage : lit tout de suite, puis au rythme de la source
 // (seulement quand l'app est à l'écran)
@@ -265,7 +309,7 @@ export function startMusic() {
   }
   active = true;
   if (!musicSource()) { clearInterval(timer); timer = null; if (current) emit(null); return Promise.resolve(); }
-  if (current && current.src !== musicSource()) emit(null);
+  if (current && musicSource() !== "auto" && current.src !== musicSource()) emit(null); // (en automatique, toutes les sources comptent)
   schedule();
   return poll();
 }
@@ -277,4 +321,4 @@ export function setMusic(patch) {
   return startMusic();
 }
 // pour les tests
-export const _reset = () => { clearInterval(timer); timer = null; current = null; lastSeen = 0; inflight = null; again = false; active = false; lastErr = ""; listeners.clear(); };
+export const _reset = () => { clearInterval(timer); timer = null; current = null; lastSeen = 0; inflight = null; again = false; active = false; lastErr = ""; listeners.clear(); slow.clear(); autoErrs = {}; appleStatus = ""; };

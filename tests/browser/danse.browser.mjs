@@ -48,7 +48,7 @@ test("danse : le mannequin danse au tempo du morceau, tout seul quand on ne fait
     // Last.fm relié : le morceau en cours, ses couleurs
     await page.click("#music-go");
     await page.fill("#ms-user", "rayane_b");
-    await page.click("#ms-save");
+    await page.click("#ms-user-save");
     await page.waitForSelector(".m-prev", { timeout: 10000 });
     await page.waitForFunction(() => document.documentElement.classList.contains("music-tint"), null, { timeout: 10000 });
     const green = await accent(page);

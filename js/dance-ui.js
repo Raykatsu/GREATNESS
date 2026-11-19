@@ -113,6 +113,10 @@ export async function openDance({ auto = false } = {}) {
   });
   setSong(t);
   el.querySelector("#dc-x").focus({ preventScroll: true });
+  // le corps 3D (lourd à préparer) se charge une fois l'écran ouvert (après son fondu d'entrée) : l'écran s'affiche tout
+  // de suite, même sur un téléphone lent, et un toucher qui le referme aussitôt évite tout ce travail
+  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 280)));
+  if (dead) return;
   try {
     const [b3, d3] = await Promise.all([import("./body3d.js"), import("./demo3d.js")]);
     const body = await b3.loadBody();

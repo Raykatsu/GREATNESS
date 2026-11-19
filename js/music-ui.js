@@ -2,8 +2,8 @@
 // bande-son de fin de séance. Le morceau en cours vient de music.js, les couleurs de musictheme.js.
 import { state, save } from "./store.js";
 import {
-  SOURCE_NAME, statsfmId, musicSource, setMusic, nowPlaying, onMusic, musicError, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
-  spotifyLogout, spotifyControl, appleAvailable, appleAsk, searchMusic, LASTFM_RE,
+  SOURCE_NAME, statsfmId, musicSource, setMusic, nowPlaying, onMusic, musicError, musicErrors, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
+  spotifyLogout, spotifyControl, appleAvailable, appleAsk, appleState, autoSources, searchMusic, LASTFM_RE,
 } from "./music.js";
 import { refreshMusicTheme } from "./musictheme.js";
 import { musicTint } from "./actions.js";
@@ -104,26 +104,25 @@ const ERRORS = {
   DENIED: "Accès refusé : autorise GREATNESS dans Réglages → Confidentialité → Médias et Apple Music.",
   NOT_LINKED: "Spotify n'est plus connecté : reconnecte-toi.",
 };
-const errText = e => ERRORS[musicSource() === "statsfm" && ERRORS[`SF_${e}`] ? `SF_${e}` : e] || "La musique ne répond pas pour le moment. Je réessaie toute seule.";
+// k : la source en cause (en automatique, chaque compte a ses erreurs)
+const errText = (e, k = musicSource()) => ERRORS[k === "statsfm" && ERRORS[`SF_${e}`] ? `SF_${e}` : e] || "La musique ne répond pas pour le moment. Je réessaie toute seule.";
 let sheetDraw = null;
 
 export function openMusic() {
   const m = () => state.profile.music || {};
-  let pick = musicSource() || (musicFunction() ? "lastfm" : "manual"), results = [];
+  // deux façons : ce que joue le téléphone (automatique, avec les comptes reliés), ou une ambiance choisie
+  let pick = musicSource() === "manual" ? "manual" : "auto", results = [];
   const sources = [
-    musicFunction() && ["lastfm", "Spotify, Deezer, YouTube Music, Tidal… par Last.fm"],
-    musicFunction() && ["statsfm", "Spotify et Apple Music, par ton profil stats.fm"],
-    spotifyConfigured() && ["spotify", "En direct, avec lecture et pause"],
-    appleAvailable() && ["apple", "Le morceau en cours dans l'app Musique"],
+    ["auto", "Ce que joue ton téléphone, tout seul : le morceau qui joue, d'où qu'il vienne"],
     ["manual", "Un morceau pour l'ambiance, sans compte"],
-  ].filter(Boolean);
+  ];
   const sh = sheet(`<div class="m-sheet">
     <h2 class="h2">Musique</h2>
     <p class="muted small">${nb("L'app vit avec ta musique : ses couleurs suivent la pochette du morceau en cours, et chaque séance garde sa bande-son.")}</p>
     <div id="ms-now"></div>
     <div class="eyebrow mt">D'où vient ta musique ?</div>
     <div class="m-srcs" id="ms-srcs" role="radiogroup" aria-label="Source de la musique">${sources.map(([k, d]) => `<button class="m-src" data-src="${k}" role="radio">
-      <b>${SOURCE_NAME[k]}</b><span class="xs muted">${d}</span></button>`).join("")}</div>
+      <b>${k === "auto" ? "Ton téléphone" : SOURCE_NAME[k]}</b><span class="xs muted">${d}</span></button>`).join("")}</div>
     <div id="ms-detail" class="m-detail"></div>
     <div class="eyebrow mt">Effets</div>
     <label class="toggle set-row"><div class="grow"><b>Couleurs de la pochette</b><span class="xs muted">Boutons, anneaux et lueurs du fond prennent les couleurs du morceau</span></div><input type="checkbox" id="ms-theme" ${m().theme !== false ? "checked" : ""}/></label>
@@ -135,66 +134,75 @@ export function openMusic() {
   </div>`, { z: 80, onClose: () => { sheetDraw = null; } });
   const el = sh.el;
 
+  // rien en cours : une erreur, ou ce qu'il reste à faire (relier un compte, lancer un morceau)
+  const hint = () => (musicError() ? errText(musicError())
+    : musicSource() !== "manual" && !autoSources().length ? "Relie un de tes comptes ci-dessous : l'app suivra ensuite toute seule ce que tu écoutes."
+    : musicSource() ? "Lance un morceau : ses couleurs arrivent ici dans quelques secondes." : "");
   const nowBox = () => {
     const t = nowPlaying(), tint = musicTint(), err = musicError();
     $("#ms-now", el).innerHTML = t ? `<div class="card m-prev">${art(t, "lg")}<div class="grow m-txt"><span class="eyebrow">${status(t)} · ${SOURCE_NAME[t.src]}</span>${names(t)}
         ${tint ? `<div class="m-sw" aria-label="Couleurs de la pochette">${[tint.neutral ? "" : tint.accent, tint.neutral ? "" : tint.accent2, `rgb(${tint.ambient})`, `rgb(${tint.ambient2})`].filter(Boolean).map(c => `<i style="background:${c}"></i>`).join("")}</div>` : ""}</div>${controls(t)}</div>`
-      : musicSource() ? `<p class="m-wait small ${err ? "err" : "muted"}">${nb(err ? errText(err) : "Lance un morceau : ses couleurs arrivent ici dans quelques secondes.")}</p>` : "";
+      : hint() ? `<p class="m-wait small ${err ? "err" : "muted"}">${nb(hint())}</p>` : "";
     bindControls($("#ms-now", el));
+    // erreurs de chaque compte du mode automatique (profil caché, accès refusé…), à jour sans effacer ce qu'on tape
+    const errs = musicErrors();
+    $$("[data-err]", el).forEach(n => { const e = errs[n.dataset.err]; n.textContent = e ? nb(errText(e, n.dataset.err)) : ""; });
   };
+  // un compte relié (pseudo ou profil) : le mode automatique le lit avec les autres
+  const linkRow = (k, name, sub, id, value, label, placeholder, max, steps) => `<div class="m-link">
+      <div class="m-link-h"><b>${name}</b><span class="xs muted">${sub}</span><span class="xs m-err" data-err="${k}"></span></div>
+      <div class="m-row"><input class="input" id="${id}" maxlength="${max}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${label}" placeholder="${placeholder}" value="${esc(value || "")}"/>
+        <button class="btn btn-soft" id="${id}-save">${value ? "Changer" : "Relier"}</button></div>${steps}</div>`;
   const detail = () => {
     $$("#ms-srcs .m-src", el).forEach(b => { const on = b.dataset.src === pick; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
     const box = $("#ms-detail", el);
-    if (pick === "lastfm") {
-      box.innerHTML = `<label class="field"><span>Ton pseudo Last.fm</span><div class="m-row"><input class="input" id="ms-user" maxlength="15" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="pseudo" value="${esc(m().user || "")}"/>
-        <button class="btn btn-primary" id="ms-save">${musicSource() === "lastfm" ? "Changer" : "Relier"}</button></div></label>
-        <details class="card adv mt-s"><summary>Relier ton appli de musique à Last.fm</summary><ol class="m-steps small">
+    if (pick === "auto") {
+      const c = m(), apple = appleState();
+      box.innerHTML = `<div class="m-links">
+        <div class="m-link"><div class="m-link-h"><b>Apple Music</b><span class="xs muted">${!appleAvailable() ? "Lue directement par l'app GREATNESS sur iPhone"
+          : apple === "authorized" ? "Lue directement sur ton iPhone ✓" : apple === "denied" ? "Accès refusé : Réglages de l'iPhone → GREATNESS → Médias et Apple Music" : "L'app Musique de ton iPhone, lue directement"}</span>
+          <span class="xs m-err" data-err="apple"></span></div>
+          ${appleAvailable() && apple !== "authorized" ? `<button class="btn btn-soft btn-sm" id="ms-apple">Autoriser</button>` : ""}</div>
+        ${spotifyConfigured() ? `<div class="m-link"><div class="m-link-h"><b>Spotify</b><span class="xs muted">${spotifyLinked() ? "Connecté en direct ✓ : lecture et pause depuis l'app" : "En direct, avec lecture et pause (Premium)"}</span><span class="xs m-err" data-err="spotify"></span></div>
+          ${spotifyLinked() ? `<button class="btn btn-ghost btn-sm" id="ms-sp-out">Se déconnecter</button>` : `<button class="btn btn-soft btn-sm" id="ms-sp-in">Se connecter à Spotify</button>`}</div>` : ""}
+        ${musicFunction() ? linkRow("statsfm", "stats.fm", "Spotify et Apple Music, par ton profil stats.fm", "ms-sf", c.sfUser, "Ton profil stats.fm", "pseudo ou lien du profil", 80,
+          `<details class="adv"><summary>Préparer ton profil stats.fm</summary><ol class="m-steps small">
+          <li>${nb("Dans l'app stats.fm, ouvre les réglages de confidentialité et laisse visible l'écoute en cours.")}</li>
+          <li>${nb("Copie le lien de ton profil (stats.fm/ton-pseudo) et colle-le ici, ou écris juste ton pseudo.")}</li>
+          <li>${nb("Le morceau en cours arrive en 15 secondes environ, depuis Spotify ou Apple Music.")}</li></ol></details>`) : ""}
+        ${musicFunction() ? linkRow("lastfm", "Last.fm", "Spotify, Deezer, YouTube Music, Tidal… par Last.fm", "ms-user", c.user, "Ton pseudo Last.fm", "pseudo", 15,
+          `<details class="adv"><summary>Relier ton appli de musique à Last.fm</summary><ol class="m-steps small">
           <li>${nb("Crée un compte gratuit sur last.fm.")}</li>
           <li>${nb("Spotify : sur last.fm, Paramètres → Applications → Spotify Scrobbling → Connecter.")}</li>
           <li>${nb("Deezer : sur deezer.com dans un navigateur, Mon compte → Partage → Last.fm → Relier.")}</li>
           <li>${nb("Tidal, YouTube Music, Apple Music sur ordinateur : leur réglage Last.fm, ou l'extension Web Scrobbler.")}</li>
-          <li>${nb("Écris ton pseudo Last.fm ici : le morceau en cours arrive en 15 secondes environ.")}</li></ol></details>`;
-      $("#ms-save", box).onclick = async () => {
-        const u = $("#ms-user", box).value.trim();
-        if (!LASTFM_RE.test(u)) return toast("Pseudo Last.fm invalide (2 à 15 lettres, chiffres, _ ou -)", 3000);
-        await setMusic({ src: "lastfm", user: u });
-        toast(musicError() ? errText(musicError()) : "Last.fm relié ✓", 3500);
+          <li>${nb("Écris ton pseudo Last.fm ici : le morceau en cours arrive en 15 secondes environ.")}</li></ol></details>`) : ""}
+      </div>
+      <p class="xs muted mt-s">${nb("iOS ne laisse aucune app lire ce que jouent Spotify, Deezer ou YouTube Music : relie-les une fois par stats.fm ou Last.fm, l'app suit ensuite toute seule.")}</p>
+      ${musicSource() === "auto" ? "" : `<button class="btn btn-primary btn-block mt-s" id="ms-auto">Suivre ce que joue mon téléphone</button>`}`;
+      // relier, changer ou retirer (champ vide) un compte ; la musique passe en automatique
+      const link = async (field, raw, clean, bad, ok, k) => {
+        if (!raw.trim()) { await setMusic({ [field]: "" }); toast("Compte retiré"); return redraw(); }
+        const u = clean(raw);
+        if (!u) return toast(bad, 3500);
+        await setMusic({ src: "auto", [field]: u });
+        const e = musicErrors()[k];
+        toast(e ? errText(e, k) : ok, e ? 4500 : 3500);
         redraw();
       };
-    } else if (pick === "statsfm") {
-      box.innerHTML = `<label class="field"><span>Ton profil stats.fm</span><div class="m-row"><input class="input" id="ms-sf" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="pseudo ou lien du profil" value="${esc(m().sfUser || "")}"/>
-        <button class="btn btn-primary" id="ms-sf-save">${musicSource() === "statsfm" ? "Changer" : "Relier"}</button></div></label>
-        <details class="card adv mt-s"><summary>Préparer ton profil stats.fm</summary><ol class="m-steps small">
-          <li>${nb("Dans l'app stats.fm, ouvre les réglages de confidentialité et laisse visible l'écoute en cours.")}</li>
-          <li>${nb("Copie le lien de ton profil (stats.fm/ton-pseudo) et colle-le ici, ou écris juste ton pseudo.")}</li>
-          <li>${nb("Le morceau en cours arrive en 15 secondes environ, depuis Spotify ou Apple Music.")}</li></ol></details>`;
-      $("#ms-sf-save", box).onclick = async () => {
-        const u = statsfmId($("#ms-sf", box).value);
-        if (!u) return toast("Profil stats.fm invalide : écris ton pseudo ou colle le lien de ton profil", 3500);
-        await setMusic({ src: "statsfm", sfUser: u });
-        toast(musicError() ? errText(musicError()) : "stats.fm relié ✓", 4000);
+      $("#ms-sf-save", box)?.addEventListener("click", () => link("sfUser", $("#ms-sf", box).value, statsfmId, "Profil stats.fm invalide : écris ton pseudo ou colle le lien de ton profil", "stats.fm relié ✓", "statsfm"));
+      $("#ms-user-save", box)?.addEventListener("click", () => link("user", $("#ms-user", box).value, v => (LASTFM_RE.test(v.trim()) ? v.trim() : ""), "Pseudo Last.fm invalide (2 à 15 lettres, chiffres, _ ou -)", "Last.fm relié ✓", "lastfm"));
+      $("#ms-apple", box)?.addEventListener("click", async () => {
+        try { await appleAsk(); await setMusic({ src: "auto" }); toast("Apple Music relié ✓"); }
+        catch (e) { toast(errText(e.message, "apple"), 4500); }
         redraw();
-      };
-    } else if (pick === "spotify") {
-      box.innerHTML = spotifyLinked() ? `<p class="small">${nb("Spotify est connecté : le morceau en cours arrive en direct, et tu peux mettre en pause ou passer au suivant depuis l'app (Premium).")}</p>
-        <div class="grid2"><button class="btn btn-primary" id="ms-use">Utiliser Spotify</button><button class="btn btn-soft" id="ms-sp-out">Se déconnecter</button></div>`
-        : `<p class="small">${nb("Connexion directe : le morceau en temps réel, avec lecture, pause et morceau suivant depuis l'app (Spotify Premium).")}</p>
-        <p class="xs muted">${nb("Pendant sa phase de test, Spotify n'ouvre l'accès qu'à 5 comptes invités par le créateur de l'app. Sinon, passe par Last.fm : il marche avec Spotify pour tout le monde.")}</p>
-        <button class="btn btn-primary btn-block" id="ms-sp-in">Se connecter à Spotify</button>`;
+      });
       $("#ms-sp-in", box)?.addEventListener("click", async () => {
-        try { if (await spotifyLogin()) { toast("Spotify connecté ✓"); await setMusic({ src: "spotify" }); redraw(); } }
+        try { if (await spotifyLogin()) { toast("Spotify connecté ✓"); await setMusic({ src: "auto" }); redraw(); } }
         catch (e) { if (e.message !== "CANCELLED") toast(e.message === "DENIED" ? "Connexion Spotify refusée" : `Connexion Spotify impossible (${e.message})`, 4000); }
       });
-      $("#ms-use", box)?.addEventListener("click", async () => { await setMusic({ src: "spotify" }); redraw(); });
       $("#ms-sp-out", box)?.addEventListener("click", () => { spotifyLogout(); setMusic({}); redraw(); });
-    } else if (pick === "apple") {
-      box.innerHTML = `<p class="small">${nb("Le morceau en cours dans l'app Musique de ton iPhone (Apple Music ou ta bibliothèque).")}</p>
-        <button class="btn btn-primary btn-block" id="ms-apple">${musicSource() === "apple" ? "Relire le morceau en cours" : "Autoriser Apple Music"}</button>`;
-      $("#ms-apple", box).onclick = async () => {
-        try { await appleAsk(); await setMusic({ src: "apple" }); toast("Apple Music relié ✓"); }
-        catch (e) { toast(errText(e.message), 4500); }
-        redraw();
-      };
+      $("#ms-auto", box)?.addEventListener("click", async () => { await setMusic({ src: "auto" }); redraw(); });
     } else if (pick === "manual") {
       box.innerHTML = `<form class="m-row" id="ms-form"><input class="input" id="ms-q" maxlength="80" placeholder="Un morceau, un artiste, un album…" aria-label="Chercher un morceau" autocomplete="off"/>
         <button class="btn btn-soft" aria-label="Chercher">${MI.search}</button></form>

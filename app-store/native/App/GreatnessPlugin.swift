@@ -79,10 +79,10 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         let ask = call.getBool("ask") ?? false
         let read = {
             let player = MPMusicPlayerController.systemMusicPlayer
-            guard let item = player.nowPlayingItem else { call.resolve(["playing": false]); return }
+            guard let item = player.nowPlayingItem else { call.resolve(["playing": false, "status": "authorized"]); return }
             var out: [String: Any] = [
                 "title": item.title ?? "", "artist": item.artist ?? "", "album": item.albumTitle ?? "",
-                "playing": player.playbackState == .playing, "id": item.playbackStoreID,
+                "playing": player.playbackState == .playing, "id": item.playbackStoreID, "status": "authorized",
             ]
             if let image = item.artwork?.image(at: CGSize(width: 300, height: 300)), let data = image.jpegData(compressionQuality: 0.82) {
                 out["art"] = "data:image/jpeg;base64," + data.base64EncodedString()
@@ -93,11 +93,12 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         if status == .authorized { DispatchQueue.main.async { read() }; return }
         if status == .notDetermined && ask {
             MPMediaLibrary.requestAuthorization { granted in
-                DispatchQueue.main.async { if granted == .authorized { read() } else { call.resolve(["denied": true]) } }
+                DispatchQueue.main.async { if granted == .authorized { read() } else { call.resolve(["denied": true, "status": "denied"]) } }
             }
             return
         }
-        call.resolve(["denied": status == .denied || status == .restricted, "playing": false])
+        // pas encore demandée (et pas de demande cette fois-ci), ou refusée : les réglages de l'app le disent
+        call.resolve(["denied": status == .denied || status == .restricted, "playing": false, "status": status == .notDetermined ? "notDetermined" : "denied"])
     }
 
     // Connexion web (Spotify) dans une fenêtre sécurisée ; revient avec l'adresse de retour (scheme://…)

@@ -80,7 +80,7 @@ Sécurité : la clé de l'adresse est stockée hachée (SHA-256) et ne permet qu
 
 ## 2 nonies. Musique (Last.fm, stats.fm, Spotify, Apple Music)
 
-L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages → Musique**). Cinq sources :
+L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages → Musique**). En mode « Ton téléphone » (automatique), elle lit toute seule chaque source disponible ci-dessous et suit le morceau qui joue ; le « Choix manuel » fixe une ambiance. Les sources :
 
 | Source | Pour qui | Ce qu'il faut |
 |---|---|---|
