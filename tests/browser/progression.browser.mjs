@@ -45,3 +45,36 @@ test("progression : charge prévue et raison dans l'aperçu, en séance, et « l
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });
+
+test("séries d'échauffement : la montée en charge calculée avant la première série, à cocher, sans compter dans la séance", { timeout: 120000 }, async () => {
+  const app = await openApp();
+  const { page, errors } = app;
+  try {
+    await signup(page, "echauffe", "1357");
+    // 72,5 kg × 10 au développé couché la dernière fois : 75 kg prévus aujourd'hui
+    await page.evaluate(async () => {
+      const { state, save } = await import("/js/store.js");
+      state.lifts.bench = { weight: 72.5, reps: 10, rpe: 8, date: Date.now(), best: 96.7, bestReps: 0 };
+      save();
+    });
+    await go(page, "#/train");
+    await page.click('.prog[data-id="push"]'); await sleep(600);
+    await page.click("#start"); await sleep(600);
+    await page.click("#ci-go"); await page.waitForSelector("#log", { timeout: 10000 });
+    // barre à vide × 10, puis 30 kg × 5, 45 kg × 3, 60 kg × 2
+    await page.waitForSelector("#warm");
+    const rows = await page.$$eval("#warm .warm-set", l => l.map(b => [...b.querySelectorAll(".val")].map(v => v.textContent.trim()).join("×")));
+    assert.deepEqual(rows, ["20×10", "30×5", "45×3", "60×2"]);
+    // cocher la 3e coche aussi celles d'avant ; la décocher revient en arrière
+    await page.click('[data-warm="2"]');
+    assert.equal(await page.$$eval("#warm .warm-set.done", l => l.length), 3);
+    await page.click('[data-warm="1"]');
+    assert.equal(await page.$$eval("#warm .warm-set.done", l => l.length), 1);
+    // la première série de travail : l'échauffement disparaît, il ne compte pas
+    await page.click("#log"); await sleep(600);
+    assert.equal(await page.$("#warm"), null);
+    const done = await page.evaluate(async () => (await import("/js/live.js")).liveState?.()?.current?.done?.length ?? null);
+    if (done !== null) assert.equal(done, 1, "une seule série comptée");
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});

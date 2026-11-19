@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { userVerified, b64u, fromB64u, webBioName } from "../js/bio.js";
-import { cardData, svgFilter, coachSvg, durTxt } from "../js/sharecard.js";
+import { cardData, svgFilter, coachSvg, durTxt, soundtrackOf } from "../js/sharecard.js";
 import { byIdGet } from "../js/chars/index.js";
 
 test("Face ID : vérification de l'utilisateur lue dans les données de l'authentificateur, identifiants en base64url", () => {
@@ -32,6 +32,20 @@ test("carte de séance : chiffres, records (meilleure série), durée lisible", 
   const bw = cardData({ name: "Maison", durationSec: 1500, volume: 0, prs: [], sets: [{ exId: "pushup", name: "Pompes", weight: 0, reps: 20 }, { exId: "pushup", name: "Pompes", weight: 0, reps: 15 }] });
   assert.deepEqual(bw.stats.map(s => `${s.v} ${s.l}`), ["25 min Durée", "35 Répétitions", "2 Séries", "1 Exercice"]);
   assert.equal(durTxt(3900), "1 h 05");
+  assert.equal(d.music, null, "séance sans musique : pas de bande-son");
+});
+
+test("carte de séance en musique : le morceau qui a porté le plus de séries habille la carte, puis les autres", () => {
+  const music = [{ title: "Intro", artist: "A" }, { title: "Numb", artist: "Linkin Park", art: "https://i.scdn.co/image/numb" },
+    { title: "Rose", artist: "B", art: "https://i.scdn.co/image/rose" }, { title: "Fin", artist: "C", art: "data:image/jpeg;base64,AA" }];
+  const sets = [{ song: 1 }, { song: 1 }, { song: 2 }, { song: 0 }, { song: 1 }, {}];
+  assert.deepEqual(soundtrackOf({ music, sets }), { cover: "https://i.scdn.co/image/numb", total: 4,
+    tracks: [{ title: "Numb", artist: "Linkin Park", sets: 3 }, { title: "Intro", artist: "A", sets: 1 }, { title: "Rose", artist: "B", sets: 1 }] }, "à égalité : dans l'ordre d'écoute");
+  // le morceau phare sans pochette : la pochette d'un autre habille la carte ; il reste en tête de la bande-son
+  assert.equal(soundtrackOf({ music, sets: [{ song: 0 }, { song: 0 }] }).cover, "https://i.scdn.co/image/numb");
+  assert.equal(soundtrackOf({ music: [{ title: "Seul" }], sets: [] }).cover, "");
+  assert.equal(soundtrackOf({ sets }), null);
+  assert.deepEqual(cardData({ name: "Push", music, sets: [] }).music.tracks.map(t => t.title), ["Numb", "Intro", "Rose"], "aucune série en musique : la première pochette, puis dans l'ordre");
 });
 
 test("carte de séance : le coach en image SVG autonome, costume en filtre SVG", () => {

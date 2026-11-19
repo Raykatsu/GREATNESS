@@ -1,6 +1,7 @@
 // Carte de séance à partager : une image au format story (1080 × 1920) avec ton coach (et son costume), la séance,
-// la durée, le volume, les séries, les records et l'XP. Aperçu d'abord, puis la feuille de partage du téléphone
-// (Instagram, WhatsApp, Photos…) ; sinon l'image s'enregistre.
+// la durée, le volume, les séries, les records et l'XP. Séance en musique : la carte prend les couleurs du morceau qui
+// a porté le plus de séries (sa pochette floutée en fond, son accent) et montre la bande-son. Aperçu d'abord, puis la
+// feuille de partage du téléphone (Instagram, WhatsApp, Photos…) ; sinon l'image s'enregistre.
 import { current, figure } from "./chars/index.js";
 import { wornCostume } from "./story.js";
 import { costumeOf } from "./costumes.js";
@@ -8,11 +9,26 @@ import { state, rankInfo, streak, exName } from "./store.js";
 import { isNative } from "./native.js";
 import { $, esc, I, sheet, toast, fmtNum } from "./ui.js";
 import { LOC, tr } from "./i18n.js";
+import { musicFunction } from "./music.js";
+import { coverTheme } from "./musictheme.js";
 
 export const W = 1080, H = 1920;
 
 export const durTxt = sec => { const m = Math.round((sec || 0) / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
 const kg = w => String(Math.round(w * 10) / 10).replace(".", ",");
+
+// La bande-son de la carte (logique pure, testée) : le morceau qui a porté le plus de séries d'abord (sa pochette
+// habille la carte), puis les autres ; null sans musique
+export function soundtrackOf(sum) {
+  const music = (sum?.music || []).filter(t => t?.title);
+  if (!music.length) return null;
+  const count = music.map(() => 0);
+  for (const s of sum.sets || []) if (Number.isInteger(s.song) && count[s.song] !== undefined) count[s.song]++;
+  const order = music.map((t, i) => i).sort((a, b) => count[b] - count[a] || a - b);
+  const main = order.find(i => /^https:\/\//.test(music[i].art || "")) ?? order[0];
+  return { cover: /^https:\/\//.test(music[main].art || "") ? music[main].art : "", total: music.length,
+    tracks: [main, ...order.filter(i => i !== main)].slice(0, 3).map(i => ({ title: music[i].title, artist: music[i].artist || "", sets: count[i] })) };
+}
 
 // Ce que montre la carte (logique pure, testée)
 export function cardData(sum, { rank = "", streakDays = 0 } = {}) {
@@ -31,7 +47,7 @@ export function cardData(sum, { rank = "", streakDays = 0 } = {}) {
       { v: String(sets.length), l: tr(sets.length > 1 ? "Séries" : "Série") },
       prs.length ? { v: String((sum.prs || []).length), l: tr((sum.prs || []).length > 1 ? "Records" : "Record"), gold: true } : { v: String(nEx), l: tr(nEx > 1 ? "Exercices" : "Exercice") },
     ],
-    prs, xp: sum.xp || 0, rank: tr(rank), streak: streakDays,
+    prs, xp: sum.xp || 0, rank: tr(rank), streak: streakDays, music: soundtrackOf(sum),
   };
 }
 
@@ -57,6 +73,12 @@ export function coachSvg(c, costume) {
 }
 
 const loadImg = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+// Une pochette lisible par la carte (sinon l'image ne pourrait plus s'enregistrer) : directement, sinon par le relais de
+// la fonction « music » ; null si impossible
+function loadCover(url) {
+  const tryLoad = src => new Promise(ok => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => ok(i); i.onerror = () => ok(null); setTimeout(() => ok(null), 6000); i.src = src; });
+  return tryLoad(url).then(img => img || (musicFunction() ? tryLoad(`${musicFunction()}?cover=${encodeURIComponent(url)}`) : null));
+}
 const fonts = () => Promise.race([
   Promise.all(["800 90px Outfit", "700 50px Outfit", "600 40px Inter", "500 34px Inter"].map(f => document.fonts?.load(f))).catch(() => {}),
   new Promise(r => setTimeout(r, 1500)),
@@ -78,8 +100,11 @@ function rrect(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y
 export async function drawCard(sum) {
   const c = current(), costume = c.id === "none" ? null : wornCostume(state);
   const css = getComputedStyle(document.documentElement);
-  const accent = css.getPropertyValue("--red").trim() || "#e8283b";
+  let accent = css.getPropertyValue("--red").trim() || "#e8283b";
   const d = cardData(sum, { rank: rankInfo().rank?.name || "", streakDays: streak() });
+  // séance en musique : la pochette du morceau qui a porté le plus de séries, et son accent
+  const cover = d.music?.cover ? await loadCover(d.music.cover) : null;
+  if (cover) { const th = await coverTheme(d.music.cover).catch(() => null); if (th?.accent && !th.neutral) accent = th.accent; }
   await fonts();
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
@@ -87,6 +112,15 @@ export async function drawCard(sum) {
   // fond sombre, halo de la couleur de l'app
   const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#101019"); bg.addColorStop(1, "#06060b");
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  if (cover) {
+    // la pochette floutée en fond (réduite puis agrandie : un flou doux partout, même sans filtre), fondue vers le bas
+    const s = document.createElement("canvas"); s.width = s.height = 18;
+    s.getContext("2d").drawImage(cover, 0, 0, 18, 18);
+    g.save(); g.globalAlpha = 0.62; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+    g.drawImage(s, -W * 0.15, -120, W * 1.3, W * 1.3); g.restore();
+    const fade = g.createLinearGradient(0, 300, 0, 1320); fade.addColorStop(0, "rgba(8,8,13,0)"); fade.addColorStop(1, "#08080d");
+    g.fillStyle = fade; g.fillRect(0, 0, W, 1330);
+  }
   const halo = g.createRadialGradient(W / 2, 540, 40, W / 2, 540, 560);
   halo.addColorStop(0, accent); halo.addColorStop(1, "rgba(0,0,0,0)");
   g.globalAlpha = 0.42; g.fillStyle = halo; g.fillRect(0, 0, W, 1150); g.globalAlpha = 1;
@@ -117,14 +151,30 @@ export async function drawCard(sum) {
     g.fillStyle = "#a3a3b2"; g.font = "500 30px Inter, sans-serif"; g.fillText(s.l, x + 34, yy + 124);
   });
   y = top + 2 * (ch + 24) + 44;
-  // records
+  // records (la bande-son garde sa place en bas)
+  const sound = d.music, low = sound ? H - 345 : H - 215;
   g.font = "600 36px Inter, sans-serif";
   for (const p of d.prs) {
-    if (y > H - 215) break;
+    if (y > low) break;
     g.fillStyle = "#ffc400"; g.fillText("🏆", 80, y);
     g.fillStyle = "#f3f3f6"; const name = lines(g, p.name, 560, 1)[0]; g.fillText(name, 140, y);
     g.fillStyle = "#a3a3b2"; g.textAlign = "right"; g.fillText(p.txt, W - 80, y); g.textAlign = "left";
     y += 62;
+  }
+  // la bande-son : la pochette du morceau phare, ses titres
+  if (sound) {
+    const top = H - 315;
+    if (cover) { g.save(); rrect(g, 80, top, 120, 120, 22); g.clip(); g.drawImage(cover, 80, top, 120, 120); g.restore(); }
+    const x = cover ? 228 : 80, maxW = W - 80 - x;
+    g.fillStyle = accent; g.font = "700 30px Outfit, sans-serif"; spaced(g, tr("Bande-son").toUpperCase(), x, top + 30, 4);
+    g.fillStyle = "#f3f3f6"; g.font = "700 36px Inter, sans-serif";
+    const [first, ...rest] = sound.tracks;
+    g.fillText(lines(g, `${first.title}${first.artist ? ` — ${first.artist}` : ""}`, maxW, 1)[0], x, top + 76);
+    if (rest.length || sound.total > 1) {
+      g.fillStyle = "#a3a3b2"; g.font = "500 30px Inter, sans-serif";
+      const more = sound.total - 1 - rest.length;
+      g.fillText(lines(g, `${rest.map(t => t.title).join(" · ")}${more > 0 ? ` +${more}` : ""}`, maxW, 1)[0], x, top + 116);
+    }
   }
   // pied : XP, rang, série de jours
   g.fillStyle = accent; rrect(g, 80, H - 170, W - 160, 4, 2); g.fill();

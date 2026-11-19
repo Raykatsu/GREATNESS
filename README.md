@@ -13,7 +13,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 | Moment | Ce que fait le coach |
 |---|---|
 | Avant la séance | Check-in (sommeil, énergie, courbatures) → charges et volume adaptés à ta forme |
-| Début d'exercice | Objectif calculé depuis ton historique (double progression), consigne technique, charges d'échauffement |
+| Début d'exercice | Objectif calculé depuis ton historique (double progression), consigne technique, séries d'échauffement calculées |
 | Après chaque série | Reps + ressenti (RPE) → charge, objectif et repos de la série suivante ajustés |
 | Fatigue | Retire des séries si la fatigue monte, conseille d'arrêter si le réservoir est vide |
 | Douleur | Arrêt immédiat + exercice de remplacement |
@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 73 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 74 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -96,6 +96,8 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Pourquoi relier des comptes** : iOS ne laisse aucune app lire ce que jouent les autres (Spotify, Deezer…). Seule l'app Musique d'Apple se lit directement ; pour Spotify, Deezer, YouTube Music ou Tidal, stats.fm ou Last.fm font le pont, à relier une seule fois.
 - **Carte « En écoute »** sur l'accueil et **lecteur pendant la séance** (avec lecture, pause et morceau suivant si Spotify est connecté en direct).
 - **Bande-son de la séance** : les morceaux écoutés s'affichent en fin de séance et restent dans l'historique ; chaque série retient le morceau qui passait.
+- **Carte de séance aux couleurs du morceau** : séance en musique, la carte à partager prend la pochette du morceau qui a porté le plus de séries (floutée en fond, son accent) et affiche la bande-son.
+- **Ta chanson de guerre** (Moi → Réglages → Musique) : le morceau qui te galvanise, choisi dans le catalogue ou pris parmi ce qui joue. Juste avant ta série la plus lourde (à 95 % de ton meilleur niveau ou plus) ou une tentative de record, une fois par séance, l'app te le propose : « Lancer » le joue dans Spotify (connecté en direct, Premium), sinon l'ouvre dans Apple Music ou Spotify.
 - **Tes morceaux de records** (onglet Progrès) : avec quels sons tu soulèves le plus lourd. Pour chaque morceau, les records battus pendant qu'il passait et l'intensité de tes séries (charge × répétitions, rapportée à ton meilleur niveau sur l'exercice à ce moment-là) comparée à ta moyenne. **Ta playlist de records** : les morceaux qui te portent, à copier, partager ou écouter dans Spotify ou Apple Music.
 - Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm et stats.fm, relais des pochettes, tempo des morceaux).
 
@@ -330,6 +332,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 - **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
+- **Séries d'échauffement calculées** : avant la première série de travail d'un mouvement à la barre (et du premier mouvement chargé de la séance), la montée en charge s'affiche au-dessus de tes séries, arrondie au pas de l'exercice : barre à vide × 10, puis 40 % × 5, 60 % × 3, 80 % × 2 de ta charge du jour. À cocher au fil de l'eau ; elles ne comptent pas dans la séance (ni volume, ni fatigue, ni record). Le coach les annonce.
 - **Soulager** : séances douces pour le mal de dos, la nuque, les épaules, les genoux, les hanches raides et les poignets (pas un avis médical).
 - **Programme de la semaine** généré selon ton objectif (force, muscle, sèche, forme), tes jours dispo et ton matériel. Chaque jour est modifiable.
 - **Mes séances** : crée tes propres séances, ou modifie un programme et enregistre-le.
@@ -406,6 +409,7 @@ js/music.js       musique : ce que joue le téléphone (automatique : Apple Musi
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
 js/vibe.js        l'ambiance du morceau (genre, tempo, pochette) qui change tout le thème (+ trackinfo.js : genre et tempo)
 js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist (+ songs-ui.js : carte et feuille)
+js/warsong.js     ta chanson de guerre : le moment (série lourde, record en vue), où l'écouter
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)

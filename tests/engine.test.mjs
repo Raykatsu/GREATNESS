@@ -79,3 +79,12 @@ test("calculateur de disques", () => {
   assert.deepEqual(plates(62.5).side, [20, 1.25]);
   assert.deepEqual(plates(20).side, []);
 });
+
+test("l'annonce du premier mouvement chargé donne la montée en charge calculée (warmup.js)", async () => {
+  setUser("t-warm", {});
+  const s = new Session(prog([ex("bench", 3, [8, 10], 60)]), ready);
+  const intro = s.intro();
+  const { warmupSets, warmupText } = await import("../js/warmup.js");
+  assert.ok(intro.text.endsWith(warmupText(warmupSets(s.current.weight, { step: 2.5, equip: "bar" }))), intro.text);
+  assert.match(intro.text, /Échauffement : barre à vide × 10, /);
+});

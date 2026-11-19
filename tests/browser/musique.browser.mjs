@@ -88,6 +88,17 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
     const saved = await page.evaluate(async () => { const { state } = await import("/js/store.js"); const s = state.sessions.at(-1); return { music: s.music.map(m => m.title), songs: s.sets.map(x => x.song) }; });
     assert.deepEqual(saved.music, ["Rose", "Numb"]);
     assert.deepEqual(saved.songs, [0, 1], "chaque série retient le morceau qui passait");
+    // la carte à partager prend la pochette du morceau phare (lue par le relais) et montre la bande-son
+    await page.click("#share-sess");
+    await page.waitForSelector(".share-img", { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector(".share-img")?.complete && document.querySelector(".share-img").naturalWidth > 0);
+    const px = await page.evaluate(() => {
+      const img = document.querySelector(".share-img"), c = document.createElement("canvas");
+      c.width = 1080; c.height = 1920; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+      return [...g.getImageData(140, 1920 - 255, 1, 1).data].slice(0, 3);
+    });
+    assert.ok(px[0] > 150 && px[1] < 100, `pochette rose du morceau phare sur la carte : ${px}`);
+    await closeSheets(page);
     await page.click("#home"); await sleep(600);
 
     // choix manuel : un morceau cherché dans le catalogue iTunes
@@ -238,6 +249,50 @@ test("musique : tes morceaux de records dans l'onglet Progrès, la playlist à c
     await page.click("#songs-copy");
     await page.waitForFunction(() => /Liste copiée/.test(document.querySelector("#toast")?.textContent || ""));
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "1. Numb — Linkin Park");
+    assert.deepEqual(errors, []);
+  } finally { await app.close(); }
+});
+
+test("musique : ta chanson de guerre, choisie dans le catalogue, proposée avant ta série lourde, une fois", { timeout: 150000 }, async () => {
+  const app = await openApp({ online: true });
+  const { page, errors } = app;
+  const CORS = { "access-control-allow-origin": "*" };
+  await page.route("**/functions/v1/music**", r => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.has("search")) return r.fulfill({ contentType: "application/json", headers: CORS, body: JSON.stringify({ ok: true, results: [
+      { trackName: "Till I Collapse", artistName: "Eminem", collectionName: "The Eminem Show", artworkUrl100: "https://covers.test/war/100x100bb.png", trackViewUrl: "https://music.apple.com/fr/album/x?i=1" }] }) });
+    return r.fulfill({ status: 404, headers: CORS, body: "{}" });
+  });
+  await page.route("https://covers.test/**", r => r.fulfill({ contentType: "image/png", headers: CORS, body: PINK }));
+  try {
+    await signup(page, "guerre", "1357");
+    // le réglage : chercher et choisir sa chanson de guerre
+    await go(page, "#/profile");
+    await page.click("#p-music");
+    await page.fill("#ms-war-q", "collapse");
+    await page.click("#ms-war-f button");
+    await page.waitForSelector("#ms-war-res [data-w]");
+    await page.click("#ms-war-res [data-w]");
+    await page.waitForSelector(".m-war-now");
+    assert.match(await page.$eval(".m-war-now", e => e.innerText), /Till I Collapse[\s\S]*Eminem/);
+    assert.deepEqual(await page.evaluate(async () => (await import("/js/store.js")).state.profile.music.war),
+      { title: "Till I Collapse", artist: "Eminem", art: "https://covers.test/war/600x600bb.png", url: "https://music.apple.com/fr/album/x?i=1" });
+    await closeSheets(page);
+    // un développé couché déjà fait à 60 kg × 8 : la première série prévue est à ton meilleur niveau
+    await page.evaluate(async () => { const { state, save } = await import("/js/store.js"); state.lifts.bench = { weight: 60, reps: 8, best: 76, date: Date.now() - 2 * 864e5 }; save(); });
+    await go(page, "#/train");
+    await page.click('.prog[data-id="push"]'); await sleep(600);
+    await page.click("#start").catch(() => {}); await sleep(600);
+    await page.click("#ci-go"); await page.waitForSelector("#log", { timeout: 10000 });
+    await page.waitForSelector("#war");
+    assert.match(await page.$eval("#war", e => e.innerText), /c'est le moment de ta chanson de guerre[\s\S]*Till I Collapse — Eminem/);
+    // « Lancer » : sans Spotify connecté, le morceau s'ouvre dans Apple Music ; le moment ne revient plus
+    await page.evaluate(() => { window.__opened = []; window.open = u => { window.__opened.push(u); return null; }; });
+    await page.click("#war-go");
+    await page.waitForSelector("#war", { state: "detached" });
+    assert.deepEqual(await page.evaluate(() => window.__opened), ["https://music.apple.com/fr/album/x?i=1"]);
+    await page.click("#log"); await sleep(500);
+    assert.equal(await page.$("#war"), null);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });

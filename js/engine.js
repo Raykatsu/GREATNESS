@@ -2,6 +2,7 @@
 // répétitions et temps de repos après chaque série. L'IA Claude (ai.js), si
 // elle est activée, peut ensuite affiner ces décisions.
 import { EXERCISES } from "./data.js";
+import { warmupSets, warmupText } from "./warmup.js";
 import { state, e1rm, lastPerformance, exerciseHistory } from "./store.js";
 import { recovery, exerciseReady, programStrain } from "./recovery.js";
 import { goalFix } from "./goals.js";
@@ -209,7 +210,8 @@ export class Session {
     else if (ex.schemeNote) warm = ` ${ex.schemeNote}`;
     if (!this.flags.warmup && ex.type === "load" && ex.weight >= 30) {
       this.flags.warmup = true;
-      warm += ` Échauffement : 8 reps à ${round(ex.weight * 0.5, ex.step)} kg puis 4 reps à ${round(ex.weight * 0.75, ex.step)} kg.`;
+      const ramp = warmupSets(ex.weight, { step: ex.step || 2.5, equip: EXERCISES[ex.id]?.equip });
+      if (ramp.length) warm += ` ${warmupText(ramp)}`;
     }
     const ssMates = ex.ss ? this.plan.filter(e => e.ss === ex.ss && e !== ex).map(e => e.name) : [];
     if (ssMates.length) warm += ` Superset avec ${ssMates.join(" et ")} : enchaîne sans repos.`;

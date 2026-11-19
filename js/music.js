@@ -187,6 +187,24 @@ export async function spotifyControl(cmd) {
   } catch { return "ERROR"; }
 }
 
+// Lancer un morceau dans Spotify (connecté en direct, Premium), cherché par titre et artiste : "ok", "PREMIUM",
+// "NO_DEVICE" (Spotify ouvert nulle part), "NOT_FOUND", "NOT_LINKED" ou "ERROR"
+export async function spotifyPlay(title, artist = "") {
+  if (!spotifyLinked()) return "NOT_LINKED";
+  try {
+    const q = encodeURIComponent(`track:${clip(title, 100)}${artist ? ` artist:${clip(artist, 100)}` : ""}`);
+    const r = await spotifyApi(`/search?q=${q}&type=track&limit=1`);
+    const uri = r.ok ? (await r.json().catch(() => ({})))?.tracks?.items?.[0]?.uri : null;
+    if (!uri) return "NOT_FOUND";
+    const p = await spotifyApi("/me/player/play", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uris: [uri] }) });
+    if (p.ok || p.status === 204) { setTimeout(poll, 800); return "ok"; }
+    const j = await p.json().catch(() => ({}));
+    if (p.status === 403 || /PREMIUM/.test(j?.error?.reason || "")) return "PREMIUM";
+    if (p.status === 404) return "NO_DEVICE";
+    return "ERROR";
+  } catch { return "ERROR"; }
+}
+
 /* ---------- Last.fm (fonction Supabase « music ») ---------- */
 export const LASTFM_RE = /^[A-Za-z][\w-]{1,14}$/;
 async function lastfmNow() {

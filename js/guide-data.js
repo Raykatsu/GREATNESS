@@ -81,6 +81,8 @@ export const ITEMS = [
     d: "5/3/1, GZCLP, nSuns et Starting Strength avec leurs vraies règles : chaque série est calculée et le programme avance tout seul." },
 
   // — En séance —
+  { id: "war", sec: "live", ic: "🔥", t: "Ta chanson de guerre", w: "Moi → Réglages → Musique", go: { fn: "music" },
+    d: "Choisis le morceau qui te galvanise : juste avant ta série la plus lourde ou une tentative de record, l'app te le propose et le lance (Spotify) ou l'ouvre (Apple Music)." },
   { id: "checkin", sec: "live", ic: "😴", t: "Bilan de forme", w: "Au début de chaque séance", go: { start: "today" }, auto: did,
     d: "Sommeil, énergie, courbatures : le coach adapte les charges et le volume à ta forme du jour." },
   { id: "warmup", sec: "live", ic: "🔥", t: "Échauffement et retour au calme", w: "Au début et à la fin de chaque séance",
