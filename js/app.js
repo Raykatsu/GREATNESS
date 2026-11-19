@@ -39,7 +39,7 @@ import { ANAT_CREDIT } from "./anatomy.js";
 import { openTargets } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { weekAdaptCard, bindWeekAdapt } from "./weekadapt.js";
-import { cycleCardHtml } from "./cycle-ui.js";
+import { cycleCardHtml, cycleReportHtml } from "./cycle-ui.js";
 import { loadCardHtml, balanceCardHtml, bindBalance } from "./balance-ui.js";
 import { goalCard, bindGoalCard } from "./goals-ui.js";
 import { classicCard, bindClassicCard } from "./classics-ui.js";
@@ -519,7 +519,7 @@ function progress() {
         <span>${w.i === 7 ? "Auj." : "S-" + (7 - w.i)}</span></div>`).join("")}</div>
     </div>
 
-    ${all.length ? `${cycleCardHtml()}${loadCardHtml()}${balanceCardHtml()}` : ""}
+    ${all.length ? `${cycleCardHtml()}${cycleReportHtml()}${loadCardHtml()}${balanceCardHtml()}` : ""}
 
     ${curvesHtml()}
 

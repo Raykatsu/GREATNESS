@@ -314,6 +314,8 @@ Apparence réglable aussi dans Profil : 8 couleurs, fond sombre / noir / clair, 
   - **Récupération** : charges et volume réduits.
 
   La double progression fait monter les charges toute seule quand la fourchette descend. Le bloc est indiqué sur la mission du jour et dans l'aperçu de la séance ; la carte « Ton cycle » (onglet Progrès) montre les 7 semaines, ce qui change cette semaine et le prochain bloc. Réglage : Moi → Réglages → Cycles de 7 semaines. Les programmes célèbres et tes séances perso gardent leurs propres séries.
+  - **Semaine test** : la dernière semaine du bloc Pic, l'app t'invite à aller chercher tes records sur tes mouvements principaux (carte « Ton cycle » et aperçu de séance).
+  - **Bilan du cycle** (onglet Progrès, pendant la semaine de récupération et la première semaine du cycle suivant) : séances, volume soulevé comparé au cycle d'avant, records battus, et ce que tes 4 meilleurs mouvements ont gagné — le meilleur 1RM estimé du cycle (formule d'Epley, charge × (1 + reps / 30)) contre ton meilleur d'avant le cycle — avec un verdict.
 - **Plateau** : détecté après 3 séances sans progrès → recul de 10 % pour relancer.
 - **Succès** : 20 badges à débloquer.
 - **Rappels** : vraies notifications les jours de séance et pour les défis entre amis (Web Push via Supabase, voir SUPABASE.md), ou ajout au calendrier du téléphone (.ics).
@@ -376,7 +378,8 @@ js/planner.js     programme de la semaine, adaptation à l'objectif
 js/balance.js     équilibre musculaire (séries par muscle) et charge d'entraînement (semaine / 4 précédentes)
 js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculaire » de l'onglet Progrès
 js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance allégée, rattrapage (carte de l'accueil)
-js/cycle-ui.js    carte « Ton cycle » (périodisation) et note du bloc dans l'aperçu de séance
+js/cycle-ui.js    carte « Ton cycle » (périodisation), bilan du cycle et note du bloc dans l'aperçu de séance
+js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé avant / pendant le cycle
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
