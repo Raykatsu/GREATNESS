@@ -5290,4 +5290,11 @@ export default {
   "Fréquence cardiaque": "Heart rate",
   "Mesuré par ta montre (Apple Santé)": "Measured by your watch (Apple Health)",
   "Ton cœur pendant la séance": "Your heart during the workout",
+  "Volume, force, pic, puis une semaine allégée : les répétitions suivent le bloc. La fin du Pic est ta semaine test, puis le bilan du cycle montre tes progrès.": "Volume, strength, peak, then a deload week: reps follow the block. The end of Peak is your test week, then the cycle report shows your progress.",
+  "Tes muscles du jour en 3D": "Today's muscles in 3D",
+  "Les muscles que tu viens de travailler s'allument sur le corps, en rouge les plus sollicités, puis le corps 3D tourne tout seul ; touche-le pour le faire pivoter.": "The muscles you just worked light up on the body, the hardest-worked in red, then the 3D body spins on its own; tap it to turn it yourself.",
+  "App iPhone, Apple Watch et Apple Santé": "iPhone app, Apple Watch and Apple Health",
+  "Lance un exercice sur ta montre : ta fréquence cardiaque s'affiche en séance, puis la moyenne et le maximum à la fin. Le repos s'affiche aussi sur la montre.": "Start a workout on your watch: your heart rate shows during the workout, then the average and max at the end. Your rest also shows on the watch.",
+  "App iPhone, Moi → Réglages → Musique": "iPhone app, Me → Settings → Music",
+  "Quand le coach parle, Spotify ou Apple Music baissent le temps de la phrase, puis remontent. Pendant le repos, le morceau s'affiche dans la Dynamic Island.": "When the coach speaks, Spotify or Apple Music go quieter for the sentence, then come back up. During rest, the song shows in the Dynamic Island.",
 };
