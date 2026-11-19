@@ -9,7 +9,7 @@ import { state } from "../js/store.js";
 import {
   parseSpotify, parseItunes, bigArt, cleanTrack, trackKey, pkceVerifier, pkceChallenge, spotifyAuthUrl, webRedirect, spotifyFinish,
   spotifyLinked, spotifyLogout, spotifyControl, poll, startMusic, stopMusic, setMusic, nowPlaying, onMusic, musicError, musicSource, LASTFM_RE, _reset, NATIVE_REDIRECT,
-  statsfmId, SOURCE_NAME,
+  statsfmId, SOURCE_NAME, autoSources, musicErrors, appleState,
 } from "../js/music.js";
 
 const realFetch = globalThis.fetch;
@@ -79,7 +79,7 @@ test("retour de Spotify : état vérifié, code échangé contre des jetons gard
   await spotifyFinish("https://app.test/?code=C&state=S");
   assert.deepEqual([sent.grant_type, sent.code, sent.code_verifier, sent.redirect_uri], ["authorization_code", "C", "V", "https://app.test/"]);
   assert.equal(spotifyLinked(), true);
-  assert.equal(musicSource(), "spotify");
+  assert.equal(musicSource(), "auto", "Spotify relié : la musique se lit en automatique, avec les autres sources");
   assert.ok(!JSON.stringify(state).includes("R1"), "les jetons ne vont pas dans les données synchronisées");
   // jeton expiré : renouvelé avant la lecture du morceau en cours
   localStorage.setItem("greatness.spotify", JSON.stringify({ access: "OLD", refresh: "R1", exp: Date.now() - 1 }));
@@ -101,7 +101,7 @@ test("retour de Spotify : état vérifié, code échangé contre des jetons gard
   assert.equal(await spotifyControl("play"), "NO_DEVICE");
   spotifyLogout();
   assert.equal(spotifyLinked(), false);
-  assert.equal(musicSource(), "");
+  assert.equal(musicSource(), "auto", "les autres sources continuent");
 });
 
 test("Last.fm par la fonction « music » : morceau en cours, délai de grâce entre deux morceaux, erreurs", async () => {
@@ -180,6 +180,44 @@ test("stats.fm par la fonction « music » : profil (pseudo ou lien collé), mor
   await setMusic({ sfUser: "../x" });
   assert.equal(asked, "");
   _reset();
+});
+
+test("automatique : ce que joue le téléphone, d'où que ça vienne — le morceau qui joue gagne ; erreurs par compte", async () => {
+  reset();
+  // l'app iPhone : l'app Musique d'Apple, lue directement par le natif
+  let apple = { status: "authorized", title: "Numb", artist: "Linkin Park", playing: false, art: "data:image/jpeg;base64,AAAA" };
+  globalThis.window = { Capacitor: { isNativePlatform: () => true, Plugins: { Greatness: { musicNow: async () => apple } } } };
+  let sf = { ok: true, track: { title: "Blinding Lights", artist: "The Weeknd", art: "https://i.scdn.co/image/x", playing: true } }, nSf = 0;
+  mock("/functions/v1/music?statsfm=", () => { nSf++; return typeof sf === "function" ? sf() : sf; });
+  mock("/functions/v1/music?lastfm=", () => ({ ok: true, track: null }));
+  try {
+    await setMusic({ src: "auto", sfUser: "rayane", user: "rayane_b" });
+    assert.deepEqual(autoSources(), ["apple", "statsfm", "lastfm"]);
+    // Apple Music en pause, stats.fm qui joue : celui qui joue gagne
+    assert.deepEqual([nowPlaying().title, nowPlaying().src, nowPlaying().playing], ["Blinding Lights", "statsfm", true]);
+    assert.equal(appleState(), "authorized");
+    // au rythme régulier, les sources en ligne ne sont relues que toutes les 15 s ; une lecture demandée les relit
+    const before = nSf;
+    await poll(false);
+    assert.equal(nSf, before, "stats.fm pas relu tout de suite");
+    // l'iPhone joue maintenant, stats.fm ne dit plus rien
+    apple = { ...apple, playing: true };
+    sf = { ok: true, track: null };
+    await poll();
+    assert.equal(nSf, before + 1);
+    assert.deepEqual([nowPlaying().title, nowPlaying().src], ["Numb", "apple"]);
+    // un compte en erreur (profil qui cache son écoute) : noté pour les réglages, la musique de l'iPhone continue
+    sf = () => new Response(JSON.stringify({ ok: false, error: "PRIVATE" }), { status: 403 });
+    await poll();
+    assert.equal(musicErrors().statsfm, "PRIVATE");
+    assert.equal(nowPlaying().src, "apple");
+    // accès à Apple Music refusé : noté aussi
+    apple = { denied: true, status: "denied", playing: false };
+    await poll();
+    assert.deepEqual([musicErrors().apple, appleState()], ["DENIED", "denied"]);
+    // stats.fm caché et Apple Music refusé : plus rien à afficher (pas de délai de grâce pour une erreur définitive)
+    assert.equal(nowPlaying(), null);
+  } finally { delete globalThis.window; _reset(); }
 });
 
 test("choix manuel : l'ambiance choisie, sans réseau ; aucune source : rien", async () => {

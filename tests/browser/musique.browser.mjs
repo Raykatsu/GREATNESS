@@ -40,9 +40,11 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
     await page.waitForSelector("#music-home.m-invite");
     await page.click("#music-go");
     await page.waitForSelector(".m-sheet");
-    assert.equal(await page.$eval('.m-src[data-src="lastfm"]', b => b.classList.contains("on")), true);
+    // une seule façon de relier sa musique : ce que joue le téléphone (automatique), avec ses comptes
+    assert.equal(await page.$eval('.m-src[data-src="auto"]', b => b.classList.contains("on")), true);
+    assert.match(await page.$eval(".m-wait", e => e.innerText), /Relie un de tes comptes/);
     await page.fill("#ms-user", "rayane_b");
-    await page.click("#ms-save");
+    await page.click("#ms-user-save");
     await page.waitForSelector(".m-prev", { timeout: 10000 });
     assert.match(await page.$eval(".m-prev", e => e.innerText), /Numb[\s\S]*Linkin Park/);
     // couleurs de la pochette : l'accent devient le vert de la pochette, la pochette floutée en décor
@@ -126,7 +128,6 @@ test("musique : stats.fm, lien du profil collé, morceau en cours et ses couleur
     await signup(page, "statsfm", "1357");
     await go(page, "#/profile");
     await page.click("#p-music");
-    await page.click('.m-src[data-src="statsfm"]');
     // un pseudo impossible : refusé sans rien demander
     await page.fill("#ms-sf", "a");
     await page.click("#ms-sf-save");
@@ -144,7 +145,8 @@ test("musique : stats.fm, lien du profil collé, morceau en cours et ses couleur
     // le profil cache son écoute : le morceau disparaît, l'explication s'affiche
     reply = { ok: false, error: "PRIVATE" };
     await page.evaluate(async () => (await import("/js/music.js")).poll());
-    await page.waitForFunction(() => /cache ce que tu écoutes/.test(document.querySelector("#ms-now")?.innerText || ""), null, { timeout: 10000 });
+    await page.waitForFunction(() => /cache ce que tu écoutes/.test(document.querySelector('[data-err="statsfm"]')?.innerText || ""), null, { timeout: 10000 });
+    await page.waitForFunction(() => !document.querySelector(".m-prev"), null, { timeout: 5000 }); // son morceau n'est plus affiché
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });
