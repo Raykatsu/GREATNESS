@@ -3547,3 +3547,15 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 .fb-dot.p { background: var(--mus1); }
 .fb-leg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 2px 0; }
 .fb-leg span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- Fréquence cardiaque de la montre (heart.js) : en-tête de séance, fin de séance ---------- */
+.lh-hr { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
+.lh-hr[hidden] { display: none; }
+.lh-hr svg { width: 13px; height: 13px; color: var(--red); animation: hrBeat 1s var(--ease-in-out) infinite; }
+@keyframes hrBeat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.22); } 30% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .lh-hr svg { animation: none; } }
+.fin-hr { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.fin-hr[hidden] { display: none; }
+.fin-hr .fh-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; flex: none; background: var(--red-soft); color: var(--red); }
+.fin-hr .fh-ic svg { width: 20px; height: 20px; }
+.fin-hr .grow { display: grid; gap: 2px; }

@@ -1,6 +1,7 @@
 // Le repos qui défile dans la Dynamic Island et sur l'écran verrouillé, sans que l'app ait besoin de tourner :
 // le compte à rebours est calculé par le système (Text(timerInterval:)). À la fin, « C'est reparti ! ».
 // Avec de la musique : la pochette et le titre du morceau, et l'accent de l'app (aux couleurs du morceau).
+// Sur l'Apple Watch (iOS 18 et watchOS 11 : Smart Stack), une version compacte : le repos, l'exercice qui suit.
 import ActivityKit
 import WidgetKit
 import SwiftUI
@@ -23,7 +24,7 @@ private func coverImage(_ name: String?) -> UIImage? {
 struct RestLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RestAttributes.self) { context in
-            RestLockView(state: context.state, over: context.isStale)
+            RestContentView(state: context.state, over: context.isStale)
                 .activityBackgroundTint(Color.black.opacity(0.82))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
@@ -79,6 +80,72 @@ struct RestLiveActivity: Widget {
             }
             .keylineTint(tint)
         }
+        .withWatchFamily()
+    }
+}
+
+extension WidgetConfiguration {
+    // iOS 18 : la Live Activity a aussi sa version Apple Watch (famille « small », Smart Stack de watchOS 11)
+    func withWatchFamily() -> some WidgetConfiguration {
+        if #available(iOS 18.0, *) {
+            return supplementalActivityFamilies([.small])
+        } else {
+            return self
+        }
+    }
+}
+
+// Écran verrouillé (famille « medium ») ou montre (« small », iOS 18)
+struct RestContentView: View {
+    let state: RestAttributes.ContentState
+    let over: Bool
+    var body: some View {
+        if #available(iOS 18.0, *) {
+            RestFamilyView(state: state, over: over)
+        } else {
+            RestLockView(state: state, over: over)
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+struct RestFamilyView: View {
+    @Environment(\.activityFamily) private var family
+    let state: RestAttributes.ContentState
+    let over: Bool
+    var body: some View {
+        switch family {
+        case .small:
+            RestWatchView(state: state, over: over)
+        default:
+            RestLockView(state: state, over: over)
+        }
+    }
+}
+
+// Sur la montre : le compte à rebours, l'exercice qui suit et sa série
+struct RestWatchView: View {
+    let state: RestAttributes.ContentState
+    let over: Bool
+    var body: some View {
+        let tint = tintColor(state.tint)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: over ? "bolt.fill" : "timer").font(.caption2.bold()).foregroundStyle(tint)
+                if over {
+                    Text("Go !").font(.headline.bold()).foregroundStyle(tint)
+                } else {
+                    Text(timerInterval: state.start...state.end, countsDown: true)
+                        .font(.headline.monospacedDigit()).foregroundStyle(.white)
+                }
+                Spacer(minLength: 0)
+            }
+            Text(state.title).font(.caption.bold()).foregroundStyle(.white).lineLimit(1)
+            if !state.detail.isEmpty {
+                Text(state.detail).font(.caption2).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+            }
+        }
+        .padding(8)
     }
 }
 

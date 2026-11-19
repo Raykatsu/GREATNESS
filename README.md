@@ -258,6 +258,8 @@ En séance, **Demander au coach** a un **micro** : pose ta question à voix haut
 
 - **Repos dans la Dynamic Island et sur l'écran verrouillé** : le compte à rebours et l'exercice qui suit (série, charge, reps), même téléphone verrouillé ; « C'est reparti ! » à la fin.
   Avec de la musique : la pochette et le titre du morceau qui joue (pochette dans la petite Dynamic Island et sur l'écran verrouillé), et l'accent de l'app, aux couleurs du morceau. La pochette est déposée en petit par l'app dans le dossier partagé du groupe d'apps (la Live Activity ne télécharge rien) ; un nouveau morceau pendant le repos met l'affichage à jour.
+- **Sur l'Apple Watch** : le repos (compte à rebours, exercice qui suit et sa série) s'affiche aussi sur la montre, dans le Smart Stack (iOS 18 et watchOS 11), dans une version faite pour le petit écran.
+- **Ton cœur pendant la séance** (Apple Watch, par Apple Santé) : lance un exercice « Renforcement musculaire » sur la montre ; l'app lit ta fréquence cardiaque toutes les 15 s et l'affiche dans l'en-tête de la séance (si la mesure a moins de 2 minutes), puis la moyenne et le maximum de la séance à la fin, gardés avec la séance. Les mesures arrivent de la montre via Santé, parfois avec un peu de retard : la fin de séance les relit 20 s plus tard. Demandé une fois aux comptes déjà reliés à Santé.
 - **Le coach baisse la musique quand il parle** : Spotify, Apple Music… baissent le temps d'une consigne, puis remontent (session audio iOS « duckOthers », seulement si de la musique joue ailleurs). Réglage : Moi → Réglages → Musique → Le coach baisse la musique.
 - **Widget « Séance du jour »** (écran d'accueil et écran verrouillé) : la séance prévue, ta série de jours, ta semaine ; il change de jour tout seul à minuit.
 - Code natif dans [`app-store/native/`](app-store/native/) (Swift), ajouté au projet Xcode par `app-store/ios-widgets.rb`.
@@ -384,6 +386,7 @@ js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance all
 js/cycle-ui.js    carte « Ton cycle » (périodisation), bilan du cycle et note du bloc dans l'aperçu de séance
 js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé avant / pendant le cycle
 js/recap.js       récap de fin de séance : séries par muscle, muscles très sollicités / sollicités
+js/heart.js       fréquence cardiaque de la montre : dernière mesure récente, moyenne et maximum de la séance
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)

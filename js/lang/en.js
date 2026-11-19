@@ -5287,4 +5287,7 @@ export default {
   "Voir tes muscles du jour en 3D": "See today's muscles in 3D",
   "Le coach baisse la musique": "The coach lowers the music",
   "Quand il parle, Spotify, Apple Music… baissent le temps de la phrase, puis remontent": "When the coach speaks, Spotify, Apple Music… go quieter for the sentence, then come back up",
+  "Fréquence cardiaque": "Heart rate",
+  "Mesuré par ta montre (Apple Santé)": "Measured by your watch (Apple Health)",
+  "Ton cœur pendant la séance": "Your heart during the workout",
 };

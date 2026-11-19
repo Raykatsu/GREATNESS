@@ -22,6 +22,8 @@ export function syncHealth({ force = false } = {}) {
   return (syncing ||= (async () => {
     try {
       const native = nativeOn();
+      // déjà relié avant la lecture de la fréquence cardiaque (séances avec la montre) : on la demande une fois
+      if (native && !state.health.hrAsked) { await nativeHealthAuthorize().catch(() => {}); state.health.hrAsked = true; }
       const r = native ? { linked: true, days: await nativeHealthRead(35) } : await friendCall("gt_health_pull", { p_since: shiftDay(today(), -60) });
       lastSync = Date.now();
       const h = state.health || {};
@@ -80,7 +82,7 @@ async function openNativeHealth() {
       try {
         if (!(await nativeHealthAvailable())) return toast("Apple Santé n'est pas disponible sur cet appareil.");
         await nativeHealthAuthorize();
-        state.health = { ...(state.health || {}), native: true };
+        state.health = { ...(state.health || {}), native: true, hrAsked: true };
         save();
         const r = await syncHealth({ force: true });
         draw();

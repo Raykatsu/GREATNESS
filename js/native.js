@@ -102,13 +102,23 @@ export async function nativeBioVerify(reason) {
 }
 
 /* ---------- Apple Santé (HealthKit) ---------- */
-const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories"];
+const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories", "heartRate"];
 const iso = t => new Date(t).toISOString();
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const nativeHealthAvailable = async () => { const H = isNative() && plugin("Health"); if (!H) return false; try { return !!(await H.isAvailable()).available; } catch { return false; } };
 export async function nativeHealthAuthorize() {
   const H = plugin("Health");
   await H.requestAuthorization({ read: READ, write: [] });
+}
+
+// Fréquence cardiaque (la montre, pendant la séance) entre deux instants : [{ t (ms), bpm }] (heart.js)
+export async function nativeHeartRate(from, to = Date.now()) {
+  const H = isNative() && plugin("Health");
+  if (!H) return [];
+  try {
+    const r = await H.readSamples({ dataType: "heartRate", startDate: iso(from), endDate: iso(to), limit: 5000 });
+    return (r?.samples || []).map(s => ({ t: Date.parse(s.startDate), bpm: +s.value })).filter(s => Number.isFinite(s.t) && s.bpm > 0);
+  } catch { return []; }
 }
 
 // Mesures des `days` derniers jours, au même format que le serveur : [{ day, data: { sleep, hrv, rhr, steps, weight, kcal }, at }]
