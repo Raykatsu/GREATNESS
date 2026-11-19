@@ -21,7 +21,7 @@ export const SECTIONS = [
 ];
 
 // Fonctions que le guide sait ouvrir directement (go.fn)
-export const FNS = ["manual", "body3d", "intervals", "goal", "recovery", "story", "health", "targets", "music", "coaches", "feedback", "demo", "cam", "video"];
+export const FNS = ["manual", "body3d", "intervals", "goal", "recovery", "story", "health", "targets", "music", "dance", "coaches", "feedback", "demo", "cam", "video"];
 
 const did = s => (s.sessions || []).length > 0;
 const ate = s => Object.values(s.food || {}).some(d => d?.items?.length);
@@ -198,6 +198,8 @@ export const ITEMS = [
     d: "Un rappel avant chaque séance, la fin du repos écran verrouillé, les défis de tes amis… ou tes séances dans ton calendrier." },
   { id: "music", sec: "settings", ic: "🎵", t: "Ta musique, tes couleurs", w: "Moi → Réglages → Musique", go: { fn: "music" }, auto: s => !!s.profile?.music?.src,
     d: "Relie Spotify, Deezer (par Last.fm) ou Apple Music : l'app prend les couleurs de la pochette du morceau en cours, et chaque séance garde sa bande-son." },
+  { id: "dance", sec: "settings", ic: "🕺", t: "Le mannequin qui danse", w: "Accueil → carte En écoute", go: { fn: "dance" },
+    d: "Laisse l'app sur l'accueil pendant que ta musique joue : au bout de 20 secondes, le mannequin musclé danse au tempo du morceau, la pochette floutée derrière lui. Tape en rythme pour caler ses pas." },
   { id: "look", sec: "settings", ic: "🎨", t: "Apparence", w: "Moi → Réglages → Apparence", go: { to: "#/profile", spot: ".swatches" },
     d: "Huit couleurs, un fond sombre, noir ou clair, et trois tailles de texte. Ou demande au coach « mode clair »." },
   { id: "lang", sec: "settings", ic: "🌍", t: "Langue", w: "Moi → Réglages → Apparence", go: { to: "#/profile", spot: "#lang" },

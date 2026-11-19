@@ -7,6 +7,7 @@ import {
 } from "./music.js";
 import { refreshMusicTheme } from "./musictheme.js";
 import { musicTint } from "./actions.js";
+import { openDance } from "./dance-ui.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -17,6 +18,7 @@ export const MI = {
   next: svg('<path d="m5 5 9 7-9 7z" fill="currentColor"/><path d="M18 5v14" stroke-width="2.6"/>'),
   previous: svg('<path d="m19 5-9 7 9 7z" fill="currentColor"/><path d="M6 5v14" stroke-width="2.6"/>'),
   search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>'),
+  dance: svg('<circle cx="13" cy="4.2" r="2"/><path d="m6 8.5 4-1.5 3.5 1 3-3.5M13.5 8 12 13l3.5 2.5-1 5M12 13l-3.5 2-3.5-.5"/>'),
 };
 // typographie française : espace fine insécable avant « : ; ! ? % » (la traduction l'ignore, i18n.js)
 const nb = s => s.replace(/ ([?!:;»%])/g, " $1");
@@ -32,8 +34,11 @@ const names = t => `<b class="ellipsis" translate="no">${esc(t.title)}</b><span 
 /* ---------- Carte de l'accueil ---------- */
 export function musicHomeCard() {
   const t = nowPlaying(), m = state.profile.music || {};
-  if (t) return `<section class="card m-now tap mt" id="music-home" role="button" tabindex="0" aria-label="Musique">${art(t)}
-    <div class="grow m-txt"><span class="eyebrow">${status(t)} · ${SOURCE_NAME[t.src]}</span>${names(t)}</div>${controls(t)}</section>`;
+  // la carte n'est pas elle-même un bouton : ses boutons (ouvrir la musique, danser, lecteur) sont côte à côte, pas
+  // imbriqués (lecteur d'écran)
+  if (t) return `<section class="card m-now tap mt" id="music-home">
+    <button class="m-open" id="music-open">${art(t)}<span class="grow m-txt"><span class="eyebrow">${status(t)} · ${SOURCE_NAME[t.src]}</span>${names(t)}</span></button>
+    <button class="icon-btn plain sm m-dance" id="music-dance" aria-label="Faire danser le mannequin">${MI.dance}</button>${controls(t)}</section>`;
   if (!musicSource() && !m.hideInvite) return `<section class="card m-invite mt" id="music-home">
     <span class="m-inv-ic">${MI.note}</span><button class="grow m-inv-go" id="music-go"><b>Ta musique, tes couleurs</b>
       <span class="small muted">${nb("Spotify, Deezer, Apple Music… : l'app prend les couleurs de la pochette du morceau que tu écoutes.")}</span></button>
@@ -44,10 +49,10 @@ export function bindMusicHome(root) {
   const el = $("#music-home", root);
   if (!el) return;
   if (el.classList.contains("m-now")) {
-    el.onclick = e => { if (!e.target.closest("[data-mctl]")) openMusic(); };
-    el.onkeydown = e => { if (e.key === "Enter") openMusic(); };
+    el.onclick = e => { if (!e.target.closest("[data-mctl], #music-dance")) openMusic(); }; // toute la carte s'ouvre au doigt
   }
   $("#music-go", el)?.addEventListener("click", () => openMusic());
+  $("#music-dance", el)?.addEventListener("click", e => { e.stopPropagation(); openDance(); });
   $("#music-hide", el)?.addEventListener("click", () => { state.profile.music = { ...(state.profile.music || {}), hideInvite: true }; save(); el.remove(); });
   bindControls(el);
 }
@@ -120,6 +125,9 @@ export function openMusic() {
     <div class="eyebrow mt">Effets</div>
     <label class="toggle set-row"><div class="grow"><b>Couleurs de la pochette</b><span class="xs muted">Boutons, anneaux et lueurs du fond prennent les couleurs du morceau</span></div><input type="checkbox" id="ms-theme" ${m().theme !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Décor</b><span class="xs muted">La pochette floutée derrière l'écran</span></div><input type="checkbox" id="ms-deco" ${m().deco !== false ? "checked" : ""}/></label>
+    <label class="toggle set-row"><div class="grow"><b>Garder les couleurs</b><span class="xs muted">Quand la musique s'arrête, l'app reste aux couleurs du dernier morceau</span></div><input type="checkbox" id="ms-keep" ${m().keep !== false ? "checked" : ""}/></label>
+    <label class="toggle set-row"><div class="grow"><b>Le mannequin danse</b><span class="xs muted">Sur l'accueil, quand tu ne touches plus l'écran depuis 20 secondes pendant que la musique joue</span></div><input type="checkbox" id="ms-dance" ${m().dance !== false ? "checked" : ""}/></label>
+    <button class="btn btn-soft btn-block mt-s" id="ms-dance-now">${MI.dance} Faire danser le mannequin</button>
     ${musicSource() ? `<button class="btn btn-ghost btn-block mt" id="ms-off">${I.x} Couper la musique dans l'app</button>` : ""}
   </div>`, { z: 80, onClose: () => { sheetDraw = null; } });
   const el = sh.el;
@@ -196,6 +204,9 @@ export function openMusic() {
   $$("#ms-srcs .m-src", el).forEach(b => b.onclick = () => { pick = b.dataset.src; detail(); });
   $("#ms-theme", el).onchange = e => { setMusic({ theme: e.target.checked }); refreshMusicTheme(); };
   $("#ms-deco", el).onchange = e => { setMusic({ deco: e.target.checked }); refreshMusicTheme(); };
-  $("#ms-off", el)?.addEventListener("click", () => { setMusic({ src: "" }); sh.close(); toast("Musique coupée dans l'app"); });
+  $("#ms-keep", el).onchange = e => { setMusic({ keep: e.target.checked }); refreshMusicTheme(); };
+  $("#ms-dance", el).onchange = e => { setMusic({ dance: e.target.checked }); };
+  $("#ms-dance-now", el).onclick = () => { sh.close(); openDance(); };
+  $("#ms-off", el)?.addEventListener("click", () => { setMusic({ src: "" }); refreshMusicTheme(); sh.close(); toast("Musique coupée dans l'app"); }); // couleurs gardées comprises
   redraw();
 }

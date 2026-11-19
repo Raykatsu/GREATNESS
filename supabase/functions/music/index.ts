@@ -3,9 +3,11 @@
 //   Tidal… y envoient ce qu'on écoute). La clé Last.fm reste ici (secret LASTFM_API_KEY). Pochette absente ou
 //   générique : retrouvée dans le catalogue iTunes. Réponse gardée 10 s par pseudo (plusieurs écrans, un appel) ;
 // - ?cover=ADRESSE : une pochette d'un hôte connu (Spotify, Last.fm, Deezer, Apple), renvoyée avec l'autorisation de
-//   lecture (CORS) pour que l'app en tire ses couleurs. Les autres adresses sont refusées.
+//   lecture (CORS) pour que l'app en tire ses couleurs. Les autres adresses sont refusées ;
+// - ?bpm=1&artist=…&title=…[&isrc=…] : le tempo du morceau, d'après le catalogue public de Deezer (pour le mannequin
+//   qui danse, js/dance-ui.js). 0 si inconnu ; gardé en mémoire.
 // Déployée automatiquement par GitHub Actions (voir SUPABASE.md, « Musique »).
-const VERSION = "music-1";
+const VERSION = "music-2";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -71,6 +73,27 @@ async function lastfm(user: string) {
   return json(body);
 }
 
+// Tempo d'un morceau : par son code ISRC, sinon par l'artiste et le titre ; entre 50 et 220 BPM, sinon 0
+const tempoMemo = new Map<string, number>();
+export const tempoOk = (n: unknown) => { const v = Math.round(Number(n) || 0); return v >= 50 && v <= 220 ? v : 0; };
+async function bpm(q: URLSearchParams) {
+  const isrc = (q.get("isrc") || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 15).toUpperCase();
+  const artist = (q.get("artist") || "").replace(/"/g, "").slice(0, 100).trim(), title = (q.get("title") || "").replace(/"/g, "").slice(0, 100).trim();
+  if (!isrc && !(artist && title)) return json({ ok: false, error: "BAD_TRACK" }, 400);
+  const key = isrc || `${artist}|${title}`.toLowerCase();
+  if (tempoMemo.has(key)) return json({ ok: true, bpm: tempoMemo.get(key) });
+  const get = async (u: string) => { const r = await fetch(u); return r.ok ? await r.json().catch(() => ({})) : {}; };
+  let found = 0;
+  if (isrc) found = tempoOk((await get(`https://api.deezer.com/track/isrc:${isrc}`))?.bpm);
+  if (!found && artist && title) {
+    const id = (await get(`https://api.deezer.com/search/track?q=${encodeURIComponent(`artist:"${artist}" track:"${title}"`)}&limit=1`))?.data?.[0]?.id;
+    if (id) found = tempoOk((await get(`https://api.deezer.com/track/${encodeURIComponent(String(id))}`))?.bpm);
+  }
+  if (tempoMemo.size > 2000) tempoMemo.clear();
+  tempoMemo.set(key, found);
+  return json({ ok: true, bpm: found });
+}
+
 async function cover(u: string) {
   if (!coverAllowed(u)) return json({ ok: false, error: "BAD_COVER" }, 400);
   const r = await fetch(u);
@@ -88,6 +111,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (q.has("lastfm")) return await lastfm(q.get("lastfm") || "");
     if (q.has("cover")) return await cover(q.get("cover") || "");
+    if (q.has("bpm")) return await bpm(q);
     return new Response(`GREATNESS · fonction musique en ligne (${VERSION}${env("LASTFM_API_KEY") ? ", Last.fm prêt" : ", clé Last.fm absente"})`,
       { headers: { ...CORS, "Content-Type": "text/plain; charset=utf-8" } });
   } catch (e) {

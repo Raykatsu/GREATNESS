@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 70 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 71 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -80,9 +80,12 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
   - **choix manuel** : un morceau cherché dans le catalogue iTunes, pour l'ambiance.
 - **Les couleurs suivent la pochette** : à chaque morceau, l'app tire de la pochette un accent (boutons, anneaux, liens), un deuxième accent pour les dégradés et une couleur d'ambiance pour les lueurs du fond. Une pochette en noir et blanc ne change que l'ambiance. Le texte reste lisible quelle que soit la couleur.
 - **Le décor** : la pochette floutée derrière l'écran, en fondu d'un morceau à l'autre. Couleurs et décor se désactivent chacun.
+- **Les couleurs restent** : quand la musique s'arrête, l'app garde la pochette floutée et les couleurs du dernier morceau, y compris à la prochaine ouverture (réglage « Garder les couleurs »).
+- **Le mannequin qui danse** : laisse l'app sur l'accueil pendant que ta musique joue ; au bout de 20 secondes sans toucher l'écran (avant le verrouillage automatique de l'iPhone), le corps musclé 3D des démos se lève et danse au tempo du morceau, la pochette floutée derrière lui. L'écran reste allumé pendant la danse, 10 minutes au plus. Ses muscles prennent la couleur de la pochette et pulsent sur chaque temps ; un nouveau pas toutes les deux mesures (balancé et poses de culturiste sur les morceaux lents, pas chassés et « raise the roof » au milieu, sauts sur les morceaux rapides), avec un fondu d'un pas à l'autre. Tempo : celui du morceau (catalogue Deezer, par la fonction `music`), ou **Tape en rythme** (gardé pour ce morceau sur l'appareil), sinon 100 BPM. Un toucher le renvoie. Aussi depuis le bouton de la carte « En écoute » (glisser pour tourner autour). Tout seul seulement sur l'accueil, jamais en séance, ni si le téléphone réduit les animations ; réglage « Le mannequin danse ».
+- **Ce que joue le téléphone** : iOS ne laisse aucune app lire ce que jouent les autres (Spotify, Deezer…). Seule l'app Musique d'Apple se lit directement (source Apple Music, app iPhone) ; pour Spotify, Deezer, YouTube Music ou Tidal, Last.fm fait le pont.
 - **Carte « En écoute »** sur l'accueil et **lecteur pendant la séance** (avec lecture, pause et morceau suivant si Spotify est connecté en direct).
 - **Bande-son de la séance** : les morceaux écoutés s'affichent en fin de séance et restent dans l'historique ; chaque série retient le morceau qui passait.
-- Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm, relais des pochettes).
+- Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm, relais des pochettes, tempo des morceaux).
 
 ## Le coach IA agit, retient et fait le bilan
 
@@ -326,7 +329,7 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 
 ```bash
 npm install
-npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, objectif ajusté au jour le jour et onglet « Comprendre », plans de repas, musique (sources, couleurs des pochettes), Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
+npm test               # moteur, coach, voix, fusion, compteur et posture, vitesse de barre, records, duels, ligues, objectifs, minuteur, planning, nutrition, objectif ajusté au jour le jour et onglet « Comprendre », plans de repas, musique (sources, couleurs des pochettes, mannequin qui danse), Apple Santé, import/export, notifications, mode histoire, plantages, préchargement, Face ID, carte à partager, SQL (PGlite)
 npx playwright install chromium
 npm run test:browser   # l'app dans un iPhone simulé : parcours complet, compte en ligne, accessibilité, programmes célèbres, coach vocal
 ```
@@ -388,7 +391,8 @@ js/adaptive.js    calories adaptatives (tendance du poids, vraie dépense)
 js/nutriadapt.js  objectif du jour ajusté aux écarts des 3 jours d'avant, jour du plan de repas recalculé
 js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutriments) ; nutri-refs.js : les études citées
 js/music.js       musique : sources (Last.fm, Spotify, Apple Music, choix manuel), morceau en cours (+ music-ui.js : écrans)
-js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor
+js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
+js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)
 js/goals.js       objectifs chiffrés sur 8 à 12 semaines (+ goals-ui.js : écrans)

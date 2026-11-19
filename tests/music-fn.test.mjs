@@ -16,7 +16,7 @@ globalThis.fetch = async (url, opts = {}) => {
   return new Response("?", { status: 404 });
 };
 console.error = () => {};
-const { parseLastfm, coverAllowed, USER_RE } = await import(new URL("../supabase/functions/music/index.ts", import.meta.url));
+const { parseLastfm, coverAllowed, USER_RE, tempoOk } = await import(new URL("../supabase/functions/music/index.ts", import.meta.url));
 const call = async qs => { const res = await handler(new Request(`https://fn.test/music${qs}`)); return { res, body: await res.text() }; };
 
 const PLACE = "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png";
@@ -84,9 +84,24 @@ test("?cover= : image d'un hôte connu relayée avec CORS ; le reste refusé", a
 
 test("adresse seule : la fonction se présente (version, clé présente ou non) ; préflight CORS", async () => {
   env.LASTFM_API_KEY = "x";
-  assert.match((await call("")).body, /fonction musique en ligne \(music-1, Last\.fm prêt\)/);
+  assert.match((await call("")).body, /fonction musique en ligne \(music-2, Last\.fm prêt\)/);
   delete env.LASTFM_API_KEY;
   assert.match((await call("")).body, /clé Last\.fm absente/);
   const pre = await handler(new Request("https://fn.test/music", { method: "OPTIONS" }));
   assert.equal(pre.headers.get("access-control-allow-origin"), "*");
+});
+
+test("?bpm= : tempo par ISRC, sinon par artiste et titre (catalogue Deezer) ; inconnu ou absurde : 0 ; gardé en mémoire", async () => {
+  assert.deepEqual([tempoOk(127.6), tempoOk(0), tempoOk(400), tempoOk("x")], [128, 0, 0, 0]);
+  replies["api.deezer.com/track/isrc:USIR10211559"] = () => Response.json({ id: 1, bpm: 171.2 });
+  replies["api.deezer.com/search/track"] = u => Response.json({ data: decodeURIComponent(u).includes('artist:"Inconnu"') ? [] : [{ id: 42 }] });
+  replies["api.deezer.com/track/42"] = () => Response.json({ id: 42, bpm: 98 });
+  const byIsrc = await call("?bpm=1&isrc=usir10211559&artist=Eminem&title=Till%20I%20Collapse");
+  assert.deepEqual(JSON.parse(byIsrc.body), { ok: true, bpm: 171 });
+  assert.deepEqual(JSON.parse((await call("?bpm=1&artist=Daft%20Punk&title=One%20More%20Time")).body), { ok: true, bpm: 98 });
+  assert.deepEqual(JSON.parse((await call("?bpm=1&artist=Inconnu&title=Rien")).body), { ok: true, bpm: 0 });
+  assert.equal((await call("?bpm=1")).res.status, 400);
+  calls = [];
+  await call("?bpm=1&artist=Daft%20Punk&title=One%20More%20Time");
+  assert.equal(calls.length, 0, "déjà connu : pas de nouvel appel");
 });

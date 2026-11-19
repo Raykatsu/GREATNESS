@@ -10,7 +10,7 @@
 // poignet. Le matériel (barre, haltères, banc, poulies…) est fait de cylindres et de boîtes. Les muscles ont la couleur
 // de leur rôle (comme la planche) et l'agoniste s'allume pendant l'effort.
 // Le calcul de la pose (lift, retarget, gearOf) est pur et testé dans Node ; mountDemo3D dessine en WebGL.
-import { solve, sample, solveFront, sampleFront, at as at2d, L, FLOOR } from "./body.js";
+import { solve, sample, solveFront, sampleFront, at as at2d, L, FLOOR, FSTAND } from "./body.js";
 import { mul, perspective, lookAt, orbitEye } from "./body3d.js";
 
 export const SCALE = 0.0203; // mètres par unité du dessin (cuisse et jambe du modèle / du dessin)
@@ -115,8 +115,9 @@ function liftSide(move, p) {
 }
 // Face (ou dos) : le plan du dessin est le plan frontal ; les coudes et les genoux pliés avancent vers nous.
 // « Vue de dessus » : la même pose, couchée sur le dos (le devant du corps vers le haut).
+// move.pose(p) : une pose de face calculée à chaque instant (la danse, dance.js) au lieu des positions clés
 function liftFront(move, p) {
-  const top = isTop(move), q0 = sampleFront(move, p), q = top ? { ...q0, rot: 0 } : q0;
+  const top = isTop(move), q0 = move.pose ? { ...FSTAND, ...move.pose(p) } : sampleFront(move, p), q = top ? { ...q0, rot: 0 } : q0;
   const j = solveFront(q), a = (q.rot || 0) * RAD, [cx, cy] = j.P;
   const rot = ([x, y]) => [cx + (x - cx) * Math.cos(a) - (y - cy) * Math.sin(a), cy + (x - cx) * Math.sin(a) + (y - cy) * Math.cos(a)];
   const mx = move.back ? -1 : 1; // de face, la gauche de l'image est la droite du sportif ; de dos, sa gauche
@@ -209,7 +210,7 @@ export function handPlan(move, J) {
     const fa = unit(sub(J["wrist_" + s], J["elbow_" + s])), low = Math.min(J["wrist_" + s][1], J["elbow_" + s][1]);
     const lying = Math.abs(fa[1]) < 0.4 ? smooth(0.17, 0.12, low) : 0;
     const planted = move.base?.at === "wrist" || onBox ? 1 : Math.max(lying, smooth(0.12, 0.065, J["wrist_" + s][1]));
-    H[s] = { mode: "free", planted };
+    H[s] = { mode: "free", planted, ...(move.fists ? { fist: true } : {}) }; // poings serrés (le mannequin qui danse)
   }
   return H;
 }
@@ -257,7 +258,7 @@ const PALM = 0.009, SOFT = 0.0065, GRIP_X = -0.011; // épaisseur paume / doigts
 const FMAX = [80, 105, 75].map(a => a * RAD), TMAX = [70, 45, 50, 70, 90].map(a => a * RAD); // pouce : écart, opposition, flexions, rotation
 // mains sans rien : flexions des 3 rangées (degrés) et réglage du pouce (voir thumbR)
 const FREE = { relax: { f: [26, 34, 20], t: [0.3, 0.3, 0.25, 0.25, -0.3] }, flat: { f: [0, 3, 3], t: [0.05, 0, 0, 0, 0] },
-  cup: { f: [40, 42, 26], t: [0.4, 0.35, 0.25, 0.25, -0.4] } };
+  cup: { f: [40, 42, 26], t: [0.4, 0.35, 0.25, 0.25, -0.4] }, fist: { f: [82, 100, 66], t: [0.45, 0.62, 0.55, 0.7, -0.5] } };
 // rotations du pouce (repère de repos) : a = [écart, opposition, flexion MCP, flexion IP, rotation du pouce sur lui-même],
 // en part de TMAX (la rotation, négative, accompagne l'opposition : elle tourne la pulpe vers les doigts et fait plier le
 // pouce autour de la barre plutôt que le long)
@@ -315,7 +316,7 @@ export function gripCurl(H, rb) {
 function curlOf(H, plan) {
   if (plan.mode === "grip") return gripCurl(H, plan.rb);
   const lerp = (a, b, t) => a + (b - a) * t;
-  const A = plan.mode === "cup" ? FREE.cup : FREE.relax, B = plan.mode === "cup" ? FREE.cup : FREE.flat, w = plan.planted || 0;
+  const A = plan.mode === "cup" ? FREE.cup : plan.fist ? FREE.fist : FREE.relax, B = plan.mode === "cup" ? FREE.cup : FREE.flat, w = plan.planted || 0;
   return { th: A.f.map((f, k) => lerp(f, B.f[k], w) * RAD - H.rest[k]), tc: A.t.map((t, k) => lerp(t, B.t[k], w)),
     C3: add(H.mcp, add(scl(H.D, -0.02), scl(H.n, plan.mode === "cup" ? 0.035 : 0.02))) };
 }

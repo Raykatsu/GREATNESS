@@ -93,7 +93,7 @@ L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages
 1. Connecte-toi sur last.fm, puis ouvre <https://www.last.fm/api/account/create> : nom de l'app « GREATNESS », une description, le reste vide → **Submit**.
 2. Copie la ligne **API key** (pas le « Shared secret », qui ne sert pas).
 3. Sur GitHub : **Settings → Secrets and variables → Actions → New repository secret**, nom `LASTFM_API_KEY`, valeur : la clé. Ne la colle jamais dans une discussion ni dans le code (le dépôt est public).
-4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-1, Last.fm prêt) ».
+4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-2, Last.fm prêt) ».
 
 **App Spotify** (facultatif : seulement pour la connexion directe, avec lecture et pause depuis l'app) :
 1. Sur <https://developer.spotify.com/dashboard>, avec un compte **Premium** : **Create app**, nom « GREATNESS », API : **Web API**.
@@ -102,6 +102,8 @@ L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages
 4. Copie le **Client ID** (il n'est pas secret) dans `js/config.js` : `export const SPOTIFY_CLIENT_ID = "…";`. Le bouton « Se connecter à Spotify » apparaît alors dans l'app.
 
 La fonction `music` sert aussi de **relais des pochettes** : l'app doit lire les pixels d'une pochette pour en tirer ses couleurs, et certains sites ne l'autorisent pas. La fonction ne relaie que les images des hôtes de Spotify, Last.fm, Deezer et Apple (2 Mo au plus) et refuse toute autre adresse. Les jetons Spotify restent sur l'appareil, jamais sur le serveur ni dans les données synchronisées.
+
+Elle donne enfin le **tempo** d'un morceau au mannequin qui danse (`?bpm=1&artist=…&title=…`, par son code ISRC quand Spotify le fournit) : lu dans le catalogue public de Deezer, sans clé ni compte. Tempo inconnu : la réponse vaut 0 et l'app danse à 100 BPM, ou au tempo tapé en rythme.
 
 > Sans GitHub : déploie [`supabase/functions/music/index.ts`](supabase/functions/music/index.ts) sous le nom `music` en désactivant « Verify JWT », et ajoute le secret `LASTFM_API_KEY` dans **Edge Functions → Secrets**.
 
