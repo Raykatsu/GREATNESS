@@ -5280,4 +5280,9 @@ export default {
   "Des records battus : la base est posée pour le prochain cycle.": "Records broken: the groundwork is laid for the next cycle.",
   "Cycle tenu : la régularité paie, le prochain va chercher plus haut.": "Cycle done: consistency pays off, the next one aims higher.",
   "tonnes soulevées": "tonnes lifted",
+  "Tes muscles du jour": "Today's muscles",
+  "Très sollicité": "Worked hard",
+  "Sollicité": "Worked",
+  "Un muscle qui aide compte pour ½ série.": "A helper muscle counts as ½ set.",
+  "Voir tes muscles du jour en 3D": "See today's muscles in 3D",
 };

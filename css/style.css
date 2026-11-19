@@ -3528,3 +3528,22 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 .cyr-lifts li { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: var(--fs-sm); }
 .cyr-pct { min-width: 52px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cyr-verdict { margin: 8px 0 0; }
+
+/* ---------- Récap de fin de séance (recap.js) : muscles du jour sur la planche, puis le corps 3D qui tourne ---------- */
+.fin-body { padding: 12px; }
+.fb-stage { position: relative; display: block; width: 100%; height: 300px; padding: 8px 0; border: 0; border-radius: var(--r-sm); overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, rgba(var(--accent-rgb), .10), transparent 65%), var(--bg-2); cursor: pointer; touch-action: pan-y; }
+.fb-stage .ar-map { height: 100%; max-width: none; width: auto; }
+.fb-stage .ar-fig { height: 100%; flex: 0 1 auto; }
+.fb-stage .ar-pic { height: calc(100% - 18px); width: auto; }
+.fb-stage .ar-map, .fb-stage .b3d-inline { transition: opacity .5s var(--ease-out); }
+.fb-stage .b3d-inline { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0; }
+.fb-stage.on3d .b3d-inline { opacity: 1; }
+.fb-stage.on3d .ar-map { opacity: 0; }
+.fb-badge { position: absolute; right: 8px; top: 8px; pointer-events: none; }
+.fb-top { list-style: none; margin: 12px 2px 4px; padding: 0; display: grid; gap: 8px; }
+.fb-top li { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: var(--fs-sm); }
+.fb-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--mus2); }
+.fb-dot.p { background: var(--mus1); }
+.fb-leg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 2px 0; }
+.fb-leg span { display: inline-flex; align-items: center; gap: 6px; }

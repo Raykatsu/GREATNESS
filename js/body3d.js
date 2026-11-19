@@ -145,9 +145,11 @@ function mount(canvas, body, colors, { onPick, onReady } = {}) {
   function tick(ts) {
     raf = 0;
     if (dead) return;
+    if (!canvas.isConnected) return kill(); // la carte ou la feuille a disparu : on libère le contexte WebGL
     if (cam.spin) { cam.yaw += 0.006; draw(); }
     frame();
   }
+  function kill() { dead = true; cancelAnimationFrame(raf); ro?.disconnect(); gl.getExtension("WEBGL_lose_context")?.loseContext(); }
   // Toucher un muscle : on rend les groupes en couleurs « identifiants » et on lit le pixel touché
   const pick = (x, y) => {
     const r = canvas.getBoundingClientRect(), px = Math.round((x - r.left) / r.width * canvas.width), py = Math.round((1 - (y - r.top) / r.height) * canvas.height);
@@ -208,15 +210,38 @@ function mount(canvas, body, colors, { onPick, onReady } = {}) {
   return {
     setColors,
     view(name) { cam.spin = false; Object.assign(cam, { yaw: { front: 0, side: Math.PI / 2, back: Math.PI }[name] ?? 0, pitch: 0.05, dist: dist0, ty: target0[1] }); draw(); },
-    destroy() { dead = true; cancelAnimationFrame(raf); ro?.disconnect(); gl.getExtension("WEBGL_lose_context")?.loseContext(); },
+    spin(on) { cam.spin = !!on; if (on) draw(); },
+    destroy: kill,
   };
 }
 
 /* ---------- Écran ---------- */
 const PART_NAME = { bone: "Un os", tendon: "Tendon", muscle: "Muscle profond ou du visage" };
+// Le corps 3D dans une carte (récap de fin de séance, live.js) : il tourne seul, aux couleurs données, sans gestes (le
+// toucher ouvre la vue plein écran) ; il s'arrête hors de l'écran et au bout d'une minute, et se libère quand la carte
+// disparaît. Rejette sans WebGL (la planche reste affichée).
+export async function mountInline(host, cls) {
+  const body = await loadBody();
+  if (!host.isConnected) return null;
+  const canvas = document.createElement("canvas");
+  canvas.className = "b3d-inline";
+  canvas.setAttribute("aria-hidden", "true");
+  host.appendChild(canvas);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v);
+  let v;
+  try { v = mount(canvas, body, colorTable(body.parts, cls, css)); } catch (e) { canvas.remove(); throw e; }
+  const t0 = performance.now(), stop = () => v.spin(false), timer = setTimeout(stop, 60000);
+  const io = typeof IntersectionObserver === "function" ? new IntersectionObserver(([e]) => {
+    if (!canvas.isConnected) { io.disconnect(); clearTimeout(timer); return; }
+    v.spin(e.isIntersecting && performance.now() - t0 < 60000);
+  }) : null;
+  io?.observe(host);
+  return { ...v, destroy() { io?.disconnect(); clearTimeout(timer); v.destroy(); } };
+}
+
 // opts : title, cls (classe par muscle, comme bodyMap), legend ([variable CSS de la couleur, libellé]…),
-// onMuscle(m) pour « Voir les exercices » sur le muscle touché
-export function openBody3D({ title = "Le corps humain", cls = null, legend = [], onMuscle = null } = {}) {
+// onMuscle(m) pour « Voir les exercices » sur le muscle touché, onClose à la fermeture
+export function openBody3D({ title = "Le corps humain", cls = null, legend = [], onMuscle = null, onClose = null } = {}) {
   const sh = sheet(`<div class="b3d">
     <div class="eyebrow">Anatomie 3D</div><h2 class="h2">${esc(title)}</h2>
     <div class="b3d-stage"><canvas class="b3d-cv" aria-label="Corps humain en 3D, à faire tourner"></canvas>
@@ -225,7 +250,7 @@ export function openBody3D({ title = "Le corps humain", cls = null, legend = [],
     <div class="seg b3d-views" id="b3d-views"><button data-v="front" class="on">Face</button><button data-v="side">Profil</button><button data-v="back">Dos</button></div>
     ${legend.length ? `<div class="b3d-leg">${legend.map(([v, l]) => `<span><i style="background:var(${v})"></i>${esc(l)}</span>`).join("")}</div>` : ""}
     <p class="xs muted b3d-help">Fais glisser pour tourner, pince pour zoomer, touche un muscle pour le nommer. Double-touche pour recadrer.</p>
-    <p class="xs dim b3d-credit">${esc(ANAT_CREDIT)}</p></div>`, { z: 75, onClose: () => viewer?.destroy() });
+    <p class="xs dim b3d-credit">${esc(ANAT_CREDIT)}</p></div>`, { z: 75, onClose: () => { viewer?.destroy(); onClose?.(); } });
   const canvas = $(".b3d-cv", sh.el), tip = $("#b3d-tip", sh.el), load = $("#b3d-load", sh.el);
   let viewer = null;
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v);

@@ -30,6 +30,10 @@ test("parcours : onglets, séance, carte à partager, Face ID", { timeout: 18000
     await page.click('.sheet [data-r="1"]');
     await page.waitForSelector(".live.fin", { timeout: 10000 });
     assert.match(await page.$eval(".done-hero", e => e.innerText), /Mission accomplie/);
+    // récap : les muscles du jour éclairés sur la planche (avec « réduire les animations », pas de corps 3D qui tourne)
+    assert.match(await page.$eval("#fin-body .fb-top", e => e.innerText), /Pectoraux/);
+    assert.ok(await page.$$eval("#fin-body .ar-l", l => l.length) >= 2, "muscles éclairés sur la planche");
+    assert.equal(await page.$("#fin-body .b3d-inline"), null);
 
     // carte de séance : aperçu au format story
     await page.click("#share-sess");

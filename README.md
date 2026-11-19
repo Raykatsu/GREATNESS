@@ -17,7 +17,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 | Après chaque série | Reps + ressenti (RPE) → charge, objectif et repos de la série suivante ajustés |
 | Fatigue | Retire des séries si la fatigue monte, conseille d'arrêter si le réservoir est vide |
 | Douleur | Arrêt immédiat + exercice de remplacement |
-| Fin | Débrief, progrès par exercice vs dernière fois, records, XP et rangs |
+| Fin | Débrief, tes muscles du jour éclairés (planche, puis corps 3D qui tourne), progrès par exercice vs dernière fois, records, XP et rangs |
 | Chat | Répond sur la technique de chaque exercice, la nutrition, le sommeil, les plateaux, ton bilan… en utilisant tes vraies stats |
 
 ## Découvrir GREATNESS (le guide des nouveaux)
@@ -38,6 +38,7 @@ et les muscles pas encore remis passent avant.
   atteint (10 reps) : +2,5 kg, on repart à 6 reps »).
 - **En séance** : la même raison sous « Dernière fois », avant la première série.
 - **Fin de séance** : « La prochaine fois », la cible de chaque exercice fait.
+- **Tes muscles du jour** (fin de séance) : les muscles travaillés éclairés sur la planche (rouge : très sollicité, à partir de 3 séries ; orange : sollicité ; un muscle qui aide compte pour ½ série), puis le corps 3D qui tourne tout seul quand l'appareil le permet (pas avec « réduire les animations » ni en économie de données). Le toucher ouvre la vue 3D plein écran, à faire tourner au doigt.
 
 ## Comptes
 
@@ -380,6 +381,7 @@ js/balance-ui.js  cartes « Charge d'entraînement » et « Équilibre musculair
 js/weekadapt.js   semaine qui s'adapte : séance manquée, échange, séance allégée, rattrapage (carte de l'accueil)
 js/cycle-ui.js    carte « Ton cycle » (périodisation), bilan du cycle et note du bloc dans l'aperçu de séance
 js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé avant / pendant le cycle
+js/recap.js       récap de fin de séance : séries par muscle, muscles très sollicités / sollicités
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)

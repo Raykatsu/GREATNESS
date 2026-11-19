@@ -29,6 +29,8 @@ import { mascot } from "./mascot.js";
 import { onMusic, nowPlaying, trackKey, spotifyLinked, spotifyPlay } from "./music.js";
 import { warMoment, warRecord, warLink } from "./warsong.js";
 import { warmupSets, needsWarmup } from "./warmup.js";
+import { sessionMuscles, workedClass, topMuscles, HARD } from "./recap.js";
+import { bodyMap } from "./anatomy.js";
 import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 import { voiceLang, tr } from "./i18n.js";
@@ -93,6 +95,40 @@ function noteTrack(t) {
   persist();
 }
 const songNow = () => { const t = nowPlaying(), last = S?.music?.at(-1); return t?.playing && last && trackKey(last) === trackKey(t) ? S.music.length - 1 : -1; };
+// Récap de fin de séance (recap.js) : les muscles travaillés éclairés sur la planche, puis sur le corps 3D qui tourne
+// (chargé un peu après l'écran, sauf avec « réduire les animations » ou en économie de données) ; le toucher ouvre la vue
+// 3D plein écran, à faire tourner
+function recapHtml(mus) {
+  const top = topMuscles(mus, 4), n = Object.keys(mus).length;
+  if (!top.length) return "";
+  return `<div class="section"><h2>Tes muscles du jour</h2><span class="xs dim">${n} ${n > 1 ? "muscles" : "muscle"}</span></div>
+    <div class="card fin-body" id="fin-body">
+      <button type="button" class="fb-stage" id="fb-3d" aria-label="Voir tes muscles du jour en 3D">${bodyMap({}, { cls: workedClass(mus), label: "Tes muscles du jour" })}<span class="fb-badge chip">${I.cube} 3D</span></button>
+      <ul class="fb-top">${top.map(t => `<li><i class="fb-dot ${t.sets >= HARD ? "p" : "s"}" aria-hidden="true"></i><span class="grow ellipsis">${esc(t.name)}</span><span class="tnum muted">${String(t.sets).replace(".", ",")} ${t.sets > 1 ? "séries" : "série"}</span></li>`).join("")}</ul>
+      <p class="xs muted fb-leg"><span><i class="fb-dot p"></i>Très sollicité</span><span><i class="fb-dot s"></i>Sollicité</span><span>Un muscle qui aide compte pour ½ série.</span></p>
+    </div>`;
+}
+let recap3d = null;
+function bindRecap(mus) {
+  const stage = $("#fb-3d", overlay());
+  if (!stage) return;
+  const cls = workedClass(mus);
+  stage.addEventListener("click", () => {
+    recap3d?.spin(false);
+    import("./body3d.js").then(m => m.openBody3D({ title: "Tes muscles du jour", cls, legend: [["--mus1", "Très sollicité"], ["--mus2", "Sollicité"]] }));
+  });
+  recap3d?.destroy(); recap3d = null;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.connection?.saveData) return;
+  setTimeout(() => {
+    if (!stage.isConnected) return;
+    import("./body3d.js").then(m => m.mountInline(stage, cls)).then(v => {
+      if (!v) return;
+      if (!stage.isConnected) { v.destroy(); return; }
+      recap3d = v; stage.classList.add("on3d");
+    }).catch(() => {}); // pas de WebGL : la planche reste
+  }, 900);
+}
+
 // Séries d'échauffement (warmup.js) : avant la première série de travail, la montée en charge à cocher ; elles ne
 // comptent pas dans la séance
 function warmHtml(ex) {
@@ -766,6 +802,7 @@ function finish() {
   };
   const reps = sum.sets.reduce((a, s) => a + (+s.reps || 0), 0);
   const nEx = new Set(sum.sets.map(s => s.exId)).size;
+  const mus = sessionMuscles(sum.sets);
   const tiles = [
     { v: sum.durationSec, f: "time", l: "Durée", ic: I.clock },
     sum.volume > 0 ? { v: sum.volume, f: "num", u: "kg", l: "Volume soulevé", ic: I.bolt } : { v: reps, f: "num", l: "Répétitions", ic: I.bolt },
@@ -784,6 +821,7 @@ function finish() {
       ${after.level > before.level ? `<div class="chip amber rank-up">${I.trophy} Nouveau rang : ${esc(after.rank.name)}</div>` : ""}
     </div>
     <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
+    ${recapHtml(mus)}
     <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
@@ -808,6 +846,7 @@ function finish() {
   $("#next")?.addEventListener("click", () => relaunch(next.program, next.readiness));
   $("#cool")?.addEventListener("click", () => relaunch(getProgram("cooldown"), done.readiness));
   $("#share-sess")?.addEventListener("click", () => import("./sharecard.js").then(m => m.openShare(sum)));
+  bindRecap(mus);
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   mascot.setContext("app");
