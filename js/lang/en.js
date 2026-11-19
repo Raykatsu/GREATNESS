@@ -5285,4 +5285,6 @@ export default {
   "Sollicité": "Worked",
   "Un muscle qui aide compte pour ½ série.": "A helper muscle counts as ½ set.",
   "Voir tes muscles du jour en 3D": "See today's muscles in 3D",
+  "Le coach baisse la musique": "The coach lowers the music",
+  "Quand il parle, Spotify, Apple Music… baissent le temps de la phrase, puis remontent": "When the coach speaks, Spotify, Apple Music… go quieter for the sentence, then come back up",
 };

@@ -63,11 +63,25 @@ export function nativeHaptic(kind = "light") {
 }
 
 /* ---------- Dynamic Island et écran verrouillé : le repos qui défile (Live Activity, GreatnessPlugin.swift) ---------- */
-// r : { start, end (ms), title : l'exercice qui suit, detail : « Série 2/4 · 80 kg × 5 » } ; null : fin du repos
+// r : { start, end (ms), title : l'exercice qui suit, detail : « Série 2/4 · 80 kg × 5 », song : « Titre · Artiste »,
+// art : sa pochette (adresse https ou data URL), tint : l'accent de l'app « #rrggbb » } ; null : fin du repos
 export function nativeRestLive(r) {
   const G = isNative() && plugin("Greatness");
   if (!G) return;
-  (r ? G.restStart({ start: r.start, end: r.end, title: r.title, detail: r.detail || "", session: "GREATNESS" }) : G.restEnd()).catch(() => {});
+  (r ? G.restStart({ start: r.start, end: r.end, title: r.title, detail: r.detail || "", song: r.song || "", art: r.art || "", tint: r.tint || "", session: "GREATNESS" })
+    : G.restEnd()).catch(() => {});
+}
+
+/* ---------- La voix du coach baisse la musique des autres apps (Spotify, Apple Music…) le temps de parler ---------- */
+// Le natif ne touche au son que si de la musique joue ailleurs. La musique remonte un court instant après la dernière
+// phrase (pas entre deux phrases qui s'enchaînent).
+let ducked = false, undo = 0;
+export function nativeDuck(on) {
+  const G = isNative() && plugin("Greatness");
+  if (!G) return;
+  clearTimeout(undo);
+  if (on) { if (!ducked) { ducked = true; G.duck({ on: true }).catch(() => {}); } return; }
+  if (ducked) undo = setTimeout(() => { ducked = false; G.duck({ on: false }).catch(() => {}); }, 400);
 }
 /* ---------- Widget « Séance du jour » (données partagées avec l'extension) ---------- */
 export function nativeWidget(data) {

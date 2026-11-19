@@ -88,6 +88,7 @@ let chain = null;
 // retient le morceau qui passait (set.song : son rang dans la bande-son)
 let offMusic = null;
 function noteTrack(t) {
+  if (rest && isNative() && trackKey(t?.playing ? t : null) !== liveSong) liveRest(); // un autre morceau pendant le repos
   if (!S || !t || !t.playing || t.src === "manual") return;
   S.music ||= [];
   if (trackKey(S.music.at(-1)) === trackKey(t) || S.music.length >= 30) return;
@@ -572,12 +573,17 @@ function startRest(sec, { lastRpe = 0, half = false } = {}) {
   mascot.hang(true);
   liveRest();
 }
-// App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit
+// App App Store : le repos défile dans la Dynamic Island et sur l'écran verrouillé, avec l'exercice qui suit, le morceau
+// qui joue (pochette et titre) et l'accent de l'app (aux couleurs du morceau)
+let liveSong = "";
 function liveRest() {
   if (!isNative()) return;
-  const n = S?.current;
+  const n = S?.current, t = nowPlaying(), song = rest && t?.playing && t.title ? t : null;
+  liveSong = trackKey(song);
   nativeRestLive(rest && n ? { start: rest.end - rest.total * 1000, end: rest.end, title: tr(n.name),
-    detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`) } : null);
+    detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`),
+    song: song ? `${song.title}${song.artist ? ` · ${song.artist}` : ""}` : "", art: song?.art || "",
+    tint: document.documentElement.style.getPropertyValue("--red").trim() } : null);
 }
 
 // La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.

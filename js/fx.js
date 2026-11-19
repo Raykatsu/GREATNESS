@@ -1,6 +1,7 @@
 // Effets : voix, sons, vibrations et petits détails visuels.
 import { state } from "./store.js";
 import { voiceLang, tr } from "./i18n.js";
+import { nativeDuck, isNative } from "./native.js";
 
 /* ---------- Voix ---------- */
 // La voix du téléphone dans la langue de l'app (choisie au moment de parler : la langue est connue après le chargement)
@@ -28,10 +29,19 @@ export function speak(text, { interrupt = false, force = false } = {}) {
   if (voice) u.voice = voice;
   u.rate = 1.05;
   u.onstart = () => speechHooks.start?.();
-  u.onend = u.onerror = () => { if (!speechSynthesis.speaking) speechHooks.end?.(); };
+  u.onend = u.onerror = () => { if (!speechSynthesis.speaking) { nativeDuck(false); speechHooks.end?.(); } };
+  // app iPhone : la musique des autres apps baisse le temps de la phrase (réglage Musique)
+  if (isNative() && state.profile.music?.duck !== false) duckDuring();
   speechSynthesis.speak(u);
 }
-export const stopSpeaking = () => window.speechSynthesis?.cancel();
+let duckWatch = 0;
+function duckDuring() {
+  nativeDuck(true);
+  clearInterval(duckWatch);
+  // filet : si la fin de la phrase n'est pas signalée, la musique remonte dès que plus rien ne parle
+  duckWatch = setInterval(() => { if (!speechSynthesis.speaking && !speechSynthesis.pending) { clearInterval(duckWatch); nativeDuck(false); } }, 1500);
+}
+export const stopSpeaking = () => { window.speechSynthesis?.cancel(); nativeDuck(false); };
 
 /* ---------- Sons ---------- */
 let audio;
