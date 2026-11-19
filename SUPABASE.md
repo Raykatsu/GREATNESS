@@ -94,7 +94,7 @@ L'app prend les couleurs de la pochette du morceau en cours (**Moi → Réglages
 1. Connecte-toi sur last.fm, puis ouvre <https://www.last.fm/api/account/create> : nom de l'app « GREATNESS », une description, le reste vide → **Submit**.
 2. Copie la ligne **API key** (pas le « Shared secret », qui ne sert pas).
 3. Sur GitHub : **Settings → Secrets and variables → Actions → New repository secret**, nom `LASTFM_API_KEY`, valeur : la clé. Ne la colle jamais dans une discussion ni dans le code (le dépôt est public).
-4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-3, Last.fm prêt) ».
+4. Onglet **Actions** → « Supabase (IA en ligne) » → **Run workflow** : l'étape « Fonction musique » installe la clé dans les secrets Supabase et déploie la fonction `music`. Elle affiche « fonction musique en ligne (music-4, Last.fm prêt) ».
 
 **App Spotify** (facultatif : seulement pour la connexion directe, avec lecture et pause depuis l'app) :
 1. Sur <https://developer.spotify.com/dashboard>, avec un compte **Premium** : **Create app**, nom « GREATNESS », API : **Web API**.

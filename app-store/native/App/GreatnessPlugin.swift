@@ -82,7 +82,7 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let item = player.nowPlayingItem else { call.resolve(["playing": false, "status": "authorized"]); return }
             var out: [String: Any] = [
                 "title": item.title ?? "", "artist": item.artist ?? "", "album": item.albumTitle ?? "",
-                "playing": player.playbackState == .playing, "id": item.playbackStoreID, "status": "authorized",
+                "playing": player.playbackState == .playing, "id": item.playbackStoreID, "status": "authorized", "genre": item.genre ?? "",
             ]
             if let image = item.artwork?.image(at: CGSize(width: 300, height: 300)), let data = image.jpegData(compressionQuality: 0.82) {
                 out["art"] = "data:image/jpeg;base64," + data.base64EncodedString()

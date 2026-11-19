@@ -5,7 +5,8 @@ import {
   SOURCE_NAME, statsfmId, musicSource, setMusic, nowPlaying, onMusic, musicError, musicErrors, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
   spotifyLogout, spotifyControl, appleAvailable, appleAsk, appleState, autoSources, searchMusic, LASTFM_RE,
 } from "./music.js";
-import { refreshMusicTheme } from "./musictheme.js";
+import { refreshMusicTheme, musicVibe } from "./musictheme.js";
+import { VIBES } from "./vibe.js";
 import { musicTint } from "./actions.js";
 import { openDance } from "./dance-ui.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
@@ -92,7 +93,7 @@ onMusic(() => {
   if (bar) { bar.innerHTML = musicBarHtml(); bindMusicBar(bar); }
   if (sheetDraw) sheetDraw();
 });
-if (typeof addEventListener === "function") addEventListener("music-tint", () => sheetDraw?.());
+if (typeof addEventListener === "function") { addEventListener("music-tint", () => sheetDraw?.()); addEventListener("music-vibe", () => sheetDraw?.()); }
 
 /* ---------- Réglages : d'où vient ta musique ---------- */
 const ERRORS = {
@@ -126,6 +127,7 @@ export function openMusic() {
     <div id="ms-detail" class="m-detail"></div>
     <div class="eyebrow mt">Effets</div>
     <label class="toggle set-row"><div class="grow"><b>Couleurs de la pochette</b><span class="xs muted">Boutons, anneaux et lueurs du fond prennent les couleurs du morceau</span></div><input type="checkbox" id="ms-theme" ${m().theme !== false ? "checked" : ""}/></label>
+    <label class="toggle set-row"><div class="grow"><b>Ambiance du morceau</b><span class="xs muted">Formes, titres, mouvements et décor suivent l'énergie du morceau, au rythme de son tempo</span></div><input type="checkbox" id="ms-vibe" ${m().vibe !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Décor</b><span class="xs muted">La pochette floutée derrière l'écran</span></div><input type="checkbox" id="ms-deco" ${m().deco !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Garder les couleurs</b><span class="xs muted">Quand la musique s'arrête, l'app reste aux couleurs du dernier morceau</span></div><input type="checkbox" id="ms-keep" ${m().keep !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Le mannequin danse</b><span class="xs muted">Sur l'accueil, quand tu ne touches plus l'écran depuis 20 secondes pendant que la musique joue</span></div><input type="checkbox" id="ms-dance" ${m().dance !== false ? "checked" : ""}/></label>
@@ -134,6 +136,11 @@ export function openMusic() {
   </div>`, { z: 80, onClose: () => { sheetDraw = null; } });
   const el = sh.el;
 
+  // l'ambiance du morceau en cours (vibe.js) : son nom, ce qu'elle change, son tempo
+  const vibeChip = () => {
+    const v = musicVibe(), d = v && VIBES[v.vibe];
+    return d && m().vibe !== false ? `<span class="m-vibe" id="ms-vibe-now" title="${d.what}">Ambiance : <b>${d.name}</b>${v.bpm ? `<span translate="no"> · ${v.bpm} BPM</span>` : ""}</span>` : "";
+  };
   // rien en cours : une erreur, ou ce qu'il reste à faire (relier un compte, lancer un morceau)
   const hint = () => (musicError() ? errText(musicError())
     : musicSource() !== "manual" && !autoSources().length ? "Relie un de tes comptes ci-dessous : l'app suivra ensuite toute seule ce que tu écoutes."
@@ -141,6 +148,7 @@ export function openMusic() {
   const nowBox = () => {
     const t = nowPlaying(), tint = musicTint(), err = musicError();
     $("#ms-now", el).innerHTML = t ? `<div class="card m-prev">${art(t, "lg")}<div class="grow m-txt"><span class="eyebrow">${status(t)} · ${SOURCE_NAME[t.src]}</span>${names(t)}
+        ${vibeChip()}
         ${tint ? `<div class="m-sw" aria-label="Couleurs de la pochette">${[tint.neutral ? "" : tint.accent, tint.neutral ? "" : tint.accent2, `rgb(${tint.ambient})`, `rgb(${tint.ambient2})`].filter(Boolean).map(c => `<i style="background:${c}"></i>`).join("")}</div>` : ""}</div>${controls(t)}</div>`
       : hint() ? `<p class="m-wait small ${err ? "err" : "muted"}">${nb(hint())}</p>` : "";
     bindControls($("#ms-now", el));
@@ -229,6 +237,7 @@ export function openMusic() {
   $$("#ms-srcs .m-src", el).forEach(b => b.onclick = () => { pick = b.dataset.src; detail(); });
   $("#ms-theme", el).onchange = e => { setMusic({ theme: e.target.checked }); refreshMusicTheme(); };
   $("#ms-deco", el).onchange = e => { setMusic({ deco: e.target.checked }); refreshMusicTheme(); };
+  $("#ms-vibe", el).onchange = e => { setMusic({ vibe: e.target.checked }); refreshMusicTheme(); };
   $("#ms-keep", el).onchange = e => { setMusic({ keep: e.target.checked }); refreshMusicTheme(); };
   $("#ms-dance", el).onchange = e => { setMusic({ dance: e.target.checked }); };
   $("#ms-dance-now", el).onclick = () => { sh.close(); openDance(); };

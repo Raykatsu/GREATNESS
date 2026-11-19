@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 71 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 72 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -82,6 +82,14 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
   Le morceau qui joue gagne (sinon le dernier en pause). Apple Music et Spotify en direct sont relus toutes les 5 secondes, stats.fm et Last.fm toutes les 15 secondes.
 - **Choix manuel** : un morceau cherché dans le catalogue iTunes, pour l'ambiance.
 - **Les couleurs suivent la pochette** : à chaque morceau, l'app tire de la pochette un accent (boutons, anneaux, liens), un deuxième accent pour les dégradés et une couleur d'ambiance pour les lueurs du fond. Une pochette en noir et blanc ne change que l'ambiance. Le texte reste lisible quelle que soit la couleur.
+- **L'ambiance du morceau** : au-delà des couleurs, tout le thème suit l'énergie de la musique. Cinq ambiances, d'après le genre du morceau (l'app Musique de l'iPhone le donne, sinon le catalogue iTunes), son tempo (catalogue Deezer) et sa pochette (claire ou sombre, vive ou douce, chaude ou froide) :
+  - **Intense** (rock, rap, metal) : angles vifs, titres massifs, mouvements secs, rayures de lumière ;
+  - **Festive** (dance, électro, pop, latino) : arrondis généreux, lueurs néon, rebonds, pluie de points lumineux ;
+  - **Chill** (soul, R&B, jazz, lo-fi) : formes douces, titres légers, mouvements lents, halos qui flottent ;
+  - **Mélancolique** (folk, indie, ballades, ou une pochette sombre sur un tempo lent) : couleurs voilées, lumière tamisée ;
+  - **Épique** (musiques de film, classique) : titres espacés, rayons dorés, mouvements amples.
+
+  Pendant que le morceau joue, sa pochette sur la carte « En écoute » et les lueurs du fond battent au tempo. Réglage « Ambiance du morceau » ; l'ambiance est gardée avec les couleurs quand la musique s'arrête.
 - **Le décor** : la pochette floutée derrière l'écran, en fondu d'un morceau à l'autre. Couleurs et décor se désactivent chacun.
 - **Les couleurs restent** : quand la musique s'arrête, l'app garde la pochette floutée et les couleurs du dernier morceau, y compris à la prochaine ouverture (réglage « Garder les couleurs »).
 - **Le mannequin qui danse** : laisse l'app sur l'accueil pendant que ta musique joue ; au bout de 20 secondes sans toucher l'écran (avant le verrouillage automatique de l'iPhone), le corps musclé 3D des démos se lève et danse au tempo du morceau, la pochette floutée derrière lui. L'écran reste allumé pendant la danse, 10 minutes au plus. Ses muscles prennent la couleur de la pochette et pulsent sur chaque temps ; un nouveau pas toutes les deux mesures (balancé et poses de culturiste sur les morceaux lents, pas chassés et « raise the roof » au milieu, sauts sur les morceaux rapides), avec un fondu d'un pas à l'autre. Tempo : celui du morceau (catalogue Deezer, par la fonction `music`), ou **Tape en rythme** (gardé pour ce morceau sur l'appareil), sinon 100 BPM. Un toucher le renvoie. Aussi depuis le bouton de la carte « En écoute » (glisser pour tourner autour). Tout seul seulement sur l'accueil, jamais en séance, ni si le téléphone réduit les animations ; réglage « Le mannequin danse ».
@@ -395,6 +403,7 @@ js/nutriadapt.js  objectif du jour ajusté aux écarts des 3 jours d'avant, jour
 js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutriments) ; nutri-refs.js : les études citées
 js/music.js       musique : ce que joue le téléphone (automatique : Apple Music, stats.fm, Last.fm, Spotify), choix manuel (+ music-ui.js : écrans)
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
+js/vibe.js        l'ambiance du morceau (genre, tempo, pochette) qui change tout le thème (+ trackinfo.js : genre et tempo)
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)
 js/intervals.js   minuteur d'intervalles (+ intervals-ui.js : réglages et écran)

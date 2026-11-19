@@ -85,7 +85,7 @@ test("?cover= : image d'un hôte connu relayée avec CORS ; le reste refusé", a
 
 test("adresse seule : la fonction se présente (version, clé présente ou non) ; préflight CORS", async () => {
   env.LASTFM_API_KEY = "x";
-  assert.match((await call("")).body, /fonction musique en ligne \(music-3, Last\.fm prêt\)/);
+  assert.match((await call("")).body, /fonction musique en ligne \(music-4, Last\.fm prêt\)/);
   delete env.LASTFM_API_KEY;
   assert.match((await call("")).body, /clé Last\.fm absente/);
   const pre = await handler(new Request("https://fn.test/music", { method: "OPTIONS" }));
@@ -154,7 +154,7 @@ test("?statsfm= : sans clé ; profil invalide, introuvable ou qui cache son éco
   const j = JSON.parse(ok.body);
   assert.deepEqual([j.ok, j.track.title, j.track.artist, j.track.art], [true, "Blinding Lights", "The Weeknd", "https://i.scdn.co/image/ab67616d0000b273abc"]);
   assert.ok(calls.some(u => u === "https://api.stats.fm/api/v1/users/rayane/streams/current"));
-  assert.match(heads["User-Agent"], /^GREATNESS\/music-3$/);
+  assert.match(heads["User-Agent"], /^GREATNESS\/music-4$/);
   // dans les 10 s : servi depuis le cache
   calls = [];
   await call("?statsfm=RAYANE");
@@ -173,4 +173,20 @@ test("?statsfm= : sans clé ; profil invalide, introuvable ou qui cache son éco
   profiles.presse = profiles["pressé"];
   assert.deepEqual([(await call("?statsfm=presse")).res.status], [429]);
   assert.equal(JSON.parse((await call("?statsfm=panne")).body).error, "STATSFM");
+});
+
+test("?search= : le catalogue iTunes lu par le serveur (sur iPhone, il renvoie vers l'app Musique) ; champs utiles ; gardé 1 h", async () => {
+  let asked = "";
+  replies["itunes.apple.com/search"] = u => { asked = u; return Response.json({ results: [
+    { trackName: "Numb", artistName: "Linkin Park", collectionName: "Meteora", artworkUrl100: "https://is1-ssl.mzstatic.com/a/100x100bb.jpg", trackViewUrl: "https://music.apple.com/x", primaryGenreName: "Hard Rock", collectionPrice: 9.99 },
+    { trackName: "", collectionName: "" }] }); };
+  assert.equal((await call("?search=a")).res.status, 400);
+  const r = await call("?search=Linkin%20Park%20Numb&limit=1&country=US");
+  assert.equal(r.res.headers.get("access-control-allow-origin"), "*");
+  assert.match(asked, /term=Linkin%20Park%20Numb&media=music&entity=song&limit=1&country=us$/);
+  assert.deepEqual(JSON.parse(r.body), { ok: true, results: [{ trackName: "Numb", artistName: "Linkin Park", collectionName: "Meteora",
+    artworkUrl100: "https://is1-ssl.mzstatic.com/a/100x100bb.jpg", trackViewUrl: "https://music.apple.com/x", primaryGenreName: "Hard Rock" }] });
+  calls = [];
+  await call("?search=linkin%20park%20NUMB&limit=1&country=us");
+  assert.equal(calls.length, 0, "même recherche : servie depuis la mémoire");
 });

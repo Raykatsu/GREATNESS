@@ -7,9 +7,11 @@
 // - ?statsfm=PROFIL : le morceau en cours d'un profil stats.fm (l'app de statistiques de Spotify et d'Apple Music),
 //   par son API publique, sans clé : il faut seulement que le profil laisse voir l'écoute en cours. Réponse gardée 10 s ;
 // - ?bpm=1&artist=…&title=…[&isrc=…] : le tempo du morceau, d'après le catalogue public de Deezer (pour le mannequin
-//   qui danse, js/dance-ui.js). 0 si inconnu ; gardé en mémoire.
+//   qui danse, js/dance-ui.js, et l'ambiance du thème). 0 si inconnu ; gardé en mémoire ;
+// - ?search=TERME[&limit=12][&country=fr] : le catalogue iTunes (choix manuel, genre d'un morceau), lu par le serveur :
+//   sur iPhone, l'adresse du catalogue renvoie vers l'app Musique et l'app ne peut pas la lire elle-même.
 // Déployée automatiquement par GitHub Actions (voir SUPABASE.md, « Musique »).
-const VERSION = "music-3";
+const VERSION = "music-4";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -131,6 +133,31 @@ async function statsfm(user: string) {
   return json(body);
 }
 
+// Catalogue iTunes : les champs utiles de chaque morceau ; gardé 1 h par recherche
+const searchMemo = new Map<string, { at: number; body: unknown }>();
+// deno-lint-ignore no-explicit-any
+export const itunesPick = (x: any) => ({
+  trackName: String(x?.trackName || "").slice(0, 120), artistName: String(x?.artistName || "").slice(0, 120), collectionName: String(x?.collectionName || "").slice(0, 120),
+  artworkUrl100: /^https:\/\//.test(x?.artworkUrl100 || "") ? String(x.artworkUrl100) : "", trackViewUrl: /^https:\/\//.test(x?.trackViewUrl || "") ? String(x.trackViewUrl) : "",
+  primaryGenreName: String(x?.primaryGenreName || "").slice(0, 60),
+});
+async function search(q: URLSearchParams) {
+  const term = (q.get("search") || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (term.length < 2) return json({ ok: false, error: "BAD_TERM" }, 400);
+  const limit = Math.min(25, Math.max(1, Math.round(Number(q.get("limit")) || 12)));
+  const country = /^[a-z]{2}$/i.test(q.get("country") || "") ? String(q.get("country")).toLowerCase() : "fr";
+  const k = `${country}|${limit}|${term.toLowerCase()}`, hit = searchMemo.get(k);
+  if (hit && Date.now() - hit.at < 3600000) return json(hit.body);
+  const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limit}&country=${country}`,
+    { headers: { "User-Agent": `GREATNESS/${VERSION}` } });
+  if (!r.ok) return json({ ok: false, error: "ITUNES" }, 502);
+  const j = await r.json().catch(() => ({}));
+  const body = { ok: true, results: (Array.isArray(j?.results) ? j.results : []).slice(0, limit).map(itunesPick).filter(x => x.trackName || x.collectionName) };
+  if (searchMemo.size > 1000) searchMemo.clear();
+  searchMemo.set(k, { at: Date.now(), body });
+  return json(body);
+}
+
 // Tempo d'un morceau : par son code ISRC, sinon par l'artiste et le titre ; entre 50 et 220 BPM, sinon 0
 const tempoMemo = new Map<string, number>();
 export const tempoOk = (n: unknown) => { const v = Math.round(Number(n) || 0); return v >= 50 && v <= 220 ? v : 0; };
@@ -171,6 +198,7 @@ Deno.serve(async (req: Request) => {
     if (q.has("statsfm")) return await statsfm(q.get("statsfm") || "");
     if (q.has("cover")) return await cover(q.get("cover") || "");
     if (q.has("bpm")) return await bpm(q);
+    if (q.has("search")) return await search(q);
     return new Response(`GREATNESS · fonction musique en ligne (${VERSION}${env("LASTFM_API_KEY") ? ", Last.fm prêt" : ", clé Last.fm absente"})`,
       { headers: { ...CORS, "Content-Type": "text/plain; charset=utf-8" } });
   } catch (e) {
