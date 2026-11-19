@@ -26,7 +26,8 @@ import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
 import { goalAfterSession, goalTitle, fmtValue } from "./goals.js";
 import { mascot } from "./mascot.js";
-import { onMusic, nowPlaying, trackKey } from "./music.js";
+import { onMusic, nowPlaying, trackKey, spotifyLinked, spotifyPlay } from "./music.js";
+import { warMoment, warRecord, warLink } from "./warsong.js";
 import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
 import { voiceLang, tr } from "./i18n.js";
@@ -91,6 +92,27 @@ function noteTrack(t) {
   persist();
 }
 const songNow = () => { const t = nowPlaying(), last = S?.music?.at(-1); return t?.playing && last && trackKey(last) === trackKey(t) ? S.music.length - 1 : -1; };
+// Ta chanson de guerre (warsong.js) : juste avant ta série la plus lourde ou un record en vue, une fois par séance
+function warHtml(ex) {
+  const war = state.profile.music?.war, best = state.lifts?.[ex?.id]?.best, set = { type: ex?.type, weight: ui.weight, reps: ui.reps, best };
+  if (!war?.title || S.warDone || !ex || !warMoment(set)) return "";
+  return `<div class="war-card" id="war"><span class="war-ic" aria-hidden="true">🔥</span><div class="grow m-txt">
+    <b>${warRecord(set) ? "Record en vue : c'est le moment de ta chanson de guerre" : "Série lourde : c'est le moment de ta chanson de guerre"}</b>
+    <span class="ellipsis" translate="no">${esc(war.title)}${war.artist ? ` — ${esc(war.artist)}` : ""}</span></div>
+    <button class="btn btn-primary btn-sm" id="war-go">Lancer</button><button class="icon-btn plain sm" id="war-x" aria-label="Plus tard">${I.x}</button></div>`;
+}
+async function warGo() {
+  const war = state.profile.music?.war;
+  S.warDone = true;
+  if (spotifyLinked()) {
+    const r = await spotifyPlay(war.title, war.artist);
+    if (r === "ok") { toast("Chanson de guerre lancée 🔥"); return render(); }
+  }
+  // sinon (ou Spotify fermé) : le morceau s'ouvre dans Spotify ou Apple Music
+  const spotify = spotifyLinked() || nowPlaying()?.src === "spotify" || !!state.profile.music?.sfUser;
+  window.open(warLink(war, spotify ? "spotify" : ""), "_blank", "noopener");
+  render();
+}
 export function startWithWarmup(warmupId, program, readiness, exit) {
   startLive(getProgram(warmupId), readiness, exit);
   chain = { program, readiness };
@@ -227,6 +249,7 @@ function render() {
     </header>
     <div id="duo-bar">${duoBarHtml()}</div>
     <div id="music-bar">${musicBarHtml()}</div>
+    ${warHtml(ex)}
 
     <div class="ex-head">
       <div class="grow"><div class="eyebrow">${esc(ex.muscle)}${ex.ss ? ` · Superset ${esc(ex.ss)}` : ""}</div><h2>${esc(ex.name)}</h2></div>
@@ -261,6 +284,8 @@ function render() {
   renderDock();
   bind(ex);
   bindMusicBar($("#music-bar", overlay()));
+  $("#war-go", overlay())?.addEventListener("click", warGo);
+  $("#war-x", overlay())?.addEventListener("click", () => { S.warDone = true; render(); });
   const tabs = $("#tabs"), cur = $(`.ex-tab[data-i="${S.idx}"]`);
   if (tabs && cur) tabs.scrollLeft = cur.offsetLeft - (tabs.clientWidth - cur.offsetWidth) / 2;
 }

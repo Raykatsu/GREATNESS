@@ -7,6 +7,7 @@ import {
 } from "./music.js";
 import { refreshMusicTheme, musicVibe } from "./musictheme.js";
 import { VIBES } from "./vibe.js";
+import { cleanWar } from "./warsong.js";
 import { musicTint } from "./actions.js";
 import { openDance } from "./dance-ui.js";
 import { $, $$, esc, I, sheet, toast } from "./ui.js";
@@ -141,6 +142,8 @@ export function openMusic() {
     <div class="m-srcs" id="ms-srcs" role="radiogroup" aria-label="Source de la musique">${sources.map(([k, d]) => `<button class="m-src" data-src="${k}" role="radio">
       <b>${k === "auto" ? "Ton téléphone" : SOURCE_NAME[k]}</b><span class="xs muted">${d}</span></button>`).join("")}</div>
     <div id="ms-detail" class="m-detail"></div>
+    <div class="eyebrow mt">Ta chanson de guerre</div>
+    <div class="card m-war" id="ms-war"></div>
     <div class="eyebrow mt">Effets</div>
     <label class="toggle set-row"><div class="grow"><b>Couleurs de la pochette</b><span class="xs muted">Boutons, anneaux et lueurs du fond prennent les couleurs du morceau</span></div><input type="checkbox" id="ms-theme" ${m().theme !== false ? "checked" : ""}/></label>
     <label class="toggle set-row"><div class="grow"><b>Ambiance du morceau</b><span class="xs muted">Formes, titres, mouvements et décor suivent l'énergie du morceau, au rythme de son tempo</span></div><input type="checkbox" id="ms-vibe" ${m().vibe !== false ? "checked" : ""}/></label>
@@ -248,7 +251,33 @@ export function openMusic() {
       });
     } else box.innerHTML = "";
   };
-  const redraw = () => { if (!el.isConnected) return; nowBox(); detail(); };
+  // ta chanson de guerre (warsong.js) : choisie dans le catalogue, ou le morceau en cours ; proposée juste avant ta série
+  // la plus lourde
+  let warFound = [];
+  const warBox = () => {
+    const w = m().war, t = nowPlaying(), box = $("#ms-war", el);
+    if (!box) return;
+    box.innerHTML = `${w ? `<div class="m-war-now">${art(w, "sm")}<div class="grow m-txt"><b class="ellipsis" translate="no">${esc(w.title)}</b><span class="m-by ellipsis" translate="no">${esc(w.artist)}</span></div>
+        <button class="btn btn-ghost btn-sm" id="ms-war-x">Retirer</button></div>`
+      : `<p class="xs muted">${nb("Le morceau qui te galvanise : l'app te le propose juste avant ta série la plus lourde ou une tentative de record.")}</p>`}
+      ${t && t.src !== "manual" && t.title !== w?.title ? `<button class="btn btn-soft btn-block mt-s" id="ms-war-now">${MI.note} Prendre le morceau en cours</button>` : ""}
+      <form class="m-row mt-s" id="ms-war-f"><input class="input" id="ms-war-q" maxlength="80" placeholder="Chercher ta chanson de guerre…" aria-label="Chercher ta chanson de guerre" autocomplete="off"/>
+        <button class="btn btn-soft" aria-label="Chercher">${MI.search}</button></form>
+      <div class="m-results" id="ms-war-res">${warFound.map((r, i) => `<button class="m-res" data-w="${i}">${art(r, "md")}<b class="ellipsis" translate="no">${esc(r.title)}</b><span class="ellipsis" translate="no">${esc(r.artist)}</span></button>`).join("")}</div>`;
+    const pick = async song => { warFound = []; await setMusic({ war: cleanWar(song) }); toast("Chanson de guerre choisie 🔥"); warBox(); };
+    $("#ms-war-x", box)?.addEventListener("click", async () => { await setMusic({ war: null }); warBox(); });
+    $("#ms-war-now", box)?.addEventListener("click", () => pick(nowPlaying()));
+    $("#ms-war-f", box).onsubmit = async e => {
+      e.preventDefault();
+      const q = $("#ms-war-q", box).value;
+      try { warFound = await searchMusic(q); } catch { warFound = []; toast("Recherche impossible pour le moment", 3000); }
+      warBox();
+      $("#ms-war-q", box).value = q;
+      if (!warFound.length) $("#ms-war-res", box).innerHTML = `<p class="small muted">Aucun résultat.</p>`;
+    };
+    $$("[data-w]", box).forEach(b => b.onclick = () => pick(warFound[+b.dataset.w]));
+  };
+  const redraw = () => { if (!el.isConnected) return; nowBox(); detail(); warBox(); };
   sheetDraw = nowBox;
   $$("#ms-srcs .m-src", el).forEach(b => b.onclick = () => { pick = b.dataset.src; detail(); });
   $("#ms-theme", el).onchange = e => { setMusic({ theme: e.target.checked }); refreshMusicTheme(); };
