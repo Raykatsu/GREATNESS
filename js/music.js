@@ -27,7 +27,9 @@ export const NATIVE_REDIRECT = "greatness://spotify";
 const NATIVE_SCHEME = "greatness";
 
 const cfg = () => state.profile.music || {};
-export const musicSource = () => (SOURCES.includes(cfg().src) ? cfg().src : "");
+// la source : celle choisie ; jamais réglée, la musique suit toute seule ce que joue le téléphone (« Couper la musique
+// dans l'app » la met à "", et elle le reste)
+export const musicSource = () => (SOURCES.includes(cfg().src) ? cfg().src : cfg().src === undefined ? "auto" : "");
 export const spotifyConfigured = () => !!CFG.SPOTIFY_CLIENT_ID;
 const supabase = () => (CFG.SUPABASE_URL ? CFG.SUPABASE_URL.replace(/\/$/, "") : "");
 export const musicFunction = () => (supabase() ? `${supabase()}/functions/v1/music` : "");
@@ -223,12 +225,24 @@ async function appleNow(ask = false) {
   const N = native();
   if (!N?.musicNow) return null;
   const r = await N.musicNow({ ask });
+  const was = appleStatus;
   appleStatus = r?.status || (r?.denied ? "denied" : r?.title ? "authorized" : appleStatus);
+  if (appleStatus !== was && typeof dispatchEvent === "function") dispatchEvent(new Event("music-auth")); // (l'accueil se met à jour)
   if (r?.denied) throw new Error("DENIED");
   if (!r?.title) return null;
   return cleanTrack({ ...r, art: r.art || (await itunesArt(r.id)) }, "apple");
 }
 export const appleAsk = () => appleNow(true);
+// App iPhone, musique en automatique : l'accès à l'app Musique est demandé tout seul, une seule fois (l'iPhone affiche
+// sa question), puis l'app suit ce qui joue sans rien régler. Renvoie l'état de l'autorisation, ou "" (rien demandé).
+export async function autoAsk() {
+  if (!appleAvailable() || musicSource() !== "auto" || cfg().asked) return "";
+  state.profile.music = { ...cfg(), asked: true };
+  save();
+  try { await appleNow(true); } catch { /* refusé : les réglages Musique le disent */ }
+  poll();
+  return appleStatus;
+}
 
 /* ---------- Automatique : ce que joue le téléphone ---------- */
 // Les sources en ligne (stats.fm, Last.fm) sont lues toutes les 15 s au plus, les autres à chaque lecture.

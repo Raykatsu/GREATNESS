@@ -73,7 +73,7 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 
 ## Musique : l'app prend les couleurs de ta pochette
 
-- **Ce que joue ton téléphone, tout seul** (Moi → Réglages → Musique, « Ton téléphone ») : l'app suit le morceau qui joue, d'où qu'il vienne, et passe de l'un à l'autre sans réglage. Elle lit :
+- **Ce que joue ton téléphone, tout seul** (Moi → Réglages → Musique, « Ton téléphone ») : c'est le mode par défaut. L'app suit le morceau qui joue, d'où qu'il vienne, et passe de l'un à l'autre sans réglage ; dans l'app iPhone, l'accès à l'app Musique est demandé tout seul, une fois, à l'arrivée sur l'accueil (ou d'un geste depuis la carte « Ta musique, tes couleurs »). Elle lit :
   - **Apple Music** : l'app iPhone lit directement l'app Musique (une autorisation, une fois) ;
   - **stats.fm** : Spotify et Apple Music, par ton profil stats.fm (pseudo ou lien du profil), s'il laisse voir l'écoute en cours ;
   - **Last.fm**, le pont universel : Spotify, Deezer, YouTube Music, Tidal… y envoient ce que tu écoutes ; il suffit de ton pseudo ;

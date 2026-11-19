@@ -9,7 +9,7 @@ import { state } from "../js/store.js";
 import {
   parseSpotify, parseItunes, bigArt, cleanTrack, trackKey, pkceVerifier, pkceChallenge, spotifyAuthUrl, webRedirect, spotifyFinish,
   spotifyLinked, spotifyLogout, spotifyControl, poll, startMusic, stopMusic, setMusic, nowPlaying, onMusic, musicError, musicSource, LASTFM_RE, _reset, NATIVE_REDIRECT,
-  statsfmId, SOURCE_NAME, autoSources, musicErrors, appleState,
+  statsfmId, SOURCE_NAME, autoSources, musicErrors, appleState, autoAsk,
 } from "../js/music.js";
 
 const realFetch = globalThis.fetch;
@@ -217,6 +217,37 @@ test("automatique : ce que joue le téléphone, d'où que ça vienne — le morc
     assert.deepEqual([musicErrors().apple, appleState()], ["DENIED", "denied"]);
     // stats.fm caché et Apple Music refusé : plus rien à afficher (pas de délai de grâce pour une erreur définitive)
     assert.equal(nowPlaying(), null);
+  } finally { delete globalThis.window; _reset(); }
+});
+
+test("connexion toute seule : jamais réglée, la musique suit le téléphone ; l'app iPhone demande l'accès une seule fois", async () => {
+  reset();
+  assert.equal(musicSource(), "auto", "jamais réglée : automatique");
+  await setMusic({ src: "" });
+  assert.equal(musicSource(), "", "coupée : elle le reste");
+  // site web : rien à demander
+  state.profile.music = {};
+  assert.equal(await autoAsk(), "");
+  // app iPhone : l'accès à l'app Musique est demandé tout seul, une fois
+  const asks = [];
+  let allowed = false; // l'iPhone : rien avant l'autorisation, le morceau en cours après
+  globalThis.window = { Capacitor: { isNativePlatform: () => true, Plugins: { Greatness: { musicNow: async ({ ask }) => {
+    asks.push(ask);
+    if (ask) allowed = true;
+    return allowed ? { status: "authorized", title: "Numb", artist: "Linkin Park", playing: true, art: "data:image/jpeg;base64,AA" } : { status: "notDetermined", playing: false };
+  } } } } };
+  try {
+    assert.equal(await autoAsk(), "authorized");
+    assert.equal(state.profile.music.asked, true);
+    assert.ok(asks.includes(true));
+    await poll();
+    assert.deepEqual([nowPlaying()?.title, nowPlaying()?.src], ["Numb", "apple"]);
+    const n = asks.filter(Boolean).length;
+    assert.equal(await autoAsk(), "", "déjà demandé : plus jamais tout seul");
+    assert.equal(asks.filter(Boolean).length, n);
+    // un choix manuel ou une musique coupée : rien n'est demandé
+    state.profile.music = { src: "manual" };
+    assert.equal(await autoAsk(), "");
   } finally { delete globalThis.window; _reset(); }
 });
 

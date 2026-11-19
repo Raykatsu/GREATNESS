@@ -45,7 +45,7 @@ import { classicCard, bindClassicCard } from "./classics-ui.js";
 import { healthCard, bindHealthCard, syncHealth, openHealth } from "./health-ui.js";
 import { storyCard, bindStoryCard, checkStory } from "./story-ui.js";
 import { openGuide, guideCard, bindGuideCard, markSeen } from "./guide.js";
-import { startMusic, stopMusic, spotifyResume } from "./music.js";
+import { startMusic, stopMusic, spotifyResume, autoAsk } from "./music.js";
 import { initMusicTheme, resetMusicTheme } from "./musictheme.js";
 import { musicHomeCard, bindMusicHome, openMusic } from "./music-ui.js";
 import { armDance } from "./dance-ui.js";
@@ -77,6 +77,8 @@ function musicFor(user) {
   initMusicTheme();
   startMusic();
   armDance(() => isLive() || current !== "home"); // le mannequin danse quand on ne fait rien sur l'accueil (jamais en séance)
+  // app iPhone : l'accès à l'app Musique est demandé tout seul, une fois, peu après l'arrivée sur l'accueil
+  setTimeout(() => { if (musicUser === user && !isLive()) autoAsk(); }, 2500);
   spotifyResume().then(r => {
     if (r === "ok") { toast("Spotify connecté ✓"); startMusic(); openMusic(); }
     else if (r) toast(r === "DENIED" ? "Connexion Spotify refusée" : `Connexion Spotify impossible (${r})`, 4000);

@@ -5246,4 +5246,5 @@ export default {
   "Épique": "Epic",
   "L'ambiance du morceau": "The song's vibe",
   "Au-delà des couleurs, tout le thème suit l'énergie du morceau : angles vifs pour le rock et le rap, arrondis et néons pour la fête, formes douces pour le chill, au rythme de son tempo.": "Beyond colors, the whole theme follows the song's energy: sharp corners for rock and rap, curves and neon for parties, soft shapes for chill, to the rhythm of its tempo.",
+  "Autorise l'app Musique : ce que tu écoutes donne ses couleurs et son ambiance à l'app, tout seul.": "Allow the Music app: what you listen to gives the app its colors and vibe, automatically.",
 };
