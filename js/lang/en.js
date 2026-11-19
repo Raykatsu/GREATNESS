@@ -5267,4 +5267,5 @@ export default {
   "Série lourde : c'est le moment de ta chanson de guerre": "Heavy set: time for your war song",
   "Ta chanson de guerre": "Your war song",
   "Choisis le morceau qui te galvanise : juste avant ta série la plus lourde ou une tentative de record, l'app te le propose et le lance (Spotify) ou l'ouvre (Apple Music).": "Pick the song that fires you up: right before your heaviest set or a record attempt, the app suggests it and plays it (Spotify) or opens it (Apple Music).",
+  "Bande-son": "Soundtrack",
 };

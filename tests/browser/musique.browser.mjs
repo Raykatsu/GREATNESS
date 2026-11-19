@@ -88,6 +88,17 @@ test("musique : Last.fm, couleurs et décor de la pochette, accueil, séance et 
     const saved = await page.evaluate(async () => { const { state } = await import("/js/store.js"); const s = state.sessions.at(-1); return { music: s.music.map(m => m.title), songs: s.sets.map(x => x.song) }; });
     assert.deepEqual(saved.music, ["Rose", "Numb"]);
     assert.deepEqual(saved.songs, [0, 1], "chaque série retient le morceau qui passait");
+    // la carte à partager prend la pochette du morceau phare (lue par le relais) et montre la bande-son
+    await page.click("#share-sess");
+    await page.waitForSelector(".share-img", { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector(".share-img")?.complete && document.querySelector(".share-img").naturalWidth > 0);
+    const px = await page.evaluate(() => {
+      const img = document.querySelector(".share-img"), c = document.createElement("canvas");
+      c.width = 1080; c.height = 1920; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+      return [...g.getImageData(140, 1920 - 255, 1, 1).data].slice(0, 3);
+    });
+    assert.ok(px[0] > 150 && px[1] < 100, `pochette rose du morceau phare sur la carte : ${px}`);
+    await closeSheets(page);
     await page.click("#home"); await sleep(600);
 
     // choix manuel : un morceau cherché dans le catalogue iTunes
