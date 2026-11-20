@@ -9,6 +9,7 @@ import { generateWeekPlan } from "./planner.js";
 import { coachName } from "./chars/index.js";
 import { $, $$, esc, md, I, sheet, toast, ring, animateRings, fmtNum } from "./ui.js";
 import { LOC } from "./i18n.js";
+import { banterOn, quipOf, weekSituation } from "./banter.js";
 
 const DAY = 864e5;
 const rangeLabel = ts => {
@@ -58,6 +59,7 @@ export function openReview(ts) {
     <div class="rv-top">${ring(r.score / 100, `<b class="tnum">${r.score}</b><small>/100</small>`, 96)}
       <div class="rv-tiles">${tile(`${r.sessions}/${r.planned}`, "séances")}${tile(`${fmtNum(r.volume)}`, "kg soulevés", r.dv != null ? `<i class="${r.dv >= 0 ? "up" : "down"}">${r.dv >= 0 ? "+" : ""}${r.dv} %</i>` : "")}
         ${tile(r.prs.length, `record${r.prs.length > 1 ? "s" : ""}`)}${tile(r.minutes, "minutes")}</div></div>
+    ${banterOn() ? `<p class="quip-line" translate="no">${esc(quipOf(weekSituation(r.score), { seed: ts }))}</p>` : ""}
     ${mus.length ? `<div class="chips mt-s rv-mus">${mus.map(([m, n]) => `<span class="chip">${esc(m)} <b class="tnum">${n}</b></span>`).join("")}</div>` : ""}
     ${r.nutri ? `<div class="card rv-nut mt-s"><b>Nutrition</b><span class="small muted">${r.nutri.n} jour${r.nutri.n > 1 ? "s" : ""} noté${r.nutri.n > 1 ? "s" : ""} · ${fmtNum(r.nutri.k)} kcal / ${fmtNum(r.t.kcal)} · protéines ${r.nutri.p} / ${r.t.p} g par jour</span></div>` : ""}
     ${r.good.length ? `<h3 class="demo-h">Points forts</h3><ul class="demo-list ok">${r.good.map(x => `<li>${I.check}${esc(x)}</li>`).join("")}</ul>` : ""}

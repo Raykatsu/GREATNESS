@@ -203,6 +203,8 @@ export const ITEMS = [
   // — Réglages —
   { id: "program", sec: "settings", ic: "🗓️", t: "Ton programme", w: "Moi → Réglages → Mon programme", go: { to: "#/profile", spot: "#days" },
     d: "Objectif, séances par semaine, matériel et cycles de 7 semaines (avec la semaine allégée). Après un changement, « Régénérer mon programme » refait ta semaine." },
+  { id: "banter", sec: "settings", ic: "😏", t: "Coach taquin", w: "Moi → Réglages → Coach & sons", go: { to: "#/profile", spot: "#p-banter" },
+    d: "Le coach passe en langage familier et te charrie gentiment : calories en trop, pizza de minuit, repos qui traîne, séance écourtée. Jamais sur ton corps." },
   { id: "quiz", sec: "settings", ic: "🧭", t: "Refaire le quiz", w: "Moi → Réglages", go: { to: "#/profile", spot: "#quiz-again" },
     d: "Niveau, durée de séance, zones à cibler, gênes : refais le quiz d'accueil pour un programme encore plus personnalisé." },
   { id: "remind", sec: "settings", ic: "🔔", t: "Rappels et notifications", w: "Moi → Réglages → Rappels", go: { to: "#/profile", spot: "#rem-time" },

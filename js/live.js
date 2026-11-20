@@ -31,6 +31,7 @@ import { onMusic, nowPlaying, trackKey, spotifyLinked, spotifyPlay } from "./mus
 import { warMoment, warRecord, warLink } from "./warsong.js";
 import { warmupSets, needsWarmup } from "./warmup.js";
 import { sessionMuscles, workedClass, topMuscles, HARD } from "./recap.js";
+import { banterOn, quip, quipOf, endSituation, checkinSituation } from "./banter.js";
 import { bodyMap } from "./anatomy.js";
 import { musicBarHtml, bindMusicBar, soundtrackHtml } from "./music-ui.js";
 import { $, $$, esc, md, I, coachIcon, fmtTime, fmtNum, sheet, toast, confirmSheet } from "./ui.js";
@@ -186,6 +187,9 @@ export function startLive(program, readiness, exit) {
   begin(exit);
   const intro = S.intro();
   if (S.current) setTimeout(() => { if (S?.current) mascot.say(`${S.verdict.label} ! ${S.current.name} pour commencer.`, { mood: "happy" }); }, 900);
+  // coach taquin : une pique sur le bilan de forme (nuit pourrie, courbatures, grosse énergie)
+  const ck = banterOn() && readiness ? quipOf(checkinSituation(readiness)) : "";
+  if (ck) setTimeout(() => { if (S) mascot.say(ck, { mood: "happy", raw: true }); }, 3400);
   else setTimeout(() => mascot.say("Séance libre : ajoute ton premier exercice !", { mood: "happy" }), 900);
   speak(`${S.verdict.text} ${rest?.say || ""} ${intro?.say || ""}`, { interrupt: true });
   if (aiReady() && S.current) {
@@ -575,6 +579,8 @@ function logSet(e) {
   if (song >= 0 && ex.done[doneIdx]) ex.done[doneIdx].song = song;
   lastLogged = { w: ex.type === "load" ? ui.weight : 0, r: ui.reps };
   const pr = events.some(ev => ev.kind === "pr" && ev.title.startsWith("Nouveau"));
+  clearTimeout(lateT);
+  if (banterOn()) setQuip(pr, loggedRpe, ex);
 
   success(); vibrate(pr ? [30, 40, 80] : 25);
   ringPop(btn.left + btn.width / 2, btn.top + btn.height / 2, pr ? "#f5b83d" : "#ff3b4e");
@@ -644,6 +650,31 @@ function paintRest(restart = false) {
   if (left <= 0) endRest(true);
 }
 
+// Coach taquin : une pique sur la série (record, trop facile, à fond), au plus une toutes les 2 minutes hors record ;
+// et si la série suivante ne vient pas plus d'une minute après la fin du repos
+let quipAt = 0, lateT = 0;
+function setQuip(pr, rpe, ex) {
+  const now = Date.now();
+  if (!pr && now - quipAt < 120e3) return;
+  const kind = pr ? "pr" : rpe && rpe <= 6 && ex.type === "load" ? "easySet" : rpe >= 10 ? "maxSet" : "";
+  if (!kind || (!pr && Math.random() < 0.4)) return;
+  quipAt = now;
+  const q = quip(kind, { n: rpe });
+  if (q) setTimeout(() => { if (S) mascot.say(q, { mood: pr ? "party" : "happy", raw: true }); }, 1600);
+}
+function watchLate() {
+  clearTimeout(lateT);
+  if (!banterOn() || !S?.current) return;
+  const ex = S.current, n = ex.done.length;
+  lateT = setTimeout(() => {
+    if (!S || S.finished || rest || S.current !== ex || ex.done.length !== n) return;
+    const q = quip("restOver");
+    if (!q) return;
+    mascot.say(q, { mood: "alert", raw: true });
+    speak(q, { raw: true });
+  }, 75000);
+}
+
 function endRest(announceNext) {
   if (!rest) return;
   clearInterval(rest.timer);
@@ -652,6 +683,7 @@ function endRest(announceNext) {
   mascot.hang(false);
   renderDock();
   if (announceNext && S?.current) {
+    watchLate();
     beep(1320, 0.22, "square", 0.08); vibrate([60, 40, 60]);
     setTimeout(() => mascot.lift(), 900);
     const n = S.current;
@@ -817,7 +849,8 @@ function finish() {
   const before = rankInfo();
   const sum = S.summary();
   const done = { program: S.program, readiness: S.readiness }, next = chain;
-  clearInterval(hrTimer);
+  const planned = S.plan.reduce((a, e) => a + (+e.sets || 0), 0);
+  clearInterval(hrTimer); clearTimeout(lateT);
   // exercices faits (charges libres, sans programme imposé) : leur cible de la prochaine séance, après l'enregistrement
   const nextItems = (S.program.simple || ["mobility", "stretch", "care", "cardio"].includes(S.program.cat) ? [] : S.plan)
     .filter(e => e.done.length && !e.scheme && !e.ramp && !e.fixedLoad && Array.isArray(e.reps)).map(e => ({ id: e.id, reps: e.reps, weight: e.weight, sets: e.sets }));
@@ -838,6 +871,8 @@ function finish() {
   wakeLock?.release?.(); wakeLock = null;
 
   const local = debrief(sum);
+  // coach taquin : la pique de fin de séance (records, séance écourtée, express ou marathon)
+  const endQ = banterOn() && sum.sets.length ? quipOf(endSituation({ prs: sum.prs.length, minutes: Math.round(sum.durationSec / 60), done: sum.sets.length, planned })) : "";
   const tips = next ? [] : postTips(sum); // échauffement suivi de la séance : les conseils viendront à la fin
   const delta = c => {
     if (c.delta === null) return `<span class="delta n">nouveau</span>`;
@@ -868,7 +903,7 @@ function finish() {
     <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
     ${recapHtml(mus)}
     <div class="card fin-hr" id="fin-hr" hidden></div>
-    <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p></div></div>
+    <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p>${endQ ? `<p class="quip-line" translate="no">${esc(endQ)}</p>` : ""}</div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
       <span class="small muted tnum">${c.type === "load" ? `${fmtKg(c.best.weight)}×${c.best.reps}` : `${c.best.reps}${c.type === "time" ? " s" : ""}`}</span>${delta(c)}</div>`).join("")}</div>` : ""}
@@ -899,6 +934,7 @@ function finish() {
   mascot.setContext("app");
   setTimeout(() => { mascot.react("party"); mascot.say(`Mission accomplie ! +${sum.xp} XP.`, { mood: "party" }); }, 500);
   speak(`Séance terminée. ${local}`, { interrupt: true });
+  if (endQ) speak(endQ, { raw: true });
   $("#home").onclick = () => { close(); if (location.hash && location.hash !== "#/") location.hash = "#/"; };
 
   if (aiReady() && sum.sets.length) {
@@ -953,7 +989,7 @@ function countUp(root) {
 
 function close() {
   offMusic?.(); offMusic = null;
-  clearInterval(hrTimer);
+  clearInterval(hrTimer); clearTimeout(lateT);
   unwatchRest();
   stopDuo();
   stopVoice();

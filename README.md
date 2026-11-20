@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 77 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 78 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -108,6 +108,17 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Il se souvient de toi** : blessures, matériel, préférences, contraintes. Il retient tout seul ce qui compte, ou quand tu lui dis « retiens que… » (même hors ligne). Tout est visible et effaçable dans Moi → Réglages → « Ce que le coach sait de toi ».
 - **Bilan de la semaine** : le dimanche soir et le lundi, une carte sur l'accueil te donne ta note sur 100, tes séances, ton volume, tes records, les muscles travaillés, ta nutrition et ton poids, tes points forts et ce qu'il faut travailler. L'IA en ligne écrit une analyse détaillée et propose les ajustements (programme, charges) en boutons. Les derniers bilans restent dans Progrès.
 - **Coach pendant la séance** : bouton « Coach » entre deux séries. « Trop facile », « Trop dur » ajustent la charge de la série suivante tout de suite ; « Gêne ou douleur », « Machine prise » proposent une alternative ; une question libre part à l'IA en ligne, qui connaît ta séance en cours et peut changer la charge d'un geste.
+
+## Le coach taquin (langage familier)
+
+Option à cocher dans Moi → Réglages → Coach & sons → **Coach taquin** (coupée par défaut). Le coach passe au langage familier et te charrie gentiment, avec une centaine de répliques (`js/banter.js`, traduites en anglais) accordées selon ton profil :
+- **Repas** : objectif explosé en sèche (« je t'enlève 230 kcal par jour sur les 3 prochains jours », le vrai calcul de l'adaptation au jour le jour), écart en prise de masse ou en forme, sucre, protéines du soir, eau, repas de minuit ; une pique quand tu notes une pizza, des frites, un soda…
+- **Pesée** : la tendance face à ton objectif (« t'es pas censé maigrir, toi ? »).
+- **Séance** : bilan de forme (nuit pourrie, courbatures), série trop facile ou à fond, record, repos qui traîne plus d'une minute (« tu scrolles ou tu t'entraînes ? »), séance écourtée, express ou marathon.
+- **Accueil** et **bilan de la semaine** : retour après plusieurs jours, série de jours, jour de repos, tard le soir, note de la semaine.
+- **Le coach IA** reçoit le même ton.
+
+Les piques visent tes choix, jamais ton corps ou ton poids ; rien sur la douleur ; quand tu manges trop peu, il te pousse à manger.
 
 ## La caméra corrige ta posture
 
@@ -387,6 +398,7 @@ js/cycle-ui.js    carte « Ton cycle » (périodisation), bilan du cycle et note
 js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé avant / pendant le cycle
 js/recap.js       récap de fin de séance : séries par muscle, muscles très sollicités / sollicités
 js/heart.js       fréquence cardiaque de la montre : dernière mesure récente, moyenne et maximum de la séance
+js/banter.js      coach taquin : répliques familières, situation qui parle le plus (repas, pesée, séance, accueil)
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
