@@ -169,7 +169,7 @@ export const ITEMS = [
     d: "Ta meilleure charge par exercice, ton niveau de force (de Débutant à Élite) et le prochain palier à viser." },
   { id: "songs", sec: "progress", ic: "🎧", t: "Tes morceaux de records", w: "Moi → Stats",
     go: { to: "#/progress?t=me", spot: ".songs-card", miss: "Tes morceaux de records apparaissent après une séance en musique." },
-    d: "Les sons sur lesquels tu soulèves le plus lourd : records battus et intensité de tes séries morceau par morceau, et ta playlist de records à copier ou écouter." },
+    d: "Les sons sur lesquels tu soulèves le plus lourd : records et intensité morceau par morceau, ta playlist de records, et ta playlist de séance au bon tempo." },
   { id: "cycle", sec: "progress", ic: "🔁", t: "Cycle de 7 semaines", w: "Moi → Stats",
     go: { to: "#/progress?t=me", spot: "#cycle-card", miss: "Ton premier cycle démarre avec ta première séance." },
     d: "Volume, force, pic, puis une semaine allégée : les répétitions suivent le bloc. La fin du Pic est ta semaine test, puis le bilan du cycle montre tes progrès." },
@@ -203,6 +203,8 @@ export const ITEMS = [
   // — Réglages —
   { id: "program", sec: "settings", ic: "🗓️", t: "Ton programme", w: "Moi → Réglages → Mon programme", go: { to: "#/profile", spot: "#days" },
     d: "Objectif, séances par semaine, matériel et cycles de 7 semaines (avec la semaine allégée). Après un changement, « Régénérer mon programme » refait ta semaine." },
+  { id: "siri", sec: "settings", ic: "🎙️", t: "Siri et Raccourcis", w: "App iPhone, avec Siri",
+    d: "Dis « Lance ma séance dans GREATNESS », « Combien de repos dans GREATNESS », « Note un verre d'eau » ou « Note mon poids » : sans toucher l'écran." },
   { id: "banter", sec: "settings", ic: "😏", t: "Coach taquin", w: "Moi → Réglages → Coach & sons", go: { to: "#/profile", spot: "#p-banter" },
     d: "Le coach passe en langage familier et te charrie gentiment : calories en trop, pizza de minuit, repos qui traîne, séance écourtée. Jamais sur ton corps." },
   { id: "quiz", sec: "settings", ic: "🧭", t: "Refaire le quiz", w: "Moi → Réglages", go: { to: "#/profile", spot: "#quiz-again" },

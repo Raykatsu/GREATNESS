@@ -23,7 +23,7 @@ App d'entraînement avec **un coach animé** à choisir parmi **37 personnages o
 ## Découvrir GREATNESS (le guide des nouveaux)
 
 - **Carte « Bien démarrer »** sur l'Accueil des comptes récents : cinq premières étapes (première séance, démo d'un exercice, un repas noté, une question au coach, les rappels), cochées d'après ce que l'utilisateur fait vraiment ; masquable, et fêtée une fois tout fait.
-- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 78 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
+- **Le guide** (Moi → Réglages → Découvrir GREATNESS, ou le bouton **?** en haut de chaque onglet, qui l'ouvre sur cet onglet) : 79 fonctions rangées par partie (Accueil, Séances, En séance, Créer, Repas, Coach, Progrès, Amis, Réglages), chacune expliquée en deux phrases avec l'endroit où la trouver. **Essayer** ouvre la fonction (manuel, corps 3D, minuteur, démo…) ; **Me montrer où** ouvre l'écran et fait briller l'élément quelques secondes. Recherche tolérante (« scanner », « 3D », « Face ID »), compteur des fonctions découvertes, gardé sur le compte et réuni entre appareils.
 - Le coach y renvoie (« comment marche l'app ? », « ce que tu peux faire pour moi ») et la visite guidée lui laisse la place s'il s'ouvre. Données : `js/guide-data.js` (testées : chaque bouton mène à un écran ou une fonction qui existe) ; affichage : `js/guide.js`.
 
 ## Surcharge progressive expliquée
@@ -100,6 +100,8 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Carte de séance aux couleurs du morceau** : séance en musique, la carte à partager prend la pochette du morceau qui a porté le plus de séries (floutée en fond, son accent) et affiche la bande-son.
 - **Ta chanson de guerre** (Moi → Réglages → Musique) : le morceau qui te galvanise, choisi dans le catalogue ou pris parmi ce qui joue. Juste avant ta série la plus lourde (à 95 % de ton meilleur niveau ou plus) ou une tentative de record, une fois par séance, l'app te le propose : « Lancer » le joue dans Spotify (connecté en direct, Premium), sinon l'ouvre dans Apple Music ou Spotify.
 - **Tes morceaux de records** (onglet Progrès) : avec quels sons tu soulèves le plus lourd. Pour chaque morceau, les records battus pendant qu'il passait et l'intensité de tes séries (charge × répétitions, rapportée à ton meilleur niveau sur l'exercice à ce moment-là) comparée à ta moyenne. **Ta playlist de records** : les morceaux qui te portent, à copier, partager ou écouter dans Spotify ou Apple Music.
+- **Ta playlist de séance au bon tempo** (onglet Progrès, sous tes morceaux de records) : tes morceaux de séance en trois temps, échauffement (moins de 115 BPM), séries (115 à 139) et séries lourdes (140 et plus), les plus efficaces d'abord puis du plus lent au plus rapide. Le tempo encore inconnu est cherché à l'ouverture. À copier, ou à lancer d'un coup dans Spotify (relié en direct, Premium).
+- **Piloter la musique pendant la séance** : précédent, lecture/pause, suivant, avec Spotify relié en direct et maintenant aussi avec l'app Musique de l'iPhone (Apple Music, app iPhone).
 - Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm et stats.fm, relais des pochettes, tempo des morceaux).
 
 ## Le coach IA agit, retient et fait le bilan
@@ -269,6 +271,9 @@ En séance, **Demander au coach** a un **micro** : pose ta question à voix haut
 
 - **Repos dans la Dynamic Island et sur l'écran verrouillé** : le compte à rebours et l'exercice qui suit (série, charge, reps), même téléphone verrouillé ; « C'est reparti ! » à la fin.
   Avec de la musique : la pochette et le titre du morceau qui joue (pochette dans la petite Dynamic Island et sur l'écran verrouillé), et l'accent de l'app, aux couleurs du morceau. La pochette est déposée en petit par l'app dans le dossier partagé du groupe d'apps (la Live Activity ne télécharge rien) ; un nouveau morceau pendant le repos met l'affichage à jour.
+- **Les boutons du repos sur l'écran verrouillé** (iOS 17) : « +15 s » et « Go », comme dans l'app, dans la Live Activity et la Dynamic Island. Le système les exécute dans l'app, même en arrière-plan : l'affichage se met à jour tout de suite et le repos de l'app suit.
+- **Tes séances dans Apple Santé** : chaque séance (au moins 2 minutes) est enregistrée comme entraînement (musculation, intervalles, cardio ou mobilité), avec sa durée et l'énergie active estimée ((MET − 1) × poids × durée, MET du Compendium des activités physiques) : elle apparaît dans Santé et l'app Forme. Pas de doublon : si ta montre a déjà enregistré l'entraînement, l'app ne le refait pas. Option dans la feuille Apple Santé ; le droit d'écrire est demandé une fois.
+- **Siri et Raccourcis** (iOS 16) : « Lance ma séance dans GREATNESS » (ouvre la séance du jour), « C'est quoi ma séance du jour dans GREATNESS » et « Combien de repos dans GREATNESS » (répondus sans ouvrir l'app, d'après le widget et la Live Activity), « Note un verre d'eau dans GREATNESS », « Note mon poids dans GREATNESS ». Phrases en anglais aussi. Les actions attendent que le compte soit ouvert et qu'aucune séance ne soit en cours.
 - **Sur l'Apple Watch** : le repos (compte à rebours, exercice qui suit et sa série) s'affiche aussi sur la montre, dans le Smart Stack (iOS 18 et watchOS 11), dans une version faite pour le petit écran.
 - **Ton cœur pendant la séance** (Apple Watch, par Apple Santé) : lance un exercice « Renforcement musculaire » sur la montre ; l'app lit ta fréquence cardiaque toutes les 15 s et l'affiche dans l'en-tête de la séance (si la mesure a moins de 2 minutes), puis la moyenne et le maximum de la séance à la fin, gardés avec la séance. Les mesures arrivent de la montre via Santé, parfois avec un peu de retard : la fin de séance les relit 20 s plus tard. Demandé une fois aux comptes déjà reliés à Santé.
 - **Le coach baisse la musique quand il parle** : Spotify, Apple Music… baissent le temps d'une consigne, puis remontent (session audio iOS « duckOthers », seulement si de la musique joue ailleurs). Réglage : Moi → Réglages → Musique → Le coach baisse la musique.
@@ -399,6 +404,7 @@ js/cyclereport.js bilan de chaque cycle : séances, volume, records, 1RM estimé
 js/recap.js       récap de fin de séance : séries par muscle, muscles très sollicités / sollicités
 js/heart.js       fréquence cardiaque de la montre : dernière mesure récente, moyenne et maximum de la séance
 js/banter.js      coach taquin : répliques familières, situation qui parle le plus (repas, pesée, séance, accueil)
+js/workoutlog.js  séances dans Apple Santé : type d'entraînement, énergie active estimée, pas de doublon avec la montre
 js/data.js        exercices, programmes, rangs
 js/store.js       données locales, stats, records
 js/auth.js        écran de connexion (comptes, pavé numérique)
@@ -430,7 +436,7 @@ js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutrimen
 js/music.js       musique : ce que joue le téléphone (automatique : Apple Music, stats.fm, Last.fm, Spotify), choix manuel (+ music-ui.js : écrans)
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
 js/vibe.js        l'ambiance du morceau (genre, tempo, pochette) qui change tout le thème (+ trackinfo.js : genre et tempo)
-js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist (+ songs-ui.js : carte et feuille)
+js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist, playlist au bon tempo (+ songs-ui.js : carte et feuilles)
 js/warsong.js     ta chanson de guerre : le moment (série lourde, record en vue), où l'écouter
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)

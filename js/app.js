@@ -1,6 +1,6 @@
 import "./errors.js"; // remontée des plantages, en premier pour tout attraper
 import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
-import { isNative, nativeWidget } from "./native.js";
+import { isNative, nativeWidget, onNativeSiri } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo, BLOCKS } from "./planner.js";
@@ -32,11 +32,11 @@ import { coachName, setCharsOn, onCoachChange } from "./chars/index.js";
 import { coachCard, coachGallery } from "./coach-picker.js";
 import { renderFood, foodHomeCard, bindFoodCard, ensureAdaptive } from "./food.js";
 import { ivSummary } from "./intervals.js";
-import { pruneFood, waterBehind, waterGoal, targets, dayOf, dayKey } from "./nutrition.js";
+import { pruneFood, waterBehind, waterGoal, targets, dayOf, dayKey, setWater } from "./nutrition.js";
 import { reviewCard, bindReviewCard, reviewsHtml, bindReviews, openReview } from "./review.js";
 import { addMemory, removeMemory } from "./memory.js";
 import { ANAT_CREDIT } from "./anatomy.js";
-import { openTargets } from "./food.js";
+import { openTargets, logWeight } from "./food.js";
 import { recoveryCard, bindRecoveryCard, strainNote } from "./recovery-ui.js";
 import { weekAdaptCard, bindWeekAdapt } from "./weekadapt.js";
 import { cycleCardHtml, cycleReportHtml } from "./cycle-ui.js";
@@ -139,6 +139,7 @@ function route() {
   setTimeout(() => mascot.settle(), 400);
   setSocialBadge();
   setTimeout(socialTick, 2500);
+  if (siriQueue.length) setTimeout(flushSiri, 300);
   const fresh = checkBadges();
   if (fresh.length) setTimeout(() => { toast(`${fresh[0].icon} Succès débloqué : ${fresh[0].name}`, 3500); mascot.react("party"); }, 600);
 }
@@ -192,6 +193,20 @@ addEventListener("greatness:start", e => {
   const p = e.detail === "today" ? todaysMission().program : getProgram(e.detail);
   if (p) openProgram(p, launch);
 });
+// Siri et Raccourcis (app iPhone, SiriIntents.swift) : « Lance ma séance », « Note un verre d'eau », « Note mon poids ».
+// Les actions attendent que le compte soit ouvert (code, Face ID) et qu'aucune séance ne soit en cours.
+const siriQueue = [];
+onNativeSiri(a => { siriQueue.push(a); flushSiri(); });
+function flushSiri() {
+  if (!currentUser || !state.profile.onboarded || isLive()) return;
+  while (siriQueue.length) {
+    const { action, value } = siriQueue.shift();
+    if (action === "start") dispatchEvent(new CustomEvent("greatness:start", { detail: "today" }));
+    else if (action === "water") { const k = dayKey(); setWater(state, k, (dayOf(state, k).water || 0) + 1); save(); toast("Un verre d'eau de plus ✓"); if (current === "food") route(); }
+    else if (action === "weight") logWeight(Math.round(+value * 10) / 10);
+  }
+}
+
 // Personnages affichés ou masqués : réglage du compte (et, avant la connexion, dernier choix de l'appareil)
 function applyChars() {
   let on = state.profile.mascot !== false;

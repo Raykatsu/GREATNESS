@@ -2,8 +2,12 @@
 // - restStart / restEnd : le repos qui défile dans la Dynamic Island et sur l'écran verrouillé (Live Activity), avec
 //   le morceau qui joue (pochette, titre) et l'accent de l'app ;
 // - duck : la voix du coach baisse la musique des autres apps (Spotify, Apple Music…) le temps de parler ;
+// - healthWriteAsk / saveWorkout : tes séances enregistrées dans Apple Santé (et l'app Forme) ;
+// - événement « restAction » : un bouton du repos touché dans la Live Activity (+15 s, Go), voir RestIntents.swift ;
+// - événement « siri » : une action demandée à Siri ou aux Raccourcis (lancer la séance, eau, poids), SiriIntents.swift ;
 // - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group ;
 // - musicNow : le morceau en cours dans l'app Musique (Apple Music ou bibliothèque), avec sa pochette (js/music.js) ;
+// - musicControl : lecture, pause, morceau suivant ou précédent dans l'app Musique ;
 // - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify).
 import Foundation
 import UIKit
@@ -13,6 +17,7 @@ import MediaPlayer
 import AuthenticationServices
 import AVFoundation
 import CryptoKit
+import HealthKit
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -26,11 +31,86 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "restEnd", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "widgetSet", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "musicNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "musicControl", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "webAuth", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "duck", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthWriteAsk", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveWorkout", returnType: CAPPluginReturnPromise),
     ]
     var authSession: ASWebAuthenticationSession? // gardée le temps de la connexion
     var ducking = false // la musique des autres apps est baissée (duck)
+    static let healthStore = HKHealthStore()
+
+    // Les boutons du repos de la Live Activity : transmis à l'app web (gardés tant qu'elle n'écoute pas encore)
+    override public func load() {
+        NotificationCenter.default.addObserver(forName: RestAction.note, object: nil, queue: .main) { [weak self] note in
+            self?.notifyListeners("restAction", data: ["action": note.userInfo?["action"] as? String ?? ""], retainUntilConsumed: true)
+        }
+        NotificationCenter.default.addObserver(forName: SiriInbox.note, object: nil, queue: .main) { [weak self] _ in self?.sendSiri() }
+        sendSiri()
+    }
+    // Les actions demandées à Siri : transmises à l'app web (gardées tant qu'elle n'écoute pas encore)
+    func sendSiri() {
+        for item in SiriInbox.take() { notifyListeners("siri", data: item, retainUntilConsumed: true) }
+    }
+
+    // Ce que l'app peut écrire dans Santé : les entraînements et l'énergie active
+    static var writeTypes: Set<HKSampleType> {
+        var types: Set<HKSampleType> = [HKObjectType.workoutType()]
+        if let energy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) { types.insert(energy) }
+        return types
+    }
+
+    // Demande (une fois) le droit d'enregistrer tes séances dans Santé
+    @objc func healthWriteAsk(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else { call.resolve(["ok": false]); return }
+        GreatnessPlugin.healthStore.requestAuthorization(toShare: GreatnessPlugin.writeTypes, read: nil) { ok, error in
+            call.resolve(["ok": ok, "error": error?.localizedDescription ?? ""])
+        }
+    }
+
+    // Enregistre une séance dans Santé (et l'app Forme) : type d'entraînement, début, fin, énergie active estimée ;
+    // l'identifiant de la séance l'accompagne (HKMetadataKeyExternalUUID)
+    @objc func saveWorkout(_ call: CAPPluginCall) {
+        let store = GreatnessPlugin.healthStore
+        guard HKHealthStore.isHealthDataAvailable(), store.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized else {
+            call.resolve(["ok": false, "error": "non autorisé"]); return
+        }
+        let start = Date(timeIntervalSince1970: (call.getDouble("start") ?? 0) / 1000)
+        let end = Date(timeIntervalSince1970: (call.getDouble("end") ?? 0) / 1000)
+        guard end.timeIntervalSince(start) >= 60 else { call.resolve(["ok": false, "error": "trop court"]); return }
+        let kcal = call.getDouble("kcal") ?? 0
+        let id = call.getString("id") ?? UUID().uuidString
+        let config = HKWorkoutConfiguration()
+        config.activityType = GreatnessPlugin.activity(call.getString("kind") ?? "")
+        config.locationType = .indoor
+        let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
+        builder.beginCollection(withStart: start) { began, error in
+            guard began else { call.resolve(["ok": false, "error": error?.localizedDescription ?? ""]); return }
+            let finish = {
+                builder.addMetadata([HKMetadataKeyExternalUUID: id, HKMetadataKeyIndoorWorkout: true]) { _, _ in
+                    builder.endCollection(withEnd: end) { _, _ in
+                        builder.finishWorkout { workout, error in
+                            call.resolve(["ok": workout != nil, "error": error?.localizedDescription ?? ""])
+                        }
+                    }
+                }
+            }
+            guard kcal > 0, let energy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+                  store.authorizationStatus(for: energy) == .sharingAuthorized else { finish(); return }
+            let sample = HKQuantitySample(type: energy, quantity: HKQuantity(unit: .kilocalorie(), doubleValue: kcal), start: start, end: end)
+            builder.add([sample]) { _, _ in finish() }
+        }
+    }
+    static func activity(_ kind: String) -> HKWorkoutActivityType {
+        switch kind {
+        case "hiit": return .highIntensityIntervalTraining
+        case "cardio": return .mixedCardio
+        case "mobility": return .flexibility
+        case "core": return .coreTraining
+        default: return .traditionalStrengthTraining
+        }
+    }
     static let appGroup = "group.io.github.raykatsu.greatness"
 
     @objc func restStart(_ call: CAPPluginCall) {
@@ -194,6 +274,23 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             guard tries > 0 else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { GreatnessPlugin.release(session, tries: tries - 1) }
+        }
+    }
+
+    // Lecture, pause, morceau suivant ou précédent dans l'app Musique (accès à la musique déjà donné)
+    @objc func musicControl(_ call: CAPPluginCall) {
+        guard MPMediaLibrary.authorizationStatus() == .authorized else { call.resolve(["ok": false, "status": "denied"]); return }
+        let cmd = call.getString("cmd") ?? ""
+        DispatchQueue.main.async {
+            let player = MPMusicPlayerController.systemMusicPlayer
+            switch cmd {
+            case "play": player.play()
+            case "pause": player.pause()
+            case "next": player.skipToNextItem()
+            case "previous": player.skipToPreviousItem()
+            default: call.resolve(["ok": false]); return
+            }
+            call.resolve(["ok": true])
         }
     }
 

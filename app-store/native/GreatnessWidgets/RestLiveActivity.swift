@@ -6,6 +6,7 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 import UIKit
+import AppIntents
 
 private let accent = Color(red: 0.91, green: 0.16, blue: 0.23)
 
@@ -54,6 +55,9 @@ struct RestLiveActivity: Widget {
                         }
                         if let song = context.state.song {
                             SongLine(song: song, cover: cover, size: 22)
+                        }
+                        if !context.isStale {
+                            RestButtons(tint: tint)
                         }
                     }
                 }
@@ -149,6 +153,22 @@ struct RestWatchView: View {
     }
 }
 
+// Les boutons du repos (iOS 17) : « +15 s » et « Go », exécutés par l'app (RestIntents.swift)
+struct RestButtons: View {
+    let tint: Color
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            HStack(spacing: 8) {
+                Button(intent: RestActionIntent(action: "add15")) { Label("+15 s", systemImage: "plus") }
+                Button(intent: RestActionIntent(action: "go")) { Label("Go", systemImage: "play.fill") }
+            }
+            .font(.caption.bold())
+            .buttonStyle(.bordered)
+            .tint(tint)
+        }
+    }
+}
+
 // Le morceau qui joue : sa pochette (si l'app a pu la déposer) et « Titre · Artiste »
 struct SongLine: View {
     let song: String
@@ -194,6 +214,7 @@ struct RestLockView: View {
                 if !over {
                     ProgressView(timerInterval: state.start...state.end, countsDown: true, label: { EmptyView() }, currentValueLabel: { EmptyView() })
                         .tint(tint)
+                    RestButtons(tint: tint)
                 }
             }
             Spacer(minLength: 0)

@@ -3564,3 +3564,9 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 .coach-line.quip { margin-top: var(--s-3); border-style: dashed; border-color: rgba(var(--accent-rgb), .45); background: rgba(var(--accent-rgb), .06); }
 .coach-line.quip p { margin: 0; font-size: var(--fs-sm); line-height: 1.45; }
 .quip-line { margin: 8px 0 0; font-size: var(--fs-sm); font-weight: 650; line-height: 1.4; color: var(--accent-ink, var(--red)); }
+
+/* ---------- Playlist de séance au bon tempo (songs-ui.js) ---------- */
+.songs-tempo { width: 100%; text-align: left; border-top: 1px solid var(--line); }
+.songs-tempo .grow { display: grid; gap: 2px; }
+.tempo-sheet .song-row { gap: 10px; }
+.tempo-sheet .song-row .chip { flex: none; }

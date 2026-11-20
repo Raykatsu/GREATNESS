@@ -249,6 +249,16 @@ test("musique : tes morceaux de records dans l'onglet Progrès, la playlist à c
     await page.click("#songs-copy");
     await page.waitForFunction(() => /Liste copiée/.test(document.querySelector("#toast")?.textContent || ""));
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "1. Numb — Linkin Park");
+    // la playlist de séance au bon tempo : calme à l'échauffement, intense sur les séries lourdes
+    await page.evaluate(() => document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()));
+    await page.evaluate(async () => {
+      const { keepTempo } = await import("/js/trackinfo.js");
+      keepTempo({ title: "Numb", artist: "Linkin Park" }, 150, "user"); keepTempo({ title: "Douceur", artist: "Artiste" }, 92, "user");
+    });
+    await page.click("#songs-tempo");
+    await page.waitForSelector(".tempo-sheet .song-row");
+    const tempo = await page.$eval(".tempo-sheet", e => e.innerText.replace(/\s+/g, " "));
+    assert.match(tempo, /Échauffement · moins de 115 BPM Douceur · Artiste 92 BPM.*Séries lourdes · 140 BPM et plus Numb · Linkin Park 150 BPM/i);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });

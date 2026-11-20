@@ -18,7 +18,7 @@ end
 
 # Le pont natif, dans la cible App
 app_group = project.main_group.children.find { |g| g.display_name == 'App' } or abort('Groupe App introuvable')
-add_sources(app, [ref(app_group, 'GreatnessPlugin.swift'), ref(app_group, 'MainViewController.swift')])
+add_sources(app, %w[GreatnessPlugin.swift MainViewController.swift SiriIntents.swift].map { |f| ref(app_group, f) })
 
 # L'extension (iOS 16.2 : Live Activity et widgets de l'écran verrouillé)
 widget = project.targets.find { |t| t.name == 'GreatnessWidgets' }
@@ -53,20 +53,27 @@ wgroup = project.main_group.children.find { |g| g.display_name == 'GreatnessWidg
 %w[Info.plist GreatnessWidgets.entitlements].each { |f| ref(wgroup, f) }
 add_sources(widget, %w[GreatnessWidgetsBundle.swift RestLiveActivity.swift NextSessionWidget.swift].map { |f| ref(wgroup, f) })
 # le repos en cours : connu de l'app (qui lance la Live Activity) et de l'extension (qui la dessine)
-shared = ref(wgroup, 'RestAttributes.swift')
-add_sources(widget, [shared])
-add_sources(app, [shared])
+# (et les boutons du repos, exécutés par l'app)
+shared = %w[RestAttributes.swift RestIntents.swift].map { |f| ref(wgroup, f) }
+add_sources(widget, shared)
+add_sources(app, shared)
 
-# Textes des autorisations par langue (fr, en) : InfoPlist.strings localisé, écrit par ios-setup.mjs
-strings = app_group.children.find { |c| c.isa == 'PBXVariantGroup' && c.display_name == 'InfoPlist.strings' } || app_group.new_variant_group('InfoPlist.strings')
-%w[fr en].each do |l|
-  path = "#{l}.lproj/InfoPlist.strings"
-  next if strings.children.any? { |c| c.path == path }
-  r = strings.new_reference(path)
-  r.name = l
-  r.last_known_file_type = 'text.plist.strings'
+# Textes par langue, écrits par ios-setup.mjs : les autorisations (InfoPlist.strings, fr et en), les phrases de Siri
+# (AppShortcuts.strings) et les noms des actions des Raccourcis (Localizable.strings) en anglais
+def variant(group, target, name, langs)
+  vg = group.children.find { |c| c.isa == 'PBXVariantGroup' && c.display_name == name } || group.new_variant_group(name)
+  langs.each do |l|
+    path = "#{l}.lproj/#{name}"
+    next if vg.children.any? { |c| c.path == path }
+    r = vg.new_reference(path)
+    r.name = l
+    r.last_known_file_type = 'text.plist.strings'
+  end
+  target.resources_build_phase.add_file_reference(vg, true) unless target.resources_build_phase.files_references.include?(vg)
 end
-app.resources_build_phase.add_file_reference(strings, true) unless app.resources_build_phase.files_references.include?(strings)
+variant(app_group, app, 'InfoPlist.strings', %w[fr en])
+variant(app_group, app, 'AppShortcuts.strings', %w[en])
+variant(app_group, app, 'Localizable.strings', %w[en])
 project.root_object.known_regions = (project.root_object.known_regions | %w[fr en])
 
 project.save

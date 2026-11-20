@@ -83,6 +83,20 @@ export function nativeDuck(on) {
   if (on) { if (!ducked) { ducked = true; G.duck({ on: true }).catch(() => {}); } return; }
   if (ducked) undo = setTimeout(() => { ducked = false; G.duck({ on: false }).catch(() => {}); }, 400);
 }
+// Une action demandée à Siri ou aux Raccourcis (SiriIntents.swift) : { action : start | water | weight, value }
+export function onNativeSiri(fn) {
+  const G = isNative() && plugin("Greatness");
+  if (!G?.addListener) return () => {};
+  const h = G.addListener("siri", e => fn(e || {}));
+  return () => { Promise.resolve(h).then(x => x?.remove?.()).catch(() => {}); };
+}
+// Un bouton du repos touché dans la Live Activity (« add15 », « go », RestIntents.swift) ; renvoie de quoi arrêter
+export function onNativeRestAction(fn) {
+  const G = isNative() && plugin("Greatness");
+  if (!G?.addListener) return () => {};
+  const h = G.addListener("restAction", e => fn(e?.action || ""));
+  return () => { Promise.resolve(h).then(x => x?.remove?.()).catch(() => {}); };
+}
 /* ---------- Widget « Séance du jour » (données partagées avec l'extension) ---------- */
 export function nativeWidget(data) {
   const G = isNative() && plugin("Greatness");
@@ -102,13 +116,31 @@ export async function nativeBioVerify(reason) {
 }
 
 /* ---------- Apple Santé (HealthKit) ---------- */
-const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories", "heartRate"];
+const READ = ["sleep", "heartRateVariability", "restingHeartRate", "steps", "weight", "calories", "heartRate", "workouts"];
 const iso = t => new Date(t).toISOString();
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const nativeHealthAvailable = async () => { const H = isNative() && plugin("Health"); if (!H) return false; try { return !!(await H.isAvailable()).available; } catch { return false; } };
 export async function nativeHealthAuthorize() {
   const H = plugin("Health");
   await H.requestAuthorization({ read: READ, write: [] });
+}
+
+// Tes séances dans Santé (GreatnessPlugin.swift, workoutlog.js) : le droit d'écrire (demandé une fois), l'enregistrement
+// d'une séance { start, end (ms), kcal, kind, id }, et les entraînements déjà là (ta montre) pour ne pas doubler
+export async function nativeHealthWriteAsk() {
+  const G = isNative() && plugin("Greatness");
+  if (!G) return false;
+  try { return !!(await G.healthWriteAsk()).ok; } catch { return false; }
+}
+export async function nativeSaveWorkout(w) {
+  const G = isNative() && plugin("Greatness");
+  if (!G) return { ok: false };
+  try { return await G.saveWorkout(w); } catch (e) { return { ok: false, error: e?.message || "" }; }
+}
+export async function nativeHealthWorkouts(from, to) {
+  const H = isNative() && plugin("Health");
+  if (!H) return [];
+  try { return (await H.queryWorkouts({ startDate: iso(from), endDate: iso(to), limit: 20 }))?.workouts || []; } catch { return []; }
 }
 
 // Fréquence cardiaque (la montre, pendant la séance) entre deux instants : [{ t (ms), bpm }] (heart.js)
