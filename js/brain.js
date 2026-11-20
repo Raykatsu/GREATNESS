@@ -15,6 +15,7 @@ import { healthContext } from "./health.js";
 import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 import { LOC, isEn, tr } from "./i18n.js";
+import { banterStyle } from "./banter.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -262,6 +263,7 @@ export function athleteContext({ full = false } = {}) {
     nutritionContext(state),
     adjustContext(state),
     memoryContext(state),
+    banterStyle(),
     ...(full ? fullExtras() : []),
   ].filter(Boolean).join("\n");
 }

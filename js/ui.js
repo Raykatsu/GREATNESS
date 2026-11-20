@@ -69,10 +69,12 @@ const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)
 // Toast : pilule au-dessus de la barre d'onglets. Un nouveau message remplace proprement le précédent ;
 // la durée s'allonge un peu pour les messages longs ; un toucher le ferme.
 let toastT;
-export function toast(msg, ms = 2400) {
+// raw : texte déjà dans la langue de l'app (les piques du coach taquin), à ne pas retraduire
+export function toast(msg, ms = 2400, { raw = false } = {}) {
   const t = $("#toast");
   if (!t) return;
   const showing = t.classList.contains("show");
+  if (raw) t.setAttribute("translate", "no"); else t.removeAttribute("translate");
   t.textContent = msg;
   if (showing && !reduceMotion()) { t.classList.remove("swap"); void t.offsetWidth; t.classList.add("swap"); }
   t.classList.add("show");

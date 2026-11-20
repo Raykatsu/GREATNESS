@@ -16,7 +16,8 @@ import { planCard, bindPlanCard } from "./mealplan-ui.js";
 import { dailyAdjust } from "./nutriadapt.js";
 import { learnHtml, bindLearn, adjustCard } from "./nutrilearn.js";
 import { isOnlineMode, authToken } from "./cloud.js";
-import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn } from "./ui.js";
+import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn, coachIcon } from "./ui.js";
+import { banterOn, quip, quipOf, foodSituation, weightSituation, isJunk, isLate } from "./banter.js";
 import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -139,6 +140,7 @@ export function renderFood(view) {
       </div>
     </section>
     ${isToday ? adjustCard(t) : ""}
+    ${isToday ? foodQuipHtml(t, tot, day) : ""}
     <div class="nut-actions">
       <button class="card nut-act" data-act="scan">${IC.barcode}<span>Scanner</span></button>
       <button class="card nut-act" data-act="search">${I.search}<span>Chercher</span></button>
@@ -181,6 +183,17 @@ export function renderFood(view) {
   animateRings(view);
 }
 const refresh = () => { if (host?.isConnected && location.hash.startsWith("#/food")) renderFood(host); };
+
+// Coach taquin (banter.js) : la pique du jour, d'après ce que tu as mangé (la même toute la journée pour une situation)
+const sugarOf = items => items.reduce((a, it) => a + ((+it.per?.su || 0) * (+it.g || 0)) / 100, 0);
+function foodQuipHtml(t, tot, day) {
+  if (!banterOn()) return "";
+  const now = new Date(), trained = sessionsOn(now).length > 0;
+  const q = quipOf(foodSituation({ goal: state.profile.goal, adapt: !t.off, target: t.kcal, eaten: tot.k, protein: tot.p, proteinTarget: t.p,
+    sugar: sugarOf(day.items), water: day.water || 0, waterGoal: waterGoal(t, trained), junk: day.items.filter(x => isJunk(x.name)).map(x => x.name),
+    hour: now.getHours(), delta: t.delta || 0 }), { seed: dayKey() });
+  return q ? `<div class="coach-line quip" translate="no"><div class="av">${coachIcon()}</div><p class="grow">${esc(q)}</p></div>` : "";
+}
 
 function mealCard(m, day) {
   const items = day.items.filter(x => x.meal === m.id), tot = sumItems(items);
@@ -251,7 +264,10 @@ function weighIn() {
     if (same) same.weight = w; else state.body.push({ date: Date.now(), weight: w });
     state.profile.bodyweight = w;
     if (state.profile.nutri?.adaptive && !state.profile.nutri.adapt) weeklyUpdate(state, new Date(), { force: true });
-    save(); sh.close(); refresh(); toast("Pesée enregistrée ✓");
+    save(); sh.close(); refresh();
+    // coach taquin : la tendance face à l'objectif (« t'es pas censé maigrir, toi ? »)
+    const pique = banterOn() ? quipOf(weightSituation(state.profile.goal, trendRate(weightTrend(state.body)))) : "";
+    if (pique) toast(pique, 4500, { raw: true }); else toast("Pesée enregistrée ✓");
   };
 }
 
@@ -438,7 +454,10 @@ export function openPortion(food, { meal = defaultMeal(), item = null, then, lea
       if (food.src === "ai" && learn != null) learnFood(state, food, learn); // reconnu ensuite, même hors ligne
     }
     save(); sh.close(); refresh();
-    toast(item ? "Modifié ✓" : `${food.name} ajouté · ${fmtNum(itemTotals({ ...food, g }).k)} kcal`);
+    // coach taquin : une pique pour un aliment « plaisir » ou noté tard le soir
+    const pique = item ? "" : isJunk(food.name) ? quip("junk", { f: food.name }) : isLate(new Date().getHours()) && key === dayKey() ? quip("lateNight") : "";
+    if (pique) toast(pique, 4200, { raw: true });
+    else toast(item ? "Modifié ✓" : `${food.name} ajouté · ${fmtNum(itemTotals({ ...food, g }).k)} kcal`);
     then?.();
   };
   upd();

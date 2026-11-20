@@ -20,10 +20,11 @@ if ("speechSynthesis" in window) {
 export const speechHooks = { start: null, end: null };
 
 // force : réponse à une question posée à voix haute (lue même si les consignes vocales sont coupées)
-export function speak(text, { interrupt = false, force = false } = {}) {
+// raw : texte déjà dans la langue de l'app (les piques du coach taquin)
+export function speak(text, { interrupt = false, force = false, raw = false } = {}) {
   if ((!state.profile.voice && !force) || !("speechSynthesis" in window) || !text) return;
   if (interrupt) speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(tr(text)); // en anglais : la phrase traduite
+  const u = new SpeechSynthesisUtterance(raw ? text : tr(text)); // en anglais : la phrase traduite
   u.lang = voiceLang();
   const voice = pickVoice();
   if (voice) u.voice = voice;
