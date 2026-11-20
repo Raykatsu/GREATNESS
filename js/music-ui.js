@@ -3,7 +3,7 @@
 import { state, save } from "./store.js";
 import {
   SOURCE_NAME, statsfmId, musicSource, setMusic, nowPlaying, onMusic, musicError, musicErrors, musicFunction, spotifyConfigured, spotifyLinked, spotifyLogin,
-  spotifyLogout, spotifyControl, appleAvailable, appleAsk, appleState, autoSources, searchMusic, LASTFM_RE,
+  spotifyLogout, spotifyControl, appleAvailable, appleAsk, appleState, autoSources, searchMusic, LASTFM_RE, appleControl, canControl,
 } from "./music.js";
 import { refreshMusicTheme, musicVibe } from "./musictheme.js";
 import { VIBES } from "./vibe.js";
@@ -28,7 +28,7 @@ const nb = s => s.replace(/ ([?!:;»%])/g, " $1");
 const art = (t, cls = "") => (t?.art ? `<img class="m-art ${cls}" src="${esc(t.art)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : `<span class="m-art m-art-none ${cls}">${MI.note}</span>`);
 const status = t => (t.src === "manual" ? "Ambiance" : t.playing ? "En écoute" : "En pause");
 // boutons du lecteur : seulement avec Spotify connecté en direct (lecture à distance)
-const controls = t => (t?.src === "spotify" && spotifyLinked() ? `<div class="m-ctl">
+const controls = t => (canControl(t) ? `<div class="m-ctl">
   <button class="icon-btn plain sm" data-mctl="previous" aria-label="Morceau précédent">${MI.previous}</button>
   <button class="icon-btn sm m-pp" data-mctl="${t.playing ? "pause" : "play"}" aria-label="${t.playing ? "Pause" : "Lecture"}">${t.playing ? MI.pause : MI.play}</button>
   <button class="icon-btn plain sm" data-mctl="next" aria-label="Morceau suivant">${MI.next}</button></div>` : "");
@@ -75,9 +75,10 @@ function bindControls(root) {
   $$("[data-mctl]", root).forEach(b => b.onclick = async e => {
     e.stopPropagation();
     b.disabled = true;
-    const r = await spotifyControl(b.dataset.mctl);
+    const r = nowPlaying()?.src === "apple" ? await appleControl(b.dataset.mctl) : await spotifyControl(b.dataset.mctl);
     b.disabled = false;
-    if (r === "PREMIUM") toast("Lecture à distance : Spotify Premium requis", 3500);
+    if (r === "DENIED") toast("Autorise l'accès à l'app Musique dans les Réglages de l'iPhone", 3500);
+    else if (r === "PREMIUM") toast("Lecture à distance : Spotify Premium requis", 3500);
     else if (r === "NO_DEVICE") toast("Ouvre Spotify sur un appareil pour lancer la lecture", 3500);
     else if (r !== "ok") toast("Spotify ne répond pas", 2500);
   });

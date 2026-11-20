@@ -100,6 +100,8 @@ Un journal alimentaire façon MyFitnessPal, relié au coach :
 - **Carte de séance aux couleurs du morceau** : séance en musique, la carte à partager prend la pochette du morceau qui a porté le plus de séries (floutée en fond, son accent) et affiche la bande-son.
 - **Ta chanson de guerre** (Moi → Réglages → Musique) : le morceau qui te galvanise, choisi dans le catalogue ou pris parmi ce qui joue. Juste avant ta série la plus lourde (à 95 % de ton meilleur niveau ou plus) ou une tentative de record, une fois par séance, l'app te le propose : « Lancer » le joue dans Spotify (connecté en direct, Premium), sinon l'ouvre dans Apple Music ou Spotify.
 - **Tes morceaux de records** (onglet Progrès) : avec quels sons tu soulèves le plus lourd. Pour chaque morceau, les records battus pendant qu'il passait et l'intensité de tes séries (charge × répétitions, rapportée à ton meilleur niveau sur l'exercice à ce moment-là) comparée à ta moyenne. **Ta playlist de records** : les morceaux qui te portent, à copier, partager ou écouter dans Spotify ou Apple Music.
+- **Ta playlist de séance au bon tempo** (onglet Progrès, sous tes morceaux de records) : tes morceaux de séance en trois temps, échauffement (moins de 115 BPM), séries (115 à 139) et séries lourdes (140 et plus), les plus efficaces d'abord puis du plus lent au plus rapide. Le tempo encore inconnu est cherché à l'ouverture. À copier, ou à lancer d'un coup dans Spotify (relié en direct, Premium).
+- **Piloter la musique pendant la séance** : précédent, lecture/pause, suivant, avec Spotify relié en direct et maintenant aussi avec l'app Musique de l'iPhone (Apple Music, app iPhone).
 - Mise en place (clé Last.fm, app Spotify) : [SUPABASE.md](SUPABASE.md), « Musique ». Fonction serveur : `supabase/functions/music` (morceau en cours Last.fm et stats.fm, relais des pochettes, tempo des morceaux).
 
 ## Le coach IA agit, retient et fait le bilan
@@ -434,7 +436,7 @@ js/nutrilearn.js  onglet « Comprendre » (le calcul, l'adaptation, les nutrimen
 js/music.js       musique : ce que joue le téléphone (automatique : Apple Music, stats.fm, Last.fm, Spotify), choix manuel (+ music-ui.js : écrans)
 js/musictheme.js  les couleurs de l'app suivent la pochette (palette.js : couleurs d'une image), décor, couleurs gardées
 js/vibe.js        l'ambiance du morceau (genre, tempo, pochette) qui change tout le thème (+ trackinfo.js : genre et tempo)
-js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist (+ songs-ui.js : carte et feuille)
+js/songstats.js   tes morceaux de records : records et intensité par morceau, playlist, playlist au bon tempo (+ songs-ui.js : carte et feuilles)
 js/warsong.js     ta chanson de guerre : le moment (série lourde, record en vue), où l'écouter
 js/dance.js       le mannequin qui danse : pas de danse calés sur le tempo, tempo tapé (+ dance-ui.js : écran, veille)
 js/mealplan.js    plan de repas et liste de courses (+ mealplan-ui.js : écrans)

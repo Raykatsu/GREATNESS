@@ -187,6 +187,41 @@ export async function spotifyControl(cmd) {
   } catch { return "ERROR"; }
 }
 
+// L'app Musique de l'iPhone (Apple Music) : lecture, pause, suivant, précédent ; "ok", "DENIED" ou "ERROR"
+export async function appleControl(cmd) {
+  const G = native();
+  if (!G?.musicControl) return "ERROR";
+  try {
+    const r = await G.musicControl({ cmd });
+    if (r?.ok) { setTimeout(poll, 600); return "ok"; }
+    return r?.status === "denied" ? "DENIED" : "ERROR";
+  } catch { return "ERROR"; }
+}
+// Le morceau se pilote depuis l'app : Spotify relié en direct, ou l'app Musique de l'iPhone
+export const canControl = t => !!t && ((t.src === "spotify" && spotifyLinked()) || (t.src === "apple" && appleAvailable()));
+
+// Lancer une liste de morceaux dans Spotify (connecté en direct, Premium), dans l'ordre : chaque morceau cherché par
+// titre et artiste ; "ok", "PREMIUM", "NO_DEVICE", "NOT_FOUND", "NOT_LINKED" ou "ERROR"
+export async function spotifyPlayList(list = []) {
+  if (!spotifyLinked()) return "NOT_LINKED";
+  try {
+    const uris = [];
+    for (const t of list.slice(0, 30)) {
+      const q = encodeURIComponent(`track:${clip(t.title, 100)}${t.artist ? ` artist:${clip(t.artist, 100)}` : ""}`);
+      const r = await spotifyApi(`/search?q=${q}&type=track&limit=1`);
+      const uri = r.ok ? (await r.json().catch(() => ({})))?.tracks?.items?.[0]?.uri : null;
+      if (uri) uris.push(uri);
+    }
+    if (!uris.length) return "NOT_FOUND";
+    const p = await spotifyApi("/me/player/play", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uris }) });
+    if (p.ok || p.status === 204) { setTimeout(poll, 800); return "ok"; }
+    const j = await p.json().catch(() => ({}));
+    if (p.status === 403 || /PREMIUM/.test(j?.error?.reason || "")) return "PREMIUM";
+    if (p.status === 404) return "NO_DEVICE";
+    return "ERROR";
+  } catch { return "ERROR"; }
+}
+
 // Lancer un morceau dans Spotify (connecté en direct, Premium), cherché par titre et artiste : "ok", "PREMIUM",
 // "NO_DEVICE" (Spotify ouvert nulle part), "NOT_FOUND", "NOT_LINKED" ou "ERROR"
 export async function spotifyPlay(title, artist = "") {

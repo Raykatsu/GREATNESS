@@ -2,7 +2,9 @@
 // leurs records et leur gain d'intensité) et la feuille de la playlist (copier, partager, écouter dans Spotify ou
 // Apple Music). Les calculs : songstats.js.
 import { state } from "./store.js";
-import { songRecords, recordPlaylist, playlistText, listenUrl } from "./songstats.js";
+import { songRecords, recordPlaylist, playlistText, listenUrl, tempoPlaylist } from "./songstats.js";
+import { knownTempo, tempoOf } from "./trackinfo.js";
+import { spotifyLinked, spotifyPlayList } from "./music.js";
 import { $, esc, sheet, toast } from "./ui.js";
 
 const note = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
@@ -21,10 +23,46 @@ export function songsCardHtml(st = state) {
   const songs = songRecords(st.sessions || []);
   if (!songs.length) return "";
   return `<div class="section"><h2>Tes morceaux de records</h2>${recordPlaylist(songs).length ? `<button class="me-add" id="songs-all">Ta playlist</button>` : ""}</div>
-    <div class="card card-list songs-card">${songs.slice(0, 3).map(s => row(s)).join("")}</div>`;
+    <div class="card card-list songs-card">${songs.slice(0, 3).map(s => row(s)).join("")}
+      ${songs.length >= 2 ? `<button class="set-row set-act songs-tempo" id="songs-tempo"><span class="grow"><b>Ta playlist de séance au bon tempo</b><span class="xs muted">Calme à l'échauffement, intense sur les séries lourdes</span></span>›</button>` : ""}</div>`;
 }
 export function bindSongsCard(root, st = state) {
   $("#songs-all", root)?.addEventListener("click", () => openSongs(st));
+  $("#songs-tempo", root)?.addEventListener("click", () => openTempo(st));
+}
+
+// La playlist de séance au bon tempo (tempoPlaylist) : le tempo des morceaux encore inconnus est cherché à l'ouverture
+const PHASE_NAME = { warm: "Échauffement", work: "Séries", heavy: "Séries lourdes" };
+const PHASE_SUB = { warm: "moins de 115 BPM", work: "115 à 139 BPM", heavy: "140 BPM et plus" };
+export function openTempo(st = state) {
+  const songs = songRecords(st.sessions || [], { minSets: 1 });
+  const sh = sheet(`<div class="songs-sheet tempo-sheet">
+    <h2 class="h2">Ta playlist de séance au bon tempo</h2>
+    <p class="muted small">Tes morceaux de séance, du plus calme au plus intense : de quoi t'échauffer, enchaîner tes séries, puis tout donner sur les plus lourdes.</p>
+    <div id="tempo-body"><p class="muted small"><i class="spinner"></i> Je cherche le tempo de tes morceaux…</p></div>
+  </div>`);
+  const body = $("#tempo-body", sh.el);
+  let list = [];
+  const draw = () => {
+    const phases = tempoPlaylist(songs, s => knownTempo(s)?.bpm || 0);
+    list = phases.flatMap(p => p.songs);
+    if (!list.length) { body.innerHTML = `<p class="muted small">Pas encore assez de morceaux au tempo connu : écoute ta musique pendant tes séances, la playlist se remplira toute seule.</p>`; return; }
+    body.innerHTML = `${phases.map(p => `<div class="eyebrow mt-s">${PHASE_NAME[p.id]} · ${PHASE_SUB[p.id]}</div>
+      <div class="card card-list">${p.songs.map(s => `<div class="cmp song-row"><span class="grow ellipsis" translate="no"><b>${esc(s.title)}</b>${s.artist ? ` <span class="muted">· ${esc(s.artist)}</span>` : ""}</span><span class="chip tnum">${s.bpm} BPM</span></div>`).join("")}</div>`).join("")}
+      <div class="grid2 mt">${spotifyLinked() ? `<button class="btn btn-primary" id="tempo-play">Lancer dans Spotify</button>` : ""}<button class="btn btn-soft" id="tempo-copy">Copier la liste</button></div>`;
+    $("#tempo-copy", body).onclick = async () => { try { await navigator.clipboard.writeText(playlistText(list)); toast("Liste copiée ✓"); } catch { toast("Copie impossible sur cet appareil", 3000); } };
+    $("#tempo-play", body)?.addEventListener("click", async e => {
+      e.currentTarget.disabled = true;
+      const r = await spotifyPlayList(list);
+      e.currentTarget.disabled = false;
+      toast(r === "ok" ? "C'est parti dans Spotify ✓" : r === "PREMIUM" ? "Lecture à distance : Spotify Premium requis" : r === "NO_DEVICE" ? "Ouvre Spotify sur un appareil pour lancer la lecture" : "Spotify ne répond pas", 3500);
+    });
+  };
+  // les tempos encore inconnus (au plus 24 morceaux), puis l'affichage
+  const missing = songs.filter(s => !knownTempo(s)?.bpm).slice(0, 24);
+  Promise.all(missing.map(s => tempoOf(s).catch(() => null))).then(() => { if (sh.el.isConnected) draw(); });
+  if (!missing.length) draw();
+  return sh;
 }
 
 // La playlist : les morceaux sur lesquels tu as battu un record ou soulevé plus lourd que d'habitude

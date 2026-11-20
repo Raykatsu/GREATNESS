@@ -7,6 +7,7 @@
 // - événement « siri » : une action demandée à Siri ou aux Raccourcis (lancer la séance, eau, poids), SiriIntents.swift ;
 // - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group ;
 // - musicNow : le morceau en cours dans l'app Musique (Apple Music ou bibliothèque), avec sa pochette (js/music.js) ;
+// - musicControl : lecture, pause, morceau suivant ou précédent dans l'app Musique ;
 // - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify).
 import Foundation
 import UIKit
@@ -30,6 +31,7 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "restEnd", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "widgetSet", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "musicNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "musicControl", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "webAuth", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "duck", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthWriteAsk", returnType: CAPPluginReturnPromise),
@@ -272,6 +274,23 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             guard tries > 0 else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { GreatnessPlugin.release(session, tries: tries - 1) }
+        }
+    }
+
+    // Lecture, pause, morceau suivant ou précédent dans l'app Musique (accès à la musique déjà donné)
+    @objc func musicControl(_ call: CAPPluginCall) {
+        guard MPMediaLibrary.authorizationStatus() == .authorized else { call.resolve(["ok": false, "status": "denied"]); return }
+        let cmd = call.getString("cmd") ?? ""
+        DispatchQueue.main.async {
+            let player = MPMusicPlayerController.systemMusicPlayer
+            switch cmd {
+            case "play": player.play()
+            case "pause": player.pause()
+            case "next": player.skipToNextItem()
+            case "previous": player.skipToPreviousItem()
+            default: call.resolve(["ok": false]); return
+            }
+            call.resolve(["ok": true])
         }
     }
 

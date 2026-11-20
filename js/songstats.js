@@ -45,6 +45,22 @@ export function songRecords(sessions = [], { minSets = 3 } = {}) {
   })).sort((a, b) => b.records - a.records || (b.lift ?? -1e9) - (a.lift ?? -1e9) || b.sets - a.sets);
 }
 
+// La playlist de séance au bon tempo : tes morceaux de séance, en trois temps — échauffement (moins de 115 BPM),
+// séries (115 à 139), séries lourdes (140 et plus) —, les plus efficaces d'abord (records, séries), puis du plus lent au
+// plus rapide dans chaque temps. Tempo inconnu : laissé de côté (bpmOf(morceau) → BPM ou 0).
+export const TEMPO_PHASES = [{ id: "warm", from: 0, to: 115 }, { id: "work", from: 115, to: 140 }, { id: "heavy", from: 140, to: 999 }];
+export function tempoPlaylist(songs = [], bpmOf = () => 0, { max = 18 } = {}) {
+  const quota = { warm: Math.round(max * 0.2), work: Math.round(max * 0.45) };
+  quota.heavy = max - quota.warm - quota.work;
+  const known = songs.map(s => ({ ...s, bpm: Math.round(+bpmOf(s) || 0) })).filter(s => s.bpm >= 60 && s.bpm <= 220);
+  return TEMPO_PHASES.map(p => ({
+    id: p.id, from: p.from, to: p.to,
+    songs: known.filter(s => s.bpm >= p.from && s.bpm < p.to)
+      .sort((a, b) => (b.records || 0) - (a.records || 0) || (b.lift ?? -1e9) - (a.lift ?? -1e9) || (b.sets || 0) - (a.sets || 0))
+      .slice(0, quota[p.id]).sort((a, b) => a.bpm - b.bpm),
+  })).filter(p => p.songs.length);
+}
+
 // La playlist de tes morceaux de records : ceux qui t'ont vu battre un record ou soulever plus lourd que d'habitude
 export const recordPlaylist = (songs, max = 20) => songs.filter(s => s.records > 0 || (s.lift ?? 0) > 0).slice(0, max);
 // en texte, à copier ou partager
