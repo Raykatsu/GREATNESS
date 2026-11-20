@@ -5,7 +5,7 @@ import { isOnlineMode, friendCall, authToken } from "./cloud.js";
 import { SUPABASE_URL } from "./config.js";
 import { mergeHealth, applyWeights, readinessFromHealth, formLabel, healthLine, dayKeyOf, shiftDay } from "./health.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet } from "./ui.js";
-import { isNative, nativeHealthAvailable, nativeHealthAuthorize, nativeHealthRead } from "./native.js";
+import { isNative, nativeHealthAvailable, nativeHealthAuthorize, nativeHealthRead, nativeHealthWriteAsk } from "./native.js";
 import { LOC } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -24,6 +24,8 @@ export function syncHealth({ force = false } = {}) {
       const native = nativeOn();
       // déjà relié avant la lecture de la fréquence cardiaque (séances avec la montre) : on la demande une fois
       if (native && !state.health.hrAsked) { await nativeHealthAuthorize().catch(() => {}); state.health.hrAsked = true; }
+      // tes séances enregistrées dans Santé (sauf si coupé) : le droit d'écrire, demandé une fois
+      if (native && state.health.write !== false && !state.health.writeAsked) { await nativeHealthWriteAsk(); state.health.writeAsked = true; }
       const r = native ? { linked: true, days: await nativeHealthRead(35) } : await friendCall("gt_health_pull", { p_since: shiftDay(today(), -60) });
       lastSync = Date.now();
       const h = state.health || {};
@@ -76,13 +78,15 @@ async function openNativeHealth() {
     body.innerHTML = h.native
       ? `<div class="card hl-status ${last ? "ok" : ""}">${last ? `${I.check}<div><b>Lu ${esc(fmtDay(last))}</b><span class="xs muted">${esc(healthLine(days, last) || "—")}</span></div>`
           : `${I.clock}<div><b>Autorisé, aucune mesure pour l'instant</b><span class="xs muted">Vérifie dans Réglages → Santé → Accès aux données que GREATNESS peut tout lire.</span></div>`}</div>
+        <label class="toggle set-row card mt-s hl-write"><div class="grow"><b>Enregistrer mes séances dans Santé</b><span class="xs muted">Durée et énergie dépensée : elles apparaissent dans Santé et l'app Forme (pas en double si ta montre l'a déjà fait)</span></div><input type="checkbox" id="hl-write" ${h.write !== false ? "checked" : ""}/></label>
         <div class="grid2 mt-s"><button class="btn btn-soft" id="hl-check">${I.refresh} Actualiser</button><button class="btn btn-ghost danger" id="hl-off">${I.x} Ne plus lire</button></div>`
       : `<button class="btn btn-primary btn-block" id="hl-allow">${HEART} Autoriser l'accès à Santé</button>`;
     $("#hl-allow", body)?.addEventListener("click", async () => {
       try {
         if (!(await nativeHealthAvailable())) return toast("Apple Santé n'est pas disponible sur cet appareil.");
         await nativeHealthAuthorize();
-        state.health = { ...(state.health || {}), native: true, hrAsked: true };
+        await nativeHealthWriteAsk();
+        state.health = { ...(state.health || {}), native: true, hrAsked: true, writeAsked: true };
         save();
         const r = await syncHealth({ force: true });
         draw();
@@ -90,6 +94,11 @@ async function openNativeHealth() {
       } catch (e) { toast(e?.message || "Accès refusé"); }
     });
     $("#hl-check", body)?.addEventListener("click", async () => { await syncHealth({ force: true }); draw(); toast("Mesures à jour ✓"); });
+    $("#hl-write", body)?.addEventListener("change", async e => {
+      state.health = { ...(state.health || {}), write: e.target.checked };
+      if (e.target.checked) { await nativeHealthWriteAsk(); state.health.writeAsked = true; }
+      save();
+    });
     $("#hl-off", body)?.addEventListener("click", () => { state.health = { linked: false, days: {} }; save(); draw(); toast("Apple Santé n'est plus lu (tes pesées restent dans ta courbe)."); });
   };
   draw();

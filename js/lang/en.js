@@ -5398,4 +5398,8 @@ export default {
   "Langage familier : il te charrie sur tes repas, ton repos, tes séances. Jamais sur ton corps.": "Casual talk: the coach teases you about your meals, your rest, your workouts. Never about your body.",
   "Le coach passe en langage familier et te charrie gentiment : calories en trop, pizza de minuit, repos qui traîne, séance écourtée. Jamais sur ton corps.": "The coach switches to casual talk and teases you kindly: extra calories, midnight pizza, endless rest, cut-short workouts. Never about your body.",
   "Ton demandé par l'utilisateur : familier et taquin. Tutoie-le, glisse de petites piques drôles et bienveillantes sur ses choix (repas, calories, séances manquées, repos qui s'éternisent), comme un pote coach. Jamais d'insulte ni de moquerie sur son corps ou son poids, aucune blague sur une douleur ou une blessure, et s'il mange trop peu, pousse-le à manger.": "Tone requested by the user: casual and teasing. Talk to them like a friend, slip in small, funny, kind jabs about their choices (meals, calories, missed workouts, rests that drag on), like a buddy coach. Never insult or mock their body or weight, no jokes about pain or injury, and if they eat too little, push them to eat.",
+  "Durée et énergie dépensée : elles apparaissent dans Santé et l'app Forme (pas en double si ta montre l'a déjà fait)": "Duration and energy burned: they show up in Health and the Fitness app (not twice if your watch already logged it)",
+  "Enregistrer mes séances dans Santé": "Save my workouts to Health",
+  "Enregistrée dans Apple Santé": "Saved to Apple Health",
+  "Ta montre a déjà enregistré cette séance dans Santé.": "Your watch already saved this workout to Health.",
 };

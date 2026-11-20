@@ -53,9 +53,10 @@ wgroup = project.main_group.children.find { |g| g.display_name == 'GreatnessWidg
 %w[Info.plist GreatnessWidgets.entitlements].each { |f| ref(wgroup, f) }
 add_sources(widget, %w[GreatnessWidgetsBundle.swift RestLiveActivity.swift NextSessionWidget.swift].map { |f| ref(wgroup, f) })
 # le repos en cours : connu de l'app (qui lance la Live Activity) et de l'extension (qui la dessine)
-shared = ref(wgroup, 'RestAttributes.swift')
-add_sources(widget, [shared])
-add_sources(app, [shared])
+# (et les boutons du repos, exécutés par l'app)
+shared = %w[RestAttributes.swift RestIntents.swift].map { |f| ref(wgroup, f) }
+add_sources(widget, shared)
+add_sources(app, shared)
 
 # Textes des autorisations par langue (fr, en) : InfoPlist.strings localisé, écrit par ios-setup.mjs
 strings = app_group.children.find { |c| c.isa == 'PBXVariantGroup' && c.display_name == 'InfoPlist.strings' } || app_group.new_variant_group('InfoPlist.strings')

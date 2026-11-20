@@ -1,9 +1,9 @@
 # Publier GREATNESS sur l'App Store (sans Mac)
 
 L'app iPhone est la même que le site, emballée avec [Capacitor](https://capacitorjs.com) (dossier [`app-store/`](app-store/)). Elle ajoute ce que seul le natif permet :
-- **Apple Santé lu directement** (sommeil, VFC, fréquence au repos, pas, poids, énergie active), sans Raccourci.
+- **Apple Santé lu directement** (sommeil, VFC, fréquence au repos, pas, poids, énergie active, fréquence cardiaque de ta montre pendant la séance), sans Raccourci, et **tes séances enregistrées dans Santé** (durée, énergie active), sans doublon avec ta montre.
 - **Face ID / Touch ID** pour déverrouiller l'app à la place du code secret.
-- **Le repos dans la Dynamic Island et sur l'écran verrouillé** (Live Activity) : le compte à rebours et l'exercice qui suit, sans ouvrir l'app.
+- **Le repos dans la Dynamic Island et sur l'écran verrouillé** (Live Activity) : le compte à rebours, l'exercice qui suit, le morceau qui joue et les boutons « +15 s » et « Go », sans ouvrir l'app ; aussi sur l'Apple Watch (Smart Stack).
 - **Widget « Séance du jour »** sur l'écran d'accueil et l'écran verrouillé : la séance prévue, ta série de jours et ta semaine.
 - **Fin du repos en notification locale**, même sans réseau, et **rappels de séance** programmés sur le téléphone.
 - **Vibrations** natives.

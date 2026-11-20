@@ -5,7 +5,8 @@ import { coachName } from "./chars/index.js";
 import { state, save, rankInfo, recordLift, e1rm, currentUser } from "./store.js";
 import { Session, fmtTarget, plates, schemeAt, progressionOf } from "./engine.js";
 import { classicAfter, CLASSICS } from "./classics.js";
-import { nativeRestLive, nativeWidget, isNative, nativeHeartRate } from "./native.js";
+import { nativeRestLive, nativeWidget, isNative, nativeHeartRate, nativeSaveWorkout, nativeHealthWorkouts, onNativeRestAction } from "./native.js";
+import { workoutKind, activeKcal, coveredBy } from "./workoutlog.js";
 import { liveHr, hrStats } from "./heart.js";
 import { widgetData } from "./widgetdata.js";
 import { cycleInfo, isWorkout, todaysMission } from "./planner.js";
@@ -229,6 +230,7 @@ function begin(exit) {
   clearInterval(tick);
   tick = setInterval(() => { const t = $("#elapsed"); if (t && S) t.textContent = fmtTime(S.elapsed); }, 1000);
   startHeart();
+  bindRestActions();
 }
 
 // Fréquence cardiaque de la montre (Apple Watch → Apple Santé), app iPhone reliée à Santé : la dernière mesure dans
@@ -248,6 +250,21 @@ function startHeart() {
   };
   read();
   hrTimer = setInterval(read, 15000);
+}
+// App iPhone reliée à Santé : la séance enregistrée dans Santé et l'app Forme (durée, énergie active estimée), sauf si
+// ta montre l'a déjà fait ou si l'option est coupée (workoutlog.js)
+async function healthSave(sum, program) {
+  if (!heartOn() || state.health?.write === false || !sum.sets.length || sum.durationSec < 120) return;
+  const from = sum.date, to = sum.date + sum.durationSec * 1000;
+  await new Promise(r => setTimeout(r, 2500));
+  const note = html => { const el = $("#fin-health", overlay()); if (el) { el.hidden = false; el.innerHTML = html; } };
+  if (coveredBy(await nativeHealthWorkouts(from - 10 * 60e3, to + 10 * 60e3), from, to)) return note("<span>Ta montre a déjà enregistré cette séance dans Santé.</span>");
+  const kind = workoutKind(program, sum), kcal = activeKcal({ minutes: sum.durationSec / 60, weight: state.profile.bodyweight, kind });
+  const r = await nativeSaveWorkout({ id: sum.id, start: from, end: to, kcal, kind });
+  if (!r?.ok) return;
+  const s2 = state.sessions.find(x => x.id === sum.id);
+  if (s2) { s2.health = { kcal }; save({ silent: true }); }
+  note(`<span>Enregistrée dans Apple Santé :</span> <b class="tnum">${Math.round(sum.durationSec / 60)} min · ${kcal} kcal</b>`);
 }
 // Les dernières mesures arrivent parfois de la montre avec un peu de retard : relues aussi 20 s plus tard
 async function heartAfter(sum) {
@@ -455,11 +472,7 @@ function renderDock() {
       ${rest.tip ? `<p class="rest-tip">${I.sparkle}<span>${esc(rest.tip)}</span></p>` : ""}
       <div class="ctr"><button data-r="-15" aria-label="Moins 15 secondes">−15 s</button><button data-r="15" aria-label="Plus 15 secondes">+15 s</button>
         <button class="go" id="rest-skip">${I.play}<span>Go</span></button></div></div>`;
-    $$("[data-r]", dock).forEach(b => b.onclick = () => {
-      const d = +b.dataset.r;
-      rest.end = Math.max(Date.now() + 1000, rest.end + d * 1000); rest.total = Math.max(rest.total + d, 10);
-      vibrate(6); paintRest(true); liveRest();
-    });
+    $$("[data-r]", dock).forEach(b => b.onclick = () => { shiftRest(+b.dataset.r); vibrate(6); });
     $("#rest-skip", dock).onclick = () => endRest(true);
     paintRest(true);
   } else {
@@ -628,6 +641,23 @@ function liveRest() {
     detail: tr(`Série ${Math.min(n.done.length + 1, n.sets)}/${n.sets}${n.type === "load" ? ` · ${fmtKg(n.weight)} kg ×` : " ·"} ${n.goal}${n.amrap ? "+" : ""}${n.type === "time" ? " s" : " reps"}`),
     song: song ? `${song.title}${song.artist ? ` · ${song.artist}` : ""}` : "", art: song?.art || "",
     tint: document.documentElement.style.getPropertyValue("--red").trim() } : null);
+}
+
+// Repos allongé ou raccourci (boutons ±15 s, ou « +15 s » de l'écran verrouillé)
+function shiftRest(d) {
+  if (!rest) return;
+  rest.end = Math.max(Date.now() + 1000, rest.end + d * 1000); rest.total = Math.max(rest.total + d, 10);
+  paintRest(true); liveRest();
+}
+// App iPhone : les boutons du repos de la Live Activity (écran verrouillé, Dynamic Island), déjà affichés là-bas
+let offRestAction = null;
+function bindRestActions() {
+  if (offRestAction || !isNative()) return;
+  offRestAction = onNativeRestAction(action => {
+    if (!rest || !S) return;
+    if (action === "add15") shiftRest(15);
+    else if (action === "go") endRest(true);
+  });
 }
 
 // La barre se vide toute seule (animation CSS sur transform) ; on ne la relance que si la durée change.
@@ -903,6 +933,7 @@ function finish() {
     <div class="fin-stats">${tiles.map(t => `<div class="card fin-stat ${t.cls || ""}"><span class="fs-ic">${t.ic}</span><div class="v tnum"><span data-count="${t.v}" data-fmt="${t.f}">${fmtV(t.v, t.f)}</span>${t.u ? `<small>${t.u}</small>` : ""}</div><div class="l">${t.l}</div></div>`).join("")}</div>
     ${recapHtml(mus)}
     <div class="card fin-hr" id="fin-hr" hidden></div>
+    <p class="xs muted fin-health" id="fin-health" hidden></p>
     <div class="coach-line ai"><div class="av">${coachIcon()}</div><div class="grow"><b>Débrief du coach</b><p id="debrief">${esc(local)}</p>${endQ ? `<p class="quip-line" translate="no">${esc(endQ)}</p>` : ""}</div></div>
     ${sum.compare.length ? `<div class="section"><h2>Par exercice</h2><span class="xs dim">vs dernière fois</span></div>
     <div class="card card-list fin-cmp">${sum.compare.map(c => `<div class="cmp"><span class="ellipsis">${esc(c.name)}${sum.prs.includes(c.id) ? ` <span class="pr-tag">${I.trophy}PR</span>` : ""}</span>
@@ -929,6 +960,7 @@ function finish() {
   $("#share-sess")?.addEventListener("click", () => import("./sharecard.js").then(m => m.openShare(sum)));
   bindRecap(mus);
   heartAfter(sum);
+  healthSave(sum, done.program);
   $("#sess-note")?.addEventListener("change", e => { const s2 = state.sessions.find(x => x.id === sum.id); if (s2) { s2.note = e.target.value.trim(); save(); } });
   success();
   mascot.setContext("app");
