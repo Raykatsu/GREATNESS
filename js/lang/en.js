@@ -5402,4 +5402,8 @@ export default {
   "Enregistrer mes séances dans Santé": "Save my workouts to Health",
   "Enregistrée dans Apple Santé": "Saved to Apple Health",
   "Ta montre a déjà enregistré cette séance dans Santé.": "Your watch already saved this workout to Health.",
+  "Un verre d'eau de plus": "One more glass of water",
+  "Siri et Raccourcis": "Siri and Shortcuts",
+  "App iPhone, avec Siri": "iPhone app, with Siri",
+  "Dis « Lance ma séance dans GREATNESS », « Combien de repos dans GREATNESS », « Note un verre d'eau » ou « Note mon poids » : sans toucher l'écran.": "Say “Start my workout in GREATNESS”, “How much rest is left in GREATNESS”, “Log a glass of water” or “Log my weight”: without touching the screen.",
 };

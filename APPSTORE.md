@@ -7,6 +7,7 @@ L'app iPhone est la même que le site, emballée avec [Capacitor](https://capaci
 - **Widget « Séance du jour »** sur l'écran d'accueil et l'écran verrouillé : la séance prévue, ta série de jours et ta semaine.
 - **Fin du repos en notification locale**, même sans réseau, et **rappels de séance** programmés sur le téléphone.
 - **Vibrations** natives.
+- **Siri et Raccourcis** : « Lance ma séance », « Ma séance du jour », « Combien de repos », « Note un verre d'eau », « Note mon poids ».
 
 Tout se construit sur un Mac de GitHub. Tu fais tout depuis ton iPhone, dans Safari.
 

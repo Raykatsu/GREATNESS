@@ -184,6 +184,21 @@ export function renderFood(view) {
 }
 const refresh = () => { if (host?.isConnected && location.hash.startsWith("#/food")) renderFood(host); };
 
+// La pesée du jour (feuille « Pesée du jour », ou Siri) : un poids par jour, la courbe et les calories adaptatives suivent
+export function logWeight(w) {
+  if (!(w >= 30 && w <= 250)) return false;
+  state.body ||= [];
+  const today = dayKey(), same = state.body.find(b => b.weight && dayKey(new Date(b.date)) === today);
+  if (same) same.weight = w; else state.body.push({ date: Date.now(), weight: w });
+  state.profile.bodyweight = w;
+  if (state.profile.nutri?.adaptive && !state.profile.nutri.adapt) weeklyUpdate(state, new Date(), { force: true });
+  save(); refresh();
+  // coach taquin : la tendance face à l'objectif (« t'es pas censé maigrir, toi ? »)
+  const pique = banterOn() ? quipOf(weightSituation(state.profile.goal, trendRate(weightTrend(state.body)))) : "";
+  if (pique) toast(pique, 4500, { raw: true }); else toast("Pesée enregistrée ✓");
+  return true;
+}
+
 // Coach taquin (banter.js) : la pique du jour, d'après ce que tu as mangé (la même toute la journée pour une situation)
 const sugarOf = items => items.reduce((a, it) => a + ((+it.per?.su || 0) * (+it.g || 0)) / 100, 0);
 function foodQuipHtml(t, tot, day) {
@@ -259,15 +274,7 @@ function weighIn() {
   $("#wi-ok", sh.el).onclick = () => {
     const w = Math.round(parseFloat(String(input.value).replace(",", ".")) * 10) / 10;
     if (!(w >= 30 && w <= 250)) { input.focus(); return toast("Entre un poids entre 30 et 250 kg."); }
-    state.body ||= [];
-    const today = dayKey(), same = state.body.find(b => b.weight && dayKey(new Date(b.date)) === today);
-    if (same) same.weight = w; else state.body.push({ date: Date.now(), weight: w });
-    state.profile.bodyweight = w;
-    if (state.profile.nutri?.adaptive && !state.profile.nutri.adapt) weeklyUpdate(state, new Date(), { force: true });
-    save(); sh.close(); refresh();
-    // coach taquin : la tendance face à l'objectif (« t'es pas censé maigrir, toi ? »)
-    const pique = banterOn() ? quipOf(weightSituation(state.profile.goal, trendRate(weightTrend(state.body)))) : "";
-    if (pique) toast(pique, 4500, { raw: true }); else toast("Pesée enregistrée ✓");
+    sh.close(); logWeight(w);
   };
 }
 

@@ -2,7 +2,8 @@
 // baisse la musique le temps de parler ; pendant le repos, la Live Activity reçoit l'exercice, le morceau qui joue
 // (titre, pochette) et l'accent de l'app, et son bouton « +15 s » allonge le repos de l'app ; la fréquence cardiaque de
 // la montre s'affiche en séance puis en fin de séance, et reste avec la séance ; la séance est enregistrée dans Santé
-// (durée, énergie active) ; Santé déjà reliée : fréquence cardiaque et écriture demandées une fois. Aucune erreur.
+// (durée, énergie active) ; Santé déjà reliée : fréquence cardiaque et écriture demandées une fois ; Siri note un
+// verre d'eau, une pesée, et ouvre la séance du jour. Aucune erreur.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openApp, signup, seed, go, sleep, png } from "./kit.mjs";
@@ -82,6 +83,17 @@ test("app iPhone : morceau dans la Live Activity, cœur de la montre, le coach b
     });
     await sleep(700);
     assert.equal(await page.evaluate(() => window.__native.duck.length), 2);
+
+    // Siri et Raccourcis : un verre d'eau, une pesée, puis « Lance ma séance » ouvre la séance du jour
+    await page.evaluate(() => window.__native.fire("siri", { action: "water" }));
+    await page.waitForFunction(() => /verre d'eau de plus/.test(document.querySelector("#toast")?.textContent || ""), null, { timeout: 5000 });
+    await page.evaluate(() => window.__native.fire("siri", { action: "weight", value: 81.4 }));
+    await page.waitForFunction(async () => (await import("/js/store.js")).state.body?.at(-1)?.weight === 81.4, null, { timeout: 5000 });
+    assert.equal(await page.evaluate(async () => { const { state } = await import("/js/store.js"); const { dayOf, dayKey } = await import("/js/nutrition.js"); return dayOf(state, dayKey()).water; }), 1);
+    await page.evaluate(() => window.__native.fire("siri", { action: "start" }));
+    await page.waitForSelector("#start", { timeout: 10000 });
+    await page.keyboard.press("Escape"); await sleep(400);
+    await page.evaluate(() => document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()));
 
     // une séance : la fréquence cardiaque de la montre dans l'en-tête
     await go(page, "#/train");

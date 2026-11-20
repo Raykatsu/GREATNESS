@@ -203,6 +203,8 @@ export const ITEMS = [
   // — Réglages —
   { id: "program", sec: "settings", ic: "🗓️", t: "Ton programme", w: "Moi → Réglages → Mon programme", go: { to: "#/profile", spot: "#days" },
     d: "Objectif, séances par semaine, matériel et cycles de 7 semaines (avec la semaine allégée). Après un changement, « Régénérer mon programme » refait ta semaine." },
+  { id: "siri", sec: "settings", ic: "🎙️", t: "Siri et Raccourcis", w: "App iPhone, avec Siri",
+    d: "Dis « Lance ma séance dans GREATNESS », « Combien de repos dans GREATNESS », « Note un verre d'eau » ou « Note mon poids » : sans toucher l'écran." },
   { id: "banter", sec: "settings", ic: "😏", t: "Coach taquin", w: "Moi → Réglages → Coach & sons", go: { to: "#/profile", spot: "#p-banter" },
     d: "Le coach passe en langage familier et te charrie gentiment : calories en trop, pizza de minuit, repos qui traîne, séance écourtée. Jamais sur ton corps." },
   { id: "quiz", sec: "settings", ic: "🧭", t: "Refaire le quiz", w: "Moi → Réglages", go: { to: "#/profile", spot: "#quiz-again" },

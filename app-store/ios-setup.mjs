@@ -37,6 +37,26 @@ for (const [l, keys] of [["fr", KEYS], ["en", KEYS_EN]]) {
   fs.mkdirSync(path.join(app, "App", `${l}.lproj`), { recursive: true });
   fs.writeFileSync(path.join(app, "App", `${l}.lproj`, "InfoPlist.strings"), strings(keys));
 }
+// Siri et Raccourcis (native/App/SiriIntents.swift) : phrases et noms des actions en anglais (le code est en français)
+const SIRI_EN = {
+  "Lance ma séance dans ${applicationName}": "Start my workout in ${applicationName}",
+  "Lance ma séance ${applicationName}": "Start my ${applicationName} workout",
+  "Commence ma séance ${applicationName}": "Begin my ${applicationName} workout",
+  "C'est quoi ma séance du jour dans ${applicationName}": "What's my workout today in ${applicationName}",
+  "Ma séance du jour ${applicationName}": "My ${applicationName} workout today",
+  "Combien de repos dans ${applicationName}": "How much rest is left in ${applicationName}",
+  "Il me reste combien de repos ${applicationName}": "How long is my ${applicationName} rest",
+  "Note un verre d'eau dans ${applicationName}": "Log a glass of water in ${applicationName}",
+  "Ajoute un verre d'eau ${applicationName}": "Add a glass of water to ${applicationName}",
+  "Note mon poids dans ${applicationName}": "Log my weight in ${applicationName}",
+  "Enregistre ma pesée ${applicationName}": "Save my weigh-in in ${applicationName}",
+};
+const ACTIONS_EN = {
+  "Lancer ma séance": "Start my workout", "Ma séance du jour": "My workout today", "Combien de repos": "Rest left",
+  "Noter un verre d'eau": "Log a glass of water", "Noter mon poids": "Log my weight", "Poids (kg)": "Weight (kg)", "Repos": "Rest",
+};
+fs.writeFileSync(path.join(app, "App", "en.lproj", "AppShortcuts.strings"), strings(SIRI_EN));
+fs.writeFileSync(path.join(app, "App", "en.lproj", "Localizable.strings"), strings(ACTIONS_EN));
 let p = fs.readFileSync(plist, "utf8");
 const setKey = (k, xml) => {
   const re = new RegExp(`\\s*<key>${k}</key>\\s*(<string>[\\s\\S]*?</string>|<true/>|<false/>|<array>[\\s\\S]*?</array>)`);

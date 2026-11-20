@@ -4,6 +4,7 @@
 // - duck : la voix du coach baisse la musique des autres apps (Spotify, Apple Music…) le temps de parler ;
 // - healthWriteAsk / saveWorkout : tes séances enregistrées dans Apple Santé (et l'app Forme) ;
 // - événement « restAction » : un bouton du repos touché dans la Live Activity (+15 s, Go), voir RestIntents.swift ;
+// - événement « siri » : une action demandée à Siri ou aux Raccourcis (lancer la séance, eau, poids), SiriIntents.swift ;
 // - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group ;
 // - musicNow : le morceau en cours dans l'app Musique (Apple Music ou bibliothèque), avec sa pochette (js/music.js) ;
 // - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify).
@@ -43,6 +44,12 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         NotificationCenter.default.addObserver(forName: RestAction.note, object: nil, queue: .main) { [weak self] note in
             self?.notifyListeners("restAction", data: ["action": note.userInfo?["action"] as? String ?? ""], retainUntilConsumed: true)
         }
+        NotificationCenter.default.addObserver(forName: SiriInbox.note, object: nil, queue: .main) { [weak self] _ in self?.sendSiri() }
+        sendSiri()
+    }
+    // Les actions demandées à Siri : transmises à l'app web (gardées tant qu'elle n'écoute pas encore)
+    func sendSiri() {
+        for item in SiriInbox.take() { notifyListeners("siri", data: item, retainUntilConsumed: true) }
     }
 
     // Ce que l'app peut écrire dans Santé : les entraînements et l'énergie active

@@ -83,6 +83,13 @@ export function nativeDuck(on) {
   if (on) { if (!ducked) { ducked = true; G.duck({ on: true }).catch(() => {}); } return; }
   if (ducked) undo = setTimeout(() => { ducked = false; G.duck({ on: false }).catch(() => {}); }, 400);
 }
+// Une action demandée à Siri ou aux Raccourcis (SiriIntents.swift) : { action : start | water | weight, value }
+export function onNativeSiri(fn) {
+  const G = isNative() && plugin("Greatness");
+  if (!G?.addListener) return () => {};
+  const h = G.addListener("siri", e => fn(e || {}));
+  return () => { Promise.resolve(h).then(x => x?.remove?.()).catch(() => {}); };
+}
 // Un bouton du repos touché dans la Live Activity (« add15 », « go », RestIntents.swift) ; renvoie de quoi arrêter
 export function onNativeRestAction(fn) {
   const G = isNative() && plugin("Greatness");
