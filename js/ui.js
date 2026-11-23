@@ -128,8 +128,9 @@ export function sheet(html, { onClose, z } = {}) {
     const y = e.touches[0].clientY, d = y - y0, dx = Math.abs(e.touches[0].clientX - x0);
     if (!dragging) {
       if (dx > Math.abs(d) || d < 0 || s.scrollTop > 0) { if (Math.abs(d) > 4 || dx > 4) y0 = null; return; }
-      if (e.cancelable) e.preventDefault(); // vers le bas, en haut du contenu : c'est la feuille qui bouge
+      // un doigt qui bouge à peine reste un toucher : rien n'est bloqué (sur iPhone, le bouton touché ne répondait plus)
       if (d < 6) return;
+      if (e.cancelable) e.preventDefault(); // vers le bas, en haut du contenu : c'est la feuille qui bouge
       dragging = true; y0 = y; h = s.offsetHeight || 1;
       s.getAnimations?.().forEach(a => a.cancel());
       s.style.transition = bd.style.transition = "none";

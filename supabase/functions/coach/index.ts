@@ -5,7 +5,7 @@
 // Facultatifs : AI_DAILY_LIMIT (80 messages par jour et par compte), GEMINI_MODELS, GEMINI_SEARCH_MODELS
 // (listes séparées par des virgules) et GEMINI_THINKING (minimal, low, medium, high ou default).
 // L'adresse du projet et la clé secrète Supabase sont fournies automatiquement par la plateforme.
-const VERSION = "coach-14";
+const VERSION = "coach-15";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -629,6 +629,7 @@ const AISLES = ["Fruits et légumes", "Viandes et poissons", "Crèmerie et œufs
 const PLAN_PROMPT = `Tu es diététicien du sport. Compose un plan de repas en français pour un sportif.
 Chaque jour : petit-déjeuner, déjeuner, dîner et une collation (meal = breakfast, lunch, dinner, snack), des repas différents d'un jour à l'autre, avec des aliments simples et courants en France, faciles à acheter ; recettes en moins de 20 minutes sauf indication contraire. Respecte strictement le régime et les contraintes (allergies, aliments refusés).
 Pour chaque aliment : nom générique comme dans la table CIQUAL (« Riz blanc cuit », « Blanc de poulet », « Huile d'olive »), poids tel qu'on le mange (cuit pour les féculents, viandes et poissons) et valeurs nutritionnelles pour ce poids (tables CIQUAL ou USDA). Les totaux de chaque jour doivent être proches des objectifs (±5 %).
+Pour chaque repas, la préparation : 2 à 5 étapes courtes et concrètes (cuisson, temps, assaisonnement), une étape par élément de la liste « prep », et le temps total en minutes (« minutes »).
 Liste de courses : tout le plan additionné, en quantités à acheter (crues, en unités pratiques : « 6 œufs », « 500 g de riz », « 1 L de lait »), avec le rayon. Conseils : 1 à 3 phrases utiles (préparer à l'avance, conserver, varier).`;
 const PLAN_SCHEMA = {
   type: "OBJECT",
@@ -645,8 +646,9 @@ const PLAN_SCHEMA = {
               properties: {
                 meal: { type: "STRING", enum: ["breakfast", "lunch", "dinner", "snack"] }, name: { type: "STRING" },
                 items: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, grams: { type: "NUMBER" }, kcal: { type: "NUMBER" }, protein: { type: "NUMBER" }, carbs: { type: "NUMBER" }, fat: { type: "NUMBER" } }, required: ["name", "grams", "kcal", "protein", "carbs", "fat"] } },
+                prep: { type: "ARRAY", items: { type: "STRING" } }, minutes: { type: "NUMBER" },
               },
-              required: ["meal", "name", "items"],
+              required: ["meal", "name", "items", "prep"],
             },
           },
         },
@@ -691,6 +693,8 @@ async function mealPlan(input: any, quota: { remaining?: number | null }) {
         // deno-lint-ignore no-explicit-any
         meals: (Array.isArray(d?.meals) ? d.meals : []).slice(0, 5).map((m: any) => ({
           meal: ["breakfast", "lunch", "dinner", "snack"].includes(m?.meal) ? m.meal : "snack", name: clip(m?.name, 60) || "Repas",
+          // deno-lint-ignore no-explicit-any
+          prep: (Array.isArray(m?.prep) ? m.prep : []).slice(0, 6).map((x: any) => clip(x, 200)).filter(Boolean), minutes: bound(m?.minutes, 240),
           // deno-lint-ignore no-explicit-any
           items: (Array.isArray(m?.items) ? m.items : []).slice(0, 8).map((x: any) => ({
             name: clip(x?.name, 60) || "Aliment", grams: bound(x?.grams, 2000), kcal: bound(x?.kcal, 3000), protein: bound(x?.protein, 300), carbs: bound(x?.carbs, 500), fat: bound(x?.fat, 300),

@@ -13,6 +13,7 @@ import { openScanner, askCode } from "./scan.js";
 import { foodAI, foodInfoAI, OnlineError } from "./online.js";
 import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, trendRate, goalProgress } from "./adaptive.js";
 import { planCard, bindPlanCard } from "./mealplan-ui.js";
+import { myMealsCard, bindMyMealsCard, addMealToDay, openEditor } from "./mymeals.js";
 import { dailyAdjust } from "./nutriadapt.js";
 import { learnHtml, bindLearn, adjustCard } from "./nutrilearn.js";
 import { isOnlineMode, authToken } from "./cloud.js";
@@ -148,6 +149,7 @@ export function renderFood(view) {
       <button class="card nut-act" data-act="text">${I.sparkle}<span>Décrire</span></button>
     </div>
     ${planCard()}
+    ${myMealsCard()}
     ${MEALS.map(m => mealCard(m, day)).join("")}
     ${waterCard(day, t)}
     ${adaptCard(t.base)}
@@ -179,6 +181,7 @@ export function renderFood(view) {
   $("#ad-weigh")?.addEventListener("click", weighIn);
   $("#ad-set")?.addEventListener("click", () => openTargets());
   bindPlanCard(view, refresh, openLearn);
+  bindMyMealsCard(view, refresh);
   $$(".nh-b", view).forEach(b => b.onclick = () => { viewKey = b.dataset.day; renderFood(view); window.scrollTo({ top: 0, behavior: "smooth" }); });
   animateRings(view);
 }
@@ -369,14 +372,17 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
   function home() {
     const recent = state.foodRecent || [], meals = state.foodMeals || [];
     shown = recent.slice(0, 15);
-    res.innerHTML = (meals.length ? `<div class="a-sec">Mes repas enregistrés</div>${meals.map(m => `<div class="food-row saved-meal"><button class="grow fr-txt" data-sm="${m.id}"><span class="fr-name ellipsis">${esc(m.name)}</span>
+    res.innerHTML = `<button class="food-row mm-create" id="a-create"><span class="ai-ic">${I.plus}</span><span class="grow fr-txt"><span class="fr-name">Créer un repas</span><span class="fr-sub">Tes aliments, tes quantités, ta préparation</span></span>${I.chev}</button>`
+      + (meals.length ? `<div class="a-sec">Mes repas enregistrés</div>${meals.map(m => `<div class="food-row saved-meal"><button class="grow fr-txt" data-sm="${m.id}"><span class="fr-name ellipsis">${esc(m.name)}</span>
         <span class="fr-sub ellipsis">${m.items.length} aliments · ${fmtNum(sumItems(m.items).k)} kcal</span></button><button class="icon-btn sm" data-smx="${m.id}" aria-label="Supprimer">${I.x}</button></div>`).join("")}` : "")
       + (shown.length ? `<div class="a-sec">Récents</div>${shown.map(row).join("")}` : `<div class="a-empty">${I.search}<b>Cherche un aliment</b><span>365 aliments et plats courants, les produits de marque (Open Food Facts) et, pour tout le reste, l'IA. Ou scanne le code-barres.</span></div>`);
     bindRows();
+    $("#a-create", res)?.addEventListener("click", () => { sh.close(); openEditor(null, refresh); });
     $$("[data-sm]", res).forEach(b => b.onclick = () => {
       const m = meals.find(x => x.id === b.dataset.sm);
-      m.items.forEach(it => addItem(state, viewKey || dayKey(), it, { g: it.g, meal: cur }));
-      save(); refresh(); toast(`« ${m.name} » ajouté`); sh.close();
+      if (!m) return;
+      const k = addMealToDay(m, cur, viewKey || dayKey()); // une portion (repas en plusieurs portions)
+      refresh(); toast(`« ${m.name} » ajouté · ${fmtNum(k)} kcal`); sh.close();
     });
     $$("[data-smx]", res).forEach(b => b.onclick = async () => {
       if (!(await confirmSheet("Supprimer ce repas enregistré ?", "Les repas déjà notés ne changent pas.", "Supprimer", true))) return;

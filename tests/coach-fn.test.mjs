@@ -59,7 +59,8 @@ globalThis.fetch = async (url, opts = {}) => {
     if (mode.foodBroken === model) return Response.json({ candidates: [{ content: { parts: [{ text: "pas du json" }] } }] });
     if (body.generationConfig.responseSchema?.properties?.days) { // plan de repas
       if (mode.emptyPlan) return Response.json({ candidates: [{ content: { parts: [{ text: '{"days":[],"shopping":[]}' }] } }] });
-      const meal = (m, n) => ({ meal: m, name: n, items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }, { name: "Riz blanc cuit", grams: 0, kcal: 0, protein: 0, carbs: 0, fat: 0 }] });
+      const meal = (m, n) => ({ meal: m, name: n, items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }, { name: "Riz blanc cuit", grams: 0, kcal: 0, protein: 0, carbs: 0, fat: 0 }],
+        prep: ["Fais cuire le riz 12 min.", "", "Dore le poulet 8 min."], minutes: 20 });
       const days = Array.from({ length: 9 }, () => ({ meals: [meal("breakfast", "Porridge"), meal("brunch", "x".repeat(80)), meal("dinner", "Saumon")] }));
       const shopping = [{ name: "Riz", qty: "500 g", aisle: "Épicerie" }, { name: "Poulet", qty: "600 g", aisle: "Rayon inconnu" }, { name: "", qty: "1", aisle: "Pain" }];
       return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ days, shopping, tips: "Prépare le riz à l'avance." }) }] } }], modelVersion: VERSIONS[model] });
@@ -347,7 +348,9 @@ test("plan de repas : jours bornés, repas nettoyés, liste de courses par rayon
   const j = await call({ token: "t", task: "mealplan", days: 3, kcal: 2400, protein: 160, diet: ["Végétarien", "x".repeat(90)], prefs: "Pas de champignons" });
   assert.equal(j.days.length, 3); // jamais plus que demandé
   assert.equal(j.days[0].meals.length, 3);
-  assert.deepEqual(j.days[0].meals[0], { meal: "breakfast", name: "Porridge", items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }] }); // aliment vide retiré
+  assert.deepEqual(j.days[0].meals[0], { meal: "breakfast", name: "Porridge", prep: ["Fais cuire le riz 12 min.", "Dore le poulet 8 min."], minutes: 20,
+    items: [{ name: "Blanc de poulet", grams: 150, kcal: 248, protein: 46, carbs: 0, fat: 5 }] }); // aliment vide et étape vide retirés
+  assert.deepEqual(gem()[0].body.generationConfig.responseSchema.properties.days.items.properties.meals.items.required, ["meal", "name", "items", "prep"]);
   assert.equal(j.days[0].meals[1].meal, "snack"); assert.equal(j.days[0].meals[1].name.length, 60);
   assert.deepEqual(j.shopping, [{ name: "Riz", qty: "500 g", aisle: "Épicerie" }, { name: "Poulet", qty: "600 g", aisle: "Épicerie" }]);
   assert.equal(j.tips, "Prépare le riz à l'avance.");

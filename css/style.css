@@ -696,7 +696,7 @@ button.pick-item { width: 100%; text-align: left; color: inherit; font: inherit;
 /* ---------- Feuilles (bottom sheets) ---------- */
 .sheet-wrap { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; padding-top: calc(var(--safe-t) + 10px); }
 .sheet-bd { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--dur-3) var(--ease-out) backwards; }
-.sheet { position: relative; width: min(560px, 100%); max-height: 92vh; max-height: min(94dvh, 100%); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+.sheet { position: relative; width: min(560px, 100%); max-height: 92vh; max-height: min(94dvh, 100%); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; overscroll-behavior-y: none;
   background: var(--sheet-bg); border: 1px solid var(--line-2); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; box-shadow: var(--e-3);
   padding: 6px max(18px, var(--safe-r)) calc(20px + var(--safe-b)) max(18px, var(--safe-l)); animation: sheetUp var(--dur-5) var(--spring-soft) backwards; }
 .sheet:focus, .sheet:focus-visible { outline: none; }
@@ -3570,3 +3570,20 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 .songs-tempo .grow { display: grid; gap: 2px; }
 .tempo-sheet .song-row { gap: 10px; }
 .tempo-sheet .song-row .chip { flex: none; }
+
+/* ---------- Recettes du plan de repas et « Mes repas » (recipes.js, mymeals.js) ---------- */
+.pl-prep { margin: 4px 0 6px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--card-2); font-size: 13.5px; }
+.pl-prep summary { cursor: pointer; font-weight: 650; list-style: none; display: flex; align-items: center; gap: 4px; }
+.pl-prep summary::-webkit-details-marker { display: none; }
+.pl-prep summary::before { content: "▸"; color: var(--muted); transition: transform var(--dur-2); }
+.pl-prep[open] summary::before { transform: rotate(90deg); }
+.pl-prep ol, .mm-steps { margin: 8px 0 2px; padding-left: 20px; display: grid; gap: 4px; line-height: 1.4; }
+.pl-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.mm-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin-top: 8px; }
+.mm-row .grow { display: grid; gap: 2px; min-width: 0; }
+.me-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.me-item .me-g { width: 74px; padding: 6px 8px; text-align: right; }
+.me-item .me-k { min-width: 64px; text-align: right; }
+.me-tot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 10px 12px; }
+.me-tot:empty { display: none; }
+.mm-create .ai-ic { color: var(--accent-ink, var(--red)); }

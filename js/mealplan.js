@@ -3,6 +3,7 @@
 // régime. La liste de courses additionne tout, en quantités à acheter (crues), rangées par rayon. Testé dans Node.
 import { FOODS } from "./foods.js";
 import { refFood, r1, newId } from "./nutrition.js";
+import { recipeOf, cleanSteps } from "./recipes.js";
 
 export const MEAL_IDS = ["breakfast", "lunch", "dinner", "snack"];
 export const DIETS = [
@@ -114,9 +115,14 @@ function scales(meals, t) {
 }
 
 // Plan hors ligne : `days` jours de 4 repas (plus de collations si les besoins sont élevés), variés, à l'échelle des objectifs { kcal, p }
+// Chaque repas a sa recette (recipes.js) ; « adapted » : ingrédients remplacés pour le régime (la liste fait foi)
 export function localPlan(t, { days = 3, diet = [], start = 0 } = {}) {
   const pick = (meal, d) => { const list = T[meal].filter(x => allowed(x, diet)); return list[(d + start) % list.length]; };
-  const plate = (meal, [name, items]) => ({ meal, ...adapt(name, items, diet) });
+  const plate = (meal, [name, items]) => {
+    const a = adapt(name, items, diet), r = recipeOf(name);
+    const adapted = a.base.length !== items.length || a.base.some(([n], i) => n !== items[i][0]);
+    return { meal, ...a, prep: r?.steps || [], time: r?.time || 0, adapted };
+  };
   const out = [];
   for (let d = 0; d < days; d++) {
     let meals = MEAL_IDS.map(meal => plate(meal, pick(meal, d))), s = scales(meals, t);
@@ -129,7 +135,7 @@ export function localPlan(t, { days = 3, diet = [], start = 0 } = {}) {
     for (let i = 1; s.k < t.kcal * 0.95 && i <= 3; i++) tryAlt([...meals, plate("snack", pick("snack", d + i))]);
     if (s.k > t.kcal * 1.05) tryAlt(meals.filter(m => m.meal !== "snack"));
     out.push({ name: `Jour ${d + 1}`, meals: meals.map(m => ({ meal: m.meal, name: m.name,
-      items: m.base.map(([n, g]) => item(n, g * scaleOf(n, s))) })) });
+      items: m.base.map(([n, g]) => item(n, g * scaleOf(n, s))), prep: m.prep, time: m.time, ...(m.adapted ? { adapted: true } : {}) })) });
   }
   return out;
 }
@@ -165,6 +171,18 @@ export function shoppingList(days) {
   }).sort((a, b) => AISLES.findIndex(([n]) => n === a.aisle) - AISLES.findIndex(([n]) => n === b.aisle) || a.name.localeCompare(b.name, "fr"));
 }
 
+// Un plan enregistré est-il utilisable (jours, repas, aliments) ? Un plan abîmé (ancienne version, synchro) est refait
+export function planOk(p) {
+  return !!p && Array.isArray(p.days) && p.days.length > 0
+    && p.days.every(d => Array.isArray(d?.meals) && d.meals.every(m => Array.isArray(m?.items) && m.items.every(x => x && x.per && x.g > 0)));
+}
+// La recette d'un repas du plan : la sienne, sinon celle du repas simple du même nom (plans d'avant les recettes)
+export function prepOf(m) {
+  if (m?.prep?.length) return { steps: m.prep, time: m.time || 0 };
+  const r = recipeOf(m?.name);
+  return r ? { steps: r.steps, time: r.time } : null;
+}
+
 /* ---------- Plan de l'IA ---------- */
 // Réponse de l'IA → plan de l'app : les aliments connus gardent leurs valeurs de référence (l'IA donne la quantité)
 export function fromAiPlan(r = {}) {
@@ -173,6 +191,7 @@ export function fromAiPlan(r = {}) {
     name: `Jour ${i + 1}`,
     meals: (d.meals || []).slice(0, 5).map(m => ({
       meal: MEAL_IDS.includes(m.meal) ? m.meal : "snack", name: String(m.name || "Repas").slice(0, 60),
+      prep: cleanSteps(m.prep), time: Math.min(240, Math.max(0, Math.round(+m.minutes || 0))),
       items: (m.items || []).slice(0, 8).filter(x => x.grams > 0).map(x => {
         const ref = refFood(x.name);
         return ref ? { name: ref.name, g: r1(x.grams), per: ref.per, unit: ref.unit } : { name: String(x.name).slice(0, 60), g: r1(x.grams), per: per100(x) };

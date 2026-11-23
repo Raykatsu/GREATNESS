@@ -2,7 +2,8 @@
 import { tr } from "./i18n.js";
 import { state, save } from "./store.js";
 import { MEALS, targets, addItem, dayKey, sumItems } from "./nutrition.js";
-import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf } from "./mealplan.js";
+import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf, planOk, prepOf } from "./mealplan.js";
+import { keepMeal } from "./mymeals.js";
 import { dailyAdjust, planDayIndex, adaptPlanDay } from "./nutriadapt.js";
 import { mealPlanAI } from "./online.js";
 import { isOnlineMode, authToken } from "./cloud.js";
@@ -36,7 +37,7 @@ export function bindPlanCard(root, refresh, learn) {
   onLearn = learn || (() => {});
   const el = $("#plan-open", root);
   if (!el) return;
-  el.onclick = () => (state.mealPlan ? openPlan() : newPlan());
+  el.onclick = () => (planOk(state.mealPlan) ? openPlan() : newPlan());
   el.onkeydown = e => { if (e.key === "Enter") el.onclick(); };
 }
 
@@ -53,39 +54,64 @@ export function newPlan() {
     <div class="chips np-diet" id="np-diet">${DIETS.map(d => `<button class="chip" data-v="${d.id}">${d.name}</button>`).join("")}</div>
     <label class="field mt"><span>Goûts, allergies, contraintes <i class="dim">(facultatif)</i></span>
       <textarea class="input" id="np-prefs" rows="3" maxlength="400" placeholder="Ex. : pas de poisson, j'adore les pâtes, allergie aux noix, je mange à la cantine le midi">${esc(pick.prefs)}</textarea></label>
-    <button class="btn btn-primary btn-block mt" id="np-go">${I.sparkle} ${ai ? "Composer avec l'IA" : "Composer mon plan"}</button>`, { z: 90 });
+    <button class="btn btn-primary btn-block mt" id="np-go">${I.sparkle} ${ai ? "Composer avec l'IA" : "Composer mon plan"}</button>
+    ${ai ? `<button class="btn btn-ghost btn-block mt-s" id="np-local">Sans l'IA, tout de suite</button>` : ""}`, { z: 90 });
   const draw = () => {
     $$("#np-days button", sh.el).forEach(b => b.classList.toggle("on", +b.dataset.d === pick.days));
     $$("#np-diet .chip", sh.el).forEach(b => b.classList.toggle("on", pick.diet.includes(b.dataset.v)));
   };
   $$("#np-days button", sh.el).forEach(b => b.onclick = () => { pick.days = +b.dataset.d; draw(); });
   $$("#np-diet .chip", sh.el).forEach(b => b.onclick = () => { const v = b.dataset.v; pick.diet = pick.diet.includes(v) ? pick.diet.filter(x => x !== v) : [...pick.diet, v]; draw(); });
-  $("#np-go", sh.el).onclick = async () => {
+  let run = 0;
+  // le plan composé par l'app, tout de suite, à l'échelle des objectifs et du régime
+  const local = () => { const days = localPlan({ kcal: t.kcal, p: t.p }, { days: pick.days, diet: pick.diet, start: Math.floor(Math.random() * 7) }); return { days, shopping: shoppingList(days), tips: "" }; };
+  // enregistre le plan ; la feuille encore ouverte : on montre le plan, sinon un message (le plan est prêt quand même)
+  const done = (plan, source) => {
+    state.mealPlan = { id: Date.now().toString(36), at: Date.now(), source, diet: pick.diet, prefs: pick.prefs, kcal: t.kcal, p: t.p, ...plan };
+    save(); onChange();
+    if (sh.el.isConnected) { sh.close(); openPlan(); } else toast("Ton plan de repas est prêt ✓ (Repas → Plan de repas)", 4000);
+  };
+  const compose = async useAi => {
+    const my = ++run;
     pick.prefs = $("#np-prefs", sh.el).value.trim();
     state.profile.diet = pick.diet;
     const go = $("#np-go", sh.el);
-    go.disabled = true; go.innerHTML = `<i class="spinner"></i> ${ai ? "L'IA compose ton plan…" : "Je compose ton plan…"}`;
-    let plan = null, source = "local";
-    if (ai) {
+    try {
+      if (!useAi) return done(local(), "local");
+      go.disabled = true;
+      const t0 = Date.now(), tick = setInterval(() => { if (go.isConnected) go.innerHTML = `<i class="spinner"></i> L'IA compose ton plan… <span class="tnum">${Math.round((Date.now() - t0) / 1000)} s</span>`; }, 1000);
+      go.innerHTML = `<i class="spinner"></i> L'IA compose ton plan…`;
       // ce que le coach sait de toi (allergies, aliments refusés…) accompagne tes préférences
       const mem = (state.memory || []).map(m => m.text).filter(Boolean).join(" ; ").slice(0, 300);
+      let plan = null;
       try {
-        const r = fromAiPlan(await mealPlanAI({ days: pick.days, kcal: t.kcal, protein: t.p, diet: pick.diet.map(id => DIETS.find(d => d.id === id)?.name || id), prefs: [pick.prefs, mem].filter(Boolean).join(" ; ") }));
-        if (r.days.length) { plan = r; source = "ai"; }
-      } catch (e) { toast(`IA indisponible (${e.message || e}) : plan composé par l'app`, 3500); }
+        const ask = mealPlanAI({ days: pick.days, kcal: t.kcal, protein: t.p, diet: pick.diet.map(id => DIETS.find(d => d.id === id)?.name || id), prefs: [pick.prefs, mem].filter(Boolean).join(" ; ") });
+        const late = new Promise((_, no) => setTimeout(() => no(new Error("l'IA met trop de temps")), 45000));
+        const r = fromAiPlan(await Promise.race([ask, late]));
+        if (r.days.length) plan = r;
+      } catch (e) { if (my === run) toast(`IA indisponible (${e.message || e}) : plan composé par l'app`, 3500); }
+      finally { clearInterval(tick); }
+      if (my !== run) return; // « sans l'IA » touché entre-temps : ce plan-là est déjà là
+      done(plan || local(), plan ? "ai" : "local");
+    } catch (e) {
+      console.error(e);
+      if (go.isConnected) { go.disabled = false; go.innerHTML = `${I.sparkle} Réessayer`; }
+      toast(`Le plan n'a pas pu être composé : ${e.message || e}`, 4000);
     }
-    if (!sh.el.isConnected) return;
-    if (!plan) { const days = localPlan({ kcal: t.kcal, p: t.p }, { days: pick.days, diet: pick.diet, start: Math.floor(Math.random() * 7) }); plan = { days, shopping: shoppingList(days), tips: "" }; }
-    state.mealPlan = { id: Date.now().toString(36), at: Date.now(), source, diet: pick.diet, prefs: pick.prefs, kcal: t.kcal, p: t.p, ...plan };
-    save(); sh.close(); onChange(); openPlan();
   };
+  $("#np-go", sh.el).onclick = () => compose(ai);
+  $("#np-local", sh.el)?.addEventListener("click", () => compose(false));
   draw();
 }
 
 /* ---------- Le plan, jour par jour ---------- */
 export function openPlan(day = null) {
   const p = state.mealPlan;
-  if (!p) return newPlan();
+  if (!planOk(p)) { if (p) toast("Ton ancien plan était incomplet : on en compose un nouveau", 3500); return newPlan(); }
+  if (!Array.isArray(p.shopping)) p.shopping = shoppingList(p.days);
+  try { return showPlan(p, day); } catch (e) { console.error(e); toast(`Le plan n'a pas pu s'afficher (${e.message || e}) : on en compose un nouveau`, 4000); return newPlan(); }
+}
+function showPlan(p, day) {
   // le jour du plan qui tombe aujourd'hui suit l'objectif du jour, corrigé des écarts des jours d'avant (nutriadapt.js)
   const today = planDayIndex(p), adj = dailyAdjust(state);
   day ??= Math.max(0, today);
@@ -110,19 +136,37 @@ export function openPlan(day = null) {
         <div class="pl-mh"><span class="eyebrow">${mealName(m.meal)}</span><span class="tnum muted small">${fmtNum(mt.k)} kcal</span></div>
         <b class="pl-name">${esc(m.name)}</b>
         <ul class="pl-items">${m.items.map(x => `<li><span class="grow">${esc(x.name)}</span><span class="tnum muted">${qty(x)}</span></li>`).join("")}</ul>
-        <button class="btn btn-ghost btn-sm" data-add="${k}">${I.plus} Ajouter au journal</button></section>`; }).join("")}`;
+        ${prepHtml(m, p.source === "ai")}
+        <div class="pl-acts"><button class="btn btn-ghost btn-sm" data-add="${k}">${I.plus} Ajouter au journal</button><button class="btn btn-ghost btn-sm" data-keep="${k}">${I.check} Garder dans mes repas</button></div></section>`; }).join("")}`;
     $("#pl-why", sh.el)?.addEventListener("click", () => { sh.close(); onLearn("adapt"); });
     $$("[data-add]", sh.el).forEach(b => b.onclick = () => {
-      const m = d.meals[+b.dataset.add], key = dayKey();
-      m.items.forEach(x => addItem(state, key, { name: x.name, per: x.per, unit: x.unit, src: p.source === "ai" ? "ai" : "db" }, { g: x.g, meal: m.meal }));
-      save(); onChange();
-      toast(`« ${m.name} » ajouté à ton ${mealName(m.meal).toLowerCase()} · ${fmtNum(sumItems(m.items).k)} kcal`);
+      try {
+        const m = d.meals[+b.dataset.add], key = dayKey();
+        m.items.forEach(x => addItem(state, key, { name: x.name, per: x.per, unit: x.unit, src: p.source === "ai" ? "ai" : "db" }, { g: x.g, meal: m.meal }));
+        save(); onChange();
+        toast(`« ${m.name} » ajouté à ton ${mealName(m.meal).toLowerCase()} · ${fmtNum(sumItems(m.items).k)} kcal`);
+      } catch (e) { console.error(e); toast(`Pas ajouté : ${e.message || e}`, 3500); }
+    });
+    $$("[data-keep]", sh.el).forEach(b => b.onclick = () => {
+      const m = d.meals[+b.dataset.keep], r = prepOf(m);
+      keepMeal({ name: m.name, items: m.items, prep: r?.steps || [], time: r?.time || 0 });
+      b.disabled = true; b.innerHTML = `${I.check} Dans mes repas`;
+      toast(`« ${m.name} » gardé dans tes repas ✓`);
     });
   };
   $$("#pl-days button", sh.el).forEach(b => b.onclick = () => drawDay(+b.dataset.i));
   $("#pl-new", sh.el).onclick = () => { sh.close(); newPlan(); };
   $("#pl-shop", sh.el).onclick = () => openShopping();
   drawDay(Math.min(day, p.days.length - 1));
+}
+
+// La recette d'un repas du plan : les étapes (celles de l'IA restent dans sa langue) et le temps
+function prepHtml(m, ai) {
+  const r = prepOf(m);
+  if (!r?.steps?.length) return "";
+  return `<details class="pl-prep"><summary><span>Préparation</span>${r.time ? ` <span class="muted">· <span class="tnum">${r.time}</span> min</span>` : ""}</summary>
+    <ol ${ai ? 'translate="no"' : ""}>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    ${m.adapted ? `<p class="xs muted">Recette adaptée à ton régime : fie-toi à la liste d'ingrédients.</p>` : ""}</details>`;
 }
 
 /* ---------- Liste de courses ---------- */
