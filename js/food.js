@@ -13,12 +13,15 @@ import { openScanner, askCode } from "./scan.js";
 import { foodAI, foodInfoAI, OnlineError } from "./online.js";
 import { RATES, DEFAULT_RATE, expenditure, rateKcal, weeklyUpdate, weightTrend, trendRate, goalProgress } from "./adaptive.js";
 import { planCard, bindPlanCard } from "./mealplan-ui.js";
+import { myMealsCard, bindMyMealsCard, addMealToDay, openEditor } from "./mymeals.js";
 import { dailyAdjust } from "./nutriadapt.js";
 import { learnHtml, bindLearn, adjustCard } from "./nutrilearn.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn, coachIcon } from "./ui.js";
 import { banterOn, quip, quipOf, foodSituation, weightSituation, isJunk, isLate } from "./banter.js";
-import { LOC } from "./i18n.js";
+import { plateSituation, dayAdvice } from "./plate.js";
+import { plateOn, plateCard, openPlate, reviewOf, tierDot, verdictHtml, addedNote, plateText } from "./plate-ui.js";
+import { LOC, tr } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const IC = {
@@ -126,6 +129,8 @@ export function renderFood(view) {
   const label = isToday ? "Aujourd'hui" : viewKey === shiftKey(today, -1) ? "Hier"
     : keyDate(viewKey).toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long" });
   const incomplete = !p.height || !p.age || !p.sex;
+  // l'avis du coach sur l'assiette du jour (plate.js)
+  const rv = reviewOf(state, viewKey, { kcal: t.kcal, protein: t.p, waterGoal: waterGoal(t, sessionsOn(keyDate(viewKey)).length > 0) });
 
   view.innerHTML = `${head}
     <div class="day-nav"><button class="icon-btn" id="d-prev" aria-label="Jour précédent">${I.back}</button>
@@ -140,14 +145,16 @@ export function renderFood(view) {
       </div>
     </section>
     ${isToday ? adjustCard(t) : ""}
-    ${isToday ? foodQuipHtml(t, tot, day) : ""}
+    ${isToday ? foodQuipHtml(t, tot, day, rv) : ""}
     <div class="nut-actions">
       <button class="card nut-act" data-act="scan">${IC.barcode}<span>Scanner</span></button>
       <button class="card nut-act" data-act="search">${I.search}<span>Chercher</span></button>
       <button class="card nut-act" data-act="photo">${I.camera}<span>Photo</span></button>
       <button class="card nut-act" data-act="text">${I.sparkle}<span>Décrire</span></button>
     </div>
+    ${plateCard(rv, { today: isToday })}
     ${planCard()}
+    ${myMealsCard()}
     ${MEALS.map(m => mealCard(m, day)).join("")}
     ${waterCard(day, t)}
     ${adaptCard(t.base)}
@@ -179,6 +186,12 @@ export function renderFood(view) {
   $("#ad-weigh")?.addEventListener("click", weighIn);
   $("#ad-set")?.addEventListener("click", () => openTargets());
   bindPlanCard(view, refresh, openLearn);
+  bindMyMealsCard(view, refresh);
+  for (const pc of [$("#plate-open", view), $("#plate-advice", view)].filter(Boolean)) {
+    const open = () => openPlate(viewKey, rv, { onLearn: openLearn, coach: coachIcon() });
+    pc.onclick = open;
+    pc.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } };
+  }
   $$(".nh-b", view).forEach(b => b.onclick = () => { viewKey = b.dataset.day; renderFood(view); window.scrollTo({ top: 0, behavior: "smooth" }); });
   animateRings(view);
 }
@@ -201,12 +214,16 @@ export function logWeight(w) {
 
 // Coach taquin (banter.js) : la pique du jour, d'après ce que tu as mangé (la même toute la journée pour une situation)
 const sugarOf = items => items.reduce((a, it) => a + ((+it.per?.su || 0) * (+it.g || 0)) / 100, 0);
-function foodQuipHtml(t, tot, day) {
-  if (!banterOn()) return "";
-  const now = new Date(), trained = sessionsOn(now).length > 0;
+function foodQuipHtml(t, tot, day, rv) {
+  // mode normal : le conseil du coach sur l'assiette du jour (poli et concret), qui ouvre la revue
+  if (!banterOn()) {
+    const a = plateOn() && rv ? dayAdvice(rv, new Date().getHours()) : null;
+    return a ? `<div class="coach-line advice tap" id="plate-advice" role="button" tabindex="0" translate="no"><div class="av">${coachIcon()}</div><p class="grow">${esc(plateText(a))}</p></div>` : "";
+  }
+  const now = new Date(), trained = sessionsOn(now).length > 0, plate = plateOn() && rv ? plateSituation(rv, now.getHours()) : null;
   const q = quipOf(foodSituation({ goal: state.profile.goal, adapt: !t.off, target: t.kcal, eaten: tot.k, protein: tot.p, proteinTarget: t.p,
-    sugar: sugarOf(day.items), water: day.water || 0, waterGoal: waterGoal(t, trained), junk: day.items.filter(x => isJunk(x.name)).map(x => x.name),
-    hour: now.getHours(), delta: t.delta || 0 }), { seed: dayKey() });
+    sugar: Math.max(sugarOf(day.items), rv?.stats.sugar || 0), water: day.water || 0, waterGoal: waterGoal(t, trained),
+    junk: day.items.filter(x => isJunk(x.name)).map(x => x.name), hour: now.getHours(), delta: t.delta || 0, plate }), { seed: dayKey() });
   return q ? `<div class="coach-line quip" translate="no"><div class="av">${coachIcon()}</div><p class="grow">${esc(q)}</p></div>` : "";
 }
 
@@ -215,7 +232,7 @@ function mealCard(m, day) {
   const yesterday = dayOf(state, shiftKey(viewKey, -1)).items?.filter(x => x.meal === m.id) || [];
   return `<section class="card meal" data-meal="${m.id}">
     <div class="meal-head"><b>${m.name}</b>${items.length ? `<span class="tnum muted small">${fmtNum(tot.k)} kcal · P ${Math.round(tot.p)} g</span>` : ""}</div>
-    ${items.map(it => `<button class="food-row" data-item="${it.id}"><span class="grow fr-txt"><span class="fr-name ellipsis">${esc(it.name)}</span>
+    ${items.map(it => `<button class="food-row" data-item="${it.id}"><span class="grow fr-txt"><span class="fr-name ellipsis">${tierDot(it)}${esc(it.name)}</span>
       <span class="fr-sub ellipsis">${esc([it.brand, qtyLabel(it)].filter(Boolean).join(" · "))}</span></span><span class="fr-k tnum">${fmtNum(itemTotals(it).k)}</span></button>`).join("")}
     <div class="meal-foot"><button class="btn btn-ghost btn-sm" data-add="${m.id}">${I.plus} Ajouter</button>
       ${!items.length && yesterday.length ? `<button class="btn btn-ghost btn-sm" data-copy="${m.id}">${I.undo} Comme hier</button>` : ""}
@@ -369,14 +386,17 @@ export function openAdd(meal = defaultMeal(), mode = "search") {
   function home() {
     const recent = state.foodRecent || [], meals = state.foodMeals || [];
     shown = recent.slice(0, 15);
-    res.innerHTML = (meals.length ? `<div class="a-sec">Mes repas enregistrés</div>${meals.map(m => `<div class="food-row saved-meal"><button class="grow fr-txt" data-sm="${m.id}"><span class="fr-name ellipsis">${esc(m.name)}</span>
+    res.innerHTML = `<button class="food-row mm-create" id="a-create"><span class="ai-ic">${I.plus}</span><span class="grow fr-txt"><span class="fr-name">Créer un repas</span><span class="fr-sub">Tes aliments, tes quantités, ta préparation</span></span>${I.chev}</button>`
+      + (meals.length ? `<div class="a-sec">Mes repas enregistrés</div>${meals.map(m => `<div class="food-row saved-meal"><button class="grow fr-txt" data-sm="${m.id}"><span class="fr-name ellipsis">${esc(m.name)}</span>
         <span class="fr-sub ellipsis">${m.items.length} aliments · ${fmtNum(sumItems(m.items).k)} kcal</span></button><button class="icon-btn sm" data-smx="${m.id}" aria-label="Supprimer">${I.x}</button></div>`).join("")}` : "")
       + (shown.length ? `<div class="a-sec">Récents</div>${shown.map(row).join("")}` : `<div class="a-empty">${I.search}<b>Cherche un aliment</b><span>365 aliments et plats courants, les produits de marque (Open Food Facts) et, pour tout le reste, l'IA. Ou scanne le code-barres.</span></div>`);
     bindRows();
+    $("#a-create", res)?.addEventListener("click", () => { sh.close(); openEditor(null, refresh); });
     $$("[data-sm]", res).forEach(b => b.onclick = () => {
       const m = meals.find(x => x.id === b.dataset.sm);
-      m.items.forEach(it => addItem(state, viewKey || dayKey(), it, { g: it.g, meal: cur }));
-      save(); refresh(); toast(`« ${m.name} » ajouté`); sh.close();
+      if (!m) return;
+      const k = addMealToDay(m, cur, viewKey || dayKey()); // une portion (repas en plusieurs portions)
+      refresh(); toast(`« ${m.name} » ajouté · ${fmtNum(k)} kcal`); sh.close();
     });
     $$("[data-smx]", res).forEach(b => b.onclick = async () => {
       if (!(await confirmSheet("Supprimer ce repas enregistré ?", "Les repas déjà notés ne changent pas.", "Supprimer", true))) return;
@@ -435,6 +455,7 @@ export function openPortion(food, { meal = defaultMeal(), item = null, then, lea
     <div class="chips mt-s pf-units">${unit ? [0.5, 1, 2, 3].map(x => `<button class="chip" data-gg="${unit.g * x}">${x === 0.5 ? "½" : x} ${esc(unit.label.replace(/ \(.*\)$/, ""))}${x > 1 && !/s$/.test(unit.label) ? "s" : ""}</button>`).join("") : ""}
       ${[50, 100, 150, 200, 250].map(x => `<button class="chip" data-gg="${x}">${x} ${w}</button>`).join("")}</div>
     <div class="pf-macros" id="pf-m"></div>
+    <div id="pf-v"></div>
     <div class="chips mt" id="pf-meal">${MEALS.map(m => `<button class="chip ${m.id === cur ? "on" : ""}" data-m="${m.id}">${m.name}</button>`).join("")}</div>
     <div class="grid2 mt">${item ? `<button class="btn btn-soft" id="pf-del">${I.trash} Supprimer</button>` : `<button class="btn btn-soft" id="pf-no">Annuler</button>`}
       <button class="btn btn-primary" id="pf-ok">${I.check} ${item ? "Enregistrer" : "Ajouter"}</button></div>
@@ -444,6 +465,7 @@ export function openPortion(food, { meal = defaultMeal(), item = null, then, lea
     const v = itemTotals({ ...food, g });
     $("#pf-m", sh.el).innerHTML = [["kcal", fmtNum(v.k)], ["Protéines", `${nice(r1(v.p))} g`], ["Glucides", `${nice(r1(v.c))} g`], ["Lipides", `${nice(r1(v.f))} g`]]
       .map(([l, x], i) => `<div class="pm ${i ? "" : "pm-k"}"><b class="tnum">${x}</b><small>${l}</small></div>`).join("");
+    $("#pf-v", sh.el).innerHTML = verdictHtml(food, g); // l'avis du coach : à privilégier, à limiter… (plate-ui.js)
   };
   const setG = v => { g = Math.max(0, Math.min(5000, r1(v))); input.value = String(g); upd(); };
   input.oninput = () => { g = Math.max(0, parseFloat(String(input.value).replace(",", ".")) || 0); upd(); };
@@ -461,10 +483,14 @@ export function openPortion(food, { meal = defaultMeal(), item = null, then, lea
       if (food.src === "ai" && learn != null) learnFood(state, food, learn); // reconnu ensuite, même hors ligne
     }
     save(); sh.close(); refresh();
-    // coach taquin : une pique pour un aliment « plaisir » ou noté tard le soir
-    const pique = item ? "" : isJunk(food.name) ? quip("junk", { f: food.name }) : isLate(new Date().getHours()) && key === dayKey() ? quip("lateNight") : "";
-    if (pique) toast(pique, 4200, { raw: true });
-    else toast(item ? "Modifié ✓" : `${food.name} ajouté · ${fmtNum(itemTotals({ ...food, g }).k)} kcal`);
+    // l'avis du coach sur l'aliment (plate-ui.js) ; coach taquin : la pique de sa famille, d'un aliment « plaisir »,
+    // ou d'un aliment noté tard le soir
+    const note = item ? null : addedNote(food, g, key);
+    const pique = item ? "" : note?.banter ? note.text : isJunk(food.name) ? quip("junk", { f: food.name }) : isLate(new Date().getHours()) && key === dayKey() ? quip("lateNight") : "";
+    const added = `${food.name} ajouté · ${fmtNum(itemTotals({ ...food, g }).k)} kcal`;
+    if (pique) toast(pique, 4500, { raw: true });
+    else if (note) toast(`${tr(added)}\n${note.text}`, 5600, { raw: true });
+    else toast(item ? "Modifié ✓" : added);
     then?.();
   };
   upd();

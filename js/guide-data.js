@@ -144,7 +144,12 @@ export const ITEMS = [
   { id: "water", sec: "food", ic: "💧", t: "Eau et rappels pour boire", w: "Repas → Eau", go: { to: "#/food", spot: ".water" },
     d: "Un verre ou une bouteille d'un geste, un objectif selon ton poids, et des rappels si tu es en retard." },
   { id: "plan", sec: "food", ic: "🛒", t: "Plan de repas et courses", w: "Repas → Plan de repas", go: { to: "#/food", spot: ".plan-card" }, auto: s => !!s.mealPlan,
-    d: "De 1 à 7 jours à tes calories et protéines, selon ton régime et tes goûts, avec la liste de courses rangée par rayon." },
+    d: "De 1 à 7 jours à tes calories et protéines, selon ton régime et tes goûts, avec la recette de chaque repas et la liste de courses rangée par rayon." },
+  { id: "plate", sec: "food", ic: "🥗", t: "L'avis du coach sur tes repas", w: "Repas → Ton assiette du jour", auto: s => Object.values(s.food || {}).some(d => (d.items || []).length > 0),
+    go: { to: "#/food", spot: "#plate-open", miss: "Note un premier aliment : la carte « Ton assiette du jour » apparaît dans le journal." },
+    d: "Chaque aliment a son avis (à privilégier, à limiter, à éviter) et ta journée sa note : ce qui est bien, à réduire, ce qui manque, avec des échanges simples." },
+  { id: "mymeals", sec: "food", ic: "🍲", t: "Mes repas", w: "Repas → Mes repas", go: { to: "#/food", spot: "#mm-open" }, auto: s => (s.foodMeals || []).length > 0,
+    d: "Crée tes propres repas : aliments, quantités, portions et préparation. Garde aussi un repas du plan avec sa recette, puis ajoute-le au journal d'un geste." },
 
   // — Coach —
   { id: "chat", sec: "coach", ic: "💬", t: "Discuter avec ton coach", w: "Coach", go: { to: "#/coach", spot: "#composer" }, auto: asked,
