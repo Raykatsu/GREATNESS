@@ -16,6 +16,7 @@ import { actionsGuide } from "./aiact.js";
 import { current as coach, coachName, coachPersona } from "./chars/index.js";
 import { LOC, isEn, tr } from "./i18n.js";
 import { banterStyle } from "./banter.js";
+import { plateContext } from "./plate-ui.js";
 
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -251,7 +252,7 @@ export function athleteContext({ full = false } = {}) {
   });
   return [
     `Aujourd'hui : ${new Date().toLocaleDateString(LOC(), { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,
-    `Athlète : ${p.name || "inconnu"}${{ m: ", homme", f: ", femme" }[p.sex] || ""}${p.age ? `, ${p.age} ans` : ""}, ${p.bodyweight} kg${p.height ? `, ${p.height} cm` : ""}, objectif « ${GOALS[p.goal].name} »${{ debutant: ", niveau débutant", intermediaire: ", niveau intermédiaire", avance: ", niveau avancé" }[p.experience] || ""}, ${p.days} séances/semaine d'environ ${p.minutes || 45} min, matériel : ${{ gym: "salle", db: "haltères", home: "sans matériel" }[p.equipment]}${(p.focus || []).length ? `. Zones à privilégier : ${p.focus.join(", ")}` : ""}.`,
+    `Athlète : ${p.name || "inconnu"}${{ m: ", homme", h: ", homme", f: ", femme" }[p.sex] || ""}${p.age ? `, ${p.age} ans` : ""}, ${p.bodyweight} kg${p.height ? `, ${p.height} cm` : ""}, objectif « ${GOALS[p.goal].name} »${{ debutant: ", niveau débutant", intermediaire: ", niveau intermédiaire", avance: ", niveau avancé" }[p.experience] || ""}, ${p.days} séances/semaine d'environ ${p.minutes || 45} min, matériel : ${{ gym: "salle", db: "haltères", home: "sans matériel" }[p.equipment]}${(p.focus || []).length ? `. Zones à privilégier : ${p.focus.join(", ")}` : ""}.`,
     `Programme de la semaine : ${DAYS.map((d, i) => `${d} ${plan[i] ? getProgram(plan[i])?.name : "repos"}`).join(", ")}.`,
     `Cette semaine : ${w.count} séance(s), ${w.volume} kg, ${w.minutes} min. Série en cours : ${streak()} jour(s). Rang : ${rankInfo().rank.name}.`,
     lifts.length ? `Performances :\n- ${lifts.join("\n- ")}` : "Pas encore de performances enregistrées.",
@@ -261,6 +262,7 @@ export function athleteContext({ full = false } = {}) {
     healthContext(state.health?.days),
     goalsContext(state),
     nutritionContext(state),
+    plateContext(state),
     adjustContext(state),
     memoryContext(state),
     banterStyle(),

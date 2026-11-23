@@ -753,6 +753,7 @@ function exerciseSheet(id) {
 // Pastilles d'icônes des Réglages (façon iOS)
 const GOAL_ICON = { force: "🏋️", muscle: "💪", seche: "🔥", forme: "⚡" };
 const SIC = {
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
   smile: '<circle cx="12" cy="12" r="9"/><path d="M8 14.5c1.1 1.3 2.4 2 4 2s2.9-.7 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
   scale: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8.5 9.5a5 5 0 0 1 7 0L13 12"/>',
@@ -843,6 +844,7 @@ function profile() {
       <label class="toggle set-row">${sic("coach", "var(--red)")}<div class="grow"><b>Personnages</b><span class="xs muted">Ton coach animé se balade et te parle. Désactive pour une app sans personnage.</span></div><input type="checkbox" id="p-mascot" ${p.mascot !== false ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("smile", "#f59e0b")}<div class="grow"><b>Coach taquin</b><span class="xs muted">Langage familier : il te charrie sur tes repas, ton repos, tes séances. Jamais sur ton corps.</span></div><input type="checkbox" id="p-banter" ${p.banter ? "checked" : ""}/></label>
+      <label class="toggle set-row">${sic("leaf", "#22c55e")}<div class="grow"><b>Avis sur tes repas</b><span class="xs muted">Le coach commente ce que tu notes : ce qui est bien, à limiter, à éviter, ce qui manque.</span></div><input type="checkbox" id="p-plate" ${p.plateTips !== false ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("sound", "#ec4899")}<div class="grow"><b>Sons</b><span class="xs muted">Bips de repos, effets</span></div><input type="checkbox" id="p-sound" ${p.sound ? "checked" : ""}/></label>
       <button class="set-row set-act" id="p-memory">${sic("user", "#0ea5e9")}<div class="grow"><b>Ce que le coach sait de toi</b><span class="xs muted">${(state.memory || []).length ? `${state.memory.length} info${state.memory.length > 1 ? "s" : ""} retenue${state.memory.length > 1 ? "s" : ""}` : "Blessures, matériel, préférences…"}</span></div>${I.chev}</button>
       <button class="set-row set-act" id="p-nutri">${sic("scale", "#22c55e")}<div class="grow"><b>Objectifs nutrition</b><span class="xs muted">Calories, protéines, eau</span></div>${I.chev}</button>
@@ -955,6 +957,7 @@ function profile() {
   bind("#p-mascot", t => { setCharsOn(t.checked); applyChars(); toast(t.checked ? "Personnages affichés." : "Personnages masqués : l'app reste sobre."); });
   bind("#p-voice", t => { p.voice = t.checked; if (t.checked) speak("Consignes vocales activées."); });
   bind("#p-banter", t => { p.banter = t.checked; toast(t.checked ? quip("hello") : "Coach taquin coupé : retour au langage soutenu.", 3000, { raw: t.checked }); });
+  bind("#p-plate", t => { p.plateTips = t.checked; toast(t.checked ? "Avis sur tes repas activé" : "Avis sur tes repas coupé"); });
   bind("#p-sound", t => (p.sound = t.checked));
   $("#p-memory").onclick = () => memorySheet();
   $("#p-nutri").onclick = () => openTargets();

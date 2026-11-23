@@ -225,6 +225,131 @@ export const LINES = {
   weekBad: [
     "Note de %n sur 100… La semaine prochaine, on se reprend. Je te lâche pas.",
   ],
+  // aliment noté : boisson sucrée (%n : sucre en g, %s : morceaux de sucre)
+  eatSoda: [
+    "Un soda ? %n g de sucre, soit %s morceaux. Ton pancréas te passe le bonjour.",
+    "Tu croquerais %s morceaux de sucre d'affilée ? Non ? C'est pourtant ce que tu viens de boire.",
+    "Du sucre liquide qui ne cale même pas… L'eau pétillante au citron se sent délaissée, là.",
+    "Ah, le soda. %n g de sucre et zéro protéine : le pire rapport qualité-prix de ta journée.",
+  ],
+  // aliment noté : boisson énergisante
+  eatEnergy: [
+    "Une boisson énergisante ? T'as besoin d'une canette pour soulever de la fonte, [[champion|championne|la star]] ?",
+    "Ça donne des ailes, paraît-il. Des pecs, par contre, jamais vu. Un café et une banane font mieux le job.",
+  ],
+  // aliment noté : alcool (%n : verres standard)
+  eatAlcohol: [
+    "Santé ! Enfin, façon de parler : l'alcool freine ta récup et tes muscles. Deux verres max, [[mon pote|ma pote|l'ami·e]].",
+    "Petit rappel du coach relou : l'alcool après la séance, c'est jusqu'à un tiers de construction musculaire en moins. Je dis ça, je dis rien.",
+    "Déjà ≈ %n verre(s) au compteur. Un grand verre d'eau entre chaque, au moins, que demain matin reste vivable.",
+  ],
+  // aliment noté : charcuterie (%n : grammes de la semaine)
+  eatDeli: [
+    "De la charcuterie ? Classée cancérogène, mais tellement bonne… Garde-la pour l'apéro du week-end, [[gourmand|gourmande|gourmand·e]].",
+    "Charcuterie détectée : t'en es à %n g cette semaine, pour 150 g conseillés. Je surveille, hein.",
+    "Le saucisson, c'est un plaisir, pas un groupe alimentaire. Pour les protéines, le blanc de poulet fait le job.",
+  ],
+  // aliment noté : viande rouge (%n : grammes de la semaine)
+  eatRedMeat: [
+    "Encore de la viande rouge ? %n g cette semaine pour 500 g conseillés. Le poulet et le poisson se sentent ignorés.",
+    "Un bon steak, des protéines et du fer, j'avoue. Mais pas tous les jours, sinon le boucher va t'inviter à son mariage.",
+  ],
+  // aliment noté : restauration rapide (%f : l'aliment)
+  eatFastFood: [
+    "Encore du fast-food : %f. Une fois, ça passe. Trois fois par semaine, c'est un abonnement.",
+    "Ah, %f… Les plats ultra-transformés font manger 500 kcal de plus par jour sans s'en rendre compte. Juste pour info.",
+    "Le livreur connaît ton prénom, à force ? Fais-le maison la prochaine fois : même plaisir, bien moins de calories.",
+  ],
+  // aliment noté : friture
+  eatFried: [
+    "Frit, croustillant, délicieux… et gorgé d'huile. Au four ou à l'air fryer, la prochaine fois ?",
+    "De la friture ? L'air fryer existe, tu sais : même croustillant avec une cuillère d'huile.",
+  ],
+  // aliment noté : grignotage salé
+  eatSnack: [
+    "Des chips ? Sel, huile, zéro satiété : tu vas finir le paquet, je te connais. Sers-toi un bol et range le reste.",
+    "Le grignotage salé, c'est le piège parfait : ça ne cale pas et ça se mange tout seul. Une poignée d'amandes, plutôt ?",
+  ],
+  // aliment noté : produit sucré (%f : l'aliment, %n : sucre du jour en g, %s : morceaux de sucre de la portion)
+  eatSweet: [
+    "Petit plaisir sucré : %f. Ça fait %s morceaux de sucre, mais je ne juge pas. Enfin… un peu.",
+    "Le sucre, c'est comme les séries : un épisode, ça va ; toute la saison, ça pique. T'en es à %n g aujourd'hui.",
+    "Encore du sucré ? Ton dentiste et moi, on commence à s'échanger des messages.",
+  ],
+  // aliment noté : viennoiserie
+  eatPastry: [
+    "Une viennoiserie ? Beurre, sucre, farine blanche : un dessert déguisé en petit-déj, [[mon gourmand|ma gourmande|la gourmandise sur pattes]].",
+    "Le croissant du dimanche, d'accord. Celui du lundi au vendredi, on en parle ?",
+  ],
+  // aliment noté : jus de fruits
+  eatJuice: [
+    "Un jus, c'est le sucre du fruit sans ses fibres. Croque le fruit, t'auras les deux, [[malin|maligne|malin·e]].",
+    "Le jus de fruits, c'est un soda qui a fait des études. Un petit verre par jour, pas plus.",
+  ],
+  // aliment noté : beurre, crème, mayonnaise
+  eatFat: [
+    "Beurre, crème, mayo… Ton assiette fait trempette. Un filet d'huile d'olive, ça marche aussi, tu sais.",
+    "Une cuillère, pas la moitié du pot ! Ce genre de sauce, ça grimpe vite en calories.",
+  ],
+  // aliment noté : plat riche (%f : le plat)
+  eatRich: [
+    "Un plat de fête aujourd'hui (%f) ? Respect. Une grande salade à côté, et on n'en parle plus.",
+    "Fromage fondu, crème, lardons : ton cœur a envoyé un SMS, il demande une salade demain.",
+  ],
+  // aliment noté : légumes
+  eatVeg: [
+    "Des légumes ! Qui es-tu, et qu'as-tu fait de [[mon gourmand préféré|ma gourmande préférée|ma personne gourmande préférée]] ?",
+    "Du vert dans l'assiette, j'adore. Encore une portion comme ça et je t'encadre.",
+    "Légumes validés. Ton transit et moi, on applaudit des deux mains.",
+  ],
+  // aliment noté : fruit
+  eatFruit: [
+    "Un fruit ! Fibres, vitamines, zéro emballage : le goûter des [[champions|championnes|champion·nes]].",
+    "Ça, c'est un vrai en-cas. Je retire presque tout ce que j'ai dit sur tes goûters.",
+  ],
+  // aliment noté : poisson
+  eatFish: [
+    "Du poisson ! Les oméga-3 débarquent, ton cœur et tes articulations disent merci.",
+    "Poisson au menu : vise 2 fois par semaine, dont un riche en oméga-3 (saumon, sardines, maquereau). Là, t'es [[bon|bonne|au top]].",
+  ],
+  // aliment noté : légumineuses, tofu
+  eatLegume: [
+    "Des légumineuses ! Protéines, fibres, fer, et trois fois rien à l'achat. La protéine des [[malins|malignes|malin·es]].",
+    "Lentilles, pois chiches, tofu : t'es en train de devenir [[un pro|une pro|un·e pro]] de la nutrition, ma parole.",
+  ],
+  // aliment noté : céréale complète
+  eatWhole: [
+    "Du complet ! Plus de fibres, plus rassasiant, et ta glycémie te dit merci.",
+    "Complet plutôt que blanc : petit geste, grand effet sur la satiété.",
+  ],
+  // aliment noté : oléagineux
+  eatNuts: [
+    "Une poignée d'oléagineux : bonnes graisses et magnésium. Une poignée, hein, pas le paquet.",
+    "Amandes, noix, noisettes : le meilleur en-cas du coin. Avec modération, ça reste dense en calories.",
+  ],
+  // assiette du jour : excellente
+  plateGreat: [
+    "Assiette du jour : nickel. Fruits, légumes, protéines… Je vais finir par ne plus rien avoir à te reprocher.",
+    "Journée parfaite côté assiette. Franchement, rien à redire, et ça me frustre un peu.",
+  ],
+  // assiette du jour : à rattraper
+  plateBad: [
+    "Journée « buffet à volonté », on dirait. Demain, on remet des légumes dans le décor ?",
+    "Ton assiette du jour ressemble au menu d'une fête foraine. On rattrape ça demain, [[champion|championne|la star]] ?",
+  ],
+  // assiette du jour : aucun fruit ni légume le soir venu
+  plateNoVeg: [
+    "Zéro légume aujourd'hui… Ils t'ont fait quoi, les légumes ?",
+    "Le vert, ce n'est pas que pour les feux de circulation. Un légume ce soir, s'il te plaît.",
+  ],
+  // assiette du jour : charcuterie au-delà de 150 g dans la semaine (%n : grammes)
+  plateDeli: [
+    "Charcuterie : %n g cette semaine pour 150 g conseillés. Le cochon te remercie, ton cœur beaucoup moins.",
+  ],
+  // assiette du jour : 3 verres d'alcool ou plus (%n : verres)
+  plateAlcohol: [
+    "Déjà ≈ %n verres aujourd'hui. Pour la récup, c'est moyen ; pour demain matin, c'est pire.",
+  ],
   // le coach taquin vient d'être activé
   hello: [
     "Mode taquin activé. Tu l'auras voulu.",
@@ -246,11 +371,11 @@ export function pickLine(kind, seed, rnd = Math.random) {
 
 // Remplit une réplique : accord (m, f, sinon neutre), valeurs, espaces fines de la typographie française
 export function fillLine(tpl, vals = {}, sex = "") {
-  const g = sex === "m" ? 0 : sex === "f" ? 1 : 2;
+  const g = sex === "m" || sex === "h" ? 0 : sex === "f" ? 1 : 2; // « h » : homme, choisi dans Mes objectifs
   const fmt = v => (typeof v === "number" ? v.toLocaleString(LOC(), { maximumFractionDigits: 1 }) : String(v ?? ""));
   const s = String(tpl).replace(/\[\[([^\]]+)\]\]/g, (_, o) => { const opts = o.split("|"); return opts[Math.min(g, opts.length - 1)]; })
     .replace(/%([nskf])/g, (_, k) => fmt(vals[k]));
-  return isEn() ? s : s.replace(/ ([?!:;»])/g, " $1");
+  return isEn() ? s : s.replace(/ ([?!:;»%])/g, " $1");
 }
 
 // La pique d'une situation dans la langue de l'app (déjà traduite : à afficher sans retraduire), "" si coupé
@@ -271,9 +396,10 @@ export const isJunk = name => JUNK.test(String(name || "")) && !LIGHT.test(Strin
 export const isLate = h => h >= 23 || h < 4;
 
 // L'onglet Repas : la pique qui parle le plus, d'après la journée. eaten / target : kcal mangées / objectif du jour ;
-// delta : ajustement du jour (négatif : excès des jours d'avant repris) ; junk : noms des aliments « plaisir » du jour
+// delta : ajustement du jour (négatif : excès des jours d'avant repris) ; junk : noms des aliments « plaisir » du jour ;
+// plate : la situation de l'assiette du jour (plate.js : alcool, charcuterie de la semaine, journée à rattraper…)
 export function foodSituation({ goal, adapt = true, target, eaten = 0, protein = 0, proteinTarget = 0, sugar = 0,
-  water = 0, waterGoal = 0, junk = [], hour = 12, delta = 0 } = {}) {
+  water = 0, waterGoal = 0, junk = [], hour = 12, delta = 0, plate = null } = {}) {
   if (!target) return null;
   const over = Math.round(eaten - target), dir = DIRECTION[goal] || "both";
   const share = (gap, half) => Math.min(Math.round(Math.min(CAP, target * 0.15) / 10) * 10, Math.max(10, Math.round(gap / (half ? 2 : 1) / SPREAD / 10) * 10));
@@ -284,6 +410,7 @@ export function foodSituation({ goal, adapt = true, target, eaten = 0, protein =
     return { kind: "overBulk", vals: { n: over } };
   }
   if (delta < 0 && hour < 14) return { kind: "compensating", vals: { n: -delta } };
+  if (plate) return plate;
   if (junk.length) return { kind: "junk", vals: { f: junk[0] } };
   if (sugar > 60) return { kind: "sugar", vals: { n: Math.round(sugar) } };
   if (hour >= 18 && proteinTarget && protein < proteinTarget * 0.7) return { kind: "lowProtein", vals: { n: Math.round(proteinTarget - protein) } };

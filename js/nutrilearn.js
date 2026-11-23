@@ -149,6 +149,21 @@ function amounts(p, base, adj) {
   };
 }
 
+/* ---------- Bien choisir ce que tu manges (l'avis du coach sur ton assiette : plate.js) ---------- */
+export const PLATE_RULES = [
+  ["Fruits et légumes : au moins 5 portions de 80 g par jour. Un jus ne compte pas : il a perdu ses fibres.", "aune17", "pnns"],
+  ["Féculents complets (pain complet, riz complet, flocons d'avoine) : au moins un par jour, pour les fibres et la satiété.", "reynolds", "pnns"],
+  ["Légumineuses (lentilles, pois chiches, haricots) : au moins 2 fois par semaine.", "pnns"],
+  ["Oléagineux (amandes, noix, noisettes) : une petite poignée par jour, nature et non salée.", "aune16", "pnns"],
+  ["Poisson : 2 fois par semaine, dont un poisson gras (saumon, sardines, maquereau) pour les oméga-3.", "mozaffarian", "pnns"],
+  ["Viande rouge (bœuf, porc, veau, agneau) : pas plus de 500 g par semaine ; charcuterie : pas plus de 150 g. Le CIRC classe la viande transformée comme cancérogène et la viande rouge comme probablement cancérogène.", "iarc", "pnns"],
+  ["Sucres ajoutés, miel, sirops et jus de fruits : moins de 10 % des calories, idéalement moins de 5 %. Une canette de soda en apporte déjà 35 g.", "who-sugar"],
+  ["Sel : moins de 5 g par jour, tout compris (pain, fromage, charcuterie, plats préparés).", "who-salt"],
+  ["Produits ultra-transformés : à volonté, ils font manger environ 500 kcal de plus par jour que des aliments bruts.", "hall19"],
+  ["Alcool : au plus 2 verres par jour et 10 par semaine, avec des jours sans. Après la séance, il réduit la construction musculaire de 24 à 37 %.", "parr", "pnns"],
+  ["Dans le monde, trop peu de céréales complètes, de fruits, de légumes et d'oléagineux, et trop de sel : c'est la première cause de décès liée à l'alimentation.", "gbd17"],
+];
+
 /* ---------- L'onglet entier ---------- */
 export function learnHtml(state, now = new Date()) {
   const p = state.profile || {}, adj = dailyAdjust(state, now), base = adj.base;
@@ -175,6 +190,8 @@ export function learnHtml(state, now = new Date()) {
     <div class="section"><h2>À quoi sert chaque nutriment</h2></div>
     <p class="small muted nl-intro">${nb("1 g de protéines ou de glucides apporte 4 kcal, 1 g de lipides 9 kcal (et 1 g d'alcool 7 kcal).")}</p>
     ${MACROS.map(macro).join("")}
+    ${sec("plate", "Bien choisir ce que tu manges", `${para("Les repères de santé publique que le coach regarde dans ton assiette. Chaque aliment reçoit un avis : à privilégier, ça passe, à limiter ou à éviter au quotidien. La note du jour, sur 100, monte avec les fruits et légumes, les fibres, les protéines, les légumineuses, le poisson et les céréales complètes, et baisse avec ce qui est à limiter ou à éviter.")}
+      <ul class="nl-plate">${PLATE_RULES.map(([t, ...ids]) => `<li>${nb(t)} ${cite(...ids)}</li>`).join("")}</ul>`, { amt: `${PLATE_RULES.length}` })}
     ${sec("min", "Minéraux et vitamines", `${para("Ils n'apportent pas de calories, mais ton corps ne peut pas s'en passer. Voici les repères quotidiens des autorités de santé pour un adulte. Une alimentation variée, riche en fruits, légumes et produits peu transformés, suffit en général : un complément se prend sur avis médical, sauf la vitamine B12 si tu es vegan.", "efsa-drv", "who-salt")}
       <ul class="nl-micros">${MICROS.map(m => `<li><div class="nl-sl"><b>${m.name}</b><span class="tnum">${m.v[sex].replace(/\d{4,}/g, n => fmtNum(+n))}</span></div>
         <p>${nb(m.role)} ${cite(m.ref)}</p><p class="muted xs">${esc(m.food)}</p></li>`).join("")}</ul>`, { amt: `${MICROS.length}` })}
