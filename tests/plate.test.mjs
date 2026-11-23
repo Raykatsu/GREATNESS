@@ -8,7 +8,7 @@ import EN from "../js/lang/en.js";
 import { FOODS } from "../js/foods.js";
 import { isText } from "../scripts/i18n.mjs";
 import { LINES, fillLine, foodSituation } from "../js/banter.js";
-import { TIERS, GROUPS, GRADES, classify, judgeFood, dayReview, weekStats, plateSituation, itemSituation, portionFact } from "../js/plate.js";
+import { TIERS, GROUPS, GRADES, classify, judgeFood, dayReview, weekStats, plateSituation, itemSituation, portionFact, dayAdvice } from "../js/plate.js";
 
 const db = name => { const f = FOODS.find(x => x.name === name); assert.ok(f, name); return f; };
 const it = (name, g) => ({ ...db(name), g: g ?? db(name).unit.g });
@@ -148,4 +148,19 @@ test("coach taquin : la réplique d'un aliment, la pique de l'assiette, accords 
   assert.equal(foodSituation({ ...base, eaten: 2600 }).kind, "overCut");
   assert.deepEqual(foodSituation({ ...base, eaten: 1900 }), plate);
   assert.equal(foodSituation({ ...base, eaten: 1900, plate: null }).kind, "junk");
+});
+
+test("mode normal : le conseil du coach, poli et concret, selon ce qui compte le plus", () => {
+  const adv = (items, hour, week = null) => dayAdvice(dayReview(items, { kcal: 2400, protein: 140, hour, week }), hour);
+  assert.match(adv(BAD(), 22).t, /boisson sucrée/); // le soda passe avant le reste
+  assert.match(adv([it("Bière", 1000), it("Saumon", 125)], 22).t, /verres d'alcool/);
+  assert.match(adv([it("Croissant", 60), it("Pizza", 300), it("Café", 150)], 13).t, /ultra-transformés/);
+  const fv = adv([it("Blanc de poulet", 200), it("Riz complet cuit", 250), it("Skyr", 300), it("Pomme", 150)], 20);
+  assert.equal(fv.v.n, 3);
+  assert.match(fv.t, /Il te manque %n portions/);
+  assert.match(adv([it("Blanc de poulet", 150), it("Riz blanc cuit", 200)], 13).t, /Pas encore de fruits ni de légumes/);
+  assert.match(adv(GOOD(), 21).t, /Très belle journée/);
+  assert.equal(adv(GOOD(), 9), null); // le matin, rien à redire
+  assert.equal(dayAdvice(dayReview([], {})), null);
+  for (const x of [adv(BAD(), 22), fv, adv(GOOD(), 21)]) assert.ok(EN[x.t], `traduit : ${x.t}`);
 });

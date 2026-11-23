@@ -334,13 +334,34 @@ export function dayReview(items = [], { kcal = 2000, protein = 0, hour = 24, wat
   const grade = !n ? null : score >= 80 ? "great" : score >= 62 ? "good" : score >= 45 ? "meh" : "bad";
   return {
     n, score, grade, good, reduce, avoid, missing, swaps: swaps.slice(0, 4),
-    stats: { fv, sugar, sugarMax, salt, alc, deli, red, juice, fat, fiber: Math.round(tot.fi), protein: Math.round(tot.p) },
+    stats: { fv, sugar, sugarMax, salt, alc, deli, red, juice, fat, processed: processed.length, fiber: Math.round(tot.fi), protein: Math.round(tot.p) },
     week: wk, junk: J.filter(x => ["limit", "avoid"].includes(x.v.tier)).map(x => x.it.name),
   };
 }
 
 // Le titre de la revue, selon la note
 export const GRADES = { great: "Assiette au top", good: "Bonne journée dans l'assiette", meh: "Peut mieux faire", bad: "Journée à rattraper" };
+
+// Mode normal : le conseil du coach pour la journée, poli et concret (ce qui compte le plus maintenant), ou null
+export function dayAdvice(rv, hour = 24) {
+  if (!rv?.n) return null;
+  const late = hour >= 18, s = rv.stats, find = id => [...rv.avoid, ...rv.reduce, ...rv.missing].find(x => x.id === id);
+  if (s.alc >= 3) return { t: "Déjà ≈ %n verres d'alcool aujourd'hui : alterne avec de l'eau, ta récupération en dépend.", v: { n: s.alc } };
+  const soda = find("soda");
+  if (soda) return { t: "Une boisson sucrée aujourd'hui (%f) : la prochaine fois, essaie l'eau pétillante avec du citron.", v: { f: soda.v.f } };
+  if (rv.week && rv.week.deli > REF.deliWeek && s.deli > 0) return { t: "Charcuterie : %n g cette semaine, au-delà des 150 g conseillés. Ces prochains jours, préfère volaille, œufs ou poisson.", v: { n: rv.week.deli } };
+  if (s.sugar > s.sugarMax) return { t: "Déjà ≈ %n g de sucres ajoutés : pour la suite, un fruit ou un yaourt nature plutôt qu'un produit sucré.", v: { n: s.sugar } };
+  if (s.processed >= 2) return { t: "Plusieurs produits ultra-transformés aujourd'hui : au prochain repas, une assiette simple (légumes, féculent complet, protéine) rééquilibre tout." };
+  if (late && s.fv < REF.fv) {
+    const n = REF.fv - s.fv;
+    return { t: n > 1 ? "Il te manque %n portions de fruits et légumes pour arriver à 5 : une crudité, une poêlée ou un fruit ce soir." : "Il te manque %n portion de fruits et légumes pour arriver à 5 : une crudité ou un fruit ce soir.", v: { n } };
+  }
+  const prot = late ? find("protein") : null;
+  if (prot) return { t: prot.t, v: prot.v };
+  if (!late && hour >= 12 && s.fv === 0 && rv.n >= 2) return { t: "Pas encore de fruits ni de légumes aujourd'hui : pense à en mettre au prochain repas." };
+  if (late && rv.grade === "great") return { t: "Très belle journée dans l'assiette : variée, riche en fibres et en bonnes protéines. Continue comme ça !" };
+  return null;
+}
 
 // Coach taquin : la situation qui parle le plus dans l'assiette du jour (banter.js), ou null
 export function plateSituation(rv, hour = 24) {

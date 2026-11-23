@@ -27,6 +27,9 @@ test("assiette : avis par aliment, revue du jour, bulle après l'ajout, coach ta
     await go(page, "#/food");
     await page.waitForSelector("#plate-open", { timeout: 10000 });
 
+    // mode normal : la ligne du coach donne un conseil concret
+    assert.match(await page.$eval("#plate-advice", e => e.innerText), /boisson sucrée[\s\S]*eau pétillante/);
+
     // un point de couleur par aliment notable : vert, orange, rouge
     const dots = await page.$$eval(".food-row .tier-dot", l => l.map(d => d.className.replace("tier-dot ", "")));
     assert.deepEqual(dots.sort(), ["t-avoid", "t-limit", "t-limit", "t-top", "t-top"]);
@@ -65,6 +68,17 @@ test("assiette : avis par aliment, revue du jour, bulle après l'ajout, coach ta
     await page.click("#pf-ok");
     await page.waitForFunction(() => /⛔/.test(document.querySelector("#toast")?.textContent || ""));
     assert.match(await toastText(page), /Soda ajouté[\s\S]*Boisson sucrée[\s\S]*morceaux de sucre/);
+    // mode normal : un commentaire aussi pour ce qui « passe », et la journée qui avance pour une famille déjà notée
+    await page.evaluate(async () => { const { FOODS } = await import("/js/foods.js"); (await import("/js/food.js")).openPortion(FOODS.find(x => x.name === "Riz blanc cuit"), { meal: "dinner" }); });
+    await page.waitForSelector("#pf-ok");
+    await page.click("#pf-ok");
+    await page.waitForFunction(() => /Riz blanc cuit ajouté/.test(document.querySelector("#toast")?.textContent || ""));
+    assert.match(await toastText(page), /Ça passe · Féculent[\s\S]*complet/);
+    await page.evaluate(async () => { const { FOODS } = await import("/js/foods.js"); (await import("/js/food.js")).openPortion(FOODS.find(x => x.name === "Carotte"), { meal: "dinner" }); });
+    await page.waitForSelector("#pf-ok");
+    await page.click("#pf-ok");
+    await page.waitForFunction(() => /Carotte ajouté/.test(document.querySelector("#toast")?.textContent || ""));
+    assert.match(await toastText(page), /À privilégier · Légumes[\s\S]*Fruits et légumes\s:\s3 portions sur 5 aujourd'hui/);
 
     // en taquin : la pique de la famille
     await page.evaluate(async () => { const { state, save } = await import("/js/store.js"); state.profile.banter = true; save(); });

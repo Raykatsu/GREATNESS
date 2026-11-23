@@ -7,7 +7,7 @@ import { state } from "./store.js";
 import { tr } from "./i18n.js";
 import { $, esc, sheet, I } from "./ui.js";
 import { fillLine, banterOn, quip, quipOf } from "./banter.js";
-import { judgeFood, dayReview, weekStats, TIERS, GRADES, REF, itemSituation, portionFact, plateSituation } from "./plate.js";
+import { judgeFood, dayReview, weekStats, TIERS, GRADES, REF, PORTION, itemSituation, portionFact, plateSituation } from "./plate.js";
 import { dayOf, dayKey, shiftKey, targets } from "./nutrition.js";
 
 export const plateOn = () => state.profile?.plateTips !== false;
@@ -46,8 +46,12 @@ export function verdictHtml(food, g) {
   </div>`;
 }
 
-// La bulle après l'ajout d'un aliment (déjà ajouté au journal du jour `key`) : la pique du coach taquin, ou l'avis.
-// Les familles « à privilégier » ne sont saluées qu'une fois par jour ; « ça passe » : rien à dire. null sinon.
+// Un texte de la revue ({ t, v }) prêt à afficher
+export const plateText = x => T(x.t, x.v);
+
+// La bulle après l'ajout d'un aliment (déjà ajouté au journal du jour `key`) : la pique du coach taquin, sinon l'avis,
+// pour chaque aliment reconnu. Une famille déjà notée dans la journée : où en est la journée (fruits et légumes,
+// protéines, fibres) plutôt que la même explication. null pour un aliment inconnu.
 export function addedNote(food, g, key = dayKey()) {
   if (!plateOn()) return null;
   const v = judgeFood(food, g);
@@ -61,11 +65,18 @@ export function addedNote(food, g, key = dayKey()) {
     const q = sit ? quip(sit.kind, { ...sit.vals, f: tr(String(sit.vals.f || "")) }) : "";
     if (q) return { text: q, banter: true };
   }
-  if (v.tier === "ok" || (v.tier === "top" && !first)) return null;
   const fact = portionFact(v);
   const wk = !week.logged ? "" : v.group === "deli" ? T("Charcuterie cette semaine : %n g sur 150 g au plus.", { n: week.deli })
     : v.group === "redmeat" ? T("Viande rouge cette semaine : %n g sur 500 g au plus.", { n: week.red }) : "";
-  const body = v.tier === "top" ? T(v.why) : [fact ? T(fact.t, fact.v) : wk || T(v.why), v.tip ? T(v.tip) : ""].filter(Boolean).join(" ");
+  // la journée qui avance : fruits et légumes, protéines, fibres
+  const day = items.reduce((a, x, i) => { const m = (+x.g || 0) / 100; a.p += (x.per?.p || 0) * m; a.fi += (x.per?.fi || 0) * m; a.fv += all[i]?.fv || 0; return a; }, { p: 0, fi: 0, fv: 0 });
+  const fvN = Math.floor((day.fv + 10) / PORTION), protein = targets(state.profile || {}).p;
+  const progress = ["veg", "fruit"].includes(v.group) ? T(fvN > 1 ? "Fruits et légumes : %n portions sur 5 aujourd'hui." : "Fruits et légumes : %n portion sur 5 aujourd'hui.", { n: fvN })
+    : ["poultry", "fish", "fatfish", "egg", "dairy", "legume", "soy", "supplement"].includes(v.group) && protein ? T("Protéines : %n g sur %s g aujourd'hui.", { n: Math.round(day.p), s: protein })
+    : ["whole", "starch"].includes(v.group) ? T("Fibres : %n g sur 30 g aujourd'hui.", { n: Math.round(day.fi) }) : "";
+  const body = v.tier === "top" ? (first ? T(v.why) : progress || T(v.why))
+    : v.tier === "ok" ? [wk || T(v.why), v.tip ? T(v.tip) : progress].filter(Boolean).join(" ")
+    : [fact ? T(fact.t, fact.v) : wk || T(v.why), v.tip ? T(v.tip) : ""].filter(Boolean).join(" ");
   return { text: `${ICON[v.tier]} ${tr(TIERS[v.tier])} · ${tr(v.name)}\n${body}` };
 }
 

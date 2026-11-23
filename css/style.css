@@ -3638,6 +3638,9 @@ body.dancing .mascot, body.dancing .mascot-bubble { display: none; }
 /* ---------- Coach taquin (banter.js) : la pique du jour (Repas), la ligne de fin de séance et du bilan ---------- */
 .coach-line.quip { margin-top: var(--s-3); border-style: dashed; border-color: rgba(var(--accent-rgb), .45); background: rgba(var(--accent-rgb), .06); }
 .coach-line.quip p { margin: 0; font-size: var(--fs-sm); line-height: 1.45; }
+/* mode normal : le conseil du coach sur l'assiette du jour (plate.js) */
+.coach-line.advice { margin-top: var(--s-3); border-color: rgba(59, 108, 246, .32); background: var(--blue-soft); cursor: pointer; }
+.coach-line.advice p { margin: 0; font-size: var(--fs-sm); line-height: 1.45; }
 .quip-line { margin: 8px 0 0; font-size: var(--fs-sm); font-weight: 650; line-height: 1.4; color: var(--accent-ink, var(--red)); }
 
 /* ---------- Playlist de séance au bon tempo (songs-ui.js) ---------- */

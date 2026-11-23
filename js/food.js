@@ -19,8 +19,8 @@ import { learnHtml, bindLearn, adjustCard } from "./nutrilearn.js";
 import { isOnlineMode, authToken } from "./cloud.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, fmtNum, ring, animateRings, helpBtn, coachIcon } from "./ui.js";
 import { banterOn, quip, quipOf, foodSituation, weightSituation, isJunk, isLate } from "./banter.js";
-import { plateSituation } from "./plate.js";
-import { plateOn, plateCard, openPlate, reviewOf, tierDot, verdictHtml, addedNote } from "./plate-ui.js";
+import { plateSituation, dayAdvice } from "./plate.js";
+import { plateOn, plateCard, openPlate, reviewOf, tierDot, verdictHtml, addedNote, plateText } from "./plate-ui.js";
 import { LOC, tr } from "./i18n.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -187,8 +187,7 @@ export function renderFood(view) {
   $("#ad-set")?.addEventListener("click", () => openTargets());
   bindPlanCard(view, refresh, openLearn);
   bindMyMealsCard(view, refresh);
-  const pc = $("#plate-open", view);
-  if (pc) {
+  for (const pc of [$("#plate-open", view), $("#plate-advice", view)].filter(Boolean)) {
     const open = () => openPlate(viewKey, rv, { onLearn: openLearn, coach: coachIcon() });
     pc.onclick = open;
     pc.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } };
@@ -216,7 +215,11 @@ export function logWeight(w) {
 // Coach taquin (banter.js) : la pique du jour, d'après ce que tu as mangé (la même toute la journée pour une situation)
 const sugarOf = items => items.reduce((a, it) => a + ((+it.per?.su || 0) * (+it.g || 0)) / 100, 0);
 function foodQuipHtml(t, tot, day, rv) {
-  if (!banterOn()) return "";
+  // mode normal : le conseil du coach sur l'assiette du jour (poli et concret), qui ouvre la revue
+  if (!banterOn()) {
+    const a = plateOn() && rv ? dayAdvice(rv, new Date().getHours()) : null;
+    return a ? `<div class="coach-line advice tap" id="plate-advice" role="button" tabindex="0" translate="no"><div class="av">${coachIcon()}</div><p class="grow">${esc(plateText(a))}</p></div>` : "";
+  }
   const now = new Date(), trained = sessionsOn(now).length > 0, plate = plateOn() && rv ? plateSituation(rv, now.getHours()) : null;
   const q = quipOf(foodSituation({ goal: state.profile.goal, adapt: !t.off, target: t.kcal, eaten: tot.k, protein: tot.p, proteinTarget: t.p,
     sugar: Math.max(sugarOf(day.items), rv?.stats.sugar || 0), water: day.water || 0, waterGoal: waterGoal(t, trained),
