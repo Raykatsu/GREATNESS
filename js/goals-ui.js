@@ -29,7 +29,7 @@ export function goalCard({ invite = false } = {}) {
       <div class="grid2 mt-s"><button class="btn btn-soft btn-sm" data-goal-seen="${res.id}">${I.check} Ranger</button><button class="btn btn-primary btn-sm" data-goal-again="${res.id}">${I.refresh} Nouveau cycle</button></div></section>`;
   }
   if (!g) return invite ? `<button class="card tap free-card goal-card gc-invite" id="goal-new"><span class="bi">${IC.target}</span>
-      <span class="grow"><b>Objectif chiffré</b><span class="xs muted">8 à 12 semaines pour atteindre un chiffre : 100 kg au développé couché, 15 tractions…</span></span>
+      <span class="grow"><b>Objectif chiffré</b><span class="xs muted">Un chiffre à battre en 8 à 12 semaines</span></span>
       <span class="chev">${I.chev}</span></button>` : "";
   const pr = progressOf(g), p = prescription(g, pr.week);
   return `<section class="card tap goal-card" data-goal="${g.id}">

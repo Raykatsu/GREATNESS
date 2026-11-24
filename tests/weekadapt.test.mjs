@@ -79,6 +79,14 @@ test("pic de charge : la séance du jour est allégée (une série de moins par 
   assert.ok(!kinds(WED).includes("spike"), "déjà allégée");
 });
 
+test("jour libre pris par une séance manquée : pas de rattrapage en plus ; refusée, le rattrapage revient", () => {
+  const list = [];
+  for (let d = 2; d <= 26; d += 3) list.push(sess(-d, "push", [["bench", 4], ["ohp", 3], ["pushdown", 3]]));
+  reset({ 1: "pull", 4: "push" }, list);
+  assert.deepEqual(kinds(WED), ["missed"], "la séance manquée prend le jour libre");
+  dismiss(proposals(WED)[0], WED);
+  assert.deepEqual(kinds(WED), ["catchup"]);
+});
 test("jour libre et muscles en retard : séance de rattrapage de 25 minutes", () => {
   const list = [];
   for (let d = 1; d <= 27; d += 3) list.push(sess(-d, "push", [["bench", 4], ["ohp", 3], ["pushdown", 3]]));

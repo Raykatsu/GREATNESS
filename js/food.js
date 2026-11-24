@@ -22,6 +22,7 @@ import { banterOn, quip, quipOf, foodSituation, weightSituation, isJunk, isLate 
 import { plateSituation, dayAdvice } from "./plate.js";
 import { plateOn, plateCard, openPlate, reviewOf, tierDot, verdictHtml, addedNote, plateText } from "./plate-ui.js";
 import { LOC, tr } from "./i18n.js";
+import { vibrate } from "./fx.js";
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const IC = {
@@ -179,9 +180,9 @@ export function renderFood(view) {
   $$(".glass", view).forEach(b => b.onclick = () => {
     const i = +b.dataset.g, n = dayOf(state, viewKey).water || 0;
     setWater(state, viewKey, i < n ? i : i + 1); save(); renderFood(view);
-    if (i >= n) navigator.vibrate?.(8);
+    if (i >= n) vibrate("tick");
   });
-  $("#w-bottle")?.addEventListener("click", () => { setWater(state, viewKey, (dayOf(state, viewKey).water || 0) + 2); save(); renderFood(view); navigator.vibrate?.(8); });
+  $("#w-bottle")?.addEventListener("click", () => { setWater(state, viewKey, (dayOf(state, viewKey).water || 0) + 2); save(); renderFood(view); vibrate("light"); });
   $("#w-rem")?.addEventListener("click", waterReminders);
   $("#ad-weigh")?.addEventListener("click", weighIn);
   $("#ad-set")?.addEventListener("click", () => openTargets());

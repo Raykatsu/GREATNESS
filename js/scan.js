@@ -2,6 +2,7 @@
 // sinon la bibliothèque libre ZXing (WebAssembly), chargée une seule fois à la demande : iPhone compris.
 import { cleanBarcode } from "./nutrition.js";
 import { $, I, esc, sheet } from "./ui.js";
+import { vibrate } from "./fx.js";
 
 const PONYFILL = "https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js";
 const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
@@ -76,7 +77,7 @@ export function openScanner({ onCode, title = "Scanne le code-barres" } = {}) {
     wrap.remove();
     if (!document.querySelector(".live, .cam")) document.body.classList.remove("hide-tabs");
   };
-  const found = code => { navigator.vibrate?.(40); beep(); close(); onCode?.(code); };
+  const found = code => { vibrate("success"); beep(); close(); onCode?.(code); };
 
   async function tick() {
     if (closed) return;

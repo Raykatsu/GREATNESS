@@ -2,7 +2,7 @@
 // - séance manquée hier ou avant-hier : la faire aujourd'hui (jour libre) ou la placer sur le prochain jour libre ;
 // - muscles de la séance du jour pas remis : l'échanger avec une séance plus loin dans la semaine, sur des muscles prêts ;
 // - pic de charge (js/balance.js) : alléger la séance du jour (une série de moins, charges un peu plus légères) ;
-// - jour libre et muscles en retard : 25 minutes de rattrapage.
+// - jour libre et muscles en retard : 25 minutes de rattrapage (pas en plus d'une séance manquée faite ce jour-là).
 // Chaque proposition s'applique d'un geste ou se refuse ; un refus ne revient pas de la semaine. Les déplacements ne
 // valent que pour cette semaine (state.weekAdapt, voir planner.js : adaptOf) : le programme type ne change pas.
 import { state, save, getProgram, sessionsOn, weekStart } from "./store.js";
@@ -49,8 +49,8 @@ export function proposals(now = new Date()) {
     // 3. pic de charge : séance du jour allégée
     const L = trainingLoad(state.sessions, { now: now.getTime() });
     if (L.zone === "spike" && !a.light.includes(t) && fresh(`light:${t}`)) out.push({ key: `light:${t}`, kind: "spike", pct: Math.round((L.ratio - 1) * 100), act: { light: t } });
-  } else if (!doneToday) {
-    // 4. jour libre, muscles en retard : rattrapage court
+  } else if (!doneToday && !out.some(x => x.kind === "missed" && x.to == null)) {
+    // 4. jour libre, muscles en retard : rattrapage court (sauf si la séance manquée prend déjà ce jour libre)
     const B = balanceOf(state.sessions, { now: now.getTime() });
     if (B.enough && B.groups.length && B.low.length && fresh(`catch:${t}`))
       out.push({ key: `catch:${t}`, kind: "catchup", muscles: B.low.slice(0, 3).map(m => MUSCLES[m]), act: { start: { groups: B.groups, minutes: 25 } } });

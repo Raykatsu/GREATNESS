@@ -595,7 +595,7 @@ function logSet(e) {
   clearTimeout(lateT);
   if (banterOn()) setQuip(pr, loggedRpe, ex);
 
-  success(); vibrate(pr ? [30, 40, 80] : 25);
+  success(); vibrate(pr ? "success" : "medium"); // série validée ; record : le motif « réussi »
   ringPop(btn.left + btn.width / 2, btn.top + btn.height / 2, pr ? "#f5b83d" : "#ff3b4e");
   announce(events);
   if (pr) mascot.react("pr");
@@ -714,7 +714,7 @@ function endRest(announceNext) {
   renderDock();
   if (announceNext && S?.current) {
     watchLate();
-    beep(1320, 0.22, "square", 0.08); vibrate([60, 40, 60]);
+    beep(1320, 0.22, "square", 0.08); vibrate("warning"); // fin du repos
     setTimeout(() => mascot.lift(), 900);
     const n = S.current;
     if (!n.introduced) { const intro = S.intro(); render(); speak(intro.say, { interrupt: true }); return; }

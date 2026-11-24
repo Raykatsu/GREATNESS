@@ -6,7 +6,7 @@ import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerci
 import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo, BLOCKS } from "./planner.js";
 import { idleTip } from "./brain.js";
 import { testKey, resetClient } from "./ai.js";
-import { whoosh, ringsSvg, speak } from "./fx.js";
+import { whoosh, ringsSvg, speak, vibrate } from "./fx.js";
 import { mascot } from "./mascot.js";
 import { renderTrain, openProgram } from "./train.js";
 import { startLive, startWithWarmup, isLive, resumeLive, savedSession, discardSaved } from "./live.js";
@@ -201,6 +201,9 @@ addEventListener("greatness:start", e => {
 // Les actions attendent que le compte soit ouvert (code, Face ID) et qu'aucune séance ne soit en cours.
 const siriQueue = [];
 onNativeSiri(a => { siriQueue.push(a); flushSiri(); });
+// une petite touche sous le doigt (iPhone) : interrupteur basculé, autre choix dans une barre segmentée
+document.addEventListener("change", e => { if (e.target.matches?.('.toggle input[type="checkbox"]')) vibrate("tick"); });
+document.addEventListener("click", e => { if (e.target.closest?.(".seg button:not(.on):not(:disabled)")) vibrate("tick"); }, true);
 // les réglages d'accessibilité de l'iPhone (taille du texte, transparence réduite, gras, contraste) : suivis, même en cours de route
 nativeA11y().then(a => { if (a) setSystemA11y(a); });
 onNativeA11y(a => setSystemA11y(a));
@@ -818,25 +821,28 @@ function memorySheet() {
   draw();
 }
 
+// Sommaire des Réglages : un geste pour aller à une section
+const SET_JUMP = [["toi", "Toi"], ["goal", "Objectif"], ["prog", "Programme"], ["coach", "Coach & sons"], ["look", "Apparence"], ["rem", "Rappels"], ["acc", "Compte"], ["data", "Données"], ["ai", "IA"]];
 function profile() {
   const p = state.profile;
   const r = rankInfo();
   view.innerHTML = `
     <header class="me-head"><div class="grow"><div class="eyebrow">Moi</div><h1 class="h1 ellipsis">${esc(p.name)}</h1></div>${helpBtn("settings")}${meAvatar(p.name)}</header>
     ${progressSeg("settings")}
-    <div id="coach-card" class="mt"></div>
+    <nav class="chips set-jump" aria-label="Sections des réglages">${SET_JUMP.map(([k, l]) => `<button class="chip" data-jump="set-${k}">${l}</button>`).join("")}</nav>
+    <div id="coach-card" class="mt-s"></div>
     <div class="card rank me-id mt">${ring(r.pct, r.level, 56)}<div class="grow"><div class="eyebrow">Rang · niveau ${r.level}</div><div class="h3 ellipsis">${esc(r.rank.name)}</div><div class="xs muted">${fmtNum(r.xp)} XP · @${esc(currentUser)}</div></div></div>
 
-    <h2 class="set-title">Toi</h2>
+    <h2 class="set-title" id="set-toi">Toi</h2>
     <div class="card card-list set-list">
       <label class="set-row">${sic("user", "#3b82f6")}<b class="grow">Prénom</b><input class="set-in" id="p-name" value="${esc(p.name)}" maxlength="30" autocomplete="given-name"/></label>
       <label class="set-row">${sic("scale", "#14b8a6")}<b class="grow">Poids de corps</b><span class="set-unit"><input class="set-in" id="p-bw" type="number" inputmode="decimal" value="${p.bodyweight}"/>kg</span></label>
     </div>
 
-    <h2 class="set-title">Objectif</h2>
+    <h2 class="set-title" id="set-goal">Objectif</h2>
     <div class="opts set-goals">${Object.entries(GOALS).map(([k, g]) => `<button class="opt ${p.goal === k ? "on" : ""}" data-goal="${k}"><i>${GOAL_ICON[k] || "🎯"}</i><b>${g.name}</b><span>${g.mainReps[0]}–${g.mainReps[1]} reps · repos ${g.mainRest >= 120 ? Math.round(g.mainRest / 60) + " min" : g.mainRest + " s"}</span></button>`).join("")}</div>
 
-    <h2 class="set-title">Mon programme</h2>
+    <h2 class="set-title" id="set-prog">Mon programme</h2>
     <div class="card card-list set-list">
       <div class="set-row stack"><div class="set-lbl">${sic("cal", "#ef4444")}<b>Séances par semaine</b></div>
         <div class="seg" id="days">${[2, 3, 4, 5, 6].map(d => `<button data-v="${d}" class="${p.days === d ? "on" : ""}">${d}</button>`).join("")}</div></div>
@@ -846,7 +852,7 @@ function profile() {
       <button class="set-row set-act" id="regen">${sic("refresh", "var(--red)")}<b class="grow">Régénérer mon programme</b>${I.chev}</button>
     </div>
 
-    <h2 class="set-title">Coach & sons</h2>
+    <h2 class="set-title" id="set-coach">Coach & sons</h2>
     <div class="card card-list set-list">
       <label class="toggle set-row">${sic("coach", "var(--red)")}<div class="grow"><b>Personnages</b><span class="xs muted">Ton coach animé se balade et te parle. Désactive pour une app sans personnage.</span></div><input type="checkbox" id="p-mascot" ${p.mascot !== false ? "checked" : ""}/></label>
       <label class="toggle set-row">${sic("mic", "#8b5cf6")}<div class="grow"><b>Consignes vocales</b><span class="xs muted">Le coach te parle pendant la séance</span></div><input type="checkbox" id="p-voice" ${p.voice ? "checked" : ""}/></label>
@@ -857,7 +863,7 @@ function profile() {
       <button class="set-row set-act" id="p-nutri">${sic("scale", "#22c55e")}<div class="grow"><b>Objectifs nutrition</b><span class="xs muted">Calories, protéines, eau</span></div>${I.chev}</button>
     </div>
 
-    <h2 class="set-title">Apparence</h2>
+    <h2 class="set-title" id="set-look">Apparence</h2>
     <div class="card card-list set-list">
       <div class="set-row stack"><div class="set-lbl">${sic("palette", "#f97316")}<b>Couleur</b></div>
         <div class="swatches">${Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch ${(p.accent || "rouge") === k ? "on" : ""}" data-accent="${k}" style="--c:${c}" aria-label="${COLOR_NAMES[k] || k}"></button>`).join("")}</div></div>
@@ -872,7 +878,7 @@ function profile() {
     </div>
     <p class="set-note">Astuce : demande au coach « passe l'app en vert » ou « mode clair ».</p>
 
-    <h2 class="set-title">Rappels</h2>
+    <h2 class="set-title" id="set-rem">Rappels</h2>
     <div class="card card-list set-list">
       <label class="set-row">${sic("clock", "#3b82f6")}<b class="grow">Heure de la séance</b><input class="set-in" id="rem-time" type="time" value="${p.remindAt || "18:00"}"/></label>
       <label class="set-row">${sic("bell", "#f59e0b")}<b class="grow">Alerte</b><select class="set-in" id="rem-before">${[[0, "À l'heure"], [15, "15 min avant"], [30, "30 min avant"], [60, "1 h avant"]].map(([v, l]) => `<option value="${v}" ${(p.remindBefore ?? 15) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -882,7 +888,7 @@ function profile() {
     </div>
     <p class="set-note">Une notification avant chaque séance prévue, même app fermée. Ou ajoute-les à ton calendrier.</p>
 
-    <div class="set-title row between"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
+    <div class="set-title row between" id="set-acc"><h2>Compte</h2><span class="chip ${isOnlineMode() ? "green" : ""}" id="sync">${syncLabel()}</span></div>
     <div class="card card-list set-list">
       <div class="set-row">${sic("at", "#64748b")}<div class="grow"><b>@${esc(currentUser)}</b><span class="xs muted">${isOnlineMode() ? "Compte en ligne : retrouve-le sur n'importe quel téléphone" : "Compte enregistré sur cet appareil"}</span></div></div>
       <label class="toggle set-row">${sic("lock", "#64748b")}<div class="grow"><b>Code à chaque ouverture</b><span class="xs muted">Sinon l'app reste ouverte 12 h après ta dernière utilisation</span></div><input type="checkbox" id="p-pinlock" ${p.pinLock ? "checked" : ""}/></label>
@@ -893,7 +899,7 @@ function profile() {
       ${isOnlineMode() ? `<button class="set-row set-act danger" id="acc-delete">${sic("trash", "var(--danger)")}<div class="grow"><b>Supprimer définitivement mon compte</b><span class="xs muted">Efface le compte en ligne et toutes ses données</span></div>${I.chev}</button>` : ""}
     </div>
 
-    <h2 class="set-title">Données</h2>
+    <h2 class="set-title" id="set-data">Données</h2>
     <div class="card card-list set-list">
       <button class="set-row set-act" id="p-health">${sic("heart", "#ff375f")}<div class="grow"><b>Apple Santé</b><span class="xs muted">${state.health?.linked ? "Relié : sommeil, cœur, pas et poids" : "Sommeil, VFC, pas et poids dans ton bilan de forme"}</span></div>${I.chev}</button>
       <button class="set-row set-act" id="imp">${sic("up", "#3b82f6")}<div class="grow"><b>Importer depuis une autre app</b><span class="xs muted">Strong, Hevy, Fitbod, MyFitnessPal, sauvegarde</span></div>${I.chev}</button>
@@ -901,7 +907,7 @@ function profile() {
     </div>
     <p class="set-note">${isOnlineMode() ? "Tes données sont synchronisées sur ton compte en ligne. Exporte-les quand tu veux pour en garder une copie." : "Tes données restent sur ce téléphone. Exporte-les de temps en temps pour garder une copie."}</p>
 
-    <div class="set-title row between"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
+    <div class="set-title row between" id="set-ai"><h2>IA intelligente</h2><span class="chip" id="llm-chip"></span></div>
     <div class="card" id="llm-box"></div>
 
     <details class="card adv mt"><summary>IA Claude (facultatif, payant)</summary>
@@ -924,6 +930,7 @@ function profile() {
   animateRings(view);
   bindProgressSeg();
   coachCard($("#coach-card"), { open: params.coach === "1" });
+  $$("[data-jump]").forEach(b => b.onclick = () => document.getElementById(b.dataset.jump)?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
   $("#tour-again")?.addEventListener("click", () => { location.hash = "#/"; setTimeout(startTour, 500); });
   $("#quiz-again")?.addEventListener("click", () => onboarding(1, true));
   $("#guide-open")?.addEventListener("click", () => openGuide());

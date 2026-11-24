@@ -231,7 +231,7 @@ Tu verrouilles le téléphone pendant un repos : à la seconde où il finit, une
 
 ## Version App Store
 
-Le dossier [`app-store/`](app-store/) emballe l'app avec Capacitor et ajoute le natif : Apple Santé lu directement (sans Raccourci), notifications locales (fin du repos, rappels de séance), vibrations. GitHub la construit sur un Mac et l'envoie sur TestFlight, sans Mac chez toi : voir **[APPSTORE.md](APPSTORE.md)**. Suppression définitive du compte dans Moi → Réglages → Compte ; politique de confidentialité : [`privacy.html`](privacy.html).
+Le dossier [`app-store/`](app-store/) emballe l'app avec Capacitor et ajoute le natif : Apple Santé lu directement (sans Raccourci), notifications locales (fin du repos, rappels de séance), retour haptique (Taptic Engine : une touche légère quand tu bascules un réglage ou changes de choix, franche quand tu valides une série, le motif « réussi » pour un record, une alerte à la fin du repos ; coupé avec Réglages → Sons et vibrations → Vibrations système). GitHub la construit sur un Mac et l'envoie sur TestFlight, sans Mac chez toi : voir **[APPSTORE.md](APPSTORE.md)**. Suppression définitive du compte dans Moi → Réglages → Compte ; politique de confidentialité : [`privacy.html`](privacy.html).
 
 ## Mode histoire et costumes
 
@@ -304,7 +304,7 @@ Sur l'accueil, la carte **Le coach adapte ta semaine** propose d'ajuster la sema
 - **Séance manquée** hier ou avant-hier : la faire aujourd'hui si c'est un jour libre, sinon la placer sur le prochain jour libre ; le jour manqué passe en repos.
 - **Muscles pas encore remis** pour la séance du jour (au moins deux sous 50 %) : l'échanger avec la prochaine séance de la semaine dont les muscles sont prêts.
 - **Grosse semaine** (pic de charge, voir « Charge d'entraînement ») : la séance du jour est allégée, une série de moins par exercice et des charges 5 % plus légères (« Séance allégée » sur la mission et en séance).
-- **Jour libre** avec des muscles en retard (voir « Équilibre musculaire ») : une séance de rattrapage de 25 minutes.
+- **Jour libre** avec des muscles en retard (voir « Équilibre musculaire ») : une séance de rattrapage de 25 minutes (pas en plus d'une séance manquée à faire ce jour-là : une seule séance proposée à la fois).
 
 Les déplacements ne valent que pour la semaine en cours (`state.weekAdapt`, synchronisé) : le programme type ne change pas. Calcul : `js/weekadapt.js` (testé dans Node).
 
@@ -356,7 +356,8 @@ Moi → **Amis**  : ajouter un ami par son pseudo, classement de la semaine (vol
 ## Fonctionnalités
 
 - **37 coachs animés originaux** (Salle, Sports, Nature, Zen, Compagnons), chacun avec sa façon de se déplacer (course, vol, sauts, marche, roues, escalade) : Moi → Réglages → Ton coach. Ou aucun personnage, pour une app sobre.
-- **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**.
+- **41 programmes** (Push/Pull/Legs, Haut/Bas, Full body, Bras, Fessiers, Abdos, Maison, Haltères, HIIT, Corde, Mobilité…) et **183 exercices**. L'onglet Séances range ses outils en tuiles (séance libre, manuel, minuteur, objectif chiffré) et, dans « Tout », montre les 3 premières séances de chaque catégorie (et celle du jour) : « Voir les 14 séances » ouvre la catégorie entière.
+- **Réglages** : un sommaire en haut (Toi, Objectif, Programme, Coach & sons, Apparence, Rappels, Compte, Données, IA) mène à chaque section d'un geste.
 - **Mobilité par zone** : nuque, épaules, dos, hanches, jambes et chevilles, poignets, réveil du matin.
 - **Échauffement & souplesse** : échauffement adapté proposé avant chaque séance (haut, bas ou complet) puis enchaîné automatiquement, retour au calme proposé à la fin, souplesse complète, objectif grand écart.
 - **Séries d'échauffement calculées** : avant la première série de travail d'un mouvement à la barre (et du premier mouvement chargé de la séance), la montée en charge s'affiche au-dessus de tes séries, arrondie au pas de l'exercice : barre à vide × 10, puis 40 % × 5, 60 % × 3, 80 % × 2 de ta charge du jour. À cocher au fil de l'eau ; elles ne comptent pas dans la séance (ni volume, ni fatigue, ni record). Le coach les annonce.
@@ -455,7 +456,7 @@ js/importer.js    import Strong / Hevy / Fitbod / MyFitnessPal et export CSV (+ 
 js/vbt.js         vitesse de barre à la caméra : vitesse de chaque poussée, perte de vitesse, RPE estimé
 js/videocoach.js  coach vidéo IA : images d'une vidéo, analyse de technique, corrections
 js/resttimer.js   fin du repos sur l'écran verrouillé (Web Push ou notification locale)
-js/native.js      app App Store (Capacitor) : notifications locales, vibrations, Apple Santé direct
+js/native.js      app App Store (Capacitor) : notifications locales, retour haptique, Apple Santé direct
 js/story.js       mode histoire : chapitres, objectifs, costumes gagnés (+ story-ui.js : carte, livre, fête)
 js/costumes.js    les costumes du coach (teintes et accessoires)
 js/duo.js         duo à distance : salle, code, état de l'autre, encouragements
