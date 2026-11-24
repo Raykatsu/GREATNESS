@@ -17,6 +17,29 @@ export const ACCENTS = {
 };
 export const MODES = { dark: "Sombre", oled: "Noir", light: "Clair" };
 export const ZOOMS = [1, 1.1, 1.2];
+// Taille du texte de l'iPhone (Réglages → Luminosité et affichage → Taille du texte, ou Accessibilité → Texte plus
+// grand) : la police système « body » la suit (17 px par défaut). En « Auto » (réglage par défaut), l'app s'y met,
+// de 90 % à 135 % (au-delà, les écrans ne tiendraient plus).
+// Réglages d'accessibilité lus dans l'app iPhone (native.js) : taille du texte exacte, transparence réduite, texte en
+// gras, contraste augmenté ; null sur le web (les requêtes média et la police système font ce qu'elles peuvent)
+let sys = null;
+export function setSystemA11y(a) { sys = a || null; applyAppearance(); }
+export function systemZoom() {
+  if (sys?.textScale > 0) return zoomFor(17 * sys.textScale);
+  try {
+    if (typeof CSS === "undefined" || !CSS.supports("font", "-apple-system-body")) return 1;
+    const el = document.createElement("span");
+    el.style.cssText = "font:-apple-system-body;position:absolute;visibility:hidden;pointer-events:none";
+    el.textContent = "A";
+    document.body.appendChild(el);
+    const fs = parseFloat(getComputedStyle(el).fontSize) || 17;
+    el.remove();
+    return zoomFor(fs);
+  } catch { return 1; }
+}
+export const zoomFor = fs => Math.min(1.35, Math.max(0.9, Math.round((fs / 17) * 20) / 20));
+// Revenue au premier plan : la taille du texte de l'iPhone a pu changer entre-temps
+if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => { if (!document.hidden && !state.profile?.zoom) applyAppearance(); });
 
 // Couleurs de la pochette du morceau en cours (musictheme.js) : elles remplacent l'accent choisi tant que la musique
 // joue ; une pochette sans couleur franche (neutral) ne change que l'ambiance
@@ -34,7 +57,10 @@ export function applyAppearance(p = state.profile) {
   root.style.setProperty("--red-2", c2);
   root.style.setProperty("--red-soft", `rgba(${rgb}, .13)`);
   root.style.setProperty("--accent-rgb", rgb);
-  root.style.setProperty("--zoom", p.zoom || 1);
+  root.style.setProperty("--zoom", p.zoom || systemZoom());
+  root.classList.toggle("reduce-transparency", !!sys?.reduceTransparency);
+  root.classList.toggle("bold-text", !!sys?.boldText);
+  root.classList.toggle("more-contrast", !!sys?.increaseContrast);
   root.dataset.mode = p.mode || "dark";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", p.mode === "light" ? "#f4f4f8" : p.mode === "oled" ? "#000000" : "#09090d");
 }

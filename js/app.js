@@ -1,6 +1,6 @@
 import "./errors.js"; // remontée des plantages, en premier pour tout attraper
 import { EXERCISES, GOALS, QUOTES, RANKS } from "./data.js";
-import { isNative, nativeWidget, onNativeSiri } from "./native.js";
+import { isNative, nativeWidget, onNativeSiri, nativeA11y, onNativeA11y } from "./native.js";
 import { widgetData } from "./widgetdata.js";
 import { state, save, resetAll, currentUser, rankInfo, streak, weekStats, exerciseHistory, allPrograms, getProgram, e1rm, exName, sessionsOn, tombstone } from "./store.js";
 import { generateWeekPlan, ensureWeekPlan, weekPlanNow, todaysMission, weekStrip, estimateMinutes, adaptToGoal, cycleInfo, BLOCKS } from "./planner.js";
@@ -19,7 +19,7 @@ import { openFeedback, openInbox, isAdmin, unseenFeedback, flushFeedback } from 
 import * as llm from "./llm.js";
 import { renderCoach } from "./coach.js";
 import { renderCreate } from "./create.js";
-import { applyAppearance, ACCENTS, MODES, ZOOMS, musicTint } from "./actions.js";
+import { applyAppearance, ACCENTS, MODES, ZOOMS, musicTint, setSystemA11y } from "./actions.js";
 import { mountAnims } from "./anim.js";
 import { chart } from "./chart.js";
 import { liftRecords, recordsWallHtml, curvesHtml, bindCurves, strengthLevel } from "./records.js";
@@ -99,7 +99,11 @@ function route() {
   musicFor(currentUser);
   if (state.meta.prunedOn !== new Date().toDateString()) { pruneFood(state); state.meta.prunedOn = new Date().toDateString(); save({ silent: true }); }
   document.body.classList.remove("hide-tabs");
-  $$(".tabbar a").forEach(a => a.classList.toggle("active", a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current))));
+  $$(".tabbar a").forEach(a => {
+    const on = a.dataset.tab === current || (a.dataset.tab === "me" && ["progress", "profile"].includes(current));
+    a.classList.toggle("active", on);
+    if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); // VoiceOver : « page actuelle »
+  });
   const next = { key: current, tab: TAB_POS[current] ?? 0, sub: current === "profile" ? 2 : current === "progress" && progressTab === "friends" ? 1 : 0 };
   const prev = shown;
   shown = next;
@@ -197,6 +201,9 @@ addEventListener("greatness:start", e => {
 // Les actions attendent que le compte soit ouvert (code, Face ID) et qu'aucune séance ne soit en cours.
 const siriQueue = [];
 onNativeSiri(a => { siriQueue.push(a); flushSiri(); });
+// les réglages d'accessibilité de l'iPhone (taille du texte, transparence réduite, gras, contraste) : suivis, même en cours de route
+nativeA11y().then(a => { if (a) setSystemA11y(a); });
+onNativeA11y(a => setSystemA11y(a));
 function flushSiri() {
   if (!currentUser || !state.profile.onboarded || isLive()) return;
   while (siriQueue.length) {
@@ -858,7 +865,8 @@ function profile() {
       <div class="set-row stack"><div class="set-lbl">${sic("half", "#64748b")}<b>Fond</b></div>
         <div class="seg" id="mode">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${(p.mode || "dark") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
       <div class="set-row stack"><div class="set-lbl">${sic("text", "#0ea5e9")}<b>Taille du texte</b></div>
-        <div class="seg" id="zoom">${ZOOMS.map((z, i) => `<button data-v="${z}" class="${(p.zoom || 1) === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div></div>
+        <div class="seg" id="zoom" style="--n:4"><button data-v="" class="${p.zoom ? "" : "on"}" aria-label="Automatique : comme l'iPhone">Auto</button>${ZOOMS.map((z, i) => `<button data-v="${z}" class="${p.zoom === z ? "on" : ""}">${["Normal", "Grand", "Très grand"][i]}</button>`).join("")}</div>
+        <span class="xs muted">Auto : la taille du texte réglée sur ton iPhone</span></div>
       ${EN_READY ? `<div class="set-row stack" translate="no"><div class="set-lbl">${sic("globe", "#22c55e")}<b>Langue · Language</b></div>
         <div class="seg" id="lang"><button data-v="fr" lang="fr" class="${getLang() === "fr" ? "on" : ""}">Français</button><button data-v="en" lang="en" class="${getLang() === "en" ? "on" : ""}">English</button></div></div>` : ""}
     </div>
@@ -931,7 +939,7 @@ function profile() {
       : "Couleur enregistrée : elle revient quand tu coupes les couleurs de la pochette (Moi → Réglages → Musique)", 4000);
   });
   $$("#mode button").forEach(b => b.onclick = () => { p.mode = b.dataset.v; save(); applyAppearance(); $$("#mode button").forEach(x => x.classList.toggle("on", x === b)); });
-  $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
+  $$("#zoom button").forEach(b => b.onclick = () => { p.zoom = +b.dataset.v || null; save(); applyAppearance(); $$("#zoom button").forEach(x => x.classList.toggle("on", x === b)); });
   $("#p-deload").onchange = e => { p.deload = e.target.checked; save(); };
   const saveRem = () => { p.remindAt = $("#rem-time").value || "18:00"; p.remindBefore = +$("#rem-before").value; save(); };
   $("#rem-time").onchange = $("#rem-before").onchange = saveRem;

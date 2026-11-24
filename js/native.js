@@ -90,6 +90,19 @@ export function onNativeSiri(fn) {
   const h = G.addListener("siri", e => fn(e || {}));
   return () => { Promise.resolve(h).then(x => x?.remove?.()).catch(() => {}); };
 }
+// Les réglages d'accessibilité de l'iPhone (GreatnessPlugin.swift) : { reduceTransparency, boldText, increaseContrast,
+// reduceMotion, voiceOver, textScale } ; null hors de l'app iPhone
+export async function nativeA11y() {
+  const G = isNative() && plugin("Greatness");
+  if (!G?.a11y) return null;
+  try { return await G.a11y(); } catch { return null; }
+}
+export function onNativeA11y(fn) {
+  const G = isNative() && plugin("Greatness");
+  if (!G?.addListener) return () => {};
+  const h = G.addListener("a11y", e => fn(e || null));
+  return () => { Promise.resolve(h).then(x => x?.remove?.()).catch(() => {}); };
+}
 // Un bouton du repos touché dans la Live Activity (« add15 », « go », RestIntents.swift) ; renvoie de quoi arrêter
 export function onNativeRestAction(fn) {
   const G = isNative() && plugin("Greatness");

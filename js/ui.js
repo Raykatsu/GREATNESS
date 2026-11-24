@@ -82,6 +82,19 @@ export function toast(msg, ms = 2400, { raw = false } = {}) {
   toastT = setTimeout(() => t.classList.remove("show", "swap"), Math.max(ms, 1200 + String(msg).length * 40));
 }
 
+// Une feuille ouverte : tout le reste devient inerte (VoiceOver, le clavier et les touches restent dans la feuille du
+// dessus) ; la bulle de notification reste lisible. Suivi par un observateur : une feuille retirée d'une façon ou
+// d'une autre rend la main à l'écran.
+function syncInert() {
+  const top = [...document.querySelectorAll("body > .sheet-wrap:not(.closing)")].pop();
+  for (const el of document.body.children) {
+    if (el.tagName === "SCRIPT" || el.id === "toast") continue;
+    const off = !!top && el !== top;
+    if (el.inert !== off) el.inert = off;
+  }
+}
+if (typeof document !== "undefined" && typeof MutationObserver !== "undefined" && document.body) new MutationObserver(syncInert).observe(document.body, { childList: true });
+
 // Feuille qui monte du bas. Renvoie { el, close }.
 // Montée en ressort, fond qui s'assombrit en fondu, glisser vers le bas pour fermer (suit le doigt,
 // tient compte de la vitesse), Échap pour fermer, la page dessous ne défile pas (voir CSS).
