@@ -88,7 +88,9 @@ test("assiette : avis par aliment, revue du jour, bulle après l'ajout, coach ta
     await sleep(300);
     const pique = await toastText(page);
     const lines = await page.evaluate(async () => (await import("/js/banter.js")).LINES.eatAlcohol);
-    assert.ok(lines.some(l => pique.startsWith(l.split(/%|\[\[/)[0].slice(0, 12))), pique);
+    // la pique est tirée au sort ; typographie française : espace fine insécable avant « ! ? : ; » (pas dans le modèle)
+    const plain = pique.replace(/[\u202f\u00a0]/g, " ");
+    assert.ok(lines.some(l => plain.startsWith(l.split(/%|\[\[/)[0].slice(0, 12))), pique);
 
     // coupé dans les réglages : plus de points, plus de carte, plus d'avis
     await go(page, "#/profile");
