@@ -155,7 +155,7 @@ export const ITEMS = [
   { id: "chat", sec: "coach", ic: "💬", t: "Discuter avec ton coach", w: "Coach", go: { to: "#/coach", spot: "#composer" }, auto: asked,
     d: "Pose n'importe quelle question : il répond avec tes vraies stats (séances, records, programme, repas)." },
   { id: "commands", sec: "coach", ic: "🪄", t: "Il règle l'app pour toi", w: "Coach", go: { to: "#/coach", spot: "#sugg" },
-    d: "« Crée une séance pecs de 45 min », « Mets Legs le mercredi », « Passe l'app en bleu » : il le fait, même sans IA." },
+    d: "Calories, plan de repas, séances, réglages : demande-lui, il le fait tout de suite (« Annuler » pour revenir en arrière). Les demandes simples marchent même sans IA." },
   { id: "memory", sec: "coach", ic: "🧠", t: "Il se souvient de toi", w: "Moi → Réglages → Ce que le coach sait de toi", go: { to: "#/profile", spot: "#p-memory" },
     d: "Blessures, matériel, préférences : dis-lui « retiens que… ». Tout reste visible et effaçable." },
   { id: "ai", sec: "coach", ic: "🤖", t: "IA en ligne ou sur ton téléphone", w: "Moi → Réglages → IA intelligente", go: { to: "#/profile", spot: "#llm-box" },

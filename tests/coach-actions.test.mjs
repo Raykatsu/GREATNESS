@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state, setUser } from "../js/store.js";
-import { parseActions, streamText, resolveExercise, resolveProgram, applyAction, describe, actionsGuide } from "../js/aiact.js";
+import { parseActions, streamText, resolveExercise, resolveProgram, applyAction, describe, actionsGuide, needsConfirm, snapshot, restore } from "../js/aiact.js";
 import { addMemory, removeMemory, memoryCommand, memoryContext } from "../js/memory.js";
 import { weekReport, reviewWeek, mondayOf, reportText } from "../js/weekly.js";
 import { dayKey, sumItems } from "../js/nutrition.js";
@@ -133,4 +133,160 @@ test("bilan de la semaine : chiffres, points forts, à travailler, note", () => 
   assert.equal(reviewWeek(new Date(2026, 9, 11, 18)).getTime(), mon.getTime()); // dimanche soir : la semaine en cours
   assert.equal(reviewWeek(new Date(2026, 9, 12, 9)).getTime(), mon.getTime());  // lundi : la semaine passée
   assert.equal(mondayOf(new Date(2026, 9, 11, 9)).getTime(), mon.getTime());
+});
+
+test("le coach agit sur toute l'app : calories et macros, plan de repas suivi, garde-fou du minimum", async () => {
+  reset({ profile: { goal: "seche", days: 3, bodyweight: 80, sex: "m", age: 30, height: 180, activity: "light" } });
+  const { targets } = await import("../js/nutrition.js");
+  const { localPlan, totalsOf } = await import("../js/mealplan.js");
+  const t0 = targets(state.profile);
+  let r = applyAction({ type: "set_nutrition", delta: "−200 kcal" }); // nombre écrit avec son unité, signe moins typographique
+  assert.ok(r.ok, r.text);
+  assert.equal(targets(state.profile).kcal, Math.round((t0.kcal - 200) / 10) * 10);
+  assert.equal(targets(state.profile).custom, true);
+  r = applyAction({ type: "set_nutrition", kcal: "2 100", protein: "170 g" });
+  const t = targets(state.profile);
+  assert.deepEqual([t.kcal, t.p], [2100, 170]);
+  assert.ok(Math.abs(t.p * 4 + t.c * 4 + t.f * 9 - 2100) < 40, "macros cohérentes avec les calories");
+  // jamais sous le métabolisme de base : garde-fou
+  r = applyAction({ type: "set_nutrition", kcal: 900 });
+  assert.ok(targets(state.profile).kcal >= 1400);
+  assert.match(r.text, /Je ne descends pas plus bas/);
+  // un plan de repas existant suit les nouveaux objectifs
+  state.mealPlan = { id: "x", at: Date.now(), source: "ai", kcal: 2600, p: 150, days: localPlan({ kcal: 2600, p: 150 }, { days: 2 }), shopping: [] };
+  r = applyAction({ type: "set_nutrition", kcal: 2000 });
+  assert.match(r.text, /Ton plan de repas suit/);
+  for (const d of state.mealPlan.days) assert.ok(Math.abs(totalsOf(d.meals.flatMap(m => m.items)).k - 2000) <= 60);
+  r = applyAction({ type: "set_nutrition", auto: true });
+  assert.equal(targets(state.profile).custom, false);
+  applyAction({ type: "set_nutrition", rate: -0.6, goalWeight: 75, dailyAdapt: false });
+  assert.deepEqual([state.profile.nutri.rate, state.profile.nutri.goalWeight, state.profile.nutri.dailyAdapt], [-0.5, 75, false]);
+});
+
+test("plan de repas en parlant : composé à la demande, repas remplacé, aliment échangé ou retiré, calories toujours justes", async () => {
+  reset({ profile: { goal: "muscle", days: 3, bodyweight: 80, sex: "m", age: 30, height: 180, activity: "light" } });
+  const { targets } = await import("../js/nutrition.js");
+  const { totalsOf } = await import("../js/mealplan.js");
+  const kOf = d => totalsOf(d.meals.flatMap(m => m.items)).k, goal = () => targets(state.profile).kcal;
+  assert.equal(applyAction({ type: "edit_plan", op: "fit" }).ok, false); // pas de plan
+  let r = applyAction({ type: "meal_plan", days: 3, diet: ["Végétarien"] });
+  assert.ok(r.ok);
+  assert.equal(state.mealPlan.days.length, 3);
+  assert.deepEqual(state.mealPlan.diet, ["vegetarien"]);
+  assert.ok(state.mealPlan.days.every(d => Math.abs(kOf(d) - goal()) <= goal() * 0.05));
+  assert.deepEqual(r.effects, { plan: true });
+  // plan écrit par l'IA (valeurs de la base quand elle n'en donne pas), recalé sur l'objectif
+  r = applyAction({ type: "meal_plan", plan: [{ meals: [
+    { meal: "lunch", name: "Poulet riz", items: [{ name: "Blanc de poulet", grams: 400 }, { name: "Riz blanc cuit", grams: 700 }] },
+    { meal: "dinner", name: "Saumon pâtes", items: [{ name: "Saumon", grams: 300 }, { name: "Pâtes cuites", grams: 600 }] },
+  ] }] });
+  assert.ok(r.ok);
+  assert.equal(state.mealPlan.source, "ai");
+  assert.ok(Math.abs(kOf(state.mealPlan.days[0]) - goal()) <= goal() * 0.03, `${kOf(state.mealPlan.days[0])}`);
+  // d'autres calories que l'objectif, à la demande : le plan les garde
+  applyAction({ type: "meal_plan", days: 2, kcal: 1900 });
+  assert.equal(state.mealPlan.fixed, true);
+  assert.ok(state.mealPlan.days.every(d => Math.abs(kOf(d) - 1900) <= 100));
+  applyAction({ type: "meal_plan", days: 2 });
+  // remplacer le dîner du jour 2 ; échanger un aliment partout ; en retirer un
+  r = applyAction({ type: "edit_plan", op: "replace_meal", day: 2, meal: "dinner", name: "Omelette et salade", items: [{ name: "Œuf", grams: 165 }, { name: "Salade verte", grams: 80 }, { name: "Pain complet", grams: 60 }] });
+  assert.ok(r.ok, r.text);
+  assert.equal(state.mealPlan.days[1].meals.find(m => m.meal === "dinner").name, "Omelette et salade");
+  assert.ok(Math.abs(kOf(state.mealPlan.days[1]) - goal()) <= goal() * 0.03);
+  const someFood = state.mealPlan.days[0].meals[1].items[0].name;
+  r = applyAction({ type: "edit_plan", op: "swap_food", from: someFood, to: "Escalope de dinde" });
+  assert.ok(r.ok, r.text);
+  assert.ok(!state.mealPlan.days.some(d => d.meals.some(m => m.items.some(x => x.name === someFood))));
+  r = applyAction({ type: "edit_plan", op: "remove_food", food: "Huile d'olive" });
+  assert.ok(!state.mealPlan.days.some(d => d.meals.some(m => m.items.some(x => x.name === "Huile d'olive"))));
+  assert.equal(applyAction({ type: "edit_plan", op: "remove_food", food: "Caviar" }).ok, false);
+  r = applyAction({ type: "edit_plan", op: "fit", kcal: 2300 });
+  assert.ok(state.mealPlan.days.every(d => Math.abs(kOf(d) - 2300) <= 80));
+});
+
+test("journal, eau, pesée, profil, réglages, séances, objectifs, mémoire, écrans", () => {
+  reset({ profile: { goal: "muscle", days: 3, bodyweight: 80 } });
+  let r = applyAction({ type: "log_food", meal: "lunch", items: [{ name: "Riz blanc cuit", grams: 200 }, { name: "Coca-Cola", grams: 330, kcal: 139 }] });
+  assert.ok(r.ok);
+  const day = () => state.food[dayKey()];
+  assert.equal(Math.round(sumItems(day().items).k), 260 + 139); // riz : valeurs de la base
+  r = applyAction({ type: "edit_food", name: "riz", grams: 150 });
+  assert.equal(day().items.find(x => x.name === "Riz blanc cuit").g, 150);
+  r = applyAction({ type: "remove_food", name: "coca" });
+  assert.deepEqual(day().items.map(x => x.name), ["Riz blanc cuit"]);
+  assert.equal(applyAction({ type: "remove_food", name: "pizza" }).ok, false);
+  applyAction({ type: "water", add: 2 });
+  applyAction({ type: "water", add: 1 });
+  assert.equal(day().water, 3);
+  applyAction({ type: "water", glasses: 8 });
+  assert.equal(day().water, 8);
+  r = applyAction({ type: "log_weight", kg: "78,4" });
+  assert.deepEqual([r.ok, state.profile.bodyweight, state.body.at(-1).weight], [true, 78.4, 78.4]);
+  applyAction({ type: "log_weight", kg: 78 }); // même jour : la pesée est remplacée
+  assert.equal(state.body.length, 1);
+  r = applyAction({ type: "set_profile", height: 182, age: 31, sex: "homme", activity: "mod", equipment: "home", days: 4, minutes: 60 });
+  assert.deepEqual([state.profile.height, state.profile.age, state.profile.sex, state.profile.activity, state.profile.equipment, state.profile.days, r.replan], [182, 31, "m", "mod", "home", 4, true]);
+  // réglages
+  assert.deepEqual(applyAction({ type: "set_setting", setting: "banter", value: "on" }).ok && state.profile.banter, true);
+  applyAction({ type: "set_setting", setting: "plateTips", value: false });
+  assert.equal(state.profile.plateTips, false);
+  assert.deepEqual(applyAction({ type: "set_setting", setting: "accent", value: "Bleu" }).effects, { appearance: true });
+  applyAction({ type: "set_setting", setting: "mode", value: "clair" });
+  applyAction({ type: "set_setting", setting: "zoom", value: 1.18 });
+  applyAction({ type: "set_setting", setting: "remindAt", value: "7h" });
+  assert.deepEqual([state.profile.accent, state.profile.mode, state.profile.zoom, state.profile.remindAt], ["bleu", "light", 1.2, "07:00"]);
+  assert.deepEqual(applyAction({ type: "set_setting", setting: "mascot", value: false }).effects, { mascot: false });
+  assert.deepEqual(applyAction({ type: "set_setting", setting: "lang", value: "en" }).effects, { lang: "en" });
+  assert.equal(applyAction({ type: "set_setting", setting: "nimporte", value: 1 }).ok, false);
+  assert.deepEqual(applyAction({ type: "set_coach", coach: "Mochi" }).effects, { coach: "Mochi" });
+  // séances : une séance de l'app modifiée devient ta version, et ton programme la suit
+  state.weekPlan = { 0: "push", 2: "pull" };
+  r = applyAction({ type: "edit_program", program: "Push", add: [{ name: "Pompes", sets: 3, reps: "12-15" }], replace: [{ from: "Développé couché", to: "Développé incliné haltères" }], rename: "Push maison" });
+  assert.ok(r.ok, r.text);
+  const mine = state.customPrograms.find(p => p.name === "Push maison");
+  assert.ok(mine && state.weekPlan[0] === mine.id);
+  assert.ok(mine.exercises.some(e => e.id === "pushup"));
+  assert.ok(!mine.exercises.some(e => e.id === "bench"));
+  assert.ok(needsConfirm({ type: "delete_program", program: "Push maison" })); // une suppression se valide
+  assert.ok(needsConfirm({ type: "set_goal", goal: "force", confirm: true })); // une simple suggestion aussi
+  assert.ok(!needsConfirm({ type: "set_goal", goal: "force" }));
+  r = applyAction({ type: "delete_program", program: "Push maison" });
+  assert.ok(r.ok);
+  assert.equal(state.weekPlan[0], undefined);
+  assert.equal(applyAction({ type: "delete_program", program: "Pull" }).ok, false); // séance de l'app : pas supprimable
+  assert.deepEqual(applyAction({ type: "regen_week" }).replan, true);
+  r = applyAction({ type: "add_goal", exercise: "Squat", base: 100, target: 120, weeks: 8 });
+  assert.ok(r.ok, r.text);
+  assert.equal(state.goals.at(-1).exId, "squat");
+  assert.deepEqual(applyAction({ type: "start_session", program: "today" }).effects, { start: "today" });
+  assert.deepEqual(applyAction({ type: "start_session", program: "Pull" }).effects, { start: "pull" });
+  applyAction({ type: "remember", fact: "Allergie aux noix" });
+  r = applyAction({ type: "forget", fact: "noix" });
+  assert.ok(r.ok);
+  assert.equal(state.memory.length, 0);
+  assert.deepEqual(applyAction({ type: "open", screen: "food" }).effects, { route: "#/food" });
+  assert.deepEqual(applyAction({ type: "open", screen: "plan" }).effects, { open: "plan" });
+});
+
+test("annuler : les données touchées reviennent comme avant, et rien d'autre", () => {
+  reset({ profile: { goal: "muscle", days: 3, bodyweight: 80 } });
+  state.food[dayKey()] = { items: [{ id: "a", name: "Pomme", meal: "snack", g: 150, per: { k: 52 } }], water: 2, at: 1 };
+  state.sessions.push({ id: "s1", date: 1, sets: [] });
+  const list = [{ type: "set_nutrition", kcal: 1900 }, { type: "remove_food", name: "Pomme" }, { type: "water", add: 3 }, { type: "set_setting", setting: "accent", value: "vert" }];
+  const snap = snapshot(list);
+  for (const a of list) assert.ok(applyAction(a).ok);
+  assert.equal(state.food[dayKey()].items.length, 0);
+  restore(snap);
+  assert.deepEqual(state.food[dayKey()].items.map(x => x.name), ["Pomme"]);
+  assert.equal(state.food[dayKey()].water, 2);
+  assert.equal(state.profile.nutri, null);
+  assert.equal(state.profile.accent, undefined);
+  assert.ok(!(state.deleted.food || []).includes("a"), "pas de trace de suppression : la synchro ne la retire pas");
+  assert.equal(state.sessions.length, 1); // le reste n'est pas touché
+  // la consigne : agir (pas « envoie-moi une phrase »), toutes les actions, l'état de l'app
+  const g = actionsGuide("Baisse mes calories");
+  assert.match(g, /Ne lui demande jamais de faire la modification lui-même/);
+  for (const ty of ["set_nutrition", "meal_plan", "edit_plan", "remove_food", "water", "log_weight", "set_profile", "set_setting", "set_coach", "edit_program", "add_goal", "open"]) assert.match(g, new RegExp(`- ${ty}\\b|\\b${ty},`), ty);
+  assert.match(g, /### État de l'app\n- Objectifs nutrition : \d+ kcal/);
+  assert.match(g, /Journal d'aujourd'hui : snack : Pomme 150 g/);
 });

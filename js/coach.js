@@ -6,17 +6,58 @@ import { onlineReady, onlineChat, onlineRemaining } from "./online.js";
 import { aiReady, aiChat } from "./ai.js";
 import * as llm from "./llm.js";
 import { mascot } from "./mascot.js";
-import { parseCommand, runCommand, COMMAND_EXAMPLES } from "./actions.js";
+import { parseCommand, runCommand, COMMAND_EXAMPLES, applyAppearance } from "./actions.js";
 import { $, $$, esc, md, I, coachIcon, sheet, confirmSheet, toast, helpBtn } from "./ui.js";
-import { coachName } from "./chars/index.js";
-import { parseActions, streamText, describe, applyAction } from "./aiact.js";
+import { coachName, findCoach, setCoach, current as currentCoach } from "./chars/index.js";
+import { parseActions, streamText, describe, applyAction, needsConfirm, snapshot, restore } from "./aiact.js";
+import { setLang } from "./i18n.js";
 import { memoryCommand, addMemory } from "./memory.js";
 import { generateWeekPlan } from "./planner.js";
 
-const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
+const SUGGESTIONS = ["Ce que tu peux faire pour moi", "Baisse mes calories de 200", "Crée une séance pecs de 45 min", "Fais mon bilan de la semaine", "Comment progresser au squat ?", "Que manger avant et après la séance ?", "Je stagne, je fais quoi ?", "Crée-moi une séance bras de 30 min", "J'ai mal à l'épaule", "Comment mieux dormir ?"];
 
 const HINT_KEY = "greatness.coach.noGpuHint";
 let cleanup = null;
+// Ce que le coach vient de changer, gardé pour « Annuler » (le temps de la session : rien n'est enregistré)
+const undos = new WeakMap();
+
+// Des actions du coach, appliquées dans l'ordre : ce qui a été fait, les effets à l'écran, de quoi annuler
+export function applyBatch(list, created = {}) {
+  const snap = snapshot(list), notes = [], buttons = [], effects = {};
+  let ok = 0;
+  for (const a of list) {
+    const r = applyAction(a, created);
+    notes.push(`${r.ok ? "✓" : "⚠️"} ${r.text}`);
+    if (!r.ok) continue;
+    ok++;
+    if (r.programId) buttons.push({ label: "▶ Lancer la séance", start: r.programId });
+    if (r.replan) state.weekPlan = generateWeekPlan();
+    Object.assign(effects, r.effects || {});
+  }
+  if (effects.plan) buttons.push({ label: "Voir le plan de repas", open: "plan" });
+  return { notes, buttons, effects, snap: ok ? snap : null };
+}
+
+// Ce que l'écran doit faire après les actions : couleurs, coach animé, personnage, langue, écran, séance, plan
+export function runEffects(e = {}) {
+  if (e.appearance) applyAppearance();
+  if (e.mascot != null) window.dispatchEvent(new CustomEvent("greatness:mascot", { detail: e.mascot }));
+  if (e.coach) {
+    const c = findCoach(e.coach);
+    if (c && c.id !== currentCoach().id) setCoach(c.id); else if (!c) toast(`Coach « ${e.coach} » introuvable`, 3000);
+  }
+  if (e.open) setTimeout(() => openScreen(e.open), 400);
+  if (e.route) setTimeout(() => (location.hash = e.route), 600);
+  if (e.start) setTimeout(() => window.dispatchEvent(new CustomEvent("greatness:start", { detail: e.start })), 600);
+  if (e.lang) setTimeout(() => setLang(e.lang), 1200);
+}
+// Plan de repas, courses, « Comprendre », guide : des feuilles, ouvertes par-dessus la discussion
+function openScreen(what) {
+  if (what === "plan") import("./mealplan-ui.js").then(m => m.openPlan());
+  else if (what === "shopping") import("./mealplan-ui.js").then(m => m.openShopping());
+  else if (what === "learn") { location.hash = "#/food"; import("./food.js").then(m => setTimeout(() => m.openLearn(), 300)); }
+  else if (what === "guide") window.dispatchEvent(new CustomEvent("greatness:guide", { detail: "start" }));
+}
 
 const reduced = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const pct = p => Math.max(0, Math.min(100, Math.round((p || 0) * 100)));
@@ -188,35 +229,45 @@ export function renderCoach(view) {
   redrawAi();
 
   // ---------- Messages ----------
-  const actionsHtml = m => m.actions?.length ? `<div class="acts">${m.actions.map((a, i) => `<button class="chip red" data-act="${i}">${esc(a.label)}</button>`).join("")}</div>` : "";
-  const bindActions = (el, m) => $$("[data-act]", el).forEach(b => {
+  const canUndo = m => undos.has(m) && !m.undone;
+  const actionsHtml = m => (m.actions?.length || canUndo(m)) ? `<div class="acts">${(m.actions || []).map((a, i) => `<button class="chip red" data-act="${i}">${esc(a.label)}</button>`).join("")}${canUndo(m) ? `<button class="chip undo" data-undo>${I.undo} Annuler</button>` : ""}</div>` : "";
+  const bindActions = (el, m) => { $$("[data-act]", el).forEach(b => {
     const a = m.actions?.[+b.dataset.act];
     if (a?.done) { b.disabled = true; b.classList.add("done"); }
     b.onclick = () => {
       if (a?.start) window.dispatchEvent(new CustomEvent("greatness:start", { detail: a.start }));
       else if (a?.guide) window.dispatchEvent(new CustomEvent("greatness:guide", { detail: a.guide })); // js/guide.js
       else if (a?.route) location.hash = a.route;
+      else if (a?.open) openScreen(a.open);
       else if (a?.ask) send(a.ask);
       else if (a?.ai || a?.all) runAi(el, m, a);
     };
   });
+  // « Annuler » : les données touchées reprennent leur état d'avant
+  $$("[data-undo]", el).forEach(b => b.onclick = () => {
+    restore(undos.get(m));
+    undos.delete(m);
+    m.undone = true;
+    m.content += "\n\n↩ Modification annulée.";
+    save();
+    runEffects({ appearance: true });
+    toast("Modification annulée");
+    const bubble = $(".msg", el);
+    if (bubble) { bubble.innerHTML = fr(md(m.content)) + actionsHtml(m); bindActions(el, m); }
+  }); };
   // Actions proposées par l'IA en ligne : appliquées au toucher (« Tout appliquer » les fait dans l'ordre)
   const runAi = (el, m, a) => {
     m.created ||= {};
     const list = a.all ? m.actions.filter(x => x.ai && !x.done) : [a];
-    const out = [];
-    for (const x of list) {
-      const r = applyAction(x.ai, m.created);
-      out.push(r.text);
-      if (!r.ok) continue;
-      x.done = true; x.label = `✓ ${x.label}`;
-      if (r.programId) m.actions.push({ label: "▶ Lancer la séance", start: r.programId });
-      if (r.replan) state.weekPlan = generateWeekPlan();
-    }
+    const r = applyBatch(list.map(x => x.ai), m.created);
+    r.notes.forEach((note, i) => { if (note.startsWith("✓")) { list[i].done = true; list[i].label = `✓ ${list[i].label}`; } });
+    m.actions.push(...r.buttons);
+    if (r.snap) undos.set(m, [...(undos.get(m) || []), ...r.snap].filter((x, i, all) => all.findIndex(y => y[0] === x[0]) === i)); // l'état d'avant la 1re modification
     if (a.all) a.done = true;
     if (m.actions.every(x => !x.ai || x.done)) m.actions = m.actions.filter(x => !x.all);
     save();
-    toast(out.join(" · "), 3500);
+    runEffects(r.effects);
+    toast(r.notes.map(x => x.replace(/^(✓|⚠️) /, "")).join(" · "), 3500);
     mascot.react("happy");
     const box = $(".acts", el);
     if (box) { box.outerHTML = actionsHtml(m); bindActions(el, m); }
@@ -272,9 +323,13 @@ export function renderCoach(view) {
         if (stick) toBottom(false);
       });
     };
-    let reply, auto = null;
+    let reply, auto = null, effects = null;
     try {
-      const cmd = parseCommand(text);
+      // une demande composée (« mets-moi à 2000 kcal et passe l'app en bleu ») va en entier à l'IA en ligne, qui fait
+      // tout ; une demande simple reste instantanée, en local (et marche sans réseau)
+      const flat = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const compound = text.length > 90 || /\b(et|puis|aussi|ensuite)\b[^.?!]*\b(mets?|mettre|passe|ajoute|baisse|monte|augmente|change|cree|fais|active|desactive|enleve|retire|remplace|refais)\b/.test(flat);
+      const cmd = compound && onlineReady() ? null : parseCommand(text);
       // créer une séance : l'IA en ligne la compose (elle tient compte de ta mémoire et de ton historique) ;
       // le générateur de l'app reste en secours. Les réglages simples restent instantanés, en local.
       const aiFirst = cmd?.type === "create" && onlineReady();
@@ -284,6 +339,13 @@ export function renderCoach(view) {
         await new Promise(res => setTimeout(res, 450));
         reply = { role: "assistant", content: `Je réponds à toutes tes questions, et je peux aussi **modifier l'app pour toi**. Par exemple :\n${COMMAND_EXAMPLES.map(e => `• « ${e} »`).join("\n")}\n\nEt pour faire le tour de toutes les fonctions de l'app, ouvre le guide.`,
           actions: [{ label: "Découvrir GREATNESS", guide: "start" }, ...COMMAND_EXAMPLES.slice(0, 3).map(e => ({ label: e, ask: e }))] };
+      } else if (rc?.act) {
+        await new Promise(res => setTimeout(res, 350));
+        const r = applyBatch([rc.act]);
+        save();
+        reply = { role: "assistant", content: `${rc.text || "C'est fait :"}\n\n${r.notes.join("\n")}`, actions: r.buttons };
+        if (r.snap) undos.set(reply, r.snap);
+        effects = r.effects;
       } else if (rc) {
         await new Promise(res => setTimeout(res, 450));
         reply = { role: "assistant", content: rc.text, actions: rc.actions };
@@ -303,15 +365,18 @@ export function renderCoach(view) {
           const res = await onlineChat({ system, messages, onDelta: t => stream(streamText(t)) });
           const src = res.sources.length ? `\n\nSources : ${res.sources.map(x => `[${x.title.replace(/[[\]]/g, "")}](${x.url})`).join(" · ")}` : "";
           const cut = res.cut ? "\n\n*(Réponse coupée par le réseau : écris « continue » pour la suite.)*" : "";
-          // actions proposées : « retenir » s'applique tout seul, le reste devient des boutons
+          // ce que l'athlète demande est appliqué tout de suite (« Annuler » pour revenir en arrière) ; « retenir » aussi ;
+          // une simple suggestion du coach, ou une suppression, devient un bouton à valider
           const { text: clean, actions } = parseActions(res.text), notes = [], buttons = [];
-          for (const a of actions) {
-            if (a.type === "remember") { const r = applyAction(a); if (r.ok) notes.push(`📝 ${r.text}`); }
-            else buttons.push({ label: describe(a), ai: a });
-          }
-          if (buttons.length > 1) buttons.push({ label: "Tout appliquer", all: true });
+          for (const a of actions.filter(x => x.type === "remember")) { const r = applyAction(a); if (r.ok) notes.push(`📝 ${r.text}`); }
+          const now = actions.filter(x => x.type !== "remember" && !needsConfirm(x)), later = actions.filter(x => x.type !== "remember" && needsConfirm(x));
+          let snap = null;
+          if (now.length) { const r = applyBatch(now); notes.push(...r.notes); buttons.push(...r.buttons); snap = r.snap; effects = r.effects; }
+          for (const a of later) buttons.push({ label: describe(a), ai: a });
+          if (later.length > 1) buttons.push({ label: "Tout appliquer", all: true });
           if (notes.length) save();
-          reply = { role: "assistant", content: (clean || "C'est prêt :") + cut + (notes.length ? `\n\n${notes.join("\n")}` : "") + src, actions: buttons };
+          reply = { role: "assistant", content: (clean || (now.length ? "C'est fait :" : "C'est prêt :")) + cut + (notes.length ? `\n\n${notes.join("\n")}` : "") + src, actions: buttons };
+          if (snap) undos.set(reply, snap);
         } catch (err) {
           // l'IA en ligne ne répond pas : l'IA du téléphone ou le mode simple prend le relais
           const why = err.detail ? ` (${err.detail})` : "";
@@ -349,6 +414,7 @@ export function renderCoach(view) {
       drawStatus();
     }
     if (!auto) mascot.react("happy");
+    if (effects) runEffects(effects);
     if (auto?.route) setTimeout(() => (location.hash = auto.route), 500);
     if (auto?.start) setTimeout(() => window.dispatchEvent(new CustomEvent("greatness:start", { detail: auto.start })), 500);
   };

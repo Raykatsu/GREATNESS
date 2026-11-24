@@ -183,9 +183,54 @@ export function prepOf(m) {
   return r ? { steps: r.steps, time: r.time } : null;
 }
 
+/* ---------- Recaler un jour sur les objectifs ---------- */
+// Les quantités d'un jour (plan de l'IA, plan d'avant un changement d'objectif, repas changé par le coach) remises à
+// l'échelle des objectifs { kcal, p } : les aliments riches en protéines à l'échelle a, les féculents, fruits secs et
+// matières grasses à l'échelle b, les légumes gardent leur portion. Calories au plus juste (±3 %), protéines au moins
+// à l'objectif ; quantités arrondies comme on les sert.
+const isVeg = x => (x.per?.k || 0) < 45 && aisleOf(x.name) === "Fruits et légumes";
+const isRich = x => ((x.per?.p || 0) * 4) / Math.max(1, x.per?.k || 0) >= 0.3;
+const serveAny = (x, g) => (byName[x.name] ? serve(x.name, g) : g < 100 ? Math.max(5, Math.round(g / 5) * 5) : Math.round(g / 10) * 10);
+export function fitDay(day, t, { tol = 0.03 } = {}) {
+  const items = (day?.meals || []).flatMap(m => m.items || []);
+  if (!t?.kcal || !items.length) return day;
+  const tot = totalsOf(items);
+  if (Math.abs(tot.k - t.kcal) <= t.kcal * tol && (!t.p || tot.p >= t.p * 0.95)) return day;
+  const cls = x => (isVeg(x) ? 0 : isRich(x) ? 1 : 2);
+  // de préférence tout à la même échelle (les mêmes repas, en plus petit ou plus grand) ; on ne s'en écarte que pour
+  // garder les protéines à l'objectif (sans en rajouter au-delà de 25 %)
+  const vegK = items.filter(x => cls(x) === 0).reduce((s, x) => s + ((x.per.k || 0) * x.g) / 100, 0);
+  const m = Math.min(2.2, Math.max(0.3, (t.kcal - vegK) / Math.max(1, tot.k - vegK))), lm = Math.log(m);
+  let best = null;
+  const tryAB = (a, b) => {
+    if (a < 0.4 || a > 2.2 || b < 0.25 || b > 2.5) return;
+    let k = 0, p = 0;
+    for (const x of items) { const c = cls(x), g = c === 0 ? x.g : serveAny(x, x.g * (c === 1 ? a : b)); k += ((x.per.k || 0) * g) / 100; p += ((x.per.p || 0) * g) / 100; }
+    const err = (1.2 * Math.abs(k - t.kcal)) / t.kcal + (t.p ? Math.max(0, t.p - p) / t.p + 0.3 * Math.max(0, p - 1.25 * t.p) / t.p : 0)
+      + 0.05 * (Math.abs(Math.log(a) - lm) + Math.abs(Math.log(b) - lm));
+    if (!best || err < best.err) best = { a, b, err };
+  };
+  for (let i = 0; i <= 18; i++) for (let j = 0; j <= 22; j++) tryAB(0.4 + i * 0.1, 0.25 + j * 0.1);
+  const { a, b } = best;
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) tryAB(a + i * 0.025, b + j * 0.025);
+  return { ...day, meals: day.meals.map(m => ({ ...m, items: m.items.map(x => { const c = cls(x); return c === 0 ? x : { ...x, g: serveAny(x, x.g * (c === 1 ? best.a : best.b)) }; }) })) };
+}
+// Tout le plan recalé sur les objectifs ; la liste de courses suit (ce qui était coché le reste)
+export function fitPlan(plan, t) {
+  const days = plan.days.map(d => fitDay(d, t)), done = new Set((plan.shopping || []).filter(x => x.done).map(x => x.name));
+  return { ...plan, days, kcal: t.kcal, p: t.p, shopping: shoppingList(days).map(x => (done.has(x.name) ? { ...x, done: true } : x)) };
+}
+// Le plan ne suit plus les objectifs : fait pour d'autres calories, ou un jour trop loin du compte (plan de l'IA)
+export function planDrift(plan, t) {
+  if (!plan?.days?.length || !t?.kcal || plan.fixed) return false;
+  if (plan.kcal && Math.abs(plan.kcal - t.kcal) > t.kcal * 0.05) return true;
+  return plan.days.some(d => Math.abs(totalsOf(d.meals.flatMap(m => m.items)).k - t.kcal) > t.kcal * 0.08);
+}
+
 /* ---------- Plan de l'IA ---------- */
-// Réponse de l'IA → plan de l'app : les aliments connus gardent leurs valeurs de référence (l'IA donne la quantité)
-export function fromAiPlan(r = {}) {
+// Réponse de l'IA → plan de l'app : les aliments connus gardent leurs valeurs de référence (l'IA donne la quantité).
+// Avec les objectifs t : chaque jour est recalé dessus (l'IA se trompe parfois de beaucoup sur les portions)
+export function fromAiPlan(r = {}, t = null) {
   const per100 = x => { const m = 100 / (x.grams > 0 ? x.grams : 100); return { k: r1(x.kcal * m), p: r1(x.protein * m), c: r1(x.carbs * m), f: r1(x.fat * m) }; };
   const days = (r.days || []).slice(0, 7).map((d, i) => ({
     name: `Jour ${i + 1}`,
@@ -198,9 +243,11 @@ export function fromAiPlan(r = {}) {
       }),
     })).filter(m => m.items.length),
   })).filter(d => d.meals.length);
+  const fitted = t?.kcal ? days.map(d => fitDay(d, t)) : days, moved = fitted.some((d, i) => d !== days[i]);
   const shopping = (r.shopping || []).slice(0, 80).filter(x => x.name).map(x => ({ id: newId(), name: String(x.name).slice(0, 60), qty: String(x.qty || "").slice(0, 30),
     aisle: AISLES.some(([n]) => n === x.aisle) ? x.aisle : aisleOf(String(x.name)), done: false }));
-  return { days, shopping: shopping.length ? shopping : shoppingList(days), tips: String(r.tips || "").slice(0, 400) };
+  // quantités recalées : la liste de l'IA ne correspond plus, l'app la recalcule
+  return { days: fitted, shopping: shopping.length && !moved ? shopping : shoppingList(fitted), tips: String(r.tips || "").slice(0, 400) };
 }
 // Texte de la liste (partage, copie)
 export const shoppingText = list => {
