@@ -83,7 +83,7 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
     $("#cam-v", wrap).textContent = `${fmtV(rep.v)}${s.reps.length > 1 ? ` · ${s.loss ? `−${s.loss} %` : "vitesse tenue"}` : ""}`;
     $("#cam-vbars", wrap).innerHTML = s.reps.slice(-12).map(v => `<i style="--h:${Math.max(0.12, v / s.best).toFixed(2)}"></i>`).join("");
     if (s.loss >= limit && !slowSaid && s.reps.length >= 2) {
-      slowSaid = true; vibrate([60, 60, 60]);
+      slowSaid = true; vibrate("warning");
       if (voice) speak(`Vitesse en baisse de ${s.loss} pour cent : arrête-toi bientôt pour garder des reps de qualité.`, { interrupt: true });
     }
   }
@@ -103,7 +103,7 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
   // le coach le dit (et le redit si le défaut continue), sans parler en boucle
   function nudge(id) {
     const now = performance.now();
-    vibrate([30, 40, 30]);
+    vibrate("warning");
     if (voice && now - lastSay > 3500 && now - (said[id] || -1e9) > 9000) { speak(ISSUES[id].say, { interrupt: true }); lastSay = now; said[id] = now; }
   }
 
@@ -171,7 +171,7 @@ export function openCam(ex, { onDone, voice = true, practice = false, goal = 0 }
       msg(f.issue ? "Corrige ta position" : sec ? "Tiens bon !" : "C'est parti !");
       if (sec !== lastSec) {
         lastSec = sec; setN(false); quality();
-        if (goal && sec === goal) { beep(1040, 0.2); vibrate(60); if (voice) speak("Objectif atteint !"); }
+        if (goal && sec === goal) { beep(1040, 0.2); vibrate("success"); if (voice) speak("Objectif atteint !"); }
         else if (sec && sec % 10 === 0) { beep(880, 0.06); if (voice && !f.issue) speak(`${sec} secondes`); }
       }
       return f;

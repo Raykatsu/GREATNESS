@@ -8,6 +8,7 @@ import { mascot } from "./mascot.js";
 import { shareProgram } from "./social.js";
 import { mountAnims } from "./anim.js";
 import { demoBtn } from "./demo.js";
+import { vibrate } from "./fx.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, coachIcon, helpBtn } from "./ui.js";
 
 let tab = "new", draft = null, open = -1, genOpen = true;
@@ -131,7 +132,7 @@ function paneNew(pane, view, launch) {
     if (k === "full") gen.groups = new Set(gen.groups.has("full") ? [] : ["full"]);
     else { gen.groups.delete("full"); gen.groups.has(k) ? gen.groups.delete(k) : gen.groups.add(k); }
     $$("[data-g]", pane).forEach(x => { const on = gen.groups.has(x.dataset.g); x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
-    navigator.vibrate?.(4);
+    vibrate("tick");
   });
   $$("#g-min button", pane).forEach(b => b.onclick = () => { gen.minutes = +b.dataset.v; $$("#g-min button", pane).forEach(x => x.classList.toggle("on", x === b)); sumEl(); });
   $$("#g-eq button", pane).forEach(b => b.onclick = () => { gen.equipment = b.dataset.v; $$("#g-eq button", pane).forEach(x => x.classList.toggle("on", x === b)); sumEl(); });
@@ -176,7 +177,7 @@ function paneNew(pane, view, launch) {
       if (k === "max") { e.reps = [e.reps[0], Math.max(e.reps[0], e.reps[1] + d)]; }
       if (k === "weight") e.weight = Math.max(0, +(e.weight + d * (ex.step || 2.5)).toFixed(2));
       if (k === "rest") e.rest = Math.max(10, Math.min(600, e.rest + d));
-      navigator.vibrate?.(5);
+      vibrate("tick");
       const box = b.closest(".bex"), v = box.querySelector(`[data-v="${k}"]`);
       v.textContent = k === "min" || k === "max" ? (k === "min" ? e.reps[0] : e.reps[1]) : e[k];
       bump(v);

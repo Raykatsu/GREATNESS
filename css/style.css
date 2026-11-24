@@ -508,6 +508,20 @@ button.chip:active, a.chip:active { transform: scale(.94); transition-duration: 
 .free-card .chev, .prog .chev { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--card-2); color: var(--muted); flex: none; }
 .free-card .chev svg, .prog .chev svg { width: 16px; height: 16px; }
 
+/* Les outils en grille de tuiles (2 × 2) ; une tuile seule sur sa ligne s'étale en carte */
+.tr-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: var(--s-4); }
+.tr-tools > .free-card { margin-top: 0; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 14px; }
+.tr-tools > .free-card:not(#free-start) { background: var(--card); border-color: var(--line); } /* l'accent pour la séance libre seule */
+.tr-tools > .free-card .bi { width: 38px; height: 38px; border-radius: 12px; }
+.tr-tools > .free-card .bi svg { width: 19px; height: 19px; }
+.tr-tools > .free-card .grow { gap: 3px; }
+.tr-tools > .free-card b { font-size: var(--fs-base); }
+.tr-tools > .free-card .xs { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.tr-tools > .free-card .chev { display: none; }
+.tr-tools > .free-card:last-child:nth-child(odd) { grid-column: 1 / -1; flex-direction: row; align-items: center; }
+.tr-tools > .free-card:last-child:nth-child(odd) .chev { display: grid; }
+.tr-tools + .goal-card { margin-top: 10px; }
+.tr-more svg { width: 15px; height: 15px; margin-left: 2px; }
 .tr-group { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-7) 2px var(--s-3); }
 .tr-group h2 { font-size: var(--fs-lg); letter-spacing: -.01em; }
 .tr-group span { margin-left: auto; font-size: var(--fs-xs); font-weight: 700; color: var(--dim); }
@@ -1243,6 +1257,9 @@ html:has(> body > :where(#view) > .composer) .toast { bottom: calc(var(--tab-h) 
 /* Réglages : listes groupées façon iOS */
 .set-title { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin: var(--s-7) 6px var(--s-2); font-size: var(--fs-xs); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); line-height: 1.3; }
 .set-title h2 { font-size: inherit; margin: 0; font-weight: inherit; }
+/* sommaire des Réglages */
+.set-jump { margin-top: var(--s-3); }
+.set-jump .chip { flex: none; }
 .set-title .chip { height: 24px; padding: 0 10px; font-size: var(--fs-2xs); letter-spacing: 0; text-transform: none; }
 .set-note { margin: var(--s-2) 6px 0; font-size: var(--fs-xs); color: var(--dim); line-height: 1.4; }
 .set-list { padding: 0 0 0 var(--s-4); }

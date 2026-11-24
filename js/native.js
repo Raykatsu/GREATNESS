@@ -53,12 +53,17 @@ export async function nativeRemindersOn() {
   try { const { notifications } = await N.getPending(); return notifications.some(n => REMIND_IDS.includes(+n.id)); } catch { return false; }
 }
 
-/* ---------- Vibrations ---------- */
+/* ---------- Retour haptique (Taptic Engine, @capacitor/haptics) ---------- */
+// « tick », « light » : une touche légère ; « medium », « heavy » : plus franche ; « success », « warning », « error » :
+// les motifs de l'iPhone (réussi, attention, refusé). Réglages → Sons et vibrations → Vibrations système les coupe.
 export function nativeHaptic(kind = "light") {
   const H = isNative() && plugin("Haptics");
-  if (!H) return false;
-  if (kind === "success" || kind === "warning") H.notification({ type: kind.toUpperCase() }).catch(() => {});
-  else H.impact({ style: kind === "heavy" ? "HEAVY" : kind === "medium" ? "MEDIUM" : "LIGHT" }).catch(() => {});
+  if (!H?.impact) return false;
+  try {
+    const r = ["success", "warning", "error"].includes(kind) ? H.notification({ type: kind.toUpperCase() })
+      : H.impact({ style: kind === "heavy" ? "HEAVY" : kind === "medium" ? "MEDIUM" : "LIGHT" });
+    Promise.resolve(r).catch(() => {});
+  } catch { /* rien */ }
   return true;
 }
 

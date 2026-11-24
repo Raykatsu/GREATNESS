@@ -3,7 +3,7 @@ import { knownAccounts, lastUser, login, createAccount, isOnlineMode, normalize,
 import { bioName, bioEnroll, bioVerify } from "./bio.js";
 import { legacyData, LEGACY_KEY } from "./store.js";
 import { mascot } from "./mascot.js";
-import { ringsSvg } from "./fx.js";
+import { ringsSvg, vibrate } from "./fx.js";
 import { $, $$, esc, I, coachIcon, toast, confirmSheet, sheet } from "./ui.js";
 import { EN_READY, getLang, setLang } from "./i18n.js";
 
@@ -85,7 +85,7 @@ function keypad({ max = 6, len, onDone, onChange }) {
       if (k === "del") ctx.pin = ctx.pin.slice(0, -1);
       else if (k === "ok") return ctx.pin.length >= 4 && onDone(ctx.pin);
       else if (ctx.pin.length < (len || max)) ctx.pin += k;
-      navigator.vibrate?.(6);
+      vibrate("tick");
       draw();
       if (len && ctx.pin.length === len) setTimeout(() => onDone(ctx.pin), 120);
     };
@@ -106,7 +106,7 @@ function keypad({ max = 6, len, onDone, onChange }) {
 function shake(msg) {
   const d = $("#dots");
   d?.classList.remove("shake"); void d?.offsetWidth; d?.classList.add("shake");
-  navigator.vibrate?.([40, 30, 40]);
+  vibrate("error");
   ctx.pin = "";
   setTimeout(() => { $$("#dots i").forEach(i => i.classList.remove("on")); d?.classList.remove("shake"); }, 420);
   const e = $("#err");

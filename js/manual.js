@@ -39,7 +39,7 @@ const tag = ex => esc([ex.muscle, EQUIP[ex.equip]].filter(Boolean).join(" · "))
 export function manualCard() {
   return `<button class="card tap free-card manual-card" id="manual-start">
     <span class="bi">${BOOK}</span>
-    <span class="grow"><b>Manuel des exercices</b><span class="xs muted">${COUNT} mouvements, muscle par muscle, avec la démo animée</span></span>
+    <span class="grow"><b>Manuel des exercices</b><span class="xs muted">${COUNT} mouvements et leur démo animée</span></span>
     <span class="chev">${I.chev}</span>
   </button>`;
 }

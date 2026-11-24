@@ -1,7 +1,7 @@
 // Effets : voix, sons, vibrations et petits détails visuels.
 import { state } from "./store.js";
 import { voiceLang, tr } from "./i18n.js";
-import { nativeDuck, isNative } from "./native.js";
+import { nativeDuck, isNative, nativeHaptic } from "./native.js";
 
 /* ---------- Voix ---------- */
 // La voix du téléphone dans la langue de l'app (choisie au moment de parler : la langue est connue après le chargement)
@@ -84,7 +84,15 @@ export function success() {
   setTimeout(() => beep(990, 0.14, "sine", 0.08), 90);
 }
 
-export const vibrate = p => navigator.vibrate?.(p);
+// Retour haptique : le Taptic Engine dans l'app iPhone, la vibration ailleurs (Android ; Safari n'en a pas).
+// Un nom (« tick », « light », « medium », « heavy », « success », « warning », « error ») ou une durée en ms
+// (un motif en tableau compte comme « success »).
+const BUZZ = { tick: 6, light: 12, medium: 25, heavy: 50, success: [30, 40, 30], warning: [60, 40, 60], error: [40, 30, 40, 30, 40] };
+export const hapticKind = p => (typeof p === "string" ? (BUZZ[p] ? p : "light") : Array.isArray(p) ? "success" : p <= 8 ? "tick" : p <= 20 ? "light" : p <= 40 ? "medium" : "heavy");
+export function vibrate(p = "light") {
+  if (nativeHaptic(hapticKind(p))) return;
+  try { navigator.vibrate?.(typeof p === "string" ? BUZZ[hapticKind(p)] : p); } catch { /* rien */ }
+}
 
 /* ---------- Petits anneaux qui éclosent (validation, record) ---------- */
 export function ringPop(x, y, color = "#ff3b4e") {

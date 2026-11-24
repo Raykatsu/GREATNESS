@@ -75,7 +75,7 @@ export function openIntervals(init) {
     else if (t.dataset.del) set({ ex: cfg.ex.filter((_, k) => k !== +t.dataset.del) });
     else if (t.dataset.f) { const [, step, lo, hi] = FIELDS[t.dataset.f]; set({ [t.dataset.f]: Math.min(hi, Math.max(lo, cfg[t.dataset.f] + step * +t.dataset.d)) }); }
     else return;
-    navigator.vibrate?.(6);
+    vibrate("tick");
   });
   $("#iv-add", sh.el).onclick = () => pickExercises(ids => set({ ex: [...cfg.ex, ...ids.map(id => ({ id }))] }), { title: "Exercices du minuteur" });
   $("#iv-go", sh.el).onclick = () => {
@@ -148,7 +148,7 @@ function frame() {
     if (t - e.t > 1.5) continue;
     if (e.beep === "tick") beep(880, 0.09, "sine", 0.1);
     if (e.beep === "go") { beep(1320, 0.35, "sine", 0.14); vibrate(180); }
-    if (e.beep === "rest") { beep(620, 0.3, "sine", 0.12); vibrate([60, 50, 60]); }
+    if (e.beep === "rest") { beep(620, 0.3, "sine", 0.12); vibrate("warning"); }
     if (e.say) speak(e.say, { interrupt: true });
   }
   R.last = t;

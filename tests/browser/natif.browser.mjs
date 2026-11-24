@@ -13,7 +13,7 @@ test("app iPhone : morceau dans la Live Activity, cœur de la montre, le coach b
   const { page, errors } = app;
   const art = `data:image/png;base64,${png(8, 8, () => [200, 40, 60]).toString("base64")}`;
   await page.addInitScript(art => {
-    const calls = (window.__native = { rest: [], duck: [], auth: [], write: 0, saved: [], on: {} });
+    const calls = (window.__native = { rest: [], duck: [], auth: [], write: 0, saved: [], haptic: [], on: {} });
     calls.fire = (name, data) => calls.on[name]?.(data);
     // la montre : une mesure par seconde sur les 3 dernières minutes, entre 120 et 129 bpm (séance de test très courte)
     const heart = (from, to) => {
@@ -37,6 +37,10 @@ test("app iPhone : morceau dans la Live Activity, cœur de la montre, le coach b
           saveWorkout: async o => { calls.saved.push(o); return { ok: true }; },
           addListener: (name, fn) => { calls.on[name] = fn; return { remove: () => { delete calls.on[name]; } }; },
           webAuth: async () => ({ cancelled: true }),
+        },
+        Haptics: {
+          impact: async o => { calls.haptic.push(o.style); },
+          notification: async o => { calls.haptic.push(o.type); },
         },
         Health: {
           isAvailable: async () => ({ available: true }),
@@ -104,8 +108,11 @@ test("app iPhone : morceau dans la Live Activity, cœur de la montre, le coach b
     const bpm = +(await page.$eval("#hr b", e => e.textContent));
     assert.ok(bpm >= 120 && bpm <= 129, `fréquence affichée : ${bpm}`);
 
-    // une série, puis le repos : la Live Activity reçoit l'exercice, le morceau, sa pochette et l'accent
+    // une série, puis le repos : la Live Activity reçoit l'exercice, le morceau, sa pochette et l'accent ; la série validée
+    // se sent sous le doigt (Taptic Engine : une touche franche, ou le motif « réussi » pour un record)
+    await page.evaluate(() => { window.__native.haptic.length = 0; });
     await page.click("#log");
+    await page.waitForFunction(() => window.__native.haptic.some(h => h === "MEDIUM" || h === "SUCCESS"), null, { timeout: 5000 });
     await page.waitForFunction(() => window.__native.rest.some(r => r && r.song), null, { timeout: 10000 });
     const live = await page.evaluate(() => window.__native.rest.filter(Boolean).at(-1));
     assert.equal(live.song, "Numb · Linkin Park");
@@ -136,6 +143,14 @@ test("app iPhone : morceau dans la Live Activity, cœur de la montre, le coach b
     assert.equal(saved.length, 1);
     assert.equal(saved[0].kind, "strength");
     assert.ok(saved[0].kcal > 0 && saved[0].end - saved[0].start >= 120e3 && saved[0].id);
+    // une petite touche quand on bascule un réglage ; les vibrations nommées ou en millisecondes
+    await page.evaluate(() => document.querySelectorAll(".sheet-wrap").forEach(n => n.remove()));
+    await go(page, "#/profile");
+    await page.waitForSelector("#p-sound", { state: "attached" });
+    await page.evaluate(() => { window.__native.haptic.length = 0; const t = document.querySelector("#p-sound"); t.scrollIntoView({ block: "center" }); t.click(); });
+    await page.waitForFunction(() => window.__native.haptic.includes("LIGHT"), null, { timeout: 3000 });
+    assert.deepEqual(await page.evaluate(async () => { const { hapticKind } = await import("/js/fx.js"); return [4, 12, 25, 180, [30, 40, 30], "error", "?"].map(hapticKind); }),
+      ["tick", "light", "medium", "heavy", "success", "error", "light"]);
     assert.deepEqual(errors, []);
   } finally { await app.close(); }
 });

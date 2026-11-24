@@ -18,8 +18,10 @@ import { goalFix } from "./goals.js";
 import { healthReadiness, HEART } from "./health-ui.js";
 import { preTips } from "./advice.js";
 import { $, $$, esc, I, sheet, toast, confirmSheet, helpBtn } from "./ui.js";
+import { vibrate } from "./fx.js";
 
 let filter = "all";
+const SHORT = 3; // séances montrées par catégorie dans « Tout »
 const fmtReps = e => {
   const u = EXERCISES[e.id].type === "time" ? "s" : "reps";
   if (e.ramp) { const t = e.ramp.find(r => r.attempt); return t.weight ? `montée en charge puis tentative à ${String(t.weight).replace(".", ",")} kg` : `échauffement puis le maximum (objectif ${t.reps} ${u})`; }
@@ -62,6 +64,8 @@ export function renderTrain(view, startLive) {
   const all = allPrograms();
   const today = todaysMission().program?.id;
   const count = id => (id === "all" ? all.length : all.filter(p => p.cat === id).length);
+  // les outils (séance libre, manuel, minuteur, objectif) en grille ; un objectif en cours garde sa grande carte
+  const goal = goalCard({ invite: true });
   view.innerHTML = `
     <header class="tr-head">${helpBtn("train")}
       <div class="eyebrow">Bibliothèque</div>
@@ -71,17 +75,19 @@ export function renderTrain(view, startLive) {
     <div class="chips tr-filters" role="tablist" aria-label="Catégories">${CATEGORIES.map(c => `
       <button class="chip tr-f ${c.id === "all" ? "" : "cat-" + c.id} ${filter === c.id ? "on" : ""}" data-f="${c.id}" role="tab" aria-selected="${filter === c.id}">
         ${c.id === "all" ? "" : `<i class="dot"></i>`}${c.name}<span class="n tnum">${count(c.id)}</span></button>`).join("")}</div>
-    <button class="card tap free-card" id="free-start">
-      <span class="bi">${I.bolt}</span>
-      <span class="grow"><b>Séance libre</b><span class="xs muted">Choisis tes exercices au fur et à mesure</span></span>
-      <span class="chev">${I.chev}</span>
-    </button>
-    ${manualCard()}
-    ${intervalCard()}
-    ${goalCard({ invite: true })}
+    <div class="tr-tools">
+      <button class="card tap free-card" id="free-start">
+        <span class="bi">${I.bolt}</span>
+        <span class="grow"><b>Séance libre</b><span class="xs muted">Choisis tes exercices au fur et à mesure</span></span>
+        <span class="chev">${I.chev}</span>
+      </button>
+      ${manualCard()}
+      ${intervalCard()}
+      ${goal.includes("gc-invite") ? goal : ""}
+    </div>
+    ${goal.includes("gc-invite") ? "" : goal}
     ${classicsSection()}
-    <div class="tr-list" id="tr-list"></div>
-    <button class="fab" aria-label="Créer une séance">${I.plus}</button>`;
+    <div class="tr-list" id="tr-list"></div>`;
   const host = $("#tr-list", view);
   const open = el => openProgram(allPrograms().find(p => p.id === el.dataset.id), startLive, () => renderTrain(view, startLive));
   const drawList = (animate = false) => {
@@ -91,25 +97,35 @@ export function renderTrain(view, startLive) {
       ? CATEGORIES.filter(c => c.id !== "all").map(c => [c.id, progs.filter(p => p.cat === c.id)]).filter(([, l]) => l.length)
       : [[filter, shown]];
     let n = 0;
-    host.innerHTML = shown.length ? groups.map(([id, l]) => `
+    // « Tout » : les 3 premières de chaque catégorie (et celle du jour), le reste à un geste ; tes séances perso en entier
+    const head = (id, l) => {
+      if (filter !== "all" || id === "custom" || l.length <= SHORT + 1) return l;
+      const h = l.slice(0, SHORT), t = l.find(p => p.id === today);
+      return t && !h.includes(t) ? [...h, t] : h;
+    };
+    host.innerHTML = shown.length ? groups.map(([id, l]) => { const h = head(id, l); return `
       ${filter === "all" ? `<div class="tr-group cat-${id}"><i class="dot"></i><h2>${catName(id)}</h2><span class="tnum">${l.length}</span></div>` : ""}
-      <div class="prog-list">${l.map(p => progCard(p, today, n++)).join("")}</div>`).join("")
+      <div class="prog-list">${h.map(p => progCard(p, today, n++)).join("")}</div>
+      ${h.length < l.length ? `<button class="btn btn-ghost btn-sm btn-block mt-s more-btn tr-more" data-more="${id}">Voir les ${l.length} séances${I.chev}</button>` : ""}`; }).join("")
       : `<div class="card empty tr-empty">${CAT_ICON.custom}<b>Aucune séance perso pour l'instant</b>Compose la tienne : tes exercices, tes séries, ton rythme.
           <button class="btn btn-primary btn-sm" id="tr-create">${I.plus} Créer ma séance</button></div>`;
     host.classList.toggle("stagger", animate);
     $$(".prog", host).forEach(el => el.onclick = () => open(el));
     $("#tr-create", host)?.addEventListener("click", () => (location.hash = "#/create"));
+    // « Voir les 14 séances » : la catégorie entière, en haut de l'écran
+    $$("[data-more]", host).forEach(b => b.onclick = () => { pick(b.dataset.more); host.scrollIntoView({ block: "start", behavior: calm() ? "auto" : "smooth" }); });
   };
-  $$("[data-f]", view).forEach(b => b.onclick = () => {
-    if (filter === b.dataset.f) return;
-    filter = b.dataset.f;
-    $$("[data-f]", view).forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); });
-    b.scrollIntoView({ block: "nearest", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const pick = f => {
+    if (filter === f) return;
+    filter = f;
+    $$("[data-f]", view).forEach(x => { const on = x.dataset.f === f; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); });
+    $(`[data-f="${f}"]`, view)?.scrollIntoView({ block: "nearest", inline: "center", behavior: calm() ? "auto" : "smooth" });
     drawList(true);
-  });
+  };
+  $$("[data-f]", view).forEach(b => b.onclick = () => pick(b.dataset.f));
   drawList();
   requestAnimationFrame(() => $(".tr-f.on", view)?.scrollIntoView({ block: "nearest", inline: "center" }));
-  $(".fab", view).onclick = () => (location.hash = "#/create");
   $("#free-start", view).onclick = () => window.dispatchEvent(new CustomEvent("greatness:start", { detail: "free" }));
   $("#manual-start", view).onclick = () => openManual();
   $("#iv-start", view).onclick = () => openIntervals();
@@ -149,7 +165,7 @@ function exList(list, host, onChange, opts = {}) {
     exList(list, host, onChange, opts);
     if (a === "up") host.querySelectorAll(".pv-ex")[i - 1]?.classList.add("moved");
     if (a === "minus" || a === "plus") host.querySelectorAll(".pv-step b")[i]?.classList.add("bump");
-    navigator.vibrate?.(6);
+    vibrate("tick");
     onChange?.();
   });
 }
@@ -277,7 +293,7 @@ function checkIn(sh, program, startLive) {
   };
   $$(".seg", sh.el).forEach(seg => $$("button", seg).forEach(b => b.onclick = () => {
     if (vals[seg.dataset.k] === +b.dataset.v) return;
-    vals[seg.dataset.k] = +b.dataset.v; upd(seg.dataset.k); navigator.vibrate?.(8);
+    vals[seg.dataset.k] = +b.dataset.v; upd(seg.dataset.k); // la petite touche : app.js (barres segmentées)
   }));
   upd();
   sh.el.scrollTop = 0;
@@ -354,7 +370,7 @@ export function pickExercises(onDone, { single = false, title = "Ajouter des exe
     const on = !sel.has(id);
     on ? sel.add(id) : sel.delete(id);
     el.classList.toggle("sel", on); el.setAttribute("aria-pressed", on);
-    navigator.vibrate?.(6);
+    vibrate("tick");
     syncSel();
   });
   let raf = 0;

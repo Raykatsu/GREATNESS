@@ -72,7 +72,7 @@ async function tick(final = false) {
     if (!final && s && before && s.done > (before.done || 0)) {
       const pr = (s.prs || 0) > (before.prs || 0);
       toast(`👥 ${r.partner} a validé sa série : ${s.w ? `${kg(s.w)} kg × ` : ""}${s.r}${pr ? " · nouveau record ! 🏆" : ""}`, 3200);
-      vibrate(pr ? [30, 40, 80] : 15);
+      vibrate(pr ? "success" : "light");
     }
     if (s?.fin && !before?.fin) toast(`🎉 ${r.partner} a terminé sa séance !`, 3500);
     paint(); onUpdate?.();
