@@ -2,7 +2,7 @@
 import { tr } from "./i18n.js";
 import { state, save } from "./store.js";
 import { MEALS, targets, addItem, dayKey, sumItems } from "./nutrition.js";
-import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf, planOk, prepOf } from "./mealplan.js";
+import { DIETS, UNIT, localPlan, fromAiPlan, shoppingList, shoppingText, totalsOf, aisleOf, planOk, prepOf, fitPlan, planDrift } from "./mealplan.js";
 import { keepMeal } from "./mymeals.js";
 import { dailyAdjust, planDayIndex, adaptPlanDay } from "./nutriadapt.js";
 import { mealPlanAI } from "./online.js";
@@ -87,7 +87,7 @@ export function newPlan() {
       try {
         const ask = mealPlanAI({ days: pick.days, kcal: t.kcal, protein: t.p, diet: pick.diet.map(id => DIETS.find(d => d.id === id)?.name || id), prefs: [pick.prefs, mem].filter(Boolean).join(" ; ") });
         const late = new Promise((_, no) => setTimeout(() => no(new Error("l'IA met trop de temps")), 45000));
-        const r = fromAiPlan(await Promise.race([ask, late]));
+        const r = fromAiPlan(await Promise.race([ask, late]), { kcal: t.kcal, p: t.p }); // chaque jour recalé sur tes objectifs
         if (r.days.length) plan = r;
       } catch (e) { if (my === run) toast(`IA indisponible (${e.message || e}) : plan composé par l'app`, 3500); }
       finally { clearInterval(tick); }
@@ -109,6 +109,13 @@ export function openPlan(day = null) {
   const p = state.mealPlan;
   if (!planOk(p)) { if (p) toast("Ton ancien plan était incomplet : on en compose un nouveau", 3500); return newPlan(); }
   if (!Array.isArray(p.shopping)) p.shopping = shoppingList(p.days);
+  // objectif changé depuis, ou plan trop loin du compte (l'IA force parfois sur les portions) : recalé sur tes objectifs
+  const t = targets(state.profile);
+  if (planDrift(p, t)) {
+    Object.assign(p, fitPlan(p, t));
+    save(); onChange();
+    toast(`Plan recalé sur ton objectif : ${fmtNum(t.kcal)} kcal et ${t.p} g de protéines par jour`, 4000);
+  }
   try { return showPlan(p, day); } catch (e) { console.error(e); toast(`Le plan n'a pas pu s'afficher (${e.message || e}) : on en compose un nouveau`, 4000); return newPlan(); }
 }
 function showPlan(p, day) {

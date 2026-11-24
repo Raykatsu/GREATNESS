@@ -107,6 +107,11 @@ export function parseCommand(text) {
   const coach = coachIn(t, text, isQuestion);
   if (coach) return coach;
 
+  // Nutrition, plan de repas, eau, pesée, coach taquin, avis sur les repas : la même action que celle du coach IA
+  // (aiact.js), appliquée et annulable de la même façon
+  const act = !isQuestion && actIn(t);
+  if (act) return { type: "act", action: act };
+
   // Interrupteurs
   const target = /\bvoix|vocal|parle\b/.test(t) ? "voice" : /\bsons?\b|bips?\b/.test(t) ? "sound" : /mascotte|bonhomme|personnage/.test(t) ? "mascot" : null;
   if (target && !isQuestion) {
@@ -169,6 +174,36 @@ export function parseCommand(text) {
     const tab = /progres|stat|record|historique|calendrier/.test(t) ? "progress" : /profil|reglage|parametre|compte/.test(t) ? "profile" : /creer|atelier|mes seances/.test(t) ? "create" : /seances|bibliotheque|programmes/.test(t) ? "train" : /accueil|maison|home/.test(t) ? "" : null;
     if (tab !== null) return { type: "nav", tab };
   }
+  return null;
+}
+
+const NUM = s => +String(s).replace(",", ".");
+function actIn(t) {
+  // calories : « baisse mes calories de 300 », « mets mes calories à 2000 », « remets le calcul automatique »
+  if (/(calorie|kcal)/.test(t) && !/(combien|dans (un|une|le|la|les|des|mon|ma)\b|apporte|contient)/.test(t)) {
+    if (/(automatique|calcul de l app|par defaut|reinitialise)/.test(t)) return { type: "set_nutrition", auto: true };
+    const by = t.match(/\b(baisse[rsz]?|diminue[rsz]?|reduis|reduire|enleve[rsz]?|retire[rsz]?|descend(?:s|re)?|monte[rsz]?|augmente[rsz]?|rajoute[rsz]?|ajoute[rsz]?)\b[^0-9]{0,40}?(\d{2,4})\s*(kcal|calories?)?/);
+    if (by) return { type: "set_nutrition", delta: (/^(baisse|diminue|redui|enleve|retire|descend)/.test(by[1]) ? -1 : 1) * NUM(by[2]) };
+    const to = t.match(/(\d{3,4})\s*(kcal|calories?)/);
+    if (to && /\b(mets?|mettre|passe[rsz]?|fixe[rsz]?|regle[rsz]?|change[rsz]?|veux|voudrais|objectif|vise[rsz]?)\b/.test(t)) return { type: "set_nutrition", kcal: NUM(to[1]) };
+  }
+  // protéines : « mets mes protéines à 160 g »
+  const pr = t.match(/(\d{2,3})\s*(g|grammes?)\s*(de )?proteines?/) || (/proteines?/.test(t) ? t.match(/proteines?\D{0,25}(\d{2,3})\s*(g|grammes?)?\b/) : null);
+  if (pr && /\b(mets?|mettre|passe[rsz]?|fixe[rsz]?|regle[rsz]?|veux|voudrais|objectif|vise[rsz]?)\b/.test(t)) return { type: "set_nutrition", protein: NUM(pr[1]) };
+  // plan de repas : « refais mon plan de repas à 1800 kcal sur 5 jours »
+  if (/(plan (de repas|alimentaire|repas)|menus? de la semaine)/.test(t) && /\b(refais|refaire|nouveau|genere[rsz]?|cree[rsz]?|fais|faire|compose[rsz]?|prepare[rsz]?|propose[rsz]?)\b/.test(t)) {
+    const k = t.match(/(\d{3,4})\s*(kcal|calories?)/), d = t.match(/(\d)\s*jours?/);
+    return { type: "meal_plan", ...(k ? { kcal: NUM(k[1]) } : {}), ...(d ? { days: NUM(d[1]) } : {}), ...(/vegetarien/.test(t) ? { diet: ["vegetarien"] } : {}) };
+  }
+  // eau : « ajoute 2 verres d'eau », « j'ai bu 3 verres d'eau »
+  const w = t.match(/(\d{1,2})\s*verres?/);
+  if (w && /\beau\b/.test(t) && /\b(ajoute[rsz]?|rajoute[rsz]?|bu|bois|boire|note[rsz]?|mets?|mettre)\b/.test(t)) return /\b(ajoute|rajoute|bu|bois|boire)/.test(t) ? { type: "water", add: NUM(w[1]) } : { type: "water", glasses: NUM(w[1]) };
+  // pesée : « je pèse 78,4 kg », « pesée du jour 79 kilos »
+  const kg = t.match(/(je pese|pesee|mon poids|poids du jour)\D{0,15}(\d{2,3}(?:[.,]\d)?)\s*(kg|kilos?)?/);
+  if (kg) return { type: "log_weight", kg: NUM(kg[2]) };
+  // coach taquin, avis sur les repas
+  if (/taquin|langage familier/.test(t)) { if (OFF.test(t)) return { type: "set_setting", setting: "banter", value: false }; if (ON.test(t)) return { type: "set_setting", setting: "banter", value: true }; }
+  if (/(avis|commentaires?) (sur )?(mes |les |tes )?repas/.test(t)) { if (OFF.test(t)) return { type: "set_setting", setting: "plateTips", value: false }; if (ON.test(t)) return { type: "set_setting", setting: "plateTips", value: true }; }
   return null;
 }
 
@@ -258,6 +293,7 @@ export function runCommand(cmd) {
       setCoach(c.id);
       return { text: `C'est fait : **${c.name}** est ton nouveau coach. ${c.bio || ""}`.trim(), mood: "party" };
     }
+    case "act": return { act: cmd.action, text: "C'est fait :" };
     case "start": return { text: "C'est parti ! J'ouvre la séance.", actions: [{ label: "Ouvrir", start: cmd.program }], auto: { start: cmd.program } };
     case "nav": return { text: "J'y vais !", auto: { route: `#/${cmd.tab}` } };
   }
@@ -272,6 +308,11 @@ function planText() {
 
 export const COMMAND_EXAMPLES = [
   "Crée une séance pecs triceps de 45 min",
+  "Baisse mes calories de 200",
+  "Refais mon plan de repas à 2000 kcal",
+  "Ajoute 2 verres d'eau",
+  "Je pèse 78 kg",
+  "Active le coach taquin",
   "Crée une séance jambes sans matériel pour samedi",
   "Mets Legs le mercredi",
   "Passe à 4 séances par semaine",
