@@ -8,7 +8,9 @@
 // - widgetSet : les données du widget « Séance du jour », partagées avec l'extension par un App Group ;
 // - musicNow : le morceau en cours dans l'app Musique (Apple Music ou bibliothèque), avec sa pochette (js/music.js) ;
 // - musicControl : lecture, pause, morceau suivant ou précédent dans l'app Musique ;
-// - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify).
+// - webAuth : une connexion web sécurisée qui revient d'elle-même dans l'app (connexion Spotify) ;
+// - a11y (et l'événement « a11y » quand ils changent) : les réglages d'accessibilité de l'iPhone que le web ne voit
+//   pas tous (transparence réduite, texte en gras, contraste augmenté, taille du texte), pour que l'app s'y adapte.
 import Foundation
 import UIKit
 import Capacitor
@@ -36,6 +38,7 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "duck", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthWriteAsk", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveWorkout", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "a11y", returnType: CAPPluginReturnPromise),
     ]
     var authSession: ASWebAuthenticationSession? // gardée le temps de la connexion
     var ducking = false // la musique des autres apps est baissée (duck)
@@ -48,6 +51,27 @@ public class GreatnessPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         NotificationCenter.default.addObserver(forName: SiriInbox.note, object: nil, queue: .main) { [weak self] _ in self?.sendSiri() }
         sendSiri()
+        // un réglage d'accessibilité change (même app ouverte) : l'app web suit tout de suite
+        let names: [Notification.Name] = [UIAccessibility.reduceTransparencyStatusDidChangeNotification, UIAccessibility.boldTextStatusDidChangeNotification,
+                                          UIAccessibility.darkerSystemColorsStatusDidChangeNotification, UIAccessibility.reduceMotionStatusDidChangeNotification,
+                                          UIAccessibility.voiceOverStatusDidChangeNotification, UIContentSizeCategory.didChangeNotification]
+        for name in names {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.notifyListeners("a11y", data: GreatnessPlugin.a11yState())
+            }
+        }
+    }
+
+    // Les réglages d'accessibilité de l'iPhone ; textScale : la taille du texte choisie, par rapport à la normale (1)
+    static func a11yState() -> [String: Any] {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIApplication.shared.preferredContentSizeCategory)
+        let scale = UIFontMetrics(forTextStyle: .body).scaledValue(for: 17, compatibleWith: traits) / 17
+        return ["reduceTransparency": UIAccessibility.isReduceTransparencyEnabled, "boldText": UIAccessibility.isBoldTextEnabled,
+                "increaseContrast": UIAccessibility.isDarkerSystemColorsEnabled, "reduceMotion": UIAccessibility.isReduceMotionEnabled,
+                "voiceOver": UIAccessibility.isVoiceOverRunning, "textScale": Double(scale)]
+    }
+    @objc func a11y(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { call.resolve(GreatnessPlugin.a11yState()) }
     }
     // Les actions demandées à Siri : transmises à l'app web (gardées tant qu'elle n'écoute pas encore)
     func sendSiri() {

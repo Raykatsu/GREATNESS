@@ -210,7 +210,7 @@ export default {
   "Guide": "Guide",
   "Générer en deux touches": "Generate in two taps",
   "Historique des séances": "Workout history",
-  "Huit couleurs, un fond sombre, noir ou clair, et trois tailles de texte. Ou demande au coach « mode clair ».": "Eight colors, a dark, black or light background, and three text sizes. Or ask the coach for “light mode”.",
+  "Huit couleurs, un fond sombre, noir ou clair, la taille du texte : « Auto » suit ton iPhone, comme le texte en gras, la transparence réduite, le contraste augmenté. Ou demande « mode clair » au coach.": "Eight colors, a dark, black or light background, the text size: “Auto” follows your iPhone, like bold text, reduced transparency, increased contrast. Or ask the coach for “light mode”.",
   "Il est aussi dans Moi → Réglages.": "It's also in Me → Settings.",
   "Il règle l'app pour toi": "It sets up the app for you",
   "Il se souvient de toi": "It remembers you",
@@ -5906,4 +5906,7 @@ export default {
   "à l'heure": "on time",
   "âge": "age",
   "Calories, plan de repas, séances, réglages : demande-lui, il le fait tout de suite (« Annuler » pour revenir en arrière). Les demandes simples marchent même sans IA.": "Calories, meal plan, workouts, settings: ask, and the coach does it right away (“Undo” to go back). Simple requests work even without AI.",
+  "Auto : la taille du texte réglée sur ton iPhone": "Auto: the text size set on your iPhone",
+  "Automatique : comme l'iPhone": "Automatic: like the iPhone",
+  "Auto": "Auto",
 };

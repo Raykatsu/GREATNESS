@@ -347,7 +347,7 @@ export function renderImport(view, code) {
   view.innerHTML = `
     <div class="eyebrow">Séance partagée</div><h1 class="h1">${esc(data.n)}</h1>
     <p class="muted small">${esc(data.t)}</p>
-    <div class="card mt" style="padding:4px 16px">${rows.map(r => `<div class="cmp"><span>${esc(known(r[0]).name)}</span><span class="small muted">${r[1]} × ${r[2]}–${r[3]}${r[4] ? ` · ${r[4]} kg` : ""}</span>${r[7] ? `<span class="chip blue" style="height:20px;font-size:10.5px;padding:0 7px">${esc(r[7])}</span>` : "<span></span>"}</div>`).join("")}</div>
+    <div class="card mt" style="padding:4px 16px">${rows.map(r => `<div class="cmp"><span>${esc(known(r[0]).name)}</span><span class="small muted">${r[1]} × ${r[2]}–${r[3]}${r[4] ? ` · ${r[4]} kg` : ""}</span>${r[7] ? `<span class="chip blue" style="height:20px;font-size:12px;padding:0 7px">${esc(r[7])}</span>` : "<span></span>"}</div>`).join("")}</div>
     <button class="btn btn-primary btn-lg btn-block mt" id="imp">${I.plus} Ajouter à mes séances</button>
     <a class="btn btn-ghost btn-block mt-s" href="#/">Plus tard</a>`;
   $("#imp", view).onclick = () => {

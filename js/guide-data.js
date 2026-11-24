@@ -223,7 +223,7 @@ export const ITEMS = [
   { id: "dance", sec: "settings", ic: "🕺", t: "Le mannequin qui danse", w: "Accueil → carte En écoute", go: { fn: "dance" },
     d: "Laisse l'app sur l'accueil pendant que ta musique joue : au bout de 20 secondes, le mannequin musclé danse au tempo du morceau, la pochette floutée derrière lui. Tape en rythme pour caler ses pas." },
   { id: "look", sec: "settings", ic: "🎨", t: "Apparence", w: "Moi → Réglages → Apparence", go: { to: "#/profile", spot: ".swatches" },
-    d: "Huit couleurs, un fond sombre, noir ou clair, et trois tailles de texte. Ou demande au coach « mode clair »." },
+    d: "Huit couleurs, un fond sombre, noir ou clair, la taille du texte : « Auto » suit ton iPhone, comme le texte en gras, la transparence réduite, le contraste augmenté. Ou demande « mode clair » au coach." },
   { id: "lang", sec: "settings", ic: "🌍", t: "Langue", w: "Moi → Réglages → Apparence", go: { to: "#/profile", spot: "#lang" },
     d: "L'app en français ou en anglais : les écrans, la voix du coach et l'IA suivent." },
   { id: "sound", sec: "settings", ic: "🔊", t: "Voix, sons et personnages", w: "Moi → Réglages → Coach & sons", go: { to: "#/profile", spot: "#p-voice" },
